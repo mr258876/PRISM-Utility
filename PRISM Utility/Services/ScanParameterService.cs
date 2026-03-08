@@ -12,6 +12,7 @@ public class ScanParameterService : IScanParameterService
     private static readonly ScanParameterDefinition Adc1GainParameter = new("ADC1 Gain", "prism.adc1.gain");
     private static readonly ScanParameterDefinition Adc2OffsetParameter = new("ADC2 Offset", "prism.adc2.offset");
     private static readonly ScanParameterDefinition Adc2GainParameter = new("ADC2 Gain", "prism.adc2.gain");
+    private static readonly ScanParameterDefinition SysClockKhzParameter = new("System Clock", "prism.sys_clock_khz");
 
     private static readonly ScanParameterDefinition[] _definitions =
     {
@@ -19,7 +20,8 @@ public class ScanParameterService : IScanParameterService
         Adc1OffsetParameter,
         Adc1GainParameter,
         Adc2OffsetParameter,
-        Adc2GainParameter
+        Adc2GainParameter,
+        SysClockKhzParameter
     };
 
     public IReadOnlyList<ScanParameterDefinition> Definitions => _definitions;
@@ -29,7 +31,7 @@ public class ScanParameterService : IScanParameterService
         _protocol = protocol;
     }
 
-    public bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, out ScanParameterSnapshot snapshot, out string error)
+    public bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz, out ScanParameterSnapshot snapshot, out string error)
     {
         snapshot = default!;
 
@@ -37,25 +39,27 @@ public class ScanParameterService : IScanParameterService
             || !TryParseOffset(adc1Offset, Adc1OffsetParameter.DisplayName, out var adc1OffsetParsed, out error)
             || !TryParseGain(adc1Gain, Adc1GainParameter.DisplayName, out var adc1GainParsed, out error)
             || !TryParseOffset(adc2Offset, Adc2OffsetParameter.DisplayName, out var adc2OffsetParsed, out error)
-            || !TryParseGain(adc2Gain, Adc2GainParameter.DisplayName, out var adc2GainParsed, out error))
+            || !TryParseGain(adc2Gain, Adc2GainParameter.DisplayName, out var adc2GainParsed, out error)
+            || !TryParseSysClockKhz(sysClockKhz, SysClockKhzParameter.DisplayName, out var sysClockKhzParsed, out error))
         {
             return false;
         }
 
-        snapshot = new ScanParameterSnapshot(exposure, adc1OffsetParsed, adc1GainParsed, adc2OffsetParsed, adc2GainParsed);
+        snapshot = new ScanParameterSnapshot(exposure, adc1OffsetParsed, adc1GainParsed, adc2OffsetParsed, adc2GainParsed, sysClockKhzParsed);
         error = string.Empty;
         return true;
     }
 
-    public ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain)
+    public ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz)
     {
         var exposureDisplay = BuildExposureDisplay(exposureTicks);
         var adc1OffsetDisplay = BuildOffsetDisplay(adc1Offset);
         var adc2OffsetDisplay = BuildOffsetDisplay(adc2Offset);
         var adc1GainDisplay = BuildGainDisplay(adc1Gain);
         var adc2GainDisplay = BuildGainDisplay(adc2Gain);
+        var sysClockDisplay = BuildSysClockDisplay(sysClockKhz);
 
-        return new ScanParameterDisplays(exposureDisplay, adc1OffsetDisplay, adc2OffsetDisplay, adc1GainDisplay, adc2GainDisplay);
+        return new ScanParameterDisplays(exposureDisplay, adc1OffsetDisplay, adc2OffsetDisplay, adc1GainDisplay, adc2GainDisplay, sysClockDisplay);
     }
 
     public string FormatOffsetForInput(int offset)
@@ -63,7 +67,8 @@ public class ScanParameterService : IScanParameterService
 
     public async Task<ScanParameterSnapshot> LoadAsync(IScanSessionService session, CancellationToken ct)
     {
-        var loaded = new Dictionary<string, ushort>(_definitions.Length);
+        var loadedU16 = new Dictionary<string, ushort>(_definitions.Length);
+        uint sysClockKhz = 0;
         foreach (var parameter in _definitions)
         {
             var keyHash = _protocol.ComputeParamKeyHash(parameter.Key);
@@ -72,15 +77,19 @@ public class ScanParameterService : IScanParameterService
             if (response.Status != 0x00)
                 throw new IOException($"GET_PARAM '{parameter.DisplayName}' failed: {_protocol.MapStatus(response.Status)} (0x{response.Status:X2})");
 
-            loaded[parameter.Key] = _protocol.ParseU16ParamPayload(response.Payload, keyHash, parameter.DisplayName);
+            if (parameter == SysClockKhzParameter)
+                sysClockKhz = _protocol.ParseU32ParamPayload(response.Payload, keyHash, parameter.DisplayName);
+            else
+                loadedU16[parameter.Key] = _protocol.ParseU16ParamPayload(response.Payload, keyHash, parameter.DisplayName);
         }
 
         return new ScanParameterSnapshot(
-            loaded[ExposureTicksParameter.Key],
-            DecodeSignedOffset(loaded[Adc1OffsetParameter.Key]),
-            loaded[Adc1GainParameter.Key],
-            DecodeSignedOffset(loaded[Adc2OffsetParameter.Key]),
-            loaded[Adc2GainParameter.Key]);
+            loadedU16[ExposureTicksParameter.Key],
+            DecodeSignedOffset(loadedU16[Adc1OffsetParameter.Key]),
+            loadedU16[Adc1GainParameter.Key],
+            DecodeSignedOffset(loadedU16[Adc2OffsetParameter.Key]),
+            loadedU16[Adc2GainParameter.Key],
+            sysClockKhz);
     }
 
     public async Task ApplyAsync(IScanSessionService session, ScanParameterSnapshot snapshot, CancellationToken ct)
@@ -90,6 +99,7 @@ public class ScanParameterService : IScanParameterService
         await SetParameterAsync(session, Adc1GainParameter, snapshot.Adc1Gain, ct);
         await SetParameterAsync(session, Adc2OffsetParameter, EncodeSignedOffset(snapshot.Adc2Offset), ct);
         await SetParameterAsync(session, Adc2GainParameter, snapshot.Adc2Gain, ct);
+        await SetParameterAsync(session, SysClockKhzParameter, snapshot.SysClockKhz, ct);
     }
 
     private async Task SetParameterAsync(IScanSessionService session, ScanParameterDefinition parameter, ushort value, CancellationToken ct)
@@ -101,6 +111,19 @@ public class ScanParameterService : IScanParameterService
             throw new IOException($"SET_PARAM '{parameter.DisplayName}' failed: {_protocol.MapStatus(response.Status)} (0x{response.Status:X2})");
 
         var echoed = _protocol.ParseU16ParamPayload(response.Payload, keyHash, parameter.DisplayName);
+        if (echoed != value)
+            throw new IOException($"SET_PARAM '{parameter.DisplayName}' verify mismatch: expected {value}, echoed {echoed}");
+    }
+
+    private async Task SetParameterAsync(IScanSessionService session, ScanParameterDefinition parameter, uint value, CancellationToken ct)
+    {
+        var keyHash = _protocol.ComputeParamKeyHash(parameter.Key);
+        var command = _protocol.BuildSetParamByHashCommand(keyHash, value);
+        var response = await session.SendControlCommandAndWaitAckAsync(command, ScanDebugConstants.UsbCmdSetParamByHash, ScanDebugConstants.AckTimeoutMs, ct, true);
+        if (response.Status != 0x00)
+            throw new IOException($"SET_PARAM '{parameter.DisplayName}' failed: {_protocol.MapStatus(response.Status)} (0x{response.Status:X2})");
+
+        var echoed = _protocol.ParseU32ParamPayload(response.Payload, keyHash, parameter.DisplayName);
         if (echoed != value)
             throw new IOException($"SET_PARAM '{parameter.DisplayName}' verify mismatch: expected {value}, echoed {echoed}");
     }
@@ -151,6 +174,20 @@ public class ScanParameterService : IScanParameterService
         return true;
     }
 
+    private static bool TryParseSysClockKhz(string text, string fieldName, out uint value, out string error)
+    {
+        value = 0;
+        if (!uint.TryParse(text, out var parsed) || parsed < ScanDebugConstants.MinSysClockKhz || parsed > ScanDebugConstants.MaxSysClockKhz)
+        {
+            error = $"{fieldName} must be an integer in [{ScanDebugConstants.MinSysClockKhz}, {ScanDebugConstants.MaxSysClockKhz}].";
+            return false;
+        }
+
+        value = parsed;
+        error = string.Empty;
+        return true;
+    }
+
     private static int DecodeSignedOffset(ushort raw)
     {
         var magnitude = raw & 0x00FF;
@@ -191,5 +228,14 @@ public class ScanParameterService : IScanParameterService
 
         var ratio = 6.0 / (1.0 + 5.0 * ((63.0 - gain) / 63.0));
         return $"Gain: {ratio:0.###} V/V";
+    }
+
+    private static string BuildSysClockDisplay(string sysClockKhzText)
+    {
+        if (!uint.TryParse(sysClockKhzText, out var khz))
+            return "System clock: -";
+
+        var mhz = khz / 1000.0;
+        return $"System clock: {mhz:0.###} MHz";
     }
 }

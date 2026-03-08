@@ -271,7 +271,7 @@
     <value>Image Preview</value>
   </data>
   <data name="ScanDebug_ParamsTitle.Text" xml:space="preserve">
-    <value>Scanner Parameters (uint16)</value>
+    <value>Scanner Parameters</value>
   </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>Exposure time = (([ticks] + 1) * 12 + 45636) * 8 ns</value>
@@ -305,6 +305,12 @@
   </data>
   <data name="ScanDebug_Adc2GainTextBox.PlaceholderText" xml:space="preserve">
     <value>0-63</value>
+  </data>
+  <data name="ScanDebug_SysClockKhzTextBox.Header" xml:space="preserve">
+    <value>System Clock (kHz)</value>
+  </data>
+  <data name="ScanDebug_SysClockKhzTextBox.PlaceholderText" xml:space="preserve">
+    <value>125000-200000</value>
   </data>
   <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve">
     <value>Apply Parameters</value>

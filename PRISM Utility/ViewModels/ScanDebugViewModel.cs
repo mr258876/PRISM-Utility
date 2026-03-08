@@ -124,6 +124,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private string _adc2Gain = string.Empty;
 
     [ObservableProperty]
+    private string _sysClockKhz = string.Empty;
+
+    [ObservableProperty]
     private string _exposureTimeDisplay = "Exposure time: -";
 
     [ObservableProperty]
@@ -137,6 +140,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     private string _adc2GainVvDisplay = "Gain: -";
+
+    [ObservableProperty]
+    private string _sysClockMhzDisplay = "System clock: -";
 
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
@@ -168,6 +174,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => UpdateComputedParameterDisplays();
 
     partial void OnAdc2GainChanged(string value)
+        => UpdateComputedParameterDisplays();
+
+    partial void OnSysClockKhzChanged(string value)
         => UpdateComputedParameterDisplays();
 
     partial void OnIsWarmUpEnabledChanged(bool value)
@@ -287,6 +296,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             Adc1Gain = snapshot.Adc1Gain.ToString();
             Adc2Offset = _parameters.FormatOffsetForInput(snapshot.Adc2Offset);
             Adc2Gain = snapshot.Adc2Gain.ToString();
+            SysClockKhz = snapshot.SysClockKhz.ToString();
             UpdateComputedParameterDisplays();
 
             StatusText = "Scanner sessions connected. Parameters loaded.";
@@ -350,7 +360,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         }
 
-        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, out var snapshot, out var parseError))
+        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var parseError))
         {
             StatusText = parseError;
             return;
@@ -529,7 +539,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         }
 
-        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, out var snapshot, out var error))
+        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var error))
         {
             StatusText = error;
             return;
@@ -581,6 +591,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Adc1Gain = snapshot.Adc1Gain.ToString();
         Adc2Offset = _parameters.FormatOffsetForInput(snapshot.Adc2Offset);
         Adc2Gain = snapshot.Adc2Gain.ToString();
+        SysClockKhz = snapshot.SysClockKhz.ToString();
         UpdateComputedParameterDisplays();
     }
 
@@ -622,12 +633,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void UpdateComputedParameterDisplays()
     {
-        var displays = _parameters.BuildDisplays(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain);
+        var displays = _parameters.BuildDisplays(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz);
         ExposureTimeDisplay = displays.ExposureTimeDisplay;
         Adc1OffsetMvDisplay = displays.Adc1OffsetMvDisplay;
         Adc2OffsetMvDisplay = displays.Adc2OffsetMvDisplay;
         Adc1GainVvDisplay = displays.Adc1GainVvDisplay;
         Adc2GainVvDisplay = displays.Adc2GainVvDisplay;
+        SysClockMhzDisplay = displays.SysClockMhzDisplay;
     }
 
     private void RenderPreview(int rows)

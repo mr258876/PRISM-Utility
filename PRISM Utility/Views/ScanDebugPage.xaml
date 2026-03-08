@@ -88,6 +88,13 @@
                     <TextBlock Text="{x:Bind ViewModel.Adc2GainVvDisplay, Mode=OneWay}" Opacity="0.8" />
                 </StackPanel>
 
+                <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_SysClockKhzTextBox"
+                        Text="{x:Bind ViewModel.SysClockKhz, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.SysClockMhzDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
                 <StackPanel
                     Grid.Row="1"
                     Grid.Column="2"

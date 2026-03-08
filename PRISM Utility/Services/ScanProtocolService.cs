@@ -66,6 +66,19 @@ public class ScanProtocolService : IScanProtocolService
         return frame;
     }
 
+    public byte[] BuildSetParamByHashCommand(uint keyHash, uint value)
+    {
+        var frame = new byte[14];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdSetParamByHash;
+        WritePayloadLength(frame, 10);
+        Buffer.BlockCopy(BitConverter.GetBytes(keyHash), 0, frame, 4, 4);
+        frame[8] = ScanDebugConstants.PrismParamTypeU32;
+        frame[9] = ScanDebugConstants.PrismParamValueLenU32;
+        Buffer.BlockCopy(BitConverter.GetBytes(value), 0, frame, 10, 4);
+        return frame;
+    }
+
     public ScanAck ParseScanAck(ScanControlFrame frame)
     {
         if (frame.Payload.Length != 8)
@@ -94,6 +107,26 @@ public class ScanProtocolService : IScanProtocolService
             throw new IOException($"{paramName}: value length mismatch. expected {ScanDebugConstants.PrismParamValueLenU16}, actual {valueLen}");
 
         return BitConverter.ToUInt16(payload, 6);
+    }
+
+    public uint ParseU32ParamPayload(byte[] payload, uint expectedKeyHash, string paramName)
+    {
+        if (payload.Length != 10)
+            throw new IOException($"{paramName}: payload length invalid ({payload.Length})");
+
+        var keyHash = BitConverter.ToUInt32(payload, 0);
+        if (keyHash != expectedKeyHash)
+            throw new IOException($"{paramName}: key hash mismatch. expected 0x{expectedKeyHash:X8}, actual 0x{keyHash:X8}");
+
+        var valueType = payload[4];
+        if (valueType != ScanDebugConstants.PrismParamTypeU32)
+            throw new IOException($"{paramName}: type mismatch. expected {ScanDebugConstants.PrismParamTypeU32}, actual {valueType}");
+
+        var valueLen = payload[5];
+        if (valueLen != ScanDebugConstants.PrismParamValueLenU32)
+            throw new IOException($"{paramName}: value length mismatch. expected {ScanDebugConstants.PrismParamValueLenU32}, actual {valueLen}");
+
+        return BitConverter.ToUInt32(payload, 6);
     }
 
     public uint ComputeParamKeyHash(string key)

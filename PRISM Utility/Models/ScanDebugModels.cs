@@ -24,6 +24,8 @@ public static class ScanDebugConstants
     public const int EffectivePixelEnd = 7577;
     public const int WhiteProbeSampleRows = 512;
     public const ushort MinExposureTicks = 10;
+    public const uint MinSysClockKhz = 125_000;
+    public const uint MaxSysClockKhz = 200_000;
 
     public const int AckTimeoutMs = 2000;
     public const int ImageReadTimeoutMs = 30000;
@@ -62,6 +64,8 @@ public static class ScanDebugConstants
     public const byte UsbCmdWarmUp = 0x33;
     public const byte PrismParamTypeU16 = 2;
     public const byte PrismParamValueLenU16 = 2;
+    public const byte PrismParamTypeU32 = 3;
+    public const byte PrismParamValueLenU32 = 4;
 }
 
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
@@ -78,9 +82,9 @@ public sealed record ScanStopResult(bool Success, string Message);
 
 public sealed record ScanParameterDefinition(string DisplayName, string Key);
 
-public sealed record ScanParameterSnapshot(ushort ExposureTicks, int Adc1Offset, ushort Adc1Gain, int Adc2Offset, ushort Adc2Gain);
+public sealed record ScanParameterSnapshot(ushort ExposureTicks, int Adc1Offset, ushort Adc1Gain, int Adc2Offset, ushort Adc2Gain, uint SysClockKhz);
 
-public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay);
+public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay, string SysClockMhzDisplay);
 
 public sealed record ScanCalibrationPrompt(string Title, string Content, string PrimaryButtonText, string CloseButtonText);
 
