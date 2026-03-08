@@ -1,0 +1,155 @@
+﻿<Page
+    x:Class="PRISM_Utility.Views.UsbDebugPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:helpers="using:PRISM_Utility.Helpers"
+    xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
+    xmlns:xaml="using:Microsoft.UI.Xaml"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Page.Resources>
+    <ScrollViewer
+        Name="ForegroundElement"
+        HorizontalAlignment="Stretch"
+        VerticalScrollMode="Enabled"
+        IsTabStop="True">
+        <StackPanel
+            x:Name="ContentArea"
+            Margin="{StaticResource SmallLeftRightMargin}">
+            <controls:WrapPanel
+                x:Name="TransferFlowPanel"
+                Orientation="Horizontal"
+                HorizontalSpacing="12"
+                VerticalSpacing="12"
+                Margin="{StaticResource SmallTopBottomMargin}">
+                <Border
+                    MinWidth="380"
+                    MaxWidth="680"
+                    Width="420">
+                    <StackPanel x:Name="BulkInPanel">
+                    <TextBlock x:Uid="UsbDebug_BuckIn" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkInDeviceComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
+                        DisplayMemberPath="Display"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkInUsbDevice, Mode=TwoWay}" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkInConfigComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkInConfigs, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkInConfig, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkInInterfaceComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkInInterfaces, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkInInterface, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkInEndpointComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkInEndpoints, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkInEndpoint, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_DeviceBulkInRequestSizeComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkInSize, Mode=TwoWay}"
+                        IsEditable="True">
+                        <x:String>512</x:String>
+                        <x:String>1024</x:String>
+                        <x:String>4096</x:String>
+                        <x:String>8192</x:String>
+                    </ComboBox>
+                    <TextBlock x:Uid="UsbDebug_DeviceBuliInRequestSizeComboBox_HelpText" />
+
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource SmallTopBottomMargin}" HorizontalAlignment="Stretch" Spacing="8">
+                        <Button x:Uid="UsbDebug_StartBulkInButton" Command="{x:Bind ViewModel.StartBulkInCommand}" />
+                        <Button x:Uid="UsbDebug_StopBulkInButton" Command="{x:Bind ViewModel.StopBulkInCommand}" />
+                    </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border
+                    MinWidth="380"
+                    MaxWidth="680"
+                    Width="420">
+                    <StackPanel x:Name="BulkOutPanel">
+                    <TextBlock x:Uid="UsbDebug_BulkOut" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkOutDeviceComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.UsbDevices, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkOutUsbDevice, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkOutConfigComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkOutConfigs, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkOutConfig, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkOutInterfaceComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkOutInterfaces, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkOutInterface, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <ComboBox
+                        x:Uid="UsbDebug_BulkOutEndpointComboBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        ItemsSource="{x:Bind ViewModel.BulkOutEndpoints, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBulkOutEndpoint, Mode=TwoWay}"
+                        DisplayMemberPath="Display" />
+
+                    <TextBox
+                        x:Uid="UsbDebug_BulkOutPayloadTextBox"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        Text="{x:Bind ViewModel.BulkOutText, Mode=TwoWay}"
+                        AcceptsReturn="True"
+                        TextWrapping="Wrap"
+                        MinHeight="96" />
+
+                    <ToggleSwitch
+                        x:Uid="UsbDebug_BulkOutHexModeToggleSwitch"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        IsOn="{x:Bind ViewModel.IsBulkOutHexMode, Mode=TwoWay}" />
+
+                    <Button
+                        x:Uid="UsbDebug_SendBulkOutButton"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        Command="{x:Bind ViewModel.SendBulkOutCommand}" />
+                    </StackPanel>
+                </Border>
+            </controls:WrapPanel>
+
+            <TextBlock x:Uid="UsbDebug_Results" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+            <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                <ProgressBar 
+                    IsIndeterminate="True" 
+                    Visibility="{x:Bind ViewModel.IsBulkInRunning, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    ShowPaused="{x:Bind ViewModel.IsBulkInStopping, Mode=OneWay}" />
+
+                <TextBox
+                    Margin="{StaticResource XSmallTopMargin}"
+                    Text="{x:Bind ViewModel.LogText, Mode=OneWay}"
+                    IsReadOnly="True"
+                    AcceptsReturn="True"
+                    TextWrapping="Wrap"
+                    Height="240" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

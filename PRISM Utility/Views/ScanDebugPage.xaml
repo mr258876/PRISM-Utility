@@ -1,0 +1,156 @@
+<Page
+    x:Class="PRISM_Utility.Views.ScanDebugPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:xaml="using:Microsoft.UI.Xaml"
+    mc:Ignorable="d">
+    <Grid Margin="{StaticResource SmallLeftRightMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="{StaticResource SmallTopBottomMargin}" >
+            <Button x:Uid="ScanDebug_ConnectButton" Command="{x:Bind ViewModel.ConnectDevicesCommand}" />
+            <Button x:Uid="ScanDebug_DisconnectButton" Command="{x:Bind ViewModel.DisconnectDevicesCommand}" />
+            <Button x:Uid="ScanDebug_StartButton" Command="{x:Bind ViewModel.StartScanCommand}" />
+            <Button x:Uid="ScanDebug_StopButton" Command="{x:Bind ViewModel.StopScanCommand}" />
+            <Button x:Uid="ScanDebug_ExportBufferButton" Command="{x:Bind ViewModel.ExportBufferCommand}" />
+            <ComboBox
+                x:Uid="ScanDebug_RowsComboBox"
+                Width="180"
+                IsEditable="True"
+                ItemsSource="{x:Bind ViewModel.RowOptions, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedRows, Mode=TwoWay}" />
+            <ToggleSwitch
+                x:Uid="ScanDebug_WarmUpToggleSwitch"
+                IsOn="{x:Bind ViewModel.IsWarmUpEnabled, Mode=TwoWay}" />
+            <ToggleSwitch
+                x:Uid="ScanDebug_PreviewToggleSwitch"
+                IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}"
+                IsEnabled="{x:Bind ViewModel.IsPreviewToggleEnabled, Mode=OneWay}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+
+        <StackPanel Grid.Row="2" Margin="{StaticResource SmallTopBottomMargin}" Spacing="8">
+            <TextBlock x:Uid="ScanDebug_ParamsTitle.Text" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <TextBlock x:Uid="ScanDebug_ExposureFormulaNote.Text" Opacity="0.8" />
+            <Grid ColumnSpacing="8" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="220" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_ExposureTextBox"
+                        Text="{x:Bind ViewModel.ExposureTicks, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.ExposureTimeDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_Adc1OffsetTextBox"
+                        Text="{x:Bind ViewModel.Adc1Offset, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.Adc1OffsetMvDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_Adc1GainTextBox"
+                        Text="{x:Bind ViewModel.Adc1Gain, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.Adc1GainVvDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_Adc2OffsetTextBox"
+                        Text="{x:Bind ViewModel.Adc2Offset, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.Adc2OffsetMvDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                    <TextBox
+                        x:Uid="ScanDebug_Adc2GainTextBox"
+                        Text="{x:Bind ViewModel.Adc2Gain, Mode=TwoWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.Adc2GainVvDisplay, Mode=OneWay}" Opacity="0.8" />
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    Grid.RowSpan="2"
+                    Spacing="8"
+                    VerticalAlignment="Bottom">
+                    <Button
+                        x:Uid="ScanDebug_ApplyParamsButton"
+                        Command="{x:Bind ViewModel.ApplyParametersCommand}" />
+                    <Button
+                        x:Uid="ScanDebug_AutoBlackButton"
+                        Command="{x:Bind ViewModel.AutoBlackAdjustCommand}" />
+                    <Button
+                        x:Uid="ScanDebug_AutoWhiteButton"
+                        Command="{x:Bind ViewModel.AutoWhiteAdjustCommand}" />
+                    <Button
+                        x:Uid="ScanDebug_AutoCalibrateButton"
+                        Command="{x:Bind ViewModel.AutoCalibrateCommand}" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
+            <TextBlock x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <TextBlock x:Name="CursorPositionTextBlock" Text="Cursor: (-, -) px" />
+            <TextBlock x:Name="CursorIntensityTextBlock" Text="Intensity16: -" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="{StaticResource XSmallTopMargin}">
+                <Button Content="-" Click="ZoomOutButton_Click" />
+                <Button Content="+" Click="ZoomInButton_Click" />
+                <ComboBox
+                    x:Name="ZoomScaleComboBox"
+                    Width="120"
+                    SelectionChanged="ZoomScaleComboBox_SelectionChanged" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="4" Margin="0,8,0,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+            <ScrollViewer
+                x:Name="PreviewScrollViewer"
+                HorizontalScrollBarVisibility="Auto"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollMode="Enabled"
+                VerticalScrollMode="Enabled"
+                ZoomMode="Enabled"
+                MinZoomFactor="0.1"
+                MaxZoomFactor="20"
+                SizeChanged="PreviewScrollViewer_SizeChanged"
+                ViewChanged="PreviewScrollViewer_ViewChanged"
+                PointerPressed="PreviewScrollViewer_PointerPressed"
+                PointerMoved="PreviewScrollViewer_PointerMoved"
+                PointerReleased="PreviewScrollViewer_PointerReleased"
+                PointerCanceled="PreviewScrollViewer_PointerCanceled"
+                PointerWheelChanged="PreviewScrollViewer_PointerWheelChanged">
+                <Canvas x:Name="PreviewCanvas">
+                    <Image
+                        x:Name="PreviewImageElement"
+                        Source="{x:Bind ViewModel.PreviewImage, Mode=OneWay}"
+                        PointerMoved="PreviewImageElement_PointerMoved"
+                        PointerExited="PreviewImageElement_PointerExited"
+                        Stretch="None" />
+                    <Canvas x:Name="AxisCanvas" IsHitTestVisible="False" />
+                </Canvas>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Page>

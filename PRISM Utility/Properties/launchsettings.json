@@ -1,0 +1,10 @@
+﻿{
+    "profiles": {
+      "PRISM Utility (Package)": {
+        "commandName": "MsixPackage"
+      },
+      "PRISM Utility (Unpackaged)": {
+        "commandName": "Project"
+      }
+    }
+}

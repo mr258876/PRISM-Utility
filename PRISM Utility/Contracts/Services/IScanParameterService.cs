@@ -1,0 +1,15 @@
+using PRISM_Utility.Models;
+
+namespace PRISM_Utility.Contracts.Services;
+
+public interface IScanParameterService
+{
+    IReadOnlyList<ScanParameterDefinition> Definitions { get; }
+
+    bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, out ScanParameterSnapshot snapshot, out string error);
+    ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain);
+    string FormatOffsetForInput(int offset);
+
+    Task<ScanParameterSnapshot> LoadAsync(IScanSessionService session, CancellationToken ct);
+    Task ApplyAsync(IScanSessionService session, ScanParameterSnapshot snapshot, CancellationToken ct);
+}
