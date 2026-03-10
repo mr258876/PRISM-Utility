@@ -34,6 +34,7 @@ public sealed class ScanCalibrationPromptRequest
 public partial class ScanDebugViewModel : ObservableRecipient
 {
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
+    private const double DefaultPreviewGamma = 2.2;
 
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
@@ -60,6 +61,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial bool IsPreviewEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsGammaCorrectionEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string PreviewGamma { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -161,6 +168,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         SelectedRows = "128";
         IsPreviewEnabled = true;
+        IsGammaCorrectionEnabled = true;
+        PreviewGamma = DefaultPreviewGamma.ToString("0.0");
         StatusText = "Waiting for scanner devices...";
         ExposureTicks = string.Empty;
         Adc1Offset = string.Empty;
@@ -215,6 +224,25 @@ public partial class ScanDebugViewModel : ObservableRecipient
             ClearPreview();
         else if (_hasValidScanBuffer && _previewRows > 0 && !IsPreviewForcedOffForRows(_previewRows))
             RenderPreview(_previewRows);
+    }
+
+    partial void OnIsGammaCorrectionEnabledChanged(bool value)
+    {
+        if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || IsPreviewForcedOffForRows(_previewRows))
+            return;
+
+        RenderPreview(_previewRows);
+    }
+
+    partial void OnPreviewGammaChanged(string value)
+    {
+        if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || IsPreviewForcedOffForRows(_previewRows))
+            return;
+
+        if (!IsGammaCorrectionEnabled)
+            return;
+
+        RenderPreview(_previewRows);
     }
 
     public bool IsPreviewToggleEnabled => !IsPreviewForcedOffForSelectedRows();
@@ -665,13 +693,38 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void RenderPreview(int rows)
     {
+        if (!TryGetPreviewGamma(out var gamma, out var gammaError))
+        {
+            StatusText = gammaError;
+            return;
+        }
+
         var previewWidth = _imageDecoder.GetDecodedPixelsPerLine();
         if (PreviewImage is null || PreviewImage.PixelWidth != previewWidth || PreviewImage.PixelHeight != rows)
             PreviewImage = new WriteableBitmap(previewWidth, rows);
 
         using var stream = PreviewImage.PixelBuffer.AsStream();
-        _imageDecoder.DecodeToBgra(_lineBuffer, rows, stream);
+        _imageDecoder.DecodeToBgra(_lineBuffer, rows, stream, IsGammaCorrectionEnabled, gamma);
         PreviewImage.Invalidate();
+    }
+
+    private bool TryGetPreviewGamma(out double gamma, out string error)
+    {
+        error = string.Empty;
+
+        if (!IsGammaCorrectionEnabled)
+        {
+            gamma = 1.0;
+            return true;
+        }
+
+        if (!double.TryParse(PreviewGamma, out gamma) || double.IsNaN(gamma) || double.IsInfinity(gamma) || gamma <= 0)
+        {
+            error = "Gamma must be a number greater than 0.";
+            return false;
+        }
+
+        return true;
     }
 
     private void ClearPreview()

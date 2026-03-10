@@ -267,6 +267,21 @@
   <data name="ScanDebug_PreviewToggleSwitch.OffContent" xml:space="preserve">
     <value>Off</value>
   </data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.Header" xml:space="preserve">
+    <value>Gamma Correction</value>
+  </data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_GammaTextBox.Header" xml:space="preserve">
+    <value>Gamma</value>
+  </data>
+  <data name="ScanDebug_GammaTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 2.2</value>
+  </data>
   <data name="ScanDebug_Preview.Text" xml:space="preserve">
     <value>Image Preview</value>
   </data>

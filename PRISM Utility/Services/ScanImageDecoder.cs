@@ -5,6 +5,8 @@ namespace PRISM_Utility.Services;
 
 public class ScanImageDecoder : IScanImageDecoder
 {
+    private const double MaxSampleValue = ushort.MaxValue;
+
     public int GetDecodedPixelsPerLine()
     {
         var usableBytes = ScanDebugConstants.BytesPerLine - ScanDebugConstants.LineBufferMarginLeft - ScanDebugConstants.LineBufferMarginRight;
@@ -15,11 +17,14 @@ public class ScanImageDecoder : IScanImageDecoder
         return packedGroupCount * ScanDebugConstants.PackedGroupPixels;
     }
 
-    public void DecodeToBgra(byte[] lineBuffer, int rows, Stream destination)
+    public void DecodeToBgra(byte[] lineBuffer, int rows, Stream destination, bool applyGammaCorrection, double gamma)
     {
         var width = GetDecodedPixelsPerLine();
         if (width <= 0)
             throw new InvalidOperationException("Decoded preview width is invalid.");
+
+        if (applyGammaCorrection && gamma <= 0)
+            throw new ArgumentOutOfRangeException(nameof(gamma), "Gamma must be greater than zero.");
 
         ValidateBufferSize(lineBuffer, rows);
 
@@ -40,8 +45,8 @@ public class ScanImageDecoder : IScanImageDecoder
                 var pixel0 = (ushort)((lineBuffer[i] << 8) | lineBuffer[i + 2]);
                 var pixel1 = (ushort)((lineBuffer[i + 1] << 8) | lineBuffer[i + 3]);
 
-                WriteGrayPixel(rowPixels, pixelIndex++, pixel0);
-                WriteGrayPixel(rowPixels, pixelIndex++, pixel1);
+                WriteGrayPixel(rowPixels, pixelIndex++, pixel0, applyGammaCorrection, gamma);
+                WriteGrayPixel(rowPixels, pixelIndex++, pixel1, applyGammaCorrection, gamma);
             }
 
             destination.Write(rowPixels, 0, rowPixels.Length);
@@ -75,9 +80,9 @@ public class ScanImageDecoder : IScanImageDecoder
         return true;
     }
 
-    private static void WriteGrayPixel(byte[] rowPixels, int pixelIndex, ushort sample16)
+    private static void WriteGrayPixel(byte[] rowPixels, int pixelIndex, ushort sample16, bool applyGammaCorrection, double gamma)
     {
-        var gray = ConvertAdcSampleToGray(sample16);
+        var gray = ConvertAdcSampleToGray(sample16, applyGammaCorrection, gamma);
         var byteIndex = pixelIndex * 4;
         rowPixels[byteIndex] = gray;
         rowPixels[byteIndex + 1] = gray;
@@ -92,6 +97,13 @@ public class ScanImageDecoder : IScanImageDecoder
             throw new IOException($"Scan buffer size mismatch: expected {expectedBytes}, actual {lineBuffer.Length}");
     }
 
-    private static byte ConvertAdcSampleToGray(ushort sample)
-        => (byte)(sample / 256);
+    private static byte ConvertAdcSampleToGray(ushort sample, bool applyGammaCorrection, double gamma)
+    {
+        if (!applyGammaCorrection)
+            return (byte)(sample / 256);
+
+        var normalized = sample / MaxSampleValue;
+        var corrected = Math.Pow(normalized, 1.0 / gamma);
+        return (byte)Math.Clamp((int)Math.Round(corrected * byte.MaxValue), 0, byte.MaxValue);
+    }
 }

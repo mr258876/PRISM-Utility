@@ -119,6 +119,16 @@
 
         <StackPanel Grid.Row="3" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
             <TextBlock x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="{StaticResource XSmallTopMargin}">
+                <ToggleSwitch
+                    x:Uid="ScanDebug_GammaCorrectionToggleSwitch"
+                    IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}" />
+                <TextBox
+                    x:Uid="ScanDebug_GammaTextBox"
+                    Width="120"
+                    IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}" />
+            </StackPanel>
             <TextBlock x:Name="CursorPositionTextBlock" Text="Cursor: (-, -) px" />
             <TextBlock x:Name="CursorIntensityTextBlock" Text="Intensity16: -" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="{StaticResource XSmallTopMargin}">
