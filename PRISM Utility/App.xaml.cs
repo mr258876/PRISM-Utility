@@ -6,7 +6,6 @@ using PRISM_Utility.Activation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Services;
-using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
 using PRISM_Utility.Services;
 using PRISM_Utility.ViewModels;
@@ -40,7 +39,10 @@ public partial class App : Application
 
     public static WindowEx MainWindow { get; } = new MainWindow();
 
-    public static UIElement? AppTitlebar { get; set; }
+    public static UIElement? AppTitlebar
+    {
+        get; set;
+    }
 
     public App()
     {

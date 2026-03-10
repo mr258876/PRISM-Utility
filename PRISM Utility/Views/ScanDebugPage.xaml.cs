@@ -1,11 +1,10 @@
+using System.ComponentModel;
+using Microsoft.UI;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
-using Microsoft.UI;
 using PRISM_Utility.ViewModels;
-using System;
-using System.ComponentModel;
 using Windows.Foundation;
 
 namespace PRISM_Utility.Views;
@@ -27,7 +26,10 @@ public sealed partial class ScanDebugPage : Page
     private double _panStartHorizontalOffset;
     private double _panStartVerticalOffset;
 
-    public ScanDebugViewModel ViewModel { get; }
+    public ScanDebugViewModel ViewModel
+    {
+        get;
+    }
 
     public ScanDebugPage()
     {

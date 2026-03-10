@@ -26,18 +26,18 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     public ObservableCollection<UsbInterfaceDto> BulkOutInterfaces { get; } = new();
     public ObservableCollection<UsbEndpointDto> BulkOutEndpoints { get; } = new();
 
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] private UsbDeviceDto? _selectedBulkInUsbDevice;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] private UsbConfigDto? _selectedBulkInConfig;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] private UsbInterfaceDto? _selectedBulkInInterface;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] private UsbEndpointDto? _selectedBulkInEndpoint;
-    [ObservableProperty] private string _selectedBulkInSize = "4096";
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] public partial UsbDeviceDto? SelectedBulkInUsbDevice { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] public partial UsbConfigDto? SelectedBulkInConfig { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] public partial UsbInterfaceDto? SelectedBulkInInterface { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))] public partial UsbEndpointDto? SelectedBulkInEndpoint { get; set; }
+    [ObservableProperty] public partial string SelectedBulkInSize { get; set; }
 
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] private UsbDeviceDto? _selectedBulkOutUsbDevice;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] private UsbConfigDto? _selectedBulkOutConfig;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] private UsbInterfaceDto? _selectedBulkOutInterface;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] private UsbEndpointDto? _selectedBulkOutEndpoint;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] private string _bulkOutText = "";
-    [ObservableProperty] private bool _isBulkOutHexMode;
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] public partial UsbDeviceDto? SelectedBulkOutUsbDevice { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] public partial UsbConfigDto? SelectedBulkOutConfig { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] public partial UsbInterfaceDto? SelectedBulkOutInterface { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] public partial UsbEndpointDto? SelectedBulkOutEndpoint { get; set; }
+    [ObservableProperty][NotifyCanExecuteChangedFor(nameof(SendBulkOutCommand))] public partial string BulkOutText { get; set; }
+    [ObservableProperty] public partial bool IsBulkOutHexMode { get; set; }
 
     private CancellationTokenSource? _bulkInCts;
     private IUsbBulkDuplexSession? _bulkInSession;
@@ -47,13 +47,13 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartBulkInCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopBulkInCommand))]
-    private bool _isBulkInRunning;
+    public partial bool IsBulkInRunning { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StopBulkInCommand))]
-    private bool _isBulkInStopping;
+    public partial bool IsBulkInStopping { get; set; }
 
-    [ObservableProperty] private string _logText = "";
+    [ObservableProperty] public partial string LogText { get; set; }
 
     public event EventHandler<DialogRequest>? DialogRequested;
 
@@ -64,6 +64,9 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         _usb = usb;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
+        SelectedBulkInSize = "4096";
+        BulkOutText = string.Empty;
+        LogText = string.Empty;
 
         _usb.DevicesChanged += (_, __) => _dispatcher.TryEnqueue(RefreshDeviceList);
         RefreshDeviceList();
@@ -196,7 +199,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         !string.IsNullOrWhiteSpace(BulkOutText);
 
     [RelayCommand(CanExecute = nameof(CanStartBulkIn))]
-    private async void StartBulkIn()
+    private async Task StartBulkIn()
     {
         if (SelectedBulkInUsbDevice is null || SelectedBulkInConfig is null || SelectedBulkInInterface is null || SelectedBulkInEndpoint is null)
         {

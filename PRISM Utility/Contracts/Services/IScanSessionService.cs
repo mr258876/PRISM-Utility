@@ -6,9 +6,18 @@ public interface IScanSessionService
 {
     event EventHandler? TargetsChanged;
 
-    ScanTargetState Targets { get; }
-    bool IsConnected { get; }
-    ScanSessionSnapshot Session { get; }
+    ScanTargetState Targets
+    {
+        get;
+    }
+    bool IsConnected
+    {
+        get;
+    }
+    ScanSessionSnapshot Session
+    {
+        get;
+    }
 
     void RefreshTargets();
     Task<ScanOperationResult> ConnectAsync(CancellationToken ct);

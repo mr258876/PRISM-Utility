@@ -38,7 +38,7 @@ public class UsbService : IUsbService
         lock (_gate)
         {
             _configs.Clear();
-            foreach (var cfg in dev.Configs) 
+            foreach (var cfg in dev.Configs)
                 _configs.Add(new UsbConfigDto(cfg.Descriptor.ConfigID, cfg.Descriptor.InterfaceCount, $"Config {cfg.Descriptor.ConfigID} (Interfaces: {cfg.Descriptor.InterfaceCount})"));
         }
         dev.Close();
@@ -56,7 +56,7 @@ public class UsbService : IUsbService
         // Device may be plug out after we get registry, so open may fail.
         if (!reg.Open(out UsbDevice dev) || dev is null)
             throw new InvalidOperationException("Open device failed (driver/permission/device removed).");
-        
+
         lock (_gate)
         {
             _interfaces.Clear();
@@ -94,7 +94,7 @@ public class UsbService : IUsbService
 
             foreach (var ep in itf.EndpointInfoList)
                 _endpoints.Add(new UsbEndpointDto(
-                    ep.Descriptor.EndpointID, 
+                    ep.Descriptor.EndpointID,
                     (ep.Descriptor.EndpointID & 0x80) != 0,
                     ((EndpointType)(ep.Descriptor.Attributes & 0x03)).ToString(),
                     ep.Descriptor.MaxPacketSize,

@@ -4,7 +4,10 @@ namespace PRISM_Utility.Contracts.Services;
 
 public interface IScanParameterService
 {
-    IReadOnlyList<ScanParameterDefinition> Definitions { get; }
+    IReadOnlyList<ScanParameterDefinition> Definitions
+    {
+        get;
+    }
 
     bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz, out ScanParameterSnapshot snapshot, out string error);
     ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz);

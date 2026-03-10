@@ -12,10 +12,10 @@ public static class ScanDebugConstants
     public const byte BulkOutEndpoint = 0x01;
     public const byte BulkOutAckEndpoint = 0x81;
 
-    public const int BytesPerLine = 15190;
+    public const int BytesPerLine = 15206;
     public const int PackedGroupBytes = 4;
     public const int PackedGroupPixels = 2;
-    public const int MaxRows = 138;
+    public const int MaxRows = 137;
     public const int MaxPreviewRows = 4096;
     public const int CalibrationSampleRows = 512;
     public const int ShieldPixelStart = 26;

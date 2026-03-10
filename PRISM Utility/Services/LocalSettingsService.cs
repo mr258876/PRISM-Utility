@@ -5,8 +5,6 @@ using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
-
-using Windows.ApplicationModel;
 using Windows.Storage;
 
 namespace PRISM_Utility.Services;

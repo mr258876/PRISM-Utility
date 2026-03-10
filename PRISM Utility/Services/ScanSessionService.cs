@@ -26,7 +26,10 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public ScanTargetState Targets { get; private set; } = new(false, null, null);
 
-    public bool IsConnected { get; private set; }
+    public bool IsConnected
+    {
+        get; private set;
+    }
 
     public ScanSessionSnapshot Session
         => new(IsConnected, _controlSession, _connectionCts?.Token ?? CancellationToken.None);

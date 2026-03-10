@@ -20,9 +20,15 @@ public sealed class ScanCalibrationPromptRequest
         CompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    public ScanCalibrationPrompt Prompt { get; }
+    public ScanCalibrationPrompt Prompt
+    {
+        get;
+    }
 
-    public TaskCompletionSource<bool> CompletionSource { get; }
+    public TaskCompletionSource<bool> CompletionSource
+    {
+        get;
+    }
 }
 
 public partial class ScanDebugViewModel : ObservableRecipient
@@ -46,14 +52,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
-    private string _selectedRows = "128";
+    public partial string SelectedRows { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
-    private bool _isWarmUpEnabled;
+    public partial bool IsWarmUpEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isPreviewEnabled = true;
+    public partial bool IsPreviewEnabled { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -63,11 +69,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
-    private bool _isRunning;
+    public partial bool IsRunning { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectDevicesCommand))]
-    private bool _isDevicesPresent;
+    public partial bool IsDevicesPresent { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectDevicesCommand))]
@@ -77,7 +83,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
-    private bool _isConnected;
+    public partial bool IsConnected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectDevicesCommand))]
@@ -86,63 +92,63 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
-    private bool _isConnecting;
+    public partial bool IsConnecting { get; set; }
 
     [ObservableProperty]
-    private string _statusText = "Waiting for scanner devices...";
+    public partial string StatusText { get; set; }
 
     [ObservableProperty]
-    private WriteableBitmap? _previewImage;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
-    private bool _isApplyingParameters;
+    public partial WriteableBitmap? PreviewImage { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
-    private bool _isAutoCalibrating;
+    public partial bool IsApplyingParameters { get; set; }
 
     [ObservableProperty]
-    private string _exposureTicks = string.Empty;
+    [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    public partial bool IsAutoCalibrating { get; set; }
 
     [ObservableProperty]
-    private string _adc1Offset = string.Empty;
+    public partial string ExposureTicks { get; set; }
 
     [ObservableProperty]
-    private string _adc1Gain = string.Empty;
+    public partial string Adc1Offset { get; set; }
 
     [ObservableProperty]
-    private string _adc2Offset = string.Empty;
+    public partial string Adc1Gain { get; set; }
 
     [ObservableProperty]
-    private string _adc2Gain = string.Empty;
+    public partial string Adc2Offset { get; set; }
 
     [ObservableProperty]
-    private string _sysClockKhz = string.Empty;
+    public partial string Adc2Gain { get; set; }
 
     [ObservableProperty]
-    private string _exposureTimeDisplay = "Exposure time: -";
+    public partial string SysClockKhz { get; set; }
 
     [ObservableProperty]
-    private string _adc1OffsetMvDisplay = "Offset amplitude: -";
+    public partial string ExposureTimeDisplay { get; set; }
 
     [ObservableProperty]
-    private string _adc2OffsetMvDisplay = "Offset amplitude: -";
+    public partial string Adc1OffsetMvDisplay { get; set; }
 
     [ObservableProperty]
-    private string _adc1GainVvDisplay = "Gain: -";
+    public partial string Adc2OffsetMvDisplay { get; set; }
 
     [ObservableProperty]
-    private string _adc2GainVvDisplay = "Gain: -";
+    public partial string Adc1GainVvDisplay { get; set; }
 
     [ObservableProperty]
-    private string _sysClockMhzDisplay = "System clock: -";
+    public partial string Adc2GainVvDisplay { get; set; }
+
+    [ObservableProperty]
+    public partial string SysClockMhzDisplay { get; set; }
 
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
@@ -153,6 +159,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _imageDecoder = imageDecoder;
         _autoCalibration = autoCalibration;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
+        SelectedRows = "128";
+        IsPreviewEnabled = true;
+        StatusText = "Waiting for scanner devices...";
+        ExposureTicks = string.Empty;
+        Adc1Offset = string.Empty;
+        Adc1Gain = string.Empty;
+        Adc2Offset = string.Empty;
+        Adc2Gain = string.Empty;
+        SysClockKhz = string.Empty;
+        ExposureTimeDisplay = "Exposure time: -";
+        Adc1OffsetMvDisplay = "Offset amplitude: -";
+        Adc2OffsetMvDisplay = "Offset amplitude: -";
+        Adc1GainVvDisplay = "Gain: -";
+        Adc2GainVvDisplay = "Gain: -";
+        SysClockMhzDisplay = "System clock: -";
 
         _session.TargetsChanged += OnSessionTargetsChanged;
         _session.RefreshTargets();

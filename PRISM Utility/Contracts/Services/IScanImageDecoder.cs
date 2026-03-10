@@ -1,5 +1,3 @@
-using PRISM_Utility.Models;
-
 namespace PRISM_Utility.Contracts.Services;
 
 public interface IScanImageDecoder
