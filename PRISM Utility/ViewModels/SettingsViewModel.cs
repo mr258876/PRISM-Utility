@@ -29,6 +29,12 @@ public partial class SettingsViewModel : ObservableRecipient
     public partial string VersionDescription { get; set; }
 
     [ObservableProperty]
+    public partial string BuildDescription { get; set; }
+
+    [ObservableProperty]
+    public partial Visibility BuildVisibility { get; set; } = Visibility.Collapsed;
+
+    [ObservableProperty]
     public partial bool IsMultiBufferedBulkInEnabled { get; set; }
 
     [ObservableProperty]
@@ -55,7 +61,9 @@ public partial class SettingsViewModel : ObservableRecipient
         _themeSelectorService = themeSelectorService;
         _scanTransferSettingsService = scanTransferSettingsService;
         ElementTheme = _themeSelectorService.Theme;
-        VersionDescription = GetVersionDescription();
+        var versionInfo = GetVersionInfo();
+        VersionDescription = versionInfo.VersionDescription;
+        BuildDescription = versionInfo.BuildDescription;
 
         SwitchThemeCommand = new RelayCommand<ElementTheme>(
             async (param) =>
@@ -163,7 +171,7 @@ public partial class SettingsViewModel : ObservableRecipient
     private static bool TryParsePositiveInt(string value, out int parsed)
         => int.TryParse(value, out parsed) && parsed > 0;
 
-    private static string GetVersionDescription()
+    private static (string VersionDescription, string BuildDescription) GetVersionInfo()
     {
         Version version;
 
@@ -178,6 +186,47 @@ public partial class SettingsViewModel : ObservableRecipient
             version = Assembly.GetExecutingAssembly().GetName().Version!;
         }
 
-        return $"{"AppDisplayName".GetLocalized()} - {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        var assembly = Assembly.GetExecutingAssembly();
+        var buildLabel = TryGetBuildLabel(assembly);
+
+        var versionText = $"{"AppDisplayName".GetLocalized()} - {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        if (string.IsNullOrWhiteSpace(buildLabel))
+            return (versionText, string.Empty);
+
+        return string.IsNullOrWhiteSpace(buildLabel)
+            ? (versionText, string.Empty)
+            : (versionText, $"Build - {buildLabel}");
+    }
+
+    partial void OnBuildDescriptionChanged(string value)
+        => BuildVisibility = string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
+
+    private static string? TryGetBuildLabel(Assembly assembly)
+    {
+        var metadataBuildLabel = assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => string.Equals(attribute.Key, "BuildLabel", StringComparison.Ordinal))?
+            .Value;
+
+        if (!string.IsNullOrWhiteSpace(metadataBuildLabel))
+            return metadataBuildLabel;
+
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            var buildLabelStart = informationalVersion.IndexOf('(');
+            var buildLabelEnd = informationalVersion.LastIndexOf(')');
+            if (buildLabelStart >= 0 && buildLabelEnd > buildLabelStart)
+            {
+                var buildText = informationalVersion.Substring(buildLabelStart + 1, buildLabelEnd - buildLabelStart - 1).Trim();
+                if (!string.IsNullOrWhiteSpace(buildText))
+                    return buildText;
+            }
+        }
+
+        return null;
     }
 }

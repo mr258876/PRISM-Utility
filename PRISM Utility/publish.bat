@@ -1,0 +1,1 @@
+dotnet publish ".\PRISMUtility.csproj" -c Release -r win-x64 -p:PublishProfile=win10-x64

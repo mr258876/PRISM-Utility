@@ -18,6 +18,9 @@
 
     <WindowsPackageType>None</WindowsPackageType>
 	<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <BuildDate>$([System.DateTime]::Now.ToString("yyyyMMdd"))</BuildDate>
+    <GitShortSha>unknown</GitShortSha>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,6 +41,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PRISM Utility.Core\PrismUtility.Core.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -51,4 +55,37 @@
   <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
+
+  <Target Name="ResolveGitShortSha" BeforeTargets="GenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short HEAD"
+          ConsoleToMsBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          StandardErrorImportance="Low">
+      <Output TaskParameter="ConsoleOutput" ItemName="GitShortShaOutput" />
+    </Exec>
+
+    <PropertyGroup>
+      <GitShortSha Condition="'@(GitShortShaOutput)' != ''">$([System.String]::Copy('%(GitShortShaOutput.Identity)').Trim())</GitShortSha>
+      <BuildLabel>$(BuildDate)+$(GitShortSha)</BuildLabel>
+      <InformationalVersion>$(Version) ($(BuildLabel))</InformationalVersion>
+      <BuildMetadataFile>$(IntermediateOutputPath)BuildMetadata.g.cs</BuildMetadataFile>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="GenerateBuildMetadataSource" BeforeTargets="CoreCompile" DependsOnTargets="ResolveGitShortSha">
+    <ItemGroup>
+      <BuildMetadataSourceLines Include="// &lt;auto-generated /&gt;" />
+      <BuildMetadataSourceLines Include="[assembly: System.Reflection.AssemblyMetadata(&quot;BuildLabel&quot;, &quot;$(BuildLabel)&quot;)]" />
+    </ItemGroup>
+
+    <WriteLinesToFile
+      File="$(BuildMetadataFile)"
+      Overwrite="true"
+      Lines="@(BuildMetadataSourceLines)" />
+
+    <ItemGroup>
+      <Compile Include="$(BuildMetadataFile)" Visible="false" />
+    </ItemGroup>
+  </Target>
 </Project>
