@@ -1,6 +1,6 @@
-using PRISM_Utility.Models;
+using PRISM_Utility.Core.Models;
 
-namespace PRISM_Utility.Contracts.Services;
+namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface IScanAutoCalibrationService
 {

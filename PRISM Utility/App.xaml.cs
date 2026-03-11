@@ -60,8 +60,10 @@ public partial class App : Application
 
             // Services
             services.AddSingleton<ILocalSettingsService, LocalSettingsService>();
+            services.AddSingleton<IScanTransferSettingsService, ScanTransferSettingsService>();
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
             services.AddSingleton<IUsbService, UsbService>();
+            services.AddSingleton<IUsbUsageCoordinator, UsbUsageCoordinator>();
             services.AddTransient<INavigationViewService, NavigationViewService>();
 
             services.AddSingleton<IActivationService, ActivationService>();
@@ -69,6 +71,8 @@ public partial class App : Application
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddTransient<IScanProtocolService, ScanProtocolService>();
             services.AddTransient<IScanImageDecoder, ScanImageDecoder>();
+            services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
+            services.AddTransient<IScanBufferExportService, ScanBufferExportService>();
             services.AddTransient<IScanParameterService, ScanParameterService>();
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();

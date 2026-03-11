@@ -11,6 +11,7 @@ public interface IUsbService : IDisposable
     IReadOnlyList<UsbInterfaceDto> GetInterfaces(string deviceId, byte configId);
     IReadOnlyList<UsbEndpointDto> GetBulkInEndpoints(string deviceId, byte configId, byte interfaceId, byte altId);
     IReadOnlyList<UsbEndpointDto> GetBulkOutEndpoints(string deviceId, byte configId, byte interfaceId, byte altId);
+    int? GetBulkInMaxTransferSize(string deviceId, byte configId, byte interfaceId, byte altId, byte endpointAddress);
 
     void StartUsbWatcher(Action onDeviceChanged);
     void StopUsbWatcher();
@@ -58,7 +59,9 @@ public interface IUsbService : IDisposable
 public interface IUsbBulkDuplexSession : IDisposable
 {
     Task<(int transferred, byte[] data)> ReadBulkInOnceAsync(int bufferSize, int timeoutMs, CancellationToken ct);
-    Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct);
+    Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null);
+    Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null);
+    int? GetBulkInMaxTransferSize();
     Task<int> WriteBulkOutAsync(byte[] data, int timeoutMs, CancellationToken ct);
 }
 

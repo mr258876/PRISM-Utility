@@ -141,11 +141,53 @@
   <data name="Settings_Theme_Default.Content" xml:space="preserve">
     <value>Default</value>
   </data>
+  <data name="Settings_Scanner.Text" xml:space="preserve">
+    <value>Scanner</value>
+  </data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
+    <value>Multi-buffer bulk IN</value>
+  </data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Settings_RawIoToggleSwitch.Header" xml:space="preserve">
+    <value>Raw I/O</value>
+  </data>
+  <data name="Settings_RawIoToggleSwitch.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Settings_RawIoToggleSwitch.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Settings_RequestBytesTextBox.Header" xml:space="preserve">
+    <value>Request bytes</value>
+  </data>
+  <data name="Settings_RequestBytesTextBox.PlaceholderText" xml:space="preserve">
+    <value>Bytes per in-flight read</value>
+  </data>
+  <data name="Settings_OutstandingReadsTextBox.Header" xml:space="preserve">
+    <value>Outstanding reads</value>
+  </data>
+  <data name="Settings_OutstandingReadsTextBox.PlaceholderText" xml:space="preserve">
+    <value>Concurrent read requests</value>
+  </data>
+  <data name="Settings_TimeoutMsTextBox.Header" xml:space="preserve">
+    <value>Transfer timeout (ms)</value>
+  </data>
+  <data name="Settings_TimeoutMsTextBox.PlaceholderText" xml:space="preserve">
+    <value>Timeout for each read request</value>
+  </data>
+  <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve">
+    <value>Queues multiple concurrent reads on the scan image endpoint to reduce host-side gaps between bulk IN completions and allow scans larger than the single-request 2 MiB limit.</value>
+  </data>
   <data name="Settings_About.Text" xml:space="preserve">
     <value>About this application</value>
   </data>
   <data name="Settings_AboutDescription.Text" xml:space="preserve">
-    <value>TODO: Replace with your app description.</value>
+    <value>github.com/mr258876/PRISM-Utility</value>
   </data>
   <data name="SettingsPage_PrivacyTermsLink.Content" xml:space="preserve">
     <value>Privacy Statement</value>
@@ -187,7 +229,7 @@
     <value>Select or input</value>
   </data>
   <data name="UsbDebug_DeviceBuliInRequestSizeComboBox_HelpText.Text" xml:space="preserve">
-    <value>You may also input a value directly.</value>
+    <value>You may also input a value directly. Maximum 2097152 due to WinUSB.</value>
   </data>
   <data name="UsbDebug_BulkOut.Text" xml:space="preserve">
     <value>Bulk Out</value>
@@ -267,6 +309,33 @@
   <data name="ScanDebug_PreviewToggleSwitch.OffContent" xml:space="preserve">
     <value>Off</value>
   </data>
+  <data name="ScanDebug_ContinuousToggleSwitch.Header" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="ScanDebug_ContinuousToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_ContinuousToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_WaterfallToggleSwitch.Header" xml:space="preserve">
+    <value>Waterfall</value>
+  </data>
+  <data name="ScanDebug_WaterfallToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_WaterfallToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.Header" xml:space="preserve">
+    <value>Compress To One Line</value>
+  </data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
   <data name="ScanDebug_GammaCorrectionToggleSwitch.Header" xml:space="preserve">
     <value>Gamma Correction</value>
   </data>
@@ -338,5 +407,8 @@
   </data>
   <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve">
     <value>Auto Calibrate</value>
+  </data>
+  <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
+    <value>Restore defaults</value>
   </data>
 </root>

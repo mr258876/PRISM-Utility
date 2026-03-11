@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.UI.Xaml.Controls;
 
@@ -13,6 +13,7 @@ public class NavigationViewService : INavigationViewService
     private readonly INavigationService _navigationService;
 
     private readonly IPageService _pageService;
+    private readonly IUsbUsageCoordinator _usbUsageCoordinator;
 
     private NavigationView? _navigationView;
 
@@ -20,10 +21,11 @@ public class NavigationViewService : INavigationViewService
 
     public object? SettingsItem => _navigationView?.SettingsItem;
 
-    public NavigationViewService(INavigationService navigationService, IPageService pageService)
+    public NavigationViewService(INavigationService navigationService, IPageService pageService, IUsbUsageCoordinator usbUsageCoordinator)
     {
         _navigationService = navigationService;
         _pageService = pageService;
+        _usbUsageCoordinator = usbUsageCoordinator;
     }
 
     [MemberNotNull(nameof(_navigationView))]
@@ -55,7 +57,7 @@ public class NavigationViewService : INavigationViewService
 
     private void OnBackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) => _navigationService.GoBack();
 
-    private void OnItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    private async void OnItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (args.IsSettingsInvoked)
         {
@@ -67,9 +69,45 @@ public class NavigationViewService : INavigationViewService
 
             if (selectedItem?.GetValue(NavigationHelper.NavigateToProperty) is string pageKey)
             {
+                if (await IsNavigationBlockedAsync(pageKey))
+                    return;
+
                 _navigationService.NavigateTo(pageKey);
             }
         }
+    }
+
+    private async Task<bool> IsNavigationBlockedAsync(string pageKey)
+    {
+        if (pageKey == typeof(UsbDebugViewModel).FullName && _usbUsageCoordinator.IsScanDebugInUse)
+        {
+            await ShowNavigationBlockedDialogAsync("USB Debugging is unavailable while Scan Debug is connected. Disconnect Scan Debug first.");
+            return true;
+        }
+
+        if (pageKey == typeof(ScanDebugViewModel).FullName && _usbUsageCoordinator.IsUsbDebugInUse)
+        {
+            await ShowNavigationBlockedDialogAsync("Scan Debug is unavailable while USB Debugging is active. Stop USB Debugging first.");
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task ShowNavigationBlockedDialogAsync(string content)
+    {
+        if (_navigationView?.XamlRoot is null)
+            return;
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = _navigationView.XamlRoot,
+            Title = "USB busy",
+            Content = content,
+            CloseButtonText = "OK"
+        };
+
+        await dialog.ShowAsync();
     }
 
     private NavigationViewItem? GetSelectedItem(IEnumerable<object> menuItems, Type pageType)

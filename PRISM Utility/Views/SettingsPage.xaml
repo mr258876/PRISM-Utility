@@ -51,6 +51,38 @@
                 </StackPanel>
             </StackPanel>
 
+            <TextBlock x:Uid="Settings_Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                <ToggleSwitch
+                    x:Uid="Settings_MultiBufferedBulkInToggleSwitch"
+                    IsOn="{x:Bind ViewModel.IsMultiBufferedBulkInEnabled, Mode=TwoWay}" />
+                <ToggleSwitch
+                    x:Uid="Settings_RawIoToggleSwitch"
+                    Margin="0,8,0,0"
+                    IsOn="{x:Bind ViewModel.IsRawIoEnabled, Mode=TwoWay}" />
+                <TextBox
+                    x:Uid="Settings_RequestBytesTextBox"
+                    Margin="0,8,0,0"
+                    Text="{x:Bind ViewModel.MultiBufferedRequestBytes, Mode=TwoWay}" />
+                <TextBox
+                    x:Uid="Settings_OutstandingReadsTextBox"
+                    Margin="0,8,0,0"
+                    Text="{x:Bind ViewModel.MultiBufferedOutstandingReads, Mode=TwoWay}" />
+                <TextBox
+                    x:Uid="Settings_TimeoutMsTextBox"
+                    Margin="0,8,0,0"
+                    Text="{x:Bind ViewModel.MultiBufferedTimeoutMs, Mode=TwoWay}" />
+                <Button
+                    x:Uid="Settings_RestoreScanTransferDefaultsButton"
+                    Margin="0,8,0,0"
+                    Command="{x:Bind ViewModel.RestoreScanTransferDefaultsCommand}" />
+                <TextBlock
+                    x:Uid="Settings_MultiBufferedBulkInDescription"
+                    Margin="0,6,0,0"
+                    Opacity="0.8"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
             <TextBlock x:Uid="Settings_About" Style="{ThemeResource SubtitleTextBlockStyle}" />
 
             <StackPanel Margin="{StaticResource XSmallTopMargin}">

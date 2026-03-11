@@ -1,7 +1,7 @@
-using PRISM_Utility.Contracts.Services;
-using PRISM_Utility.Models;
+using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Models;
 
-namespace PRISM_Utility.Services;
+namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 {
@@ -252,7 +252,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         await session.SetWarmUpEnabledAsync(true, ct);
         await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, onStatus, ct);
-        var baseline = await CaptureStatisticsAsync(session, ScanDebugConstants.MaxRows, "Channel mapping baseline", onStatus, onFrameCaptured, ct);
+        var baseline = await CaptureStatisticsAsync(session, session.SingleTransferMaxRows, "Channel mapping baseline", onStatus, onFrameCaptured, ct);
         await session.SetWarmUpEnabledAsync(false, ct);
 
         var probeOffset = Math.Min(snapshot.Adc1Offset + MappingProbeOffsetStep, 255);
@@ -261,7 +261,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         await session.SetWarmUpEnabledAsync(true, ct);
         await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, onStatus, ct);
-        var probe = await CaptureStatisticsAsync(session, ScanDebugConstants.MaxRows, "Channel mapping probe", onStatus, onFrameCaptured, ct);
+        var probe = await CaptureStatisticsAsync(session, session.SingleTransferMaxRows, "Channel mapping probe", onStatus, onFrameCaptured, ct);
         await session.SetWarmUpEnabledAsync(false, ct);
         await ApplyParametersForCalibrationAsync(session, snapshot, null, ct);
 
@@ -384,7 +384,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private async Task<ScanCalibrationStatistics> CaptureStatisticsAsync(IScanSessionService session, int rows, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke($"{phase}: capturing {rows} rows...");
-        var result = rows > ScanDebugConstants.MaxRows
+        var result = rows > session.SingleTransferMaxRows
             ? await session.StartWarmUpSegmentedScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"))
             : await session.StartScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"));
         if (!result.Success || result.ImageBytes is null)

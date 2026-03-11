@@ -1,7 +1,7 @@
-using PRISM_Utility.Contracts.Services;
-using PRISM_Utility.Models;
+using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Models;
 
-namespace PRISM_Utility.Services;
+namespace PRISM_Utility.Core.Services;
 
 public class ScanImageDecoder : IScanImageDecoder
 {
@@ -50,6 +50,47 @@ public class ScanImageDecoder : IScanImageDecoder
             }
 
             destination.Write(rowPixels, 0, rowPixels.Length);
+        }
+    }
+
+    public void DecodeWaterfallStripToBgra(byte[] lineBuffer, int rows, byte[] destination, bool applyGammaCorrection, double gamma)
+    {
+        var width = GetDecodedPixelsPerLine();
+        if (width <= 0)
+            throw new InvalidOperationException("Decoded preview width is invalid.");
+
+        if (applyGammaCorrection && gamma <= 0)
+            throw new ArgumentOutOfRangeException(nameof(gamma), "Gamma must be greater than zero.");
+
+        ValidateBufferSize(lineBuffer, rows);
+
+        var expectedLength = width * 4;
+        if (destination.Length != expectedLength)
+            throw new ArgumentException($"Waterfall strip buffer size mismatch: expected {expectedLength}, actual {destination.Length}", nameof(destination));
+
+        var columnSums = new ulong[width];
+
+        for (var y = 0; y < rows; y++)
+        {
+            var rowStart = y * ScanDebugConstants.BytesPerLine;
+            var decodeStart = rowStart + ScanDebugConstants.LineBufferMarginLeft;
+            var decodeEndExclusive = rowStart + ScanDebugConstants.BytesPerLine - ScanDebugConstants.LineBufferMarginRight;
+            var pixelIndex = 0;
+
+            for (var i = decodeStart; i + (ScanDebugConstants.PackedGroupBytes - 1) < decodeEndExclusive; i += ScanDebugConstants.PackedGroupBytes)
+            {
+                var pixel0 = (ushort)((lineBuffer[i] << 8) | lineBuffer[i + 2]);
+                var pixel1 = (ushort)((lineBuffer[i + 1] << 8) | lineBuffer[i + 3]);
+
+                columnSums[pixelIndex++] += pixel0;
+                columnSums[pixelIndex++] += pixel1;
+            }
+        }
+
+        for (var x = 0; x < width; x++)
+        {
+            var average = (ushort)(columnSums[x] / (ulong)rows);
+            WriteGrayPixel(destination, x, average, applyGammaCorrection, gamma);
         }
     }
 

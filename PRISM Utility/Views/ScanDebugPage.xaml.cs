@@ -43,6 +43,7 @@ public sealed partial class ScanDebugPage : Page
     {
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
+        ViewModel.NoticeRequested += OnNoticeRequested;
         InitializeZoomScaleComboBox();
         RefreshPreviewLayout();
     }
@@ -51,6 +52,7 @@ public sealed partial class ScanDebugPage : Page
     {
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;
+        ViewModel.NoticeRequested -= OnNoticeRequested;
         await ViewModel.CleanupAsync();
     }
 
@@ -70,6 +72,28 @@ public sealed partial class ScanDebugPage : Page
 
             var result = await dialog.ShowAsync();
             e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);
+        }
+        catch (Exception ex)
+        {
+            e.CompletionSource.TrySetException(ex);
+        }
+    }
+
+    private async void OnNoticeRequested(object? sender, ScanNoticeRequest e)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = e.Title,
+                Content = e.Content,
+                CloseButtonText = e.CloseButtonText,
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            await dialog.ShowAsync();
+            e.CompletionSource.TrySetResult();
         }
         catch (Exception ex)
         {

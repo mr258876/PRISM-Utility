@@ -1,14 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices.WindowsRuntime;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Models;
 using PRISM_Utility.Models;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace PRISM_Utility.ViewModels;
 
@@ -31,6 +31,25 @@ public sealed class ScanCalibrationPromptRequest
     }
 }
 
+public sealed class ScanNoticeRequest
+{
+    public ScanNoticeRequest(string title, string content, string closeButtonText)
+    {
+        Title = title;
+        Content = content;
+        CloseButtonText = closeButtonText;
+        CompletionSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    public string Title { get; }
+
+    public string Content { get; }
+
+    public string CloseButtonText { get; }
+
+    public TaskCompletionSource CompletionSource { get; }
+}
+
 public partial class ScanDebugViewModel : ObservableRecipient
 {
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
@@ -39,7 +58,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
     private readonly IScanImageDecoder _imageDecoder;
+    private readonly IScanPreviewPresenter _previewPresenter;
+    private readonly IScanBufferExportService _bufferExportService;
     private readonly IScanAutoCalibrationService _autoCalibration;
+    private readonly IScanTransferSettingsService _transferSettings;
+    private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly DispatcherQueue _dispatcher;
 
     private CancellationTokenSource? _scanCts;
@@ -47,9 +70,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _hasValidScanBuffer;
     private DateTime _lastApplyParametersAtUtc = DateTime.MinValue;
     private bool _isDisposed;
+    private bool _isMultiBufferedBulkInEnabled;
     private int _previewRows;
 
-    public ObservableCollection<string> RowOptions { get; } = new() { "64", "128" };
+    public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -61,6 +85,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial bool IsPreviewEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsContinuousScanEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsWaterfallEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsWaterfallCompressedEnabled { get; set; }
 
     [ObservableProperty]
     public partial bool IsGammaCorrectionEnabled { get; set; }
@@ -103,6 +136,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string StatusText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsScanReadProgressVisible { get; set; }
+
+    [ObservableProperty]
+    public partial Visibility ScanReadProgressVisibility { get; set; } = Visibility.Collapsed;
+
+    [ObservableProperty]
+    public partial double ScanReadProgressValue { get; set; }
+
+    [ObservableProperty]
+    public partial double ScanReadProgressMaximum { get; set; } = 1;
+
+    partial void OnIsScanReadProgressVisibleChanged(bool value)
+        => ScanReadProgressVisibility = value ? Visibility.Visible : Visibility.Collapsed;
 
     [ObservableProperty]
     public partial WriteableBitmap? PreviewImage { get; set; }
@@ -159,15 +207,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
-    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanAutoCalibrationService autoCalibration)
+    public event EventHandler<ScanNoticeRequest>? NoticeRequested;
+
+    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanTransferSettingsService transferSettings, IUsbUsageCoordinator usbUsageCoordinator)
     {
         _session = session;
         _parameters = parameters;
         _imageDecoder = imageDecoder;
+        _previewPresenter = previewPresenter;
+        _bufferExportService = bufferExportService;
         _autoCalibration = autoCalibration;
+        _transferSettings = transferSettings;
+        _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         SelectedRows = "128";
         IsPreviewEnabled = true;
+        IsWaterfallCompressedEnabled = true;
         IsGammaCorrectionEnabled = true;
         PreviewGamma = DefaultPreviewGamma.ToString("0.0");
         StatusText = "Waiting for scanner devices...";
@@ -185,10 +240,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         SysClockMhzDisplay = "System clock: -";
 
         _session.TargetsChanged += OnSessionTargetsChanged;
+        _transferSettings.BulkInReadModeChanged += OnTransferSettingsChanged;
         _session.RefreshTargets();
         UpdateComputedParameterDisplays();
         RefreshPreviewSelectionState();
         RefreshTargets();
+        _ = InitializeTransferSettingsAsync();
     }
 
     partial void OnExposureTicksChanged(string value)
@@ -215,6 +272,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     partial void OnSelectedRowsChanged(string value)
         => RefreshPreviewSelectionState();
 
+    partial void OnIsRunningChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
     partial void OnIsPreviewEnabledChanged(bool value)
     {
         OnPropertyChanged(nameof(IsPreviewToggleEnabled));
@@ -224,6 +284,26 @@ public partial class ScanDebugViewModel : ObservableRecipient
             ClearPreview();
         else if (_hasValidScanBuffer && _previewRows > 0 && !IsPreviewForcedOffForRows(_previewRows))
             RenderPreview(_previewRows);
+    }
+
+    partial void OnIsWaterfallEnabledChanged(bool value)
+    {
+        _previewPresenter.Reset();
+
+        if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || IsPreviewForcedOffForRows(_previewRows))
+            return;
+
+        RenderPreview(_previewRows);
+    }
+
+    partial void OnIsWaterfallCompressedEnabledChanged(bool value)
+    {
+        _previewPresenter.Reset();
+
+        if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || !IsWaterfallEnabled || IsPreviewForcedOffForRows(_previewRows))
+            return;
+
+        RenderPreview(_previewRows);
     }
 
     partial void OnIsGammaCorrectionEnabledChanged(bool value)
@@ -249,8 +329,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public bool IsPreviewEnabledForCurrentRows => IsPreviewEnabled && !IsPreviewForcedOffForSelectedRows();
 
+    public bool AreScanAcquisitionSettingsEditable => !IsRunning;
+
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
+
+    private void OnTransferSettingsChanged(object? sender, EventArgs e)
+        => _dispatcher.TryEnqueue(() =>
+        {
+            _isMultiBufferedBulkInEnabled = _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered;
+            StartScanCommand.NotifyCanExecuteChanged();
+        });
 
     private void RefreshTargets()
     {
@@ -300,21 +389,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         try
         {
-            var picker = new FileSavePicker();
-            picker.FileTypeChoices.Add("Binary file", new List<string> { ".bin" });
-            picker.SuggestedFileName = BuildExportBufferFileName();
-
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-            var file = await picker.PickSaveFileAsync();
+            var file = await _bufferExportService.PickExportFileAsync(BuildExportBufferFileName());
             if (file is null)
             {
                 StatusText = "Export canceled.";
                 return;
             }
 
-            await FileIO.WriteBytesAsync(file, _lineBuffer);
+            await _bufferExportService.WriteBufferAsync(file, _lineBuffer);
             StatusText = $"Buffer exported: {_lineBuffer.Length} bytes -> {file.Path}";
         }
         catch (Exception ex)
@@ -326,6 +408,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
     {
+        if (_usbUsageCoordinator.IsUsbDebugInUse)
+        {
+            await RequestNoticeAsync(
+                "USB busy",
+                "Scan Debug is unavailable while USB Debugging is active. Stop USB Debugging first.",
+                "OK");
+            StatusText = "USB Debugging is active. Stop it before connecting Scan Debug.";
+            return;
+        }
+
         IsConnecting = true;
         try
         {
@@ -337,9 +429,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
 
             IsConnected = true;
+            _usbUsageCoordinator.SetScanDebugInUse(true);
             StatusText = "Scanner sessions connected. Loading parameters...";
 
-            var snapshot = await _parameters.LoadAsync(_session, _session.Session.ConnectionToken);
+            var snapshot = await _parameters.LoadAsync(_session, _session.ConnectionToken);
             ExposureTicks = snapshot.ExposureTicks.ToString();
             Adc1Offset = _parameters.FormatOffsetForInput(snapshot.Adc1Offset);
             Adc1Gain = snapshot.Adc1Gain.ToString();
@@ -352,7 +445,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             if (IsWarmUpEnabled)
             {
-                var warmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.Session.ConnectionToken);
+                var warmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.ConnectionToken);
                 StatusText = warmUpResult.Success
                     ? "Scanner sessions connected. Parameters loaded. Warm-up enabled."
                     : $"Scanner sessions connected. Parameters loaded, but warm-up failed: {warmUpResult.Message}";
@@ -382,6 +475,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _scanCts?.Cancel();
             await _session.DisconnectAsync();
             IsConnected = false;
+            _usbUsageCoordinator.SetScanDebugInUse(false);
             StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
         }
         finally
@@ -421,7 +515,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             StatusText = "Applying scan parameters...";
-            await _parameters.ApplyAsync(_session, snapshot, _session.Session.ConnectionToken);
+            await _parameters.ApplyAsync(_session, snapshot, _session.ConnectionToken);
             StatusText = "Parameters updated successfully.";
         }
         catch (OperationCanceledException)
@@ -453,11 +547,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task StartScan()
     {
+        await Task.Yield();
+
         if (!TryParseRequestedRows(out var rows))
         {
+            var singleTransferMaxRows = _session.SingleTransferMaxRows;
             StatusText = IsWarmUpEnabled
                 ? "Rows must be a positive number when warm-up is enabled."
-                : $"Rows must be a number in [1, {ScanDebugConstants.MaxRows}].";
+                : $"Rows must be a number in [1, {singleTransferMaxRows}].";
+            return;
+        }
+
+        if (rows > _session.SingleTransferMaxRows && !CanRunExtendedScan())
+        {
+            await RequestNoticeAsync(
+                "Rows limit exceeded",
+                $"Rows greater than {_session.SingleTransferMaxRows} require both Multi-buffer bulk IN and Raw I/O to be enabled in Settings.",
+                "OK");
+            StatusText = $"Rows above {_session.SingleTransferMaxRows} require Multi-buffer bulk IN and Raw I/O.";
             return;
         }
 
@@ -469,40 +576,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         _scanCts = new CancellationTokenSource();
         IsRunning = true;
-        StatusText = "Starting scan...";
+        IsScanReadProgressVisible = true;
+        ScanReadProgressValue = 0;
+        ScanReadProgressMaximum = Math.Max(1, rows * ScanDebugConstants.BytesPerLine);
+        StatusText = IsContinuousScanEnabled ? "Starting continuous scan..." : "Starting scan...";
 
         try
         {
-            var result = await RunScanAsync(rows, _scanCts.Token);
-
-            StatusText = result.Message;
-            if (!result.Success || result.ImageBytes is null)
-                return;
-
-            _lineBuffer = result.ImageBytes;
-            _previewRows = rows;
-            _hasValidScanBuffer = true;
-            ExportBufferCommand.NotifyCanExecuteChanged();
-
-            if (IsPreviewForcedOffForRows(rows))
-            {
-                ClearPreview();
-                StatusText = $"{result.Message} Preview skipped automatically for scans over {ScanDebugConstants.MaxPreviewRows} rows.";
-                return;
-            }
-
-            if (!IsPreviewEnabled)
-            {
-                ClearPreview();
-                StatusText = $"{result.Message} Preview skipped.";
-                return;
-            }
-
-            RenderPreview(rows);
+            if (IsContinuousScanEnabled)
+                await RunContinuousScanLoopAsync(rows, _scanCts.Token);
+            else
+                await RunSingleScanAsync(rows, _scanCts.Token);
         }
         finally
         {
             IsRunning = false;
+            IsScanReadProgressVisible = false;
             _scanCts?.Dispose();
             _scanCts = null;
         }
@@ -514,9 +603,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!IsRunning)
             return;
 
-        var result = await _session.StopScanAsync(CancellationToken.None);
-        StatusText = result.Message;
         _scanCts?.Cancel();
+        var result = await _session.StopScanAsync(CancellationToken.None);
+        StatusText = result.Success ? "Stop requested." : result.Message;
     }
 
     private bool TryParseRows(out int rows)
@@ -524,7 +613,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!int.TryParse(SelectedRows, out rows))
             return false;
 
-        return rows > 0 && rows <= ScanDebugConstants.MaxRows;
+        if (CanRunExtendedScan())
+            return rows > 0;
+
+        return rows > 0 && rows <= _session.SingleTransferMaxRows;
     }
 
     private bool TryParseRequestedRows(out int rows)
@@ -535,25 +627,91 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (IsWarmUpEnabled)
             return rows > 0;
 
-        return rows > 0 && rows <= ScanDebugConstants.MaxRows;
+        if (CanRunExtendedScan())
+            return rows > 0;
+
+        return rows > 0 && rows <= _session.SingleTransferMaxRows;
     }
 
     private async Task<ScanStartResult> RunScanAsync(int rows, CancellationToken ct)
     {
-        if (!IsWarmUpEnabled || rows <= ScanDebugConstants.MaxRows)
+        if (CanRunExtendedScan() || !IsWarmUpEnabled || rows <= _session.SingleTransferMaxRows)
         {
             return await _session.StartScanAsync(
                 rows,
                 ct,
                 status => _dispatcher.TryEnqueue(() => StatusText = status),
-                diagnostic => Debug.WriteLine(diagnostic));
+                diagnostic => Debug.WriteLine(diagnostic),
+                ReportScanReadProgress);
         }
 
         return await _session.StartWarmUpSegmentedScanAsync(
             rows,
             ct,
             status => _dispatcher.TryEnqueue(() => StatusText = status),
-            diagnostic => Debug.WriteLine(diagnostic));
+            diagnostic => Debug.WriteLine(diagnostic),
+            ReportScanReadProgress);
+    }
+
+    private async Task RunSingleScanAsync(int rows, CancellationToken ct)
+    {
+        var result = await RunScanAsync(rows, ct);
+
+        StatusText = result.Message;
+        if (!result.Success || result.ImageBytes is null)
+            return;
+
+        ApplyScanFrame(result.ImageBytes, rows, result.Message);
+    }
+
+    private async Task RunContinuousScanLoopAsync(int rows, CancellationToken ct)
+    {
+        var frameCount = 0;
+        while (!ct.IsCancellationRequested)
+        {
+            var result = await RunScanAsync(rows, ct);
+            if (!result.Success)
+            {
+                StatusText = result.Message;
+                return;
+            }
+
+            if (result.ImageBytes is null)
+            {
+                StatusText = "Continuous scan completed without image data.";
+                return;
+            }
+
+            frameCount++;
+            ApplyScanFrame(result.ImageBytes, rows, $"Continuous preview updated ({frameCount}).");
+        }
+    }
+
+    private void ApplyScanFrame(byte[] imageBytes, int rows, string successStatus)
+    {
+        _lineBuffer = imageBytes;
+        _previewRows = rows;
+        _hasValidScanBuffer = true;
+        ExportBufferCommand.NotifyCanExecuteChanged();
+
+        if (IsPreviewForcedOffForRows(rows))
+        {
+            ClearPreview();
+            StatusText = $"{successStatus} Preview skipped automatically for scans over {ScanDebugConstants.MaxPreviewRows} rows.";
+            return;
+        }
+
+        if (!IsPreviewEnabled)
+        {
+            ClearPreview();
+            StatusText = $"{successStatus} Preview skipped.";
+            return;
+        }
+
+        if (!RenderPreview(rows))
+            return;
+
+        StatusText = successStatus;
     }
 
     private async Task HandleWarmUpToggleChangedAsync(bool enabled)
@@ -571,7 +729,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         try
         {
-            var result = await _session.SetWarmUpEnabledAsync(enabled, _session.Session.ConnectionToken);
+            var result = await _session.SetWarmUpEnabledAsync(enabled, _session.ConnectionToken);
             StatusText = result.Message;
         }
         catch (OperationCanceledException)
@@ -633,6 +791,57 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return request.CompletionSource.Task;
     }
 
+    private Task RequestNoticeAsync(string title, string content, string closeButtonText)
+    {
+        var request = new ScanNoticeRequest(title, content, closeButtonText);
+        NoticeRequested?.Invoke(this, request);
+        return request.CompletionSource.Task;
+    }
+
+    private bool CanRunExtendedScan() =>
+        _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered &&
+        _transferSettings.Settings.RawIoEnabled;
+
+    private void ReportScanReadProgress(int transferredBytes, int totalBytes)
+        => _dispatcher.TryEnqueue(() =>
+        {
+            IsScanReadProgressVisible = true;
+            ScanReadProgressMaximum = Math.Max(1, totalBytes);
+            ScanReadProgressValue = Math.Clamp(transferredBytes, 0, totalBytes);
+        });
+
+    private async Task InitializeTransferSettingsAsync()
+    {
+        await _transferSettings.InitializeAsync();
+        await EnqueueOnUiAsync(() =>
+        {
+            _isMultiBufferedBulkInEnabled = _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered;
+            StartScanCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private Task EnqueueOnUiAsync(Action action)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_dispatcher.TryEnqueue(() =>
+            {
+                try
+                {
+                    action();
+                    completion.SetResult();
+                }
+                catch (Exception ex)
+                {
+                    completion.SetException(ex);
+                }
+            }))
+        {
+            completion.SetException(new InvalidOperationException("Failed to dispatch work to the UI thread."));
+        }
+
+        return completion.Task;
+    }
+
     private void ApplySnapshotToInputs(ScanParameterSnapshot snapshot)
     {
         ExposureTicks = snapshot.ExposureTicks.ToString();
@@ -646,26 +855,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void ShowCalibrationFrame(byte[] imageBytes, int rows, string phase)
     {
-        _lineBuffer = imageBytes;
-        _previewRows = rows;
-        _hasValidScanBuffer = true;
-        ExportBufferCommand.NotifyCanExecuteChanged();
-
-        if (IsPreviewForcedOffForRows(rows) || !IsPreviewEnabled)
-        {
-            ClearPreview();
-            return;
-        }
-
-        RenderPreview(rows);
-        StatusText = $"{phase}: preview updated.";
+        ApplyScanFrame(imageBytes, rows, $"{phase}: preview updated.");
     }
 
     public bool TryGetPreviewSample16(int x, int y, out ushort sample)
     {
         sample = 0;
 
-        if (!_hasValidScanBuffer || PreviewImage is null || _lineBuffer.Length == 0 || !IsPreviewEnabled)
+        if (!_hasValidScanBuffer || PreviewImage is null || _lineBuffer.Length == 0 || !IsPreviewEnabled || IsWaterfallEnabled)
             return false;
 
         if (x < 0 || y < 0 || x >= PreviewImage.PixelWidth || y >= PreviewImage.PixelHeight)
@@ -675,10 +872,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private string BuildExportBufferFileName()
-    {
-        var rowsText = int.TryParse(SelectedRows, out var rows) ? rows.ToString() : "unknown";
-        return $"scan_{DateTime.Now:yyyyMMdd_HHmmss}_rows{rowsText}_bytes{_lineBuffer.Length}";
-    }
+        => _bufferExportService.BuildExportBufferFileName(SelectedRows, _lineBuffer.Length, DateTimeOffset.Now);
 
     private void UpdateComputedParameterDisplays()
     {
@@ -691,44 +885,31 @@ public partial class ScanDebugViewModel : ObservableRecipient
         SysClockMhzDisplay = displays.SysClockMhzDisplay;
     }
 
-    private void RenderPreview(int rows)
+    private bool RenderPreview(int rows)
     {
-        if (!TryGetPreviewGamma(out var gamma, out var gammaError))
+        var gamma = 1.0;
+        if (IsGammaCorrectionEnabled && !double.TryParse(PreviewGamma, out gamma))
+            gamma = double.NaN;
+
+        if (!_previewPresenter.TryRender(
+                _lineBuffer,
+                rows,
+                new ScanPreviewRenderOptions(IsWaterfallEnabled, IsWaterfallCompressedEnabled, IsGammaCorrectionEnabled, gamma),
+                PreviewImage,
+                out var bitmap,
+                out var error))
         {
-            StatusText = gammaError;
-            return;
-        }
-
-        var previewWidth = _imageDecoder.GetDecodedPixelsPerLine();
-        if (PreviewImage is null || PreviewImage.PixelWidth != previewWidth || PreviewImage.PixelHeight != rows)
-            PreviewImage = new WriteableBitmap(previewWidth, rows);
-
-        using var stream = PreviewImage.PixelBuffer.AsStream();
-        _imageDecoder.DecodeToBgra(_lineBuffer, rows, stream, IsGammaCorrectionEnabled, gamma);
-        PreviewImage.Invalidate();
-    }
-
-    private bool TryGetPreviewGamma(out double gamma, out string error)
-    {
-        error = string.Empty;
-
-        if (!IsGammaCorrectionEnabled)
-        {
-            gamma = 1.0;
-            return true;
-        }
-
-        if (!double.TryParse(PreviewGamma, out gamma) || double.IsNaN(gamma) || double.IsInfinity(gamma) || gamma <= 0)
-        {
-            error = "Gamma must be a number greater than 0.";
+            StatusText = error;
             return false;
         }
 
+        PreviewImage = bitmap;
         return true;
     }
 
     private void ClearPreview()
     {
+        _previewPresenter.Reset();
         PreviewImage = null;
     }
 
@@ -751,8 +932,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         _isDisposed = true;
         _scanCts?.Cancel();
+
+        if (IsConnected && IsWarmUpEnabled)
+        {
+            try
+            {
+                await _session.SetWarmUpEnabledAsync(false, CancellationToken.None);
+            }
+            catch
+            {
+            }
+        }
+
         await _session.DisconnectAsync();
+        _usbUsageCoordinator.SetScanDebugInUse(false);
         _session.TargetsChanged -= OnSessionTargetsChanged;
+        _transferSettings.BulkInReadModeChanged -= OnTransferSettingsChanged;
         IsConnected = false;
         IsConnecting = false;
         IsRunning = false;

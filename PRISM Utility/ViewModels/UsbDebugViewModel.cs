@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
+using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Models;
 using PRISM_Utility.Core.Contracts.Services;
 
@@ -15,6 +16,7 @@ public sealed record DialogRequest(string Title, string Content);
 public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 {
     private readonly IUsbService _usb;
+    private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly DispatcherQueue _dispatcher;
 
     public ObservableCollection<UsbDeviceDto> UsbDevices { get; } = new();
@@ -60,17 +62,21 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     private void RequestDialog(string title, string content)
         => DialogRequested?.Invoke(this, new DialogRequest(title, content));
 
-    public UsbDebugViewModel(IUsbService usb)
+    public UsbDebugViewModel(IUsbService usb, IUsbUsageCoordinator usbUsageCoordinator)
     {
         _usb = usb;
+        _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         SelectedBulkInSize = "4096";
         BulkOutText = string.Empty;
         LogText = string.Empty;
 
-        _usb.DevicesChanged += (_, __) => _dispatcher.TryEnqueue(RefreshDeviceList);
+        _usb.DevicesChanged += OnUsbDevicesChanged;
         RefreshDeviceList();
     }
+
+    private void OnUsbDevicesChanged(object? sender, EventArgs e)
+        => _dispatcher.TryEnqueue(RefreshDeviceList);
 
     private void RefreshDeviceList()
     {
@@ -207,6 +213,12 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             return;
         }
 
+        if (_usbUsageCoordinator.IsScanDebugInUse)
+        {
+            RequestDialog("USB busy", "USB Debugging is unavailable while Scan Debug is connected. Disconnect Scan Debug first.");
+            return;
+        }
+
         if (!int.TryParse(SelectedBulkInSize, out var size) || size <= 0) return;
 
         _bulkInCts = new CancellationTokenSource();
@@ -236,6 +248,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
                 _runningBulkInOutEndpoint);
 
             IsBulkInRunning = true;
+            _usbUsageCoordinator.SetUsbDebugInUse(true);
             IsBulkInStopping = false;
             AppendLog("Bulk IN started.");
 
@@ -265,6 +278,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 
             IsBulkInStopping = false;
             IsBulkInRunning = false;
+            _usbUsageCoordinator.SetUsbDebugInUse(false);
             AppendLog("Bulk IN stopped.");
         }
     }
@@ -411,7 +425,8 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         _bulkInCts?.Cancel();
         _bulkInSession?.Dispose();
-        _usb.Dispose();
+        _usbUsageCoordinator.SetUsbDebugInUse(false);
+        _usb.DevicesChanged -= OnUsbDevicesChanged;
     }
 
     private sealed record UsbPipeSelection(string DeviceId, byte ConfigId, byte InterfaceId, byte AltId, byte EndpointAddress);

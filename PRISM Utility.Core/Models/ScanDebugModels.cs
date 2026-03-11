@@ -1,6 +1,6 @@
 using PRISM_Utility.Core.Contracts.Services;
 
-namespace PRISM_Utility.Models;
+namespace PRISM_Utility.Core.Models;
 
 public static class ScanDebugConstants
 {
@@ -17,6 +17,7 @@ public static class ScanDebugConstants
     public const int PackedGroupPixels = 2;
     public const int MaxRows = 137;
     public const int MaxPreviewRows = 4096;
+    public const int WaterfallPreviewHeight = 512;
     public const int CalibrationSampleRows = 512;
     public const int ShieldPixelStart = 26;
     public const int ShieldPixelEnd = 115;
@@ -53,6 +54,9 @@ public static class ScanDebugConstants
     public const int ImagePreStartDrainSliceTimeoutMs = 80;
     public const int ImageReadArmDelayMs = 30;
     public const int ImageReadArmMaxAttempts = 4;
+    public const int ImageMultiBufferRequestLines = 16;
+    public const int ImageMultiBufferRequestBytes = BytesPerLine * ImageMultiBufferRequestLines;
+    public const int ImageMultiBufferOutstandingReads = 8;
 
     public const byte HostFrameSof = 0xA5;
     public const byte DeviceFrameSof = 0x5A;
@@ -105,5 +109,3 @@ public sealed record ScanCalibrationStatistics(
 public sealed record ScanChannelMapping(bool IsAdc1Even, double Adc1Delta, double Adc2Delta);
 
 public sealed record UsbPipeSelection(string DeviceId, byte ConfigId, byte InterfaceId, byte AltId, byte EndpointAddress);
-
-public sealed record ScanSessionSnapshot(bool IsConnected, IUsbBulkDuplexSession? ControlSession, CancellationToken ConnectionToken);
