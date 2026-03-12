@@ -33,6 +33,7 @@ public static class ScanDebugConstants
     public const int StartScanDoneAckWaitAfterImageMs = 5000;
     public const int AckReadSliceTimeoutMs = 1000;
     public const int AckReadChunkSize = 64;
+    public const int ControlFrameMaxPayloadBytes = 64;
     public const int PreScanAckDrainWindowMs = 1000;
     public const int SetRowsAckTotalTimeoutMs = 4000;
     public const int StopAckTotalTimeoutMs = 4000;

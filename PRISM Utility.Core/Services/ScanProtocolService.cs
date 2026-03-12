@@ -183,13 +183,26 @@ public class ScanProtocolService : IScanProtocolService
             if (headerIndex > 0)
                 ackReadBuffer.RemoveRange(0, headerIndex);
 
-            if (ackReadBuffer.Count < 4)
+            if (ackReadBuffer.Count < 5)
                 break;
 
-            if (TryParseU16LengthFrame(ackReadBuffer, out frame))
-                return true;
+            var payloadLength = ackReadBuffer[3] | (ackReadBuffer[4] << 8);
+            if (payloadLength > ScanDebugConstants.ControlFrameMaxPayloadBytes)
+            {
+                ackReadBuffer.RemoveAt(0);
+                continue;
+            }
 
-            break;
+            var frameLength = 5 + payloadLength;
+            if (ackReadBuffer.Count < frameLength)
+                break;
+
+            var opcode = ackReadBuffer[1];
+            var status = ackReadBuffer[2];
+            var payload = ackReadBuffer.GetRange(5, payloadLength).ToArray();
+            ackReadBuffer.RemoveRange(0, frameLength);
+            frame = new ScanControlFrame(opcode, status, payload);
+            return true;
         }
 
         frame = default!;
@@ -201,24 +214,4 @@ public class ScanProtocolService : IScanProtocolService
         frame[2] = (byte)(payloadLength & 0xFF);
         frame[3] = (byte)(payloadLength >> 8);
     }
-
-    private static bool TryParseU16LengthFrame(List<byte> ackReadBuffer, out ScanControlFrame frame)
-    {
-        frame = default!;
-        if (ackReadBuffer.Count < 5)
-            return false;
-
-        var payloadLength = ackReadBuffer[3] | (ackReadBuffer[4] << 8);
-        var frameLength = 5 + payloadLength;
-        if (ackReadBuffer.Count < frameLength)
-            return false;
-
-        var opcode = ackReadBuffer[1];
-        var status = ackReadBuffer[2];
-        var payload = ackReadBuffer.GetRange(5, payloadLength).ToArray();
-        ackReadBuffer.RemoveRange(0, frameLength);
-        frame = new ScanControlFrame(opcode, status, payload);
-        return true;
-    }
-
 }
