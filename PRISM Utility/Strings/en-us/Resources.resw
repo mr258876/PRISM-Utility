@@ -358,7 +358,7 @@
     <value>Scanner Parameters</value>
   </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
-    <value>Exposure time = (([ticks] + 1) * 12 + 45636) * 8 ns</value>
+    <value>Exposure time = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>Exposure Ticks</value>
@@ -394,7 +394,7 @@
     <value>System Clock (kHz)</value>
   </data>
   <data name="ScanDebug_SysClockKhzTextBox.PlaceholderText" xml:space="preserve">
-    <value>125000-200000</value>
+    <value>>=30000</value>
   </data>
   <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve">
     <value>Apply Parameters</value>

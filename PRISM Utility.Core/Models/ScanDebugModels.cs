@@ -24,9 +24,8 @@ public static class ScanDebugConstants
     public const int EffectivePixelStart = 128;
     public const int EffectivePixelEnd = 7577;
     public const int WhiteProbeSampleRows = 512;
-    public const ushort MinExposureTicks = 10;
-    public const uint MinSysClockKhz = 125_000;
-    public const uint MaxSysClockKhz = 200_000;
+    public const ushort MinExposureTicks = 0;
+    public const uint MinSysClockKhz = 30_000;
 
     public const int AckTimeoutMs = 2000;
     public const int ImageReadTimeoutMs = 30000;

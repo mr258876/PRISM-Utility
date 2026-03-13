@@ -101,7 +101,10 @@
                         <TextBox
                         x:Uid="ScanDebug_ExposureTextBox"
                         Text="{x:Bind ViewModel.ExposureTicks, Mode=TwoWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.ExposureTimeDisplay, Mode=OneWay}" Opacity="0.8" />
+                        <TextBlock
+                            Text="{x:Bind ViewModel.ExposureTimeDisplay, Mode=OneWay}"
+                            Opacity="0.8"
+                            TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">

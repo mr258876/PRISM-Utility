@@ -52,7 +52,7 @@ public class ScanParameterService : IScanParameterService
 
     public ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz)
     {
-        var exposureDisplay = BuildExposureDisplay(exposureTicks);
+        var exposureDisplay = BuildExposureDisplay(exposureTicks, sysClockKhz);
         var adc1OffsetDisplay = BuildOffsetDisplay(adc1Offset);
         var adc2OffsetDisplay = BuildOffsetDisplay(adc2Offset);
         var adc1GainDisplay = BuildGainDisplay(adc1Gain);
@@ -177,9 +177,9 @@ public class ScanParameterService : IScanParameterService
     private static bool TryParseSysClockKhz(string text, string fieldName, out uint value, out string error)
     {
         value = 0;
-        if (!uint.TryParse(text, out var parsed) || parsed < ScanDebugConstants.MinSysClockKhz || parsed > ScanDebugConstants.MaxSysClockKhz)
+        if (!uint.TryParse(text, out var parsed) || parsed < ScanDebugConstants.MinSysClockKhz)
         {
-            error = $"{fieldName} must be an integer in [{ScanDebugConstants.MinSysClockKhz}, {ScanDebugConstants.MaxSysClockKhz}].";
+            error = $"{fieldName} must be an integer greater than or equal to {ScanDebugConstants.MinSysClockKhz}.";
             return false;
         }
 
@@ -202,14 +202,17 @@ public class ScanParameterService : IScanParameterService
         return (ushort)(signBit | magnitude);
     }
 
-    private static string BuildExposureDisplay(string exposureText)
+    private static string BuildExposureDisplay(string exposureText, string sysClockKhzText)
     {
-        if (!ushort.TryParse(exposureText, out var ticks))
+        if (!ushort.TryParse(exposureText, out var ticks)
+            || !uint.TryParse(sysClockKhzText, out var sysClockKhz)
+            || sysClockKhz == 0)
             return "Exposure time: -";
 
-        var exposureNs = (((ticks + 1.0) * 12.0) + 45636.0) * 8.0;
+        var exposureNs = (45827.0 + (ticks * 6.0)) * (1_000_000.0 / sysClockKhz);
         var exposureUs = exposureNs / 1000.0;
-        return $"Exposure time: {exposureNs:0.##} ns ({exposureUs:0.###} us)";
+        var reciprocalSeconds = 1_000_000_000.0 / exposureNs;
+        return $"Exposure time: {exposureNs:0.##} ns ({exposureUs:0.###} us, 1/{reciprocalSeconds:0.###} s)";
     }
 
     private static string BuildOffsetDisplay(string offsetText)

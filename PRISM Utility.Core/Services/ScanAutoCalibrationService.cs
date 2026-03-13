@@ -76,7 +76,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             {
                 onStatus?.Invoke($"Auto black: iteration {iteration}/{MaxBlackIterations} sampling...");
                 await session.SetWarmUpEnabledAsync(true, ct);
-                await WaitForWarmUpSettlingAsync(working.ExposureTicks, onStatus, ct);
+                await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
 
                 var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, $"Auto black iteration {iteration}", onStatus, onFrameCaptured, ct);
                 await session.SetWarmUpEnabledAsync(false, ct);
@@ -151,9 +151,9 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
             onStatus?.Invoke("Auto white: probing overexposure range...");
             var probeExposure = await ProbeSaturationExposureAsync(session, working, onStatus, onFrameCaptured, ct);
-            onStatus?.Invoke($"Auto white: saturation starts around exposure ticks {probeExposure} ({FormatExposureTime(probeExposure)}).");
+            onStatus?.Invoke($"Auto white: saturation starts around exposure ticks {probeExposure} ({FormatExposureTime(probeExposure, working.SysClockKhz)}).");
 
-            var seededGain = SelectGainFromExposureRatio(originalExposure, probeExposure, WhiteExposureSafetyFactor);
+            var seededGain = SelectGainFromExposureRatio(originalExposure, probeExposure, working.SysClockKhz, WhiteExposureSafetyFactor);
             if (seededGain > 0)
             {
                 working = working with { Adc1Gain = seededGain, Adc2Gain = seededGain };
@@ -171,7 +171,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             {
                 onStatus?.Invoke($"Auto white: iteration {iteration}/{MaxWhiteIterations} sampling...");
                 await session.SetWarmUpEnabledAsync(true, ct);
-                await WaitForWarmUpSettlingAsync(working.ExposureTicks, onStatus, ct);
+                await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
 
                 var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, $"Auto white iteration {iteration}", onStatus, onFrameCaptured, ct);
                 await session.SetWarmUpEnabledAsync(false, ct);
@@ -219,18 +219,18 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     {
         var exposure = (ushort)Math.Max(snapshot.ExposureTicks, ScanDebugConstants.MinExposureTicks);
         var lastExposure = exposure;
-        var exposureNs = ExposureTicksToNanoseconds(exposure);
+        var exposureNs = ExposureTicksToNanoseconds(exposure, snapshot.SysClockKhz);
 
         for (var step = 1; step <= 6; step++)
         {
             var probeSnapshot = snapshot with { ExposureTicks = exposure, Adc1Gain = 0, Adc2Gain = 0 };
             await ApplyParametersForCalibrationAsync(session, probeSnapshot, null, ct);
             await session.SetWarmUpEnabledAsync(true, ct);
-            await WaitForWarmUpSettlingAsync(exposure, onStatus, ct);
+            await WaitForWarmUpSettlingAsync(exposure, snapshot.SysClockKhz, onStatus, ct);
             var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.WhiteProbeSampleRows, $"White probe step {step}", onStatus, onFrameCaptured, ct);
             await session.SetWarmUpEnabledAsync(false, ct);
 
-            onStatus?.Invoke($"Auto white: probe exposure={exposure} ({FormatExposureTime(exposure)}), mean={stats.EffectiveMean:0.0}, sat-ratio={stats.SaturationRatio:P3}");
+            onStatus?.Invoke($"Auto white: probe exposure={exposure} ({FormatExposureTime(exposure, snapshot.SysClockKhz)}), mean={stats.EffectiveMean:0.0}, sat-ratio={stats.SaturationRatio:P3}");
             lastExposure = exposure;
 
             if (stats.SaturationRatio >= SaturationRatioLimit)
@@ -240,7 +240,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                 break;
 
             exposureNs *= 2.0;
-            exposure = NanosecondsToExposureTicks(exposureNs);
+            exposure = NanosecondsToExposureTicks(exposureNs, snapshot.SysClockKhz);
         }
 
         return lastExposure;
@@ -251,7 +251,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         onStatus?.Invoke("Auto calibration: detecting ADC/pixel mapping...");
 
         await session.SetWarmUpEnabledAsync(true, ct);
-        await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, onStatus, ct);
+        await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, snapshot.SysClockKhz, onStatus, ct);
         var baseline = await CaptureStatisticsAsync(session, session.SingleTransferMaxRows, "Channel mapping baseline", onStatus, onFrameCaptured, ct);
         await session.SetWarmUpEnabledAsync(false, ct);
 
@@ -260,7 +260,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         await ApplyParametersForCalibrationAsync(session, probeSnapshot, null, ct);
 
         await session.SetWarmUpEnabledAsync(true, ct);
-        await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, onStatus, ct);
+        await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, snapshot.SysClockKhz, onStatus, ct);
         var probe = await CaptureStatisticsAsync(session, session.SingleTransferMaxRows, "Channel mapping probe", onStatus, onFrameCaptured, ct);
         await session.SetWarmUpEnabledAsync(false, ct);
         await ApplyParametersForCalibrationAsync(session, snapshot, null, ct);
@@ -282,7 +282,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         for (var iteration = 1; iteration <= MaxChannelBalanceIterations; iteration++)
         {
             await session.SetWarmUpEnabledAsync(true, ct);
-            await WaitForWarmUpSettlingAsync(working.ExposureTicks, onStatus, ct);
+            await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
             var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, $"White channel balance {iteration}", onStatus, onFrameCaptured, ct);
             await session.SetWarmUpEnabledAsync(false, ct);
 
@@ -334,7 +334,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         for (var iteration = 1; iteration <= MaxOffsetBalanceIterations; iteration++)
         {
             await session.SetWarmUpEnabledAsync(true, ct);
-            await WaitForWarmUpSettlingAsync(working.ExposureTicks, onStatus, ct);
+            await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
             var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, $"White offset balance {iteration}", onStatus, onFrameCaptured, ct);
             await session.SetWarmUpEnabledAsync(false, ct);
 
@@ -635,10 +635,10 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         return (nextAdc1Gain, nextAdc2Gain);
     }
 
-    private static ushort SelectGainFromExposureRatio(ushort currentExposureTicks, ushort saturationExposureTicks, double safetyFactor)
+    private static ushort SelectGainFromExposureRatio(ushort currentExposureTicks, ushort saturationExposureTicks, uint sysClockKhz, double safetyFactor)
     {
-        var currentExposureNs = ExposureTicksToNanoseconds(currentExposureTicks);
-        var saturationExposureNs = ExposureTicksToNanoseconds(saturationExposureTicks);
+        var currentExposureNs = ExposureTicksToNanoseconds(currentExposureTicks, sysClockKhz);
+        var saturationExposureNs = ExposureTicksToNanoseconds(saturationExposureTicks, sysClockKhz);
         if (currentExposureNs <= 0 || saturationExposureNs <= 0)
             return 0;
 
@@ -663,28 +663,28 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private static double ComputeGainScale(ushort gain)
         => 6.0 / (1.0 + 5.0 * ((63.0 - gain) / 63.0));
 
-    private static double ExposureTicksToNanoseconds(ushort ticks)
-        => (((ticks + 1.0) * 12.0) + 45636.0) * 8.0;
+    private static double ExposureTicksToNanoseconds(ushort ticks, uint sysClockKhz)
+        => (45827.0 + (ticks * 6.0)) * (1_000_000.0 / Math.Max(sysClockKhz, 1u));
 
-    private static ushort NanosecondsToExposureTicks(double nanoseconds)
+    private static ushort NanosecondsToExposureTicks(double nanoseconds, uint sysClockKhz)
     {
-        var ticks = ((nanoseconds / 8.0) - 45636.0) / 12.0 - 1.0;
+        var ticks = ((nanoseconds * Math.Max(sysClockKhz, 1u)) / 1_000_000.0 - 45827.0) / 6.0;
         var rounded = (int)Math.Round(ticks, MidpointRounding.AwayFromZero);
         return (ushort)Math.Clamp(rounded, ScanDebugConstants.MinExposureTicks, ushort.MaxValue);
     }
 
-    private static string FormatExposureTime(ushort ticks)
+    private static string FormatExposureTime(ushort ticks, uint sysClockKhz)
     {
-        var exposureNs = ExposureTicksToNanoseconds(ticks);
+        var exposureNs = ExposureTicksToNanoseconds(ticks, sysClockKhz);
         var exposureUs = exposureNs / 1000.0;
         return $"{exposureNs:0.##} ns / {exposureUs:0.###} us";
     }
 
-    private static async Task WaitForWarmUpSettlingAsync(ushort exposureTicks, Action<string>? onStatus, CancellationToken ct)
+    private static async Task WaitForWarmUpSettlingAsync(ushort exposureTicks, uint sysClockKhz, Action<string>? onStatus, CancellationToken ct)
     {
         var clampedTicks = (ushort)Math.Max(exposureTicks, ScanDebugConstants.MinExposureTicks);
-        var settleMs = Math.Max(1, (int)Math.Ceiling((ExposureTicksToNanoseconds(clampedTicks) * 64.0) / 1_000_000.0));
-        onStatus?.Invoke($"Warm-up settling: wait {settleMs} ms (64 lines at {FormatExposureTime(clampedTicks)})...");
+        var settleMs = Math.Max(1, (int)Math.Ceiling((ExposureTicksToNanoseconds(clampedTicks, sysClockKhz) * 64.0) / 1_000_000.0));
+        onStatus?.Invoke($"Warm-up settling: wait {settleMs} ms (64 lines at {FormatExposureTime(clampedTicks, sysClockKhz)})...");
         await Task.Delay(settleMs, ct);
     }
 
