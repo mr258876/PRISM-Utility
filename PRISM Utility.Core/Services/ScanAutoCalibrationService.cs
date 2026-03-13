@@ -9,6 +9,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private const int MaxWhiteIterations = 32;
     private const int MaxChannelBalanceIterations = 16;
     private const int MaxOffsetBalanceIterations = 16;
+    private const int MaxAdjustmentHistory = 6;
     private const int MappingProbeOffsetStep = 32;
     private const double WhiteExposureSafetyFactor = 0.92;
     private const double BlackShieldWeight = 0.65;
@@ -29,11 +30,13 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
     private readonly IScanParameterService _parameters;
     private readonly IScanImageDecoder _decoder;
+    private readonly IScanTransferSettingsService _transferSettings;
 
-    public ScanAutoCalibrationService(IScanParameterService parameters, IScanImageDecoder decoder)
+    public ScanAutoCalibrationService(IScanParameterService parameters, IScanImageDecoder decoder, IScanTransferSettingsService transferSettings)
     {
         _parameters = parameters;
         _decoder = decoder;
+        _transferSettings = transferSettings;
     }
 
     public async Task<ScanParameterSnapshot> AutoCalibrateAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
@@ -65,6 +68,9 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         var adc1State = new ChannelOffsetState();
         var adc2State = new ChannelOffsetState();
+        var history = new List<CalibrationAttempt>(MaxAdjustmentHistory);
+        ScanParameterSnapshot? bestSnapshot = null;
+        var bestScore = double.MaxValue;
 
         try
         {
@@ -88,6 +94,21 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
                 onStatus?.Invoke($"Auto black: mean={stats.EffectiveMean:0.0}, adc1={adc1Mean:0.0}, adc2={adc2Mean:0.0}, shield-delta={Math.Abs(adc1ShieldMean - adc2ShieldMean):0.0}, min={stats.MinColumnMean:0.0}, dark-ratio={stats.DarkPixelRatio:P3}");
 
+                var score = ComputeBlackScore(stats, channelMapping);
+                RecordAttempt(history, working, score);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestSnapshot = working;
+                }
+
+                if (bestSnapshot is not null && IsRepeatedBlackOscillation(history))
+                {
+                    onStatus?.Invoke($"Auto black: detected repeating oscillation, keeping best sampled offsets adc1={bestSnapshot.Adc1Offset}, adc2={bestSnapshot.Adc2Offset}.");
+                    await ApplyParametersForCalibrationAsync(session, bestSnapshot, onSnapshotApplied, ct);
+                    return bestSnapshot;
+                }
+
                 if (IsBlackValid(stats, channelMapping))
                 {
                     onStatus?.Invoke($"Auto black: passed with offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}.");
@@ -101,13 +122,25 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                     adc1ShieldMean,
                     adc2ShieldMean,
                     adc1State,
-                    adc2State);
+                    adc2State,
+                    history,
+                    bestSnapshot);
 
                 if (nextAdc1Offset == working.Adc1Offset && nextAdc2Offset == working.Adc2Offset)
-                    throw new IOException("Auto black cannot improve offsets further.");
+                {
+                    if (bestSnapshot is not null && !HasSameBlackOffsets(bestSnapshot, working))
+                    {
+                        onStatus?.Invoke($"Auto black: oscillation detected, reverting to best sampled offsets adc1={bestSnapshot.Adc1Offset}, adc2={bestSnapshot.Adc2Offset}.");
+                        working = working with { Adc1Offset = bestSnapshot.Adc1Offset, Adc2Offset = bestSnapshot.Adc2Offset };
+                        await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
+                        return working;
+                    }
 
-                adc1State = adc1State with { PreviousOffset = working.Adc1Offset, PreviousMean = adc1Mean };
-                adc2State = adc2State with { PreviousOffset = working.Adc2Offset, PreviousMean = adc2Mean };
+                    throw new IOException("Auto black cannot improve offsets further.");
+                }
+
+                adc1State = adc1State.Remember(working.Adc1Offset, (adc1Mean * (1.0 - BlackShieldWeight)) + (adc1ShieldMean * BlackShieldWeight), nextAdc1Offset - working.Adc1Offset);
+                adc2State = adc2State.Remember(working.Adc2Offset, (adc2Mean * (1.0 - BlackShieldWeight)) + (adc2ShieldMean * BlackShieldWeight), nextAdc2Offset - working.Adc2Offset);
                 working = working with { Adc1Offset = nextAdc1Offset, Adc2Offset = nextAdc2Offset };
 
                 onStatus?.Invoke($"Auto black: applying offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}...");
@@ -119,12 +152,24 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             try { await session.SetWarmUpEnabledAsync(false, CancellationToken.None); } catch { }
         }
 
+        if (bestSnapshot is not null)
+        {
+            onStatus?.Invoke($"Auto black: reached iteration limit, keeping best sampled offsets adc1={bestSnapshot.Adc1Offset}, adc2={bestSnapshot.Adc2Offset}.");
+            await ApplyParametersForCalibrationAsync(session, bestSnapshot, onSnapshotApplied, ct);
+            return bestSnapshot;
+        }
+
         throw new IOException("Auto black failed to converge.");
     }
 
     public async Task<ScanParameterSnapshot> AutoWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var working = currentSnapshot with { Adc1Gain = 0, Adc2Gain = 0 };
+        var adc1State = new ChannelGainState();
+        var adc2State = new ChannelGainState();
+        var history = new List<CalibrationAttempt>(MaxAdjustmentHistory);
+        ScanParameterSnapshot? bestSnapshot = null;
+        var bestScore = double.MaxValue;
 
         onStatus?.Invoke("Auto white: resetting gain to zero...");
         await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
@@ -183,6 +228,21 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
                 onStatus?.Invoke($"Auto white: mean={stats.EffectiveMean:0.0}, adc1={adc1Mean:0.0}, adc2={adc2Mean:0.0}, active-delta={Math.Abs(adc1Mean - adc2Mean):0.0}, shield-delta={Math.Abs(adc1ShieldMean - adc2ShieldMean):0.0}, sat-ratio={stats.SaturationRatio:P3}");
 
+                var score = ComputeWhiteScore(stats, channelMapping);
+                RecordAttempt(history, working, score);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestSnapshot = working;
+                }
+
+                if (bestSnapshot is not null && IsRepeatedWhiteOscillation(history))
+                {
+                    onStatus?.Invoke($"Auto white: detected repeating oscillation, keeping best sampled gains adc1={bestSnapshot.Adc1Gain}, adc2={bestSnapshot.Adc2Gain}.");
+                    await ApplyParametersForCalibrationAsync(session, bestSnapshot, onSnapshotApplied, ct);
+                    return bestSnapshot;
+                }
+
                 if (IsWhiteValid(stats, channelMapping))
                 {
                     working = await BalanceOffsetsAfterWhiteAdjustAsync(session, working, channelMapping, onStatus, onSnapshotApplied, onFrameCaptured, ct);
@@ -197,11 +257,27 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                     adc2Mean,
                     adc1ShieldMean,
                     adc2ShieldMean,
-                    stats.SaturationRatio);
+                    stats.SaturationRatio,
+                    adc1State,
+                    adc2State,
+                    history,
+                    bestSnapshot);
 
                 if (nextAdc1Gain == working.Adc1Gain && nextAdc2Gain == working.Adc2Gain)
-                    throw new IOException("Auto white cannot improve gains further.");
+                {
+                    if (bestSnapshot is not null && !HasSameWhiteGains(bestSnapshot, working))
+                    {
+                        onStatus?.Invoke($"Auto white: oscillation detected, reverting to best sampled gains adc1={bestSnapshot.Adc1Gain}, adc2={bestSnapshot.Adc2Gain}.");
+                        working = working with { Adc1Gain = bestSnapshot.Adc1Gain, Adc2Gain = bestSnapshot.Adc2Gain };
+                        await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
+                        return working;
+                    }
 
+                    throw new IOException("Auto white cannot improve gains further.");
+                }
+
+                adc1State = adc1State.Remember(working.Adc1Gain, adc1Mean, nextAdc1Gain - working.Adc1Gain);
+                adc2State = adc2State.Remember(working.Adc2Gain, adc2Mean, nextAdc2Gain - working.Adc2Gain);
                 working = working with { Adc1Gain = nextAdc1Gain, Adc2Gain = nextAdc2Gain };
                 onStatus?.Invoke($"Auto white: applying gains adc1={working.Adc1Gain}, adc2={working.Adc2Gain}...");
                 await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
@@ -210,6 +286,13 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         finally
         {
             try { await session.SetWarmUpEnabledAsync(false, CancellationToken.None); } catch { }
+        }
+
+        if (bestSnapshot is not null)
+        {
+            onStatus?.Invoke($"Auto white: reached iteration limit, keeping best sampled gains adc1={bestSnapshot.Adc1Gain}, adc2={bestSnapshot.Adc2Gain}.");
+            await ApplyParametersForCalibrationAsync(session, bestSnapshot, onSnapshotApplied, ct);
+            return bestSnapshot;
         }
 
         throw new IOException("Auto white failed to converge.");
@@ -384,7 +467,8 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private async Task<ScanCalibrationStatistics> CaptureStatisticsAsync(IScanSessionService session, int rows, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke($"{phase}: capturing {rows} rows...");
-        var result = rows > session.SingleTransferMaxRows
+        var useExtendedSingleRead = await ShouldUseFullStartReadPathAsync();
+        var result = rows > session.SingleTransferMaxRows && !useExtendedSingleRead
             ? await session.StartWarmUpSegmentedScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"))
             : await session.StartScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"));
         if (!result.Success || result.ImageBytes is null)
@@ -520,6 +604,44 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
            && stats.SaturationRatio < SaturationRatioLimit;
     }
 
+    private static double ComputeBlackScore(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
+    {
+        var adc1Mean = mapping.IsAdc1Even ? stats.EvenMean : stats.OddMean;
+        var adc2Mean = mapping.IsAdc1Even ? stats.OddMean : stats.EvenMean;
+        var adc1ShieldMean = mapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean;
+        var adc2ShieldMean = mapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean;
+        var score = Math.Abs(adc1Mean - TargetBlackLevel)
+            + Math.Abs(adc2Mean - TargetBlackLevel)
+            + (Math.Abs(adc1Mean - adc2Mean) * 2.0)
+            + (Math.Abs(adc1ShieldMean - adc2ShieldMean) * 1.5);
+
+        if (stats.MinColumnMean <= DeadBlackThreshold)
+            score += (DeadBlackThreshold - stats.MinColumnMean) * 8.0;
+        if (stats.DarkPixelRatio >= 0.01)
+            score += (stats.DarkPixelRatio - 0.01) * 200_000.0;
+
+        return score;
+    }
+
+    private static double ComputeWhiteScore(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
+    {
+        var adc1Mean = mapping.IsAdc1Even ? stats.EvenMean : stats.OddMean;
+        var adc2Mean = mapping.IsAdc1Even ? stats.OddMean : stats.EvenMean;
+        var adc1ShieldMean = mapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean;
+        var adc2ShieldMean = mapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean;
+        var ratio = adc1Mean / Math.Max(adc2Mean, 1.0);
+        var score = Math.Abs(adc1Mean - WhiteTargetLevel)
+            + Math.Abs(adc2Mean - WhiteTargetLevel)
+            + (Math.Abs(adc1Mean - adc2Mean) * 2.0)
+            + (Math.Abs(adc1ShieldMean - adc2ShieldMean) * 1.5)
+            + (Math.Abs(1.0 - ratio) * 20_000.0);
+
+        if (stats.SaturationRatio >= SaturationRatioLimit)
+            score += (stats.SaturationRatio - SaturationRatioLimit) * 2_000_000.0;
+
+        return score;
+    }
+
     private static int ComputeNextOffset(int currentOffset, double currentMean, ChannelOffsetState state)
     {
         var error = TargetBlackLevel - currentMean;
@@ -539,8 +661,16 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         if (delta == 0)
             delta = error > 0 ? 1 : -1;
 
-        delta = Math.Clamp(delta, -32, 32);
-        return Math.Clamp(currentOffset + delta, -255, 255);
+        delta = LimitSignedStep(delta, SelectOffsetStepLimit(error));
+        var candidate = Math.Clamp(currentOffset + delta, -255, 255);
+
+        if (HasErrorSignFlip(state.PreviousError, error) && state.PreviousOffset is not null)
+            candidate = SelectMidpointValue(currentOffset, state.PreviousOffset.Value, error, -255, 255);
+
+        if (state.OlderOffset is not null && candidate == state.OlderOffset.Value)
+            candidate = SelectMidpointValue(currentOffset, state.OlderOffset.Value, error, -255, 255);
+
+        return candidate;
     }
 
     private static (int adc1Offset, int adc2Offset) ComputeNextBlackOffsets(
@@ -550,7 +680,9 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         double adc1ShieldMean,
         double adc2ShieldMean,
         ChannelOffsetState adc1State,
-        ChannelOffsetState adc2State)
+        ChannelOffsetState adc2State,
+        IReadOnlyList<CalibrationAttempt> history,
+        ScanParameterSnapshot? bestSnapshot)
     {
         var adc1DarkMean = (adc1ActiveMean * (1.0 - BlackShieldWeight)) + (adc1ShieldMean * BlackShieldWeight);
         var adc2DarkMean = (adc2ActiveMean * (1.0 - BlackShieldWeight)) + (adc2ShieldMean * BlackShieldWeight);
@@ -574,16 +706,40 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             }
         }
 
+        return StabilizeOffsetPair(current, nextAdc1Offset, nextAdc2Offset, history, bestSnapshot);
+    }
+
+    private static (int adc1Offset, int adc2Offset) StabilizeOffsetPair(
+        ScanParameterSnapshot current,
+        int nextAdc1Offset,
+        int nextAdc2Offset,
+        IReadOnlyList<CalibrationAttempt> history,
+        ScanParameterSnapshot? bestSnapshot)
+    {
+        if (!WouldRevisitBlackOffsets(nextAdc1Offset, nextAdc2Offset, history))
+            return (nextAdc1Offset, nextAdc2Offset);
+
+        if (bestSnapshot is not null && !HasSameBlackOffsets(bestSnapshot, current))
+        {
+            nextAdc1Offset = SelectMidpointValue(current.Adc1Offset, bestSnapshot.Adc1Offset, bestSnapshot.Adc1Offset - current.Adc1Offset, -255, 255);
+            nextAdc2Offset = SelectMidpointValue(current.Adc2Offset, bestSnapshot.Adc2Offset, bestSnapshot.Adc2Offset - current.Adc2Offset, -255, 255);
+        }
+        else if (history.Count >= 2)
+        {
+            var previous = history[^2].Snapshot;
+            nextAdc1Offset = SelectMidpointValue(current.Adc1Offset, previous.Adc1Offset, previous.Adc1Offset - current.Adc1Offset, -255, 255);
+            nextAdc2Offset = SelectMidpointValue(current.Adc2Offset, previous.Adc2Offset, previous.Adc2Offset - current.Adc2Offset, -255, 255);
+        }
+
         return (nextAdc1Offset, nextAdc2Offset);
     }
 
-    private static ushort SelectNextGain(double currentMean, ushort currentGain, double saturationRatio)
+    private static ushort SelectNextGain(double currentMean, ushort currentGain, double saturationRatio, ChannelGainState state)
     {
         if (saturationRatio >= SaturationRatioLimit)
-            return (ushort)Math.Max(0, currentGain - 2);
+            return (ushort)Math.Max(0, currentGain - 1);
 
         var currentScale = ComputeGainScale(currentGain);
-        var desiredScale = currentScale * (WhiteTargetLevel / Math.Max(currentMean, 1.0));
         var bestGain = currentGain;
         var bestError = double.MaxValue;
 
@@ -602,6 +758,15 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             }
         }
 
+        if (HasErrorSignFlip(state.PreviousError, WhiteTargetLevel - currentMean) && state.PreviousValue is not null)
+            bestGain = (ushort)SelectMidpointValue(currentGain, state.PreviousValue.Value, WhiteTargetLevel - currentMean, 0, 63);
+
+        if (state.OlderValue is not null && bestGain == state.OlderValue.Value)
+            bestGain = (ushort)SelectMidpointValue(currentGain, state.OlderValue.Value, WhiteTargetLevel - currentMean, 0, 63);
+
+        var limitedDelta = LimitSignedStep(bestGain - currentGain, SelectGainStepLimit(WhiteTargetLevel - currentMean, saturationRatio));
+        bestGain = (ushort)Math.Clamp(currentGain + limitedDelta, 0, 63);
+
         return bestGain;
     }
 
@@ -611,10 +776,14 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         double adc2ActiveMean,
         double adc1ShieldMean,
         double adc2ShieldMean,
-        double saturationRatio)
+        double saturationRatio,
+        ChannelGainState adc1State,
+        ChannelGainState adc2State,
+        IReadOnlyList<CalibrationAttempt> history,
+        ScanParameterSnapshot? bestSnapshot)
     {
-        var nextAdc1Gain = SelectNextGain(adc1ActiveMean, current.Adc1Gain, saturationRatio);
-        var nextAdc2Gain = SelectNextGain(adc2ActiveMean, current.Adc2Gain, saturationRatio);
+        var nextAdc1Gain = SelectNextGain(adc1ActiveMean, current.Adc1Gain, saturationRatio, adc1State);
+        var nextAdc2Gain = SelectNextGain(adc2ActiveMean, current.Adc2Gain, saturationRatio, adc2State);
 
         var weightedDelta = (adc1ActiveMean - adc2ActiveMean) + ((adc1ShieldMean - adc2ShieldMean) * WhiteShieldWeight);
         if (Math.Abs(weightedDelta) > WhiteChannelMatchTolerance)
@@ -632,7 +801,136 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             }
         }
 
+        return StabilizeGainPair(current, nextAdc1Gain, nextAdc2Gain, history, bestSnapshot);
+    }
+
+    private static (ushort adc1Gain, ushort adc2Gain) StabilizeGainPair(
+        ScanParameterSnapshot current,
+        ushort nextAdc1Gain,
+        ushort nextAdc2Gain,
+        IReadOnlyList<CalibrationAttempt> history,
+        ScanParameterSnapshot? bestSnapshot)
+    {
+        if (!WouldRevisitWhiteGains(nextAdc1Gain, nextAdc2Gain, history))
+            return (nextAdc1Gain, nextAdc2Gain);
+
+        if (bestSnapshot is not null && !HasSameWhiteGains(bestSnapshot, current))
+        {
+            nextAdc1Gain = (ushort)SelectMidpointValue(current.Adc1Gain, bestSnapshot.Adc1Gain, bestSnapshot.Adc1Gain - current.Adc1Gain, 0, 63);
+            nextAdc2Gain = (ushort)SelectMidpointValue(current.Adc2Gain, bestSnapshot.Adc2Gain, bestSnapshot.Adc2Gain - current.Adc2Gain, 0, 63);
+        }
+        else if (history.Count >= 2)
+        {
+            var previous = history[^2].Snapshot;
+            nextAdc1Gain = (ushort)SelectMidpointValue(current.Adc1Gain, previous.Adc1Gain, previous.Adc1Gain - current.Adc1Gain, 0, 63);
+            nextAdc2Gain = (ushort)SelectMidpointValue(current.Adc2Gain, previous.Adc2Gain, previous.Adc2Gain - current.Adc2Gain, 0, 63);
+        }
+
         return (nextAdc1Gain, nextAdc2Gain);
+    }
+
+    private static void RecordAttempt(List<CalibrationAttempt> history, ScanParameterSnapshot snapshot, double score)
+    {
+        history.Add(new CalibrationAttempt(snapshot, score));
+        if (history.Count > MaxAdjustmentHistory)
+            history.RemoveAt(0);
+    }
+
+    private async Task<bool> ShouldUseFullStartReadPathAsync()
+    {
+        await _transferSettings.InitializeAsync();
+        var settings = _transferSettings.Settings;
+        return settings.ReadMode == ScanBulkInReadMode.MultiBuffered && settings.RawIoEnabled;
+    }
+
+    private static bool IsRepeatedBlackOscillation(IReadOnlyList<CalibrationAttempt> history)
+    {
+        if (history.Count < 4)
+            return false;
+
+        var a = history[^1].Snapshot;
+        var b = history[^2].Snapshot;
+        var c = history[^3].Snapshot;
+        var d = history[^4].Snapshot;
+        return HasSameBlackOffsets(a, c) && HasSameBlackOffsets(b, d);
+    }
+
+    private static bool IsRepeatedWhiteOscillation(IReadOnlyList<CalibrationAttempt> history)
+    {
+        if (history.Count < 4)
+            return false;
+
+        var a = history[^1].Snapshot;
+        var b = history[^2].Snapshot;
+        var c = history[^3].Snapshot;
+        var d = history[^4].Snapshot;
+        return HasSameWhiteGains(a, c) && HasSameWhiteGains(b, d);
+    }
+
+    private static bool WouldRevisitBlackOffsets(int adc1Offset, int adc2Offset, IReadOnlyList<CalibrationAttempt> history)
+        => history.Any(attempt => attempt.Snapshot.Adc1Offset == adc1Offset && attempt.Snapshot.Adc2Offset == adc2Offset);
+
+    private static bool WouldRevisitWhiteGains(ushort adc1Gain, ushort adc2Gain, IReadOnlyList<CalibrationAttempt> history)
+        => history.Any(attempt => attempt.Snapshot.Adc1Gain == adc1Gain && attempt.Snapshot.Adc2Gain == adc2Gain);
+
+    private static bool HasSameBlackOffsets(ScanParameterSnapshot left, ScanParameterSnapshot right)
+        => left.Adc1Offset == right.Adc1Offset && left.Adc2Offset == right.Adc2Offset;
+
+    private static bool HasSameWhiteGains(ScanParameterSnapshot left, ScanParameterSnapshot right)
+        => left.Adc1Gain == right.Adc1Gain && left.Adc2Gain == right.Adc2Gain;
+
+    private static bool HasErrorSignFlip(double? previousError, double currentError)
+        => previousError is not null
+            && Math.Abs(previousError.Value) > 0.01
+            && Math.Abs(currentError) > 0.01
+            && Math.Sign(previousError.Value) != Math.Sign(currentError);
+
+    private static int SelectMidpointValue(int currentValue, int targetValue, double error, int minValue, int maxValue)
+    {
+        var midpoint = (int)Math.Round((currentValue + targetValue) / 2.0, MidpointRounding.AwayFromZero);
+        if (midpoint == currentValue)
+            midpoint = currentValue + (error >= 0 ? 1 : -1);
+
+        return Math.Clamp(midpoint, minValue, maxValue);
+    }
+
+    private static int SelectOffsetStepLimit(double error)
+    {
+        var magnitude = Math.Abs(error);
+        if (magnitude > 768.0)
+            return 8;
+        if (magnitude > 256.0)
+            return 4;
+        if (magnitude > 96.0)
+            return 2;
+
+        return 1;
+    }
+
+    private static int SelectGainStepLimit(double error, double saturationRatio)
+    {
+        if (saturationRatio >= SaturationRatioLimit)
+            return 1;
+
+        var magnitude = Math.Abs(error);
+        if (magnitude > 12000.0)
+            return 6;
+        if (magnitude > 5000.0)
+            return 3;
+        if (magnitude > 2000.0)
+            return 2;
+
+        return 1;
+    }
+
+    private static int LimitSignedStep(int desiredStep, int maxMagnitude)
+    {
+        if (desiredStep == 0)
+            return 0;
+
+        var sign = Math.Sign(desiredStep);
+        var magnitude = Math.Min(Math.Abs(desiredStep), Math.Max(1, maxMagnitude));
+        return sign * magnitude;
     }
 
     private static ushort SelectGainFromExposureRatio(ushort currentExposureTicks, ushort saturationExposureTicks, double safetyFactor)
@@ -688,5 +986,51 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         await Task.Delay(settleMs, ct);
     }
 
-    private sealed record ChannelOffsetState(int? PreviousOffset = null, double? PreviousMean = null);
+    private sealed record ChannelOffsetState(
+        int? PreviousOffset = null,
+        double? PreviousMean = null,
+        double? PreviousError = null,
+        int? OlderOffset = null,
+        double? OlderError = null,
+        int LastStep = 0)
+    {
+        public ChannelOffsetState Remember(int currentOffset, double currentMean, int appliedStep)
+        {
+            var error = TargetBlackLevel - currentMean;
+            return this with
+            {
+                OlderOffset = PreviousOffset,
+                OlderError = PreviousError,
+                PreviousOffset = currentOffset,
+                PreviousMean = currentMean,
+                PreviousError = error,
+                LastStep = appliedStep
+            };
+        }
+    }
+
+    private sealed record ChannelGainState(
+        int? PreviousValue = null,
+        double? PreviousMean = null,
+        double? PreviousError = null,
+        int? OlderValue = null,
+        double? OlderError = null,
+        int LastStep = 0)
+    {
+        public ChannelGainState Remember(int currentValue, double currentMean, int appliedStep)
+        {
+            var error = WhiteTargetLevel - currentMean;
+            return this with
+            {
+                OlderValue = PreviousValue,
+                OlderError = PreviousError,
+                PreviousValue = currentValue,
+                PreviousMean = currentMean,
+                PreviousError = error,
+                LastStep = appliedStep
+            };
+        }
+    }
+
+    private sealed record CalibrationAttempt(ScanParameterSnapshot Snapshot, double Score);
 }
