@@ -71,6 +71,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private DateTime _lastApplyParametersAtUtc = DateTime.MinValue;
     private bool _isDisposed;
     private bool _isMultiBufferedBulkInEnabled;
+    private bool _suppressWarmUpToggleCommand;
     private int _previewRows;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
@@ -267,7 +268,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => UpdateComputedParameterDisplays();
 
     partial void OnIsWarmUpEnabledChanged(bool value)
-        => _ = HandleWarmUpToggleChangedAsync(value);
+    {
+        if (_suppressWarmUpToggleCommand)
+            return;
+
+        _ = HandleWarmUpToggleChangedAsync(value);
+    }
 
     partial void OnSelectedRowsChanged(string value)
         => RefreshPreviewSelectionState();
@@ -473,6 +479,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             _scanCts?.Cancel();
+
+            if (IsWarmUpEnabled)
+            {
+                var warmUpResult = await _session.SetWarmUpEnabledAsync(false, _session.ConnectionToken);
+                _suppressWarmUpToggleCommand = true;
+                try
+                {
+                    IsWarmUpEnabled = false;
+                }
+                finally
+                {
+                    _suppressWarmUpToggleCommand = false;
+                }
+
+                if (!warmUpResult.Success)
+                    StatusText = $"Warm-up disable before disconnect failed: {warmUpResult.Message}";
+            }
+
             await _session.DisconnectAsync();
             IsConnected = false;
             _usbUsageCoordinator.SetScanDebugInUse(false);
@@ -938,6 +962,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
             try
             {
                 await _session.SetWarmUpEnabledAsync(false, CancellationToken.None);
+                _suppressWarmUpToggleCommand = true;
+                try
+                {
+                    IsWarmUpEnabled = false;
+                }
+                finally
+                {
+                    _suppressWarmUpToggleCommand = false;
+                }
             }
             catch
             {
