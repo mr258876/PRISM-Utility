@@ -42,8 +42,7 @@ public class ScanImageDecoder : IScanImageDecoder
 
             for (var i = decodeStart; i + (ScanDebugConstants.PackedGroupBytes - 1) < decodeEndExclusive; i += ScanDebugConstants.PackedGroupBytes)
             {
-                var pixel0 = (ushort)((lineBuffer[i] << 8) | lineBuffer[i + 2]);
-                var pixel1 = (ushort)((lineBuffer[i + 1] << 8) | lineBuffer[i + 3]);
+                ReadPackedGroupSamples(lineBuffer, i, out var pixel0, out var pixel1);
 
                 WriteGrayPixel(rowPixels, pixelIndex++, pixel0, applyGammaCorrection, gamma);
                 WriteGrayPixel(rowPixels, pixelIndex++, pixel1, applyGammaCorrection, gamma);
@@ -79,8 +78,7 @@ public class ScanImageDecoder : IScanImageDecoder
 
             for (var i = decodeStart; i + (ScanDebugConstants.PackedGroupBytes - 1) < decodeEndExclusive; i += ScanDebugConstants.PackedGroupBytes)
             {
-                var pixel0 = (ushort)((lineBuffer[i] << 8) | lineBuffer[i + 2]);
-                var pixel1 = (ushort)((lineBuffer[i + 1] << 8) | lineBuffer[i + 3]);
+                ReadPackedGroupSamples(lineBuffer, i, out var pixel0, out var pixel1);
 
                 columnSums[pixelIndex++] += pixel0;
                 columnSums[pixelIndex++] += pixel1;
@@ -115,10 +113,15 @@ public class ScanImageDecoder : IScanImageDecoder
         if (groupStart + (ScanDebugConstants.PackedGroupBytes - 1) >= decodeEndExclusive)
             return false;
 
-        sample = (x & 1) == 0
-            ? (ushort)((lineBuffer[groupStart] << 8) | lineBuffer[groupStart + 2])
-            : (ushort)((lineBuffer[groupStart + 1] << 8) | lineBuffer[groupStart + 3]);
+        ReadPackedGroupSamples(lineBuffer, groupStart, out var evenSample, out var oddSample);
+        sample = (x & 1) == 0 ? evenSample : oddSample;
         return true;
+    }
+
+    private static void ReadPackedGroupSamples(byte[] lineBuffer, int startIndex, out ushort sample0, out ushort sample1)
+    {
+        sample1 = (ushort)((lineBuffer[startIndex] << 8) | lineBuffer[startIndex + 2]);
+        sample0 = (ushort)((lineBuffer[startIndex + 1] << 8) | lineBuffer[startIndex + 3]);
     }
 
     private static void WriteGrayPixel(byte[] rowPixels, int pixelIndex, ushort sample16, bool applyGammaCorrection, double gamma)
