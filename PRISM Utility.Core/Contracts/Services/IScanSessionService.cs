@@ -23,6 +23,11 @@ public interface IScanSessionService
     void RefreshTargets();
     Task<ScanOperationResult> ConnectAsync(CancellationToken ct);
     Task DisconnectAsync();
+    Task<ScanIlluminationState> GetIlluminationStateAsync(CancellationToken ct);
+    Task SetIlluminationLevelsAsync(ushort led1Level, ushort led2Level, ushort led3Level, ushort led4Level, CancellationToken ct);
+    Task SetSteadyIlluminationAsync(byte steadyMask, CancellationToken ct);
+    Task ConfigureExposureLightingAsync(byte syncMask, CancellationToken ct);
+    Task SetSyncPulseClocksAsync(uint led1PulseClock, uint led2PulseClock, uint led3PulseClock, uint led4PulseClock, CancellationToken ct);
     Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct);
     Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null);
     Task<ScanStartResult> StartWarmUpSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null);

@@ -408,6 +408,102 @@
   <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve">
     <value>Auto Calibrate</value>
   </data>
+  <data name="ScanDebug_IlluminationTitle.Text" xml:space="preserve">
+    <value>Illumination Control</value>
+  </data>
+  <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve">
+    <value>LED2 maps to White on RGBW backlights and IR on RGBIR backlights. Steady and sync cannot be enabled on the same channel at the same time.</value>
+  </data>
+  <data name="ScanDebug_Led1Channel.Text" xml:space="preserve">
+    <value>LED1 (Blue)</value>
+  </data>
+  <data name="ScanDebug_Led2Channel.Text" xml:space="preserve">
+    <value>LED2 (White / IR)</value>
+  </data>
+  <data name="ScanDebug_Led3Channel.Text" xml:space="preserve">
+    <value>LED3 (Red)</value>
+  </data>
+  <data name="ScanDebug_Led4Channel.Text" xml:space="preserve">
+    <value>LED4 (Green)</value>
+  </data>
+  <data name="ScanDebug_Led1LevelTextBox.Header" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_Led1LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_Led2LevelTextBox.Header" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_Led2LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_Led3LevelTextBox.Header" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_Led3LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_Led4LevelTextBox.Header" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_Led4LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_Led1PulseTextBox.Header" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Led1PulseTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_Led2PulseTextBox.Header" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Led2PulseTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_Led3PulseTextBox.Header" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Led3PulseTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_Led4PulseTextBox.Header" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Led4PulseTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_Led1SteadyCheckBox.Content" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_Led2SteadyCheckBox.Content" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_Led3SteadyCheckBox.Content" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_Led4SteadyCheckBox.Content" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_Led1SyncCheckBox.Content" xml:space="preserve">
+    <value>Exposure sync</value>
+  </data>
+  <data name="ScanDebug_Led2SyncCheckBox.Content" xml:space="preserve">
+    <value>Exposure sync</value>
+  </data>
+  <data name="ScanDebug_Led3SyncCheckBox.Content" xml:space="preserve">
+    <value>Exposure sync</value>
+  </data>
+  <data name="ScanDebug_Led4SyncCheckBox.Content" xml:space="preserve">
+    <value>Exposure sync</value>
+  </data>
+  <data name="ScanDebug_RefreshIlluminationButton.Content" xml:space="preserve">
+    <value>Refresh LED State</value>
+  </data>
+  <data name="ScanDebug_ApplyIlluminationButton.Content" xml:space="preserve">
+    <value>Apply LED Settings</value>
+  </data>
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
     <value>Restore defaults</value>
   </data>

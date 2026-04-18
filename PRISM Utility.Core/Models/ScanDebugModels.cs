@@ -66,10 +66,23 @@ public static class ScanDebugConstants
     public const byte UsbCmdSetScanLines = 0x31;
     public const byte UsbCmdStopScan = 0x32;
     public const byte UsbCmdWarmUp = 0x33;
+    public const byte UsbCmdIlluminationGetState = 0x40;
+    public const byte UsbCmdIlluminationSetLevels = 0x41;
+    public const byte UsbCmdIlluminationSetSteady = 0x42;
+    public const byte UsbCmdIlluminationConfigSync = 0x43;
+    public const byte UsbCmdIlluminationSetSyncPulse = 0x44;
     public const byte PrismParamTypeU16 = 2;
     public const byte PrismParamValueLenU16 = 2;
     public const byte PrismParamTypeU32 = 3;
     public const byte PrismParamValueLenU32 = 4;
+
+    public const int IlluminationChannelCount = 4;
+    public const int IlluminationGetStatePayloadLength = 28;
+    public const int IlluminationSetLevelsPayloadLength = 8;
+    public const int IlluminationMaskPayloadLength = 4;
+    public const int IlluminationSetSyncPulsePayloadLength = 16;
+    public const byte IlluminationValidMask = 0x0F;
+    public const uint IlluminationMinSyncPulseClock = 2;
 }
 
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
@@ -87,6 +100,19 @@ public sealed record ScanStopResult(bool Success, string Message);
 public sealed record ScanParameterDefinition(string DisplayName, string Key);
 
 public sealed record ScanParameterSnapshot(ushort ExposureTicks, int Adc1Offset, ushort Adc1Gain, int Adc2Offset, ushort Adc2Gain, uint SysClockKhz);
+
+public sealed record ScanIlluminationState(
+    ushort Led1Level,
+    ushort Led2Level,
+    ushort Led3Level,
+    ushort Led4Level,
+    byte SteadyMask,
+    byte SyncMask,
+    byte SyncActiveMask,
+    uint Led1PulseClock,
+    uint Led2PulseClock,
+    uint Led3PulseClock,
+    uint Led4PulseClock);
 
 public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay, string SysClockMhzDisplay);
 

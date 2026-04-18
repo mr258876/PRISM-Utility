@@ -5,6 +5,65 @@ namespace PRISM_Utility.Core.Services;
 
 public class ScanProtocolService : IScanProtocolService
 {
+    public byte[] BuildGetIlluminationStateCommand()
+    {
+        var frame = new byte[4];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdIlluminationGetState;
+        WritePayloadLength(frame, 0);
+        return frame;
+    }
+
+    public byte[] BuildSetIlluminationLevelsCommand(ushort led1Level, ushort led2Level, ushort led3Level, ushort led4Level)
+    {
+        var frame = new byte[4 + ScanDebugConstants.IlluminationSetLevelsPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdIlluminationSetLevels;
+        WritePayloadLength(frame, ScanDebugConstants.IlluminationSetLevelsPayloadLength);
+        WriteUInt16(frame, 4, led1Level);
+        WriteUInt16(frame, 6, led2Level);
+        WriteUInt16(frame, 8, led3Level);
+        WriteUInt16(frame, 10, led4Level);
+        return frame;
+    }
+
+    public byte[] BuildSetSteadyIlluminationCommand(byte steadyMask)
+    {
+        EnsureLedMask(steadyMask, nameof(steadyMask));
+
+        var frame = new byte[4 + ScanDebugConstants.IlluminationMaskPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdIlluminationSetSteady;
+        WritePayloadLength(frame, ScanDebugConstants.IlluminationMaskPayloadLength);
+        frame[4] = steadyMask;
+        return frame;
+    }
+
+    public byte[] BuildConfigureExposureLightingCommand(byte syncMask)
+    {
+        EnsureLedMask(syncMask, nameof(syncMask));
+
+        var frame = new byte[4 + ScanDebugConstants.IlluminationMaskPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdIlluminationConfigSync;
+        WritePayloadLength(frame, ScanDebugConstants.IlluminationMaskPayloadLength);
+        frame[4] = syncMask;
+        return frame;
+    }
+
+    public byte[] BuildSetSyncPulseClocksCommand(uint led1PulseClock, uint led2PulseClock, uint led3PulseClock, uint led4PulseClock)
+    {
+        var frame = new byte[4 + ScanDebugConstants.IlluminationSetSyncPulsePayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdIlluminationSetSyncPulse;
+        WritePayloadLength(frame, ScanDebugConstants.IlluminationSetSyncPulsePayloadLength);
+        WriteUInt32(frame, 4, led1PulseClock);
+        WriteUInt32(frame, 8, led2PulseClock);
+        WriteUInt32(frame, 12, led3PulseClock);
+        WriteUInt32(frame, 16, led4PulseClock);
+        return frame;
+    }
+
     public byte[] BuildSetScanLinesCommand(int rows)
     {
         var payload = new byte[8];
@@ -77,6 +136,25 @@ public class ScanProtocolService : IScanProtocolService
         frame[9] = ScanDebugConstants.PrismParamValueLenU32;
         Buffer.BlockCopy(BitConverter.GetBytes(value), 0, frame, 10, 4);
         return frame;
+    }
+
+    public ScanIlluminationState ParseIlluminationStatePayload(byte[] payload)
+    {
+        if (payload.Length != ScanDebugConstants.IlluminationGetStatePayloadLength)
+            throw new IOException($"Illumination state payload length invalid: {payload.Length}");
+
+        return new ScanIlluminationState(
+            BitConverter.ToUInt16(payload, 0),
+            BitConverter.ToUInt16(payload, 2),
+            BitConverter.ToUInt16(payload, 4),
+            BitConverter.ToUInt16(payload, 6),
+            payload[8],
+            payload[9],
+            payload[10],
+            BitConverter.ToUInt32(payload, 12),
+            BitConverter.ToUInt32(payload, 16),
+            BitConverter.ToUInt32(payload, 20),
+            BitConverter.ToUInt32(payload, 24));
     }
 
     public ScanAck ParseScanAck(ScanControlFrame frame)
@@ -205,7 +283,7 @@ public class ScanProtocolService : IScanProtocolService
             return true;
         }
 
-        frame = default!;
+        frame = new ScanControlFrame(0, 0, Array.Empty<byte>());
         return false;
     }
 
@@ -214,4 +292,16 @@ public class ScanProtocolService : IScanProtocolService
         frame[2] = (byte)(payloadLength & 0xFF);
         frame[3] = (byte)(payloadLength >> 8);
     }
+
+    private static void EnsureLedMask(byte mask, string parameterName)
+    {
+        if ((mask & ~ScanDebugConstants.IlluminationValidMask) != 0)
+            throw new ArgumentOutOfRangeException(parameterName, $"LED mask must only contain bits 0..3. Actual: 0x{mask:X2}");
+    }
+
+    private static void WriteUInt16(byte[] frame, int offset, ushort value)
+        => Buffer.BlockCopy(BitConverter.GetBytes(value), 0, frame, offset, sizeof(ushort));
+
+    private static void WriteUInt32(byte[] frame, int offset, uint value)
+        => Buffer.BlockCopy(BitConverter.GetBytes(value), 0, frame, offset, sizeof(uint));
 }

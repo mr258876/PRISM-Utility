@@ -109,6 +109,61 @@ public class ScanSessionService : IScanSessionService, IDisposable
         IsConnected = false;
     }
 
+    public async Task<ScanIlluminationState> GetIlluminationStateAsync(CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildGetIlluminationStateCommand(),
+            ScanDebugConstants.UsbCmdIlluminationGetState,
+            "GET_ILLUMINATION_STATE",
+            ct);
+
+        return _protocol.ParseIlluminationStatePayload(response.Payload);
+    }
+
+    public async Task SetIlluminationLevelsAsync(ushort led1Level, ushort led2Level, ushort led3Level, ushort led4Level, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildSetIlluminationLevelsCommand(led1Level, led2Level, led3Level, led4Level),
+            ScanDebugConstants.UsbCmdIlluminationSetLevels,
+            "SET_ILLUMINATION_LEVELS",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.IlluminationSetLevelsPayloadLength, "SET_ILLUMINATION_LEVELS");
+    }
+
+    public async Task SetSteadyIlluminationAsync(byte steadyMask, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildSetSteadyIlluminationCommand(steadyMask),
+            ScanDebugConstants.UsbCmdIlluminationSetSteady,
+            "SET_STEADY_ILLUMINATION",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.IlluminationMaskPayloadLength, "SET_STEADY_ILLUMINATION");
+    }
+
+    public async Task ConfigureExposureLightingAsync(byte syncMask, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildConfigureExposureLightingCommand(syncMask),
+            ScanDebugConstants.UsbCmdIlluminationConfigSync,
+            "CONFIGURE_EXPOSURE_LIGHTING",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.IlluminationMaskPayloadLength, "CONFIGURE_EXPOSURE_LIGHTING");
+    }
+
+    public async Task SetSyncPulseClocksAsync(uint led1PulseClock, uint led2PulseClock, uint led3PulseClock, uint led4PulseClock, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildSetSyncPulseClocksCommand(led1PulseClock, led2PulseClock, led3PulseClock, led4PulseClock),
+            ScanDebugConstants.UsbCmdIlluminationSetSyncPulse,
+            "SET_SYNC_PULSE_CLOCKS",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.IlluminationSetSyncPulsePayloadLength, "SET_SYNC_PULSE_CLOCKS");
+    }
+
     public async Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct)
     {
         if (!IsConnected || _controlSession is null)
@@ -205,6 +260,21 @@ public class ScanSessionService : IScanSessionService, IDisposable
            left.ConfigId == right.ConfigId &&
            left.InterfaceId == right.InterfaceId &&
            left.AltId == right.AltId;
+
+    private async Task<ScanControlFrame> SendControlCommandAndEnsureOkAsync(byte[] command, byte expectedCommand, string commandName, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndWaitAckAsync(command, expectedCommand, ScanDebugConstants.AckTimeoutMs, ct, true);
+        if (response.Status != 0x00)
+            throw new IOException($"{commandName} failed: {_protocol.MapStatus(response.Status)} (0x{response.Status:X2})");
+
+        return response;
+    }
+
+    private static void EnsurePayloadLength(ScanControlFrame response, int expectedPayloadLength, string commandName)
+    {
+        if (response.Payload.Length != expectedPayloadLength)
+            throw new IOException($"{commandName} payload length invalid: {response.Payload.Length} (expected {expectedPayloadLength})");
+    }
 
     private int ResolveSingleTransferMaxBytes(IUsbBulkDuplexSession? imageSession, UsbPipeSelection? pipe)
     {

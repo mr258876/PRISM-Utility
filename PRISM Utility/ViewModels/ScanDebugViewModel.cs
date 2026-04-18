@@ -54,6 +54,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 {
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
     private const double DefaultPreviewGamma = 2.2;
+    private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
 
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
@@ -110,6 +111,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
     public partial bool IsRunning { get; set; }
 
     [ObservableProperty]
@@ -124,6 +127,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
     public partial bool IsConnected { get; set; }
 
     [ObservableProperty]
@@ -133,6 +138,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
     public partial bool IsConnecting { get; set; }
 
     [ObservableProperty]
@@ -161,6 +168,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
     public partial bool IsApplyingParameters { get; set; }
 
     [ObservableProperty]
@@ -168,7 +177,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
     public partial bool IsAutoCalibrating { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisconnectDevicesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    public partial bool IsApplyingIllumination { get; set; }
 
     [ObservableProperty]
     public partial string ExposureTicks { get; set; }
@@ -206,6 +228,57 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string SysClockMhzDisplay { get; set; }
 
+    [ObservableProperty]
+    public partial string Led1Level { get; set; }
+
+    [ObservableProperty]
+    public partial string Led2Level { get; set; }
+
+    [ObservableProperty]
+    public partial string Led3Level { get; set; }
+
+    [ObservableProperty]
+    public partial string Led4Level { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed1SteadyEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed2SteadyEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed3SteadyEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed4SteadyEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed1SyncEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed2SyncEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed3SyncEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsLed4SyncEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string Led1PulseClock { get; set; }
+
+    [ObservableProperty]
+    public partial string Led2PulseClock { get; set; }
+
+    [ObservableProperty]
+    public partial string Led3PulseClock { get; set; }
+
+    [ObservableProperty]
+    public partial string Led4PulseClock { get; set; }
+
+    [ObservableProperty]
+    public partial string IlluminationSummaryText { get; set; }
+
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
@@ -239,6 +312,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Adc1GainVvDisplay = "Gain: -";
         Adc2GainVvDisplay = "Gain: -";
         SysClockMhzDisplay = "System clock: -";
+        Led1Level = "0";
+        Led2Level = "0";
+        Led3Level = "0";
+        Led4Level = "0";
+        Led1PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led2PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led3PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led4PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        IlluminationSummaryText = "Illumination state: -";
 
         _session.TargetsChanged += OnSessionTargetsChanged;
         _transferSettings.BulkInReadModeChanged += OnTransferSettingsChanged;
@@ -279,6 +361,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => RefreshPreviewSelectionState();
 
     partial void OnIsRunningChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
+    partial void OnIsApplyingIlluminationChanged(bool value)
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
 
     partial void OnIsPreviewEnabledChanged(bool value)
@@ -335,7 +420,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public bool IsPreviewEnabledForCurrentRows => IsPreviewEnabled && !IsPreviewForcedOffForSelectedRows();
 
-    public bool AreScanAcquisitionSettingsEditable => !IsRunning;
+    public bool AreScanAcquisitionSettingsEditable => !IsRunning && !IsApplyingIllumination;
 
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
@@ -365,6 +450,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool CanStartScan() =>
         !IsRunning &&
+        !IsApplyingIllumination &&
         IsConnected &&
         TryParseRequestedRows(out _);
 
@@ -374,20 +460,30 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool CanConnectDevices() => IsDevicesPresent && !IsConnected && !IsConnecting;
 
-    private bool CanDisconnectDevices() => IsConnected && !IsConnecting;
+    private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsApplyingIllumination;
 
     private bool CanApplyParameters() =>
         IsConnected &&
         !IsConnecting &&
         !IsRunning &&
         !IsApplyingParameters &&
+        !IsApplyingIllumination &&
         !IsAutoCalibrating;
+
+    private bool CanManageIllumination() =>
+        IsConnected &&
+        !IsConnecting &&
+        !IsRunning &&
+        !IsApplyingParameters &&
+        !IsAutoCalibrating &&
+        !IsApplyingIllumination;
 
     private bool CanRunAutoCalibration() =>
         IsConnected &&
         !IsConnecting &&
         !IsRunning &&
         !IsApplyingParameters &&
+        !IsApplyingIllumination &&
         !IsAutoCalibrating;
 
     [RelayCommand(CanExecute = nameof(CanExportBuffer))]
@@ -438,24 +534,45 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _usbUsageCoordinator.SetScanDebugInUse(true);
             StatusText = "Scanner sessions connected. Loading parameters...";
 
-            var snapshot = await _parameters.LoadAsync(_session, _session.ConnectionToken);
-            ExposureTicks = snapshot.ExposureTicks.ToString();
-            Adc1Offset = _parameters.FormatOffsetForInput(snapshot.Adc1Offset);
-            Adc1Gain = snapshot.Adc1Gain.ToString();
-            Adc2Offset = _parameters.FormatOffsetForInput(snapshot.Adc2Offset);
-            Adc2Gain = snapshot.Adc2Gain.ToString();
-            SysClockKhz = snapshot.SysClockKhz.ToString();
-            UpdateComputedParameterDisplays();
+            var statusNotes = new List<string>();
 
-            StatusText = "Scanner sessions connected. Parameters loaded.";
+            try
+            {
+                var snapshot = await _parameters.LoadAsync(_session, _session.ConnectionToken);
+                ExposureTicks = snapshot.ExposureTicks.ToString();
+                Adc1Offset = _parameters.FormatOffsetForInput(snapshot.Adc1Offset);
+                Adc1Gain = snapshot.Adc1Gain.ToString();
+                Adc2Offset = _parameters.FormatOffsetForInput(snapshot.Adc2Offset);
+                Adc2Gain = snapshot.Adc2Gain.ToString();
+                SysClockKhz = snapshot.SysClockKhz.ToString();
+                UpdateComputedParameterDisplays();
+                statusNotes.Add("Parameters loaded");
+            }
+            catch (Exception ex)
+            {
+                statusNotes.Add($"Parameter load unavailable: {ex.Message}");
+            }
+
+            try
+            {
+                await LoadIlluminationStateAsync(_session.ConnectionToken);
+                statusNotes.Add("Illumination state loaded");
+            }
+            catch (Exception ex)
+            {
+                ResetIlluminationInputs();
+                statusNotes.Add($"Illumination unavailable: {ex.Message}");
+            }
 
             if (IsWarmUpEnabled)
             {
                 var warmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.ConnectionToken);
-                StatusText = warmUpResult.Success
-                    ? "Scanner sessions connected. Parameters loaded. Warm-up enabled."
-                    : $"Scanner sessions connected. Parameters loaded, but warm-up failed: {warmUpResult.Message}";
+                statusNotes.Add(warmUpResult.Success ? "Warm-up enabled" : $"Warm-up failed: {warmUpResult.Message}");
             }
+
+            StatusText = statusNotes.Count > 0
+                ? $"Scanner sessions connected. {string.Join(". ", statusNotes)}."
+                : "Scanner sessions connected.";
         }
         catch (Exception ex)
         {
@@ -500,6 +617,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             await _session.DisconnectAsync();
             IsConnected = false;
             _usbUsageCoordinator.SetScanDebugInUse(false);
+            ResetIlluminationInputs();
             StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
         }
         finally
@@ -553,6 +671,85 @@ public partial class ScanDebugViewModel : ObservableRecipient
         finally
         {
             IsApplyingParameters = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageIllumination))]
+    private async Task RefreshIllumination()
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        IsApplyingIllumination = true;
+        try
+        {
+            StatusText = "Refreshing illumination state...";
+            await LoadIlluminationStateAsync(_session.ConnectionToken);
+            StatusText = "Illumination state refreshed.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Illumination refresh canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Illumination refresh failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingIllumination = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageIllumination))]
+    private async Task ApplyIllumination()
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryBuildIlluminationRequest(out var request, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsApplyingIllumination = true;
+        try
+        {
+            StatusText = "Applying illumination settings...";
+
+            var currentState = await _session.GetIlluminationStateAsync(_session.ConnectionToken);
+            if (currentState.SyncMask != 0)
+                await _session.ConfigureExposureLightingAsync(0, _session.ConnectionToken);
+
+            if (currentState.SteadyMask != 0)
+                await _session.SetSteadyIlluminationAsync(0, _session.ConnectionToken);
+
+            await _session.SetIlluminationLevelsAsync(request.Led1Level, request.Led2Level, request.Led3Level, request.Led4Level, _session.ConnectionToken);
+            await _session.SetSyncPulseClocksAsync(request.Led1PulseClock, request.Led2PulseClock, request.Led3PulseClock, request.Led4PulseClock, _session.ConnectionToken);
+            await _session.SetSteadyIlluminationAsync(request.SteadyMask, _session.ConnectionToken);
+            await _session.ConfigureExposureLightingAsync(request.SyncMask, _session.ConnectionToken);
+
+            await LoadIlluminationStateAsync(_session.ConnectionToken);
+            StatusText = "Illumination settings updated.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Illumination update canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Illumination update failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingIllumination = false;
         }
     }
 
@@ -909,6 +1106,174 @@ public partial class ScanDebugViewModel : ObservableRecipient
         SysClockMhzDisplay = displays.SysClockMhzDisplay;
     }
 
+    private async Task LoadIlluminationStateAsync(CancellationToken ct)
+    {
+        var state = await _session.GetIlluminationStateAsync(ct);
+        ApplyIlluminationStateToInputs(state);
+    }
+
+    private void ApplyIlluminationStateToInputs(ScanIlluminationState state)
+    {
+        Led1Level = state.Led1Level.ToString();
+        Led2Level = state.Led2Level.ToString();
+        Led3Level = state.Led3Level.ToString();
+        Led4Level = state.Led4Level.ToString();
+        Led1PulseClock = state.Led1PulseClock.ToString();
+        Led2PulseClock = state.Led2PulseClock.ToString();
+        Led3PulseClock = state.Led3PulseClock.ToString();
+        Led4PulseClock = state.Led4PulseClock.ToString();
+        IsLed1SteadyEnabled = (state.SteadyMask & 0x01) != 0;
+        IsLed2SteadyEnabled = (state.SteadyMask & 0x02) != 0;
+        IsLed3SteadyEnabled = (state.SteadyMask & 0x04) != 0;
+        IsLed4SteadyEnabled = (state.SteadyMask & 0x08) != 0;
+        IsLed1SyncEnabled = (state.SyncMask & 0x01) != 0;
+        IsLed2SyncEnabled = (state.SyncMask & 0x02) != 0;
+        IsLed3SyncEnabled = (state.SyncMask & 0x04) != 0;
+        IsLed4SyncEnabled = (state.SyncMask & 0x08) != 0;
+        IlluminationSummaryText = BuildIlluminationSummary(state);
+    }
+
+    private void ResetIlluminationInputs()
+    {
+        Led1Level = "0";
+        Led2Level = "0";
+        Led3Level = "0";
+        Led4Level = "0";
+        Led1PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led2PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led3PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        Led4PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        IsLed1SteadyEnabled = false;
+        IsLed2SteadyEnabled = false;
+        IsLed3SteadyEnabled = false;
+        IsLed4SteadyEnabled = false;
+        IsLed1SyncEnabled = false;
+        IsLed2SyncEnabled = false;
+        IsLed3SyncEnabled = false;
+        IsLed4SyncEnabled = false;
+        IlluminationSummaryText = "Illumination state: -";
+    }
+
+    private bool TryBuildIlluminationRequest(out IlluminationRequest request, out string error)
+    {
+        request = new IlluminationRequest(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        if (!TryParseLedLevel(Led1Level, "LED1 Level", out var led1Level, out error)
+            || !TryParseLedLevel(Led2Level, "LED2 Level", out var led2Level, out error)
+            || !TryParseLedLevel(Led3Level, "LED3 Level", out var led3Level, out error)
+            || !TryParseLedLevel(Led4Level, "LED4 Level", out var led4Level, out error)
+            || !TryParsePulseClock(Led1PulseClock, "LED1 Pulse Clock", out var led1PulseClock, out error)
+            || !TryParsePulseClock(Led2PulseClock, "LED2 Pulse Clock", out var led2PulseClock, out error)
+            || !TryParsePulseClock(Led3PulseClock, "LED3 Pulse Clock", out var led3PulseClock, out error)
+            || !TryParsePulseClock(Led4PulseClock, "LED4 Pulse Clock", out var led4PulseClock, out error))
+        {
+            return false;
+        }
+
+        var steadyMask = BuildMask(IsLed1SteadyEnabled, IsLed2SteadyEnabled, IsLed3SteadyEnabled, IsLed4SteadyEnabled);
+        var syncMask = BuildMask(IsLed1SyncEnabled, IsLed2SyncEnabled, IsLed3SyncEnabled, IsLed4SyncEnabled);
+
+        if ((steadyMask & syncMask) != 0)
+        {
+            error = "Steady and sync selections cannot overlap on the same LED channel.";
+            return false;
+        }
+
+        if (!ValidateSyncPulse(syncMask, 0x01, led1PulseClock, "LED1 Pulse Clock", out error)
+            || !ValidateSyncPulse(syncMask, 0x02, led2PulseClock, "LED2 Pulse Clock", out error)
+            || !ValidateSyncPulse(syncMask, 0x04, led3PulseClock, "LED3 Pulse Clock", out error)
+            || !ValidateSyncPulse(syncMask, 0x08, led4PulseClock, "LED4 Pulse Clock", out error))
+        {
+            return false;
+        }
+
+        request = new IlluminationRequest(
+            led1Level,
+            led2Level,
+            led3Level,
+            led4Level,
+            steadyMask,
+            syncMask,
+            led1PulseClock,
+            led2PulseClock,
+            led3PulseClock,
+            led4PulseClock);
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryParseLedLevel(string text, string fieldName, out ushort value, out string error)
+    {
+        if (!ushort.TryParse(text, out value))
+        {
+            error = $"{fieldName} must be an integer in [0, 65535].";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryParsePulseClock(string text, string fieldName, out uint value, out string error)
+    {
+        if (!uint.TryParse(text, out value))
+        {
+            error = $"{fieldName} must be a non-negative integer.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateSyncPulse(byte syncMask, byte channelBit, uint pulseClock, string fieldName, out string error)
+    {
+        if ((syncMask & channelBit) != 0 && pulseClock < ScanDebugConstants.IlluminationMinSyncPulseClock)
+        {
+            error = $"{fieldName} must be at least {ScanDebugConstants.IlluminationMinSyncPulseClock} when sync is enabled for that channel.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static byte BuildMask(bool bit0, bool bit1, bool bit2, bool bit3)
+        => (byte)((bit0 ? 0x01 : 0x00) |
+                  (bit1 ? 0x02 : 0x00) |
+                  (bit2 ? 0x04 : 0x00) |
+                  (bit3 ? 0x08 : 0x00));
+
+    private static string BuildIlluminationSummary(ScanIlluminationState state)
+        => $"Illumination state: Steady={FormatMask(state.SteadyMask)}, Sync={FormatMask(state.SyncMask)}, Active={FormatMask(state.SyncActiveMask)}";
+
+    private static string FormatMask(byte mask)
+    {
+        if ((mask & ScanDebugConstants.IlluminationValidMask) == 0)
+            return "none";
+
+        var labels = new List<string>(ScanDebugConstants.IlluminationChannelCount);
+        for (var index = 0; index < ScanDebugConstants.IlluminationChannelCount; index++)
+        {
+            if (((mask >> index) & 0x01) != 0)
+                labels.Add(IlluminationChannelLabels[index]);
+        }
+
+        return string.Join(", ", labels);
+    }
+
+    private sealed record IlluminationRequest(
+        ushort Led1Level,
+        ushort Led2Level,
+        ushort Led3Level,
+        ushort Led4Level,
+        byte SteadyMask,
+        byte SyncMask,
+        uint Led1PulseClock,
+        uint Led2PulseClock,
+        uint Led3PulseClock,
+        uint Led4PulseClock);
+
     private bool RenderPreview(int rows)
     {
         var gamma = 1.0;
@@ -985,5 +1350,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsConnecting = false;
         IsRunning = false;
         IsApplyingParameters = false;
+        IsApplyingIllumination = false;
+        ResetIlluminationInputs();
     }
 }

@@ -18,6 +18,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="{StaticResource SmallTopBottomMargin}" ColumnSpacing="12" RowSpacing="8">
@@ -164,7 +165,57 @@
                 </Grid>
             </StackPanel>
 
-            <StackPanel Grid.Row="3" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
+            <StackPanel Grid.Row="3" Margin="{StaticResource SmallTopBottomMargin}" Spacing="8">
+                <TextBlock x:Uid="ScanDebug_IlluminationTitle.Text" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="ScanDebug_IlluminationNote.Text" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <TextBlock Text="{x:Bind ViewModel.IlluminationSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <Grid ColumnSpacing="8" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_Led1Channel.Text" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_Led2Channel.Text" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" x:Uid="ScanDebug_Led3Channel.Text" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Grid.Row="0" Grid.Column="3" x:Uid="ScanDebug_Led4Channel.Text" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+                    <TextBox Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_Led1LevelTextBox" Text="{x:Bind ViewModel.Led1Level, Mode=TwoWay}" />
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_Led2LevelTextBox" Text="{x:Bind ViewModel.Led2Level, Mode=TwoWay}" />
+                    <TextBox Grid.Row="1" Grid.Column="2" x:Uid="ScanDebug_Led3LevelTextBox" Text="{x:Bind ViewModel.Led3Level, Mode=TwoWay}" />
+                    <TextBox Grid.Row="1" Grid.Column="3" x:Uid="ScanDebug_Led4LevelTextBox" Text="{x:Bind ViewModel.Led4Level, Mode=TwoWay}" />
+
+                    <TextBox Grid.Row="2" Grid.Column="0" x:Uid="ScanDebug_Led1PulseTextBox" Text="{x:Bind ViewModel.Led1PulseClock, Mode=TwoWay}" />
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Uid="ScanDebug_Led2PulseTextBox" Text="{x:Bind ViewModel.Led2PulseClock, Mode=TwoWay}" />
+                    <TextBox Grid.Row="2" Grid.Column="2" x:Uid="ScanDebug_Led3PulseTextBox" Text="{x:Bind ViewModel.Led3PulseClock, Mode=TwoWay}" />
+                    <TextBox Grid.Row="2" Grid.Column="3" x:Uid="ScanDebug_Led4PulseTextBox" Text="{x:Bind ViewModel.Led4PulseClock, Mode=TwoWay}" />
+
+                    <CheckBox Grid.Row="3" Grid.Column="0" x:Uid="ScanDebug_Led1SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed1SteadyEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="3" Grid.Column="1" x:Uid="ScanDebug_Led2SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed2SteadyEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="3" Grid.Column="2" x:Uid="ScanDebug_Led3SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed3SteadyEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="3" Grid.Column="3" x:Uid="ScanDebug_Led4SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed4SteadyEnabled, Mode=TwoWay}" />
+
+                    <CheckBox Grid.Row="4" Grid.Column="0" x:Uid="ScanDebug_Led1SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed1SyncEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="4" Grid.Column="1" x:Uid="ScanDebug_Led2SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed2SyncEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="4" Grid.Column="2" x:Uid="ScanDebug_Led3SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed3SyncEnabled, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="4" Grid.Column="3" x:Uid="ScanDebug_Led4SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed4SyncEnabled, Mode=TwoWay}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Uid="ScanDebug_RefreshIlluminationButton" Command="{x:Bind ViewModel.RefreshIlluminationCommand}" />
+                    <Button x:Uid="ScanDebug_ApplyIlluminationButton" Command="{x:Bind ViewModel.ApplyIlluminationCommand}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
                 <TextBlock x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="{StaticResource XSmallTopMargin}">
                     <ToggleSwitch
@@ -192,7 +243,7 @@
                 </StackPanel>
             </StackPanel>
 
-            <Border Grid.Row="4" Height="520" Margin="0,8,0,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+            <Border Grid.Row="5" Height="520" Margin="0,8,0,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                 <ScrollViewer
                     x:Name="PreviewScrollViewer"
                     HorizontalScrollBarVisibility="Auto"
