@@ -198,6 +198,9 @@
   <data name="Shell_UsbDebug.Content" xml:space="preserve">
     <value>USB Debugging</value>
   </data>
+  <data name="Shell_Scan.Content" xml:space="preserve">
+    <value>Scan</value>
+  </data>
   <data name="UsbDebug_SelectDevice.Text" xml:space="preserve">
     <value>Select Device</value>
   </data>
@@ -269,6 +272,144 @@
   </data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve">
     <value>Scan Debugging</value>
+  </data>
+  <data name="Scan_ConnectButton.Content" xml:space="preserve">
+    <value>Connect Devices</value>
+  </data>
+  <data name="Scan_DisconnectButton.Content" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Scan_StartButton.Content" xml:space="preserve">
+    <value>Start Scan</value>
+  </data>
+  <data name="Scan_StopButton.Content" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Scan_SetupTitle.Text" xml:space="preserve">
+    <value>Scan Setup</value>
+  </data>
+  <data name="Scan_RowsComboBox.Header" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="Scan_WarmUpToggleSwitch.Header" xml:space="preserve">
+    <value>Warm-up</value>
+  </data>
+  <data name="Scan_WarmUpToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_WarmUpToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Scan_PreviewToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_PreviewToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_AlternateDirectionToggleSwitch.Header" xml:space="preserve">
+    <value>Alternate motor direction each pass</value>
+  </data>
+  <data name="Scan_AlternateDirectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_AlternateDirectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_StartingDirectionComboBox.Header" xml:space="preserve">
+    <value>Starting direction</value>
+  </data>
+  <data name="Scan_DirectionHelpText.Text" xml:space="preserve">
+    <value>The four LED passes follow the selected starting direction and alternate automatically when enabled.</value>
+  </data>
+  <data name="Scan_PassPlanTitle.Text" xml:space="preserve">
+    <value>Scan Pass Plan</value>
+  </data>
+  <data name="Scan_PassHeader.Text" xml:space="preserve">
+    <value>Pass</value>
+  </data>
+  <data name="Scan_LedHeader.Text" xml:space="preserve">
+    <value>LED</value>
+  </data>
+  <data name="Scan_DirectionHeader.Text" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Scan_ChannelMappingTitle.Text" xml:space="preserve">
+    <value>Channel Mapping</value>
+  </data>
+  <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve">
+    <value>Assign each captured channel to its final output role before saving RGB or raw results.</value>
+  </data>
+  <data name="Scan_Channel1Label.Text" xml:space="preserve">
+    <value>Captured Channel 1</value>
+  </data>
+  <data name="Scan_Channel1ReverseToggleSwitch.Header" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Channel1ReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_Channel1ReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_Channel2Label.Text" xml:space="preserve">
+    <value>Captured Channel 2</value>
+  </data>
+  <data name="Scan_Channel2ReverseToggleSwitch.Header" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Channel2ReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_Channel2ReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_Channel3Label.Text" xml:space="preserve">
+    <value>Captured Channel 3</value>
+  </data>
+  <data name="Scan_Channel3ReverseToggleSwitch.Header" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Channel3ReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_Channel3ReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_Channel4Label.Text" xml:space="preserve">
+    <value>Captured Channel 4</value>
+  </data>
+  <data name="Scan_Channel4ReverseToggleSwitch.Header" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Channel4ReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Scan_Channel4ReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Scan_OutputTitle.Text" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve">
+    <value>Save RGB Image</value>
+  </data>
+  <data name="Scan_ExportRawChannelsButton.Content" xml:space="preserve">
+    <value>Export Raw Channels</value>
+  </data>
+  <data name="Scan_PreviewTitle.Text" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve">
+    <value>Preview mode</value>
+  </data>
+  <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve">
+    <value>Preview Surface</value>
+  </data>
+  <data name="Scan_RunDetailsTitle.Text" xml:space="preserve">
+    <value>Run Details</value>
   </data>
   <data name="ScanDebug_StartButton.Content" xml:space="preserve">
     <value>Start</value>
@@ -506,5 +647,38 @@
   </data>
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
     <value>Restore defaults</value>
+  </data>
+  <data name="Scan_ScanMotorComboBox.Header" xml:space="preserve">
+    <value>Scan Motor</value>
+  </data>
+  <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve">
+    <value>Motor Interval (us)</value>
+  </data>
+  <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=10</value>
+  </data>
+  <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve">
+    <value>LED1 Level</value>
+  </data>
+  <data name="Scan_Led1LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="Scan_Led2LevelTextBox.Header" xml:space="preserve">
+    <value>LED2 Level</value>
+  </data>
+  <data name="Scan_Led2LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="Scan_Led3LevelTextBox.Header" xml:space="preserve">
+    <value>LED3 Level</value>
+  </data>
+  <data name="Scan_Led3LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="Scan_Led4LevelTextBox.Header" xml:space="preserve">
+    <value>LED4 Level</value>
+  </data>
+  <data name="Scan_Led4LevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
   </data>
 </root>

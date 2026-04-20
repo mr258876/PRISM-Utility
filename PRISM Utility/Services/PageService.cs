@@ -16,6 +16,7 @@ public class PageService : IPageService
     {
         Configure<MainViewModel, MainPage>();
         Configure<UsbDebugViewModel, UsbDebugPage>();
+        Configure<ScanViewModel, ScanPage>();
         Configure<ScanDebugViewModel, ScanDebugPage>();
         Configure<SettingsViewModel, SettingsPage>();
     }

@@ -482,8 +482,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private ScanCalibrationStatistics BuildStatistics(byte[] lineBuffer, int rows)
     {
         var width = _decoder.GetDecodedPixelsPerLine();
-        var effectiveStart = Math.Clamp(ScanDebugConstants.EffectivePixelStart, 0, width - 1);
-        var effectiveEnd = Math.Clamp(ScanDebugConstants.EffectivePixelEnd, effectiveStart, width - 1);
+        var (effectiveStart, effectiveEnd) = _decoder.GetEffectivePixelRange();
         var shieldStart = Math.Clamp(ScanDebugConstants.ShieldPixelStart, 0, width - 1);
         var shieldEnd = Math.Clamp(ScanDebugConstants.ShieldPixelEnd, shieldStart, effectiveStart - 1);
         var effectiveCount = effectiveEnd - effectiveStart + 1;

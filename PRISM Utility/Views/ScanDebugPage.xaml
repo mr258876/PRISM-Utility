@@ -19,6 +19,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="{StaticResource SmallTopBottomMargin}" ColumnSpacing="12" RowSpacing="8">
@@ -166,6 +168,36 @@
             </StackPanel>
 
             <StackPanel Grid.Row="3" Margin="{StaticResource SmallTopBottomMargin}" Spacing="8">
+                <TextBlock Text="Autofocus" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Host-side scan-debug autofocus. Overall sharpness is optimized first on fresh raw scan buffers, then tilt is balanced from relative left/right sharpness." Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <TextBlock Text="{x:Bind ViewModel.AutofocusSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <Grid ColumnSpacing="8" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="220" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBox Grid.Row="0" Grid.Column="0" Header="Sample rows" Text="{x:Bind ViewModel.AutofocusSampleRows, Mode=TwoWay}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Header="Tilt probe steps" Text="{x:Bind ViewModel.AutofocusTiltProbeSteps, Mode=TwoWay}" />
+                    <TextBox Grid.Row="0" Grid.Column="2" Header="Z probe steps" Text="{x:Bind ViewModel.AutofocusZProbeSteps, Mode=TwoWay}" />
+
+                    <TextBox Grid.Row="1" Grid.Column="0" Header="Motor interval (us)" Text="{x:Bind ViewModel.AutofocusMotorIntervalUs, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" Header="Logical Z+ direction" ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.AutofocusZDirection, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="1" Grid.Column="2" Header="Logical Tilt+ direction on Motor1" ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.AutofocusTiltDirection, Mode=TwoWay}" />
+
+                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8">
+                        <Button Content="Run Autofocus" Command="{x:Bind ViewModel.AutoFocusCommand}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4" Margin="{StaticResource SmallTopBottomMargin}" Spacing="8">
                 <TextBlock x:Uid="ScanDebug_IlluminationTitle.Text" Style="{ThemeResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Uid="ScanDebug_IlluminationNote.Text" Opacity="0.8" TextWrapping="WrapWholeWords" />
                 <TextBlock Text="{x:Bind ViewModel.IlluminationSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
@@ -215,7 +247,80 @@
                 </StackPanel>
             </StackPanel>
 
-            <StackPanel Grid.Row="4" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
+            <StackPanel Grid.Row="5" Margin="{StaticResource SmallTopBottomMargin}" Spacing="8">
+                <TextBlock Text="Motion" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Debug controls for the three motors exposed by the scanner main-board USB motion API." Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Refresh Motion" Command="{x:Bind ViewModel.RefreshMotionCommand}" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.MotionSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <Grid ColumnSpacing="8" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Motor1" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.Motor1StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Enable" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="1" />
+                                <Button Content="Disable" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="1" />
+                            </StackPanel>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor1MoveDirection, Mode=TwoWay}" />
+                            <TextBox Header="Steps" Text="{x:Bind ViewModel.Motor1MoveSteps, Mode=TwoWay}" />
+                            <TextBox Header="Interval (us)" Text="{x:Bind ViewModel.Motor1IntervalUs, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Move" Command="{x:Bind ViewModel.MoveMotorCommand}" CommandParameter="1" />
+                                <Button Content="Stop" Command="{x:Bind ViewModel.StopMotorCommand}" CommandParameter="1" />
+                                <Button Content="Apply Config" Command="{x:Bind ViewModel.ApplyMotorConfigCommand}" CommandParameter="1" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Motor2" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.Motor2StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Enable" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="2" />
+                                <Button Content="Disable" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="2" />
+                            </StackPanel>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor2MoveDirection, Mode=TwoWay}" />
+                            <TextBox Header="Steps" Text="{x:Bind ViewModel.Motor2MoveSteps, Mode=TwoWay}" />
+                            <TextBox Header="Interval (us)" Text="{x:Bind ViewModel.Motor2IntervalUs, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Move" Command="{x:Bind ViewModel.MoveMotorCommand}" CommandParameter="2" />
+                                <Button Content="Stop" Command="{x:Bind ViewModel.StopMotorCommand}" CommandParameter="2" />
+                                <Button Content="Apply Config" Command="{x:Bind ViewModel.ApplyMotorConfigCommand}" CommandParameter="2" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Motor3" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.Motor3StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Enable" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="3" />
+                                <Button Content="Disable" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="3" />
+                            </StackPanel>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor3MoveDirection, Mode=TwoWay}" />
+                            <TextBox Header="Steps" Text="{x:Bind ViewModel.Motor3MoveSteps, Mode=TwoWay}" />
+                            <TextBox Header="Interval (us)" Text="{x:Bind ViewModel.Motor3IntervalUs, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Move" Command="{x:Bind ViewModel.MoveMotorCommand}" CommandParameter="3" />
+                                <Button Content="Stop" Command="{x:Bind ViewModel.StopMotorCommand}" CommandParameter="3" />
+                                <Button Content="Apply Config" Command="{x:Bind ViewModel.ApplyMotorConfigCommand}" CommandParameter="3" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Row="6" Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
                 <TextBlock x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="{StaticResource XSmallTopMargin}">
                     <ToggleSwitch
@@ -243,7 +348,7 @@
                 </StackPanel>
             </StackPanel>
 
-            <Border Grid.Row="5" Height="520" Margin="0,8,0,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+            <Border Grid.Row="7" Height="520" Margin="0,8,0,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                 <ScrollViewer
                     x:Name="PreviewScrollViewer"
                     HorizontalScrollBarVisibility="Auto"

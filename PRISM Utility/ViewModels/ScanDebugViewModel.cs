@@ -55,6 +55,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
     private const double DefaultPreviewGamma = 2.2;
     private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
+    private static readonly string[] MotorDirectionLabels = { "Dir0", "Dir1" };
 
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
@@ -62,6 +63,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IScanPreviewPresenter _previewPresenter;
     private readonly IScanBufferExportService _bufferExportService;
     private readonly IScanAutoCalibrationService _autoCalibration;
+    private readonly IScanAutoFocusService _autoFocus;
     private readonly IScanTransferSettingsService _transferSettings;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly DispatcherQueue _dispatcher;
@@ -76,6 +78,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private int _previewRows;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
+
+    public ObservableCollection<string> MotorDirectionOptions { get; } = new(MotorDirectionLabels);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -111,8 +115,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsRunning { get; set; }
 
     [ObservableProperty]
@@ -127,8 +138,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsConnected { get; set; }
 
     [ObservableProperty]
@@ -138,8 +156,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsConnecting { get; set; }
 
     [ObservableProperty]
@@ -168,8 +193,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsApplyingParameters { get; set; }
 
     [ObservableProperty]
@@ -177,8 +209,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsAutoCalibrating { get; set; }
 
     [ObservableProperty]
@@ -188,9 +227,52 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
     [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
     [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
+    public partial bool IsAutoFocusing { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisconnectDevicesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
     public partial bool IsApplyingIllumination { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisconnectDevicesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyParametersCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoBlackAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoWhiteAdjustCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoCalibrateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoFocusCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyIlluminationCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshMotionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EnableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DisableMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StopMotorCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyMotorConfigCommand))]
+    public partial bool IsApplyingMotion { get; set; }
 
     [ObservableProperty]
     public partial string ExposureTicks { get; set; }
@@ -279,11 +361,71 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string IlluminationSummaryText { get; set; }
 
+    [ObservableProperty]
+    public partial string MotionSummaryText { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1StatusText { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2StatusText { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3StatusText { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1MoveDirection { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2MoveDirection { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3MoveDirection { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1MoveSteps { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2MoveSteps { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3MoveSteps { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1IntervalUs { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2IntervalUs { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3IntervalUs { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusSampleRows { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusTiltProbeSteps { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusZProbeSteps { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusMotorIntervalUs { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusZDirection { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusTiltDirection { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusSummaryText { get; set; }
+
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
 
-    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanTransferSettingsService transferSettings, IUsbUsageCoordinator usbUsageCoordinator)
+    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanTransferSettingsService transferSettings, IUsbUsageCoordinator usbUsageCoordinator)
     {
         _session = session;
         _parameters = parameters;
@@ -291,6 +433,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _previewPresenter = previewPresenter;
         _bufferExportService = bufferExportService;
         _autoCalibration = autoCalibration;
+        _autoFocus = autoFocus;
         _transferSettings = transferSettings;
         _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
@@ -321,6 +464,26 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Led3PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         Led4PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         IlluminationSummaryText = "Illumination state: -";
+        MotionSummaryText = "Motion state: -";
+        Motor1StatusText = "State: -";
+        Motor2StatusText = "State: -";
+        Motor3StatusText = "State: -";
+        Motor1MoveDirection = MotorDirectionLabels[0];
+        Motor2MoveDirection = MotorDirectionLabels[0];
+        Motor3MoveDirection = MotorDirectionLabels[0];
+        Motor1MoveSteps = "200";
+        Motor2MoveSteps = "200";
+        Motor3MoveSteps = "200";
+        Motor1IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        Motor2IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        Motor3IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        AutofocusSampleRows = "128";
+        AutofocusTiltProbeSteps = "40";
+        AutofocusZProbeSteps = "20";
+        AutofocusMotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        AutofocusZDirection = MotorDirectionLabels[0];
+        AutofocusTiltDirection = MotorDirectionLabels[0];
+        AutofocusSummaryText = "Autofocus: idle.";
 
         _session.TargetsChanged += OnSessionTargetsChanged;
         _transferSettings.BulkInReadModeChanged += OnTransferSettingsChanged;
@@ -364,6 +527,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
 
     partial void OnIsApplyingIlluminationChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
+    partial void OnIsApplyingMotionChanged(bool value)
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
 
     partial void OnIsPreviewEnabledChanged(bool value)
@@ -420,7 +586,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public bool IsPreviewEnabledForCurrentRows => IsPreviewEnabled && !IsPreviewForcedOffForSelectedRows();
 
-    public bool AreScanAcquisitionSettingsEditable => !IsRunning && !IsApplyingIllumination;
+    public bool AreScanAcquisitionSettingsEditable =>
+        !IsRunning &&
+        !IsConnecting &&
+        !IsApplyingParameters &&
+        !IsAutoCalibrating &&
+        !IsAutoFocusing &&
+        !IsApplyingIllumination &&
+        !IsApplyingMotion;
 
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
@@ -450,7 +623,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool CanStartScan() =>
         !IsRunning &&
+        !IsAutoFocusing &&
         !IsApplyingIllumination &&
+        !IsApplyingMotion &&
         IsConnected &&
         TryParseRequestedRows(out _);
 
@@ -460,7 +635,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool CanConnectDevices() => IsDevicesPresent && !IsConnected && !IsConnecting;
 
-    private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsApplyingIllumination;
+    private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsApplyingIllumination && !IsApplyingMotion && !IsAutoFocusing;
 
     private bool CanApplyParameters() =>
         IsConnected &&
@@ -468,7 +643,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsRunning &&
         !IsApplyingParameters &&
         !IsApplyingIllumination &&
-        !IsAutoCalibrating;
+        !IsApplyingMotion &&
+        !IsAutoCalibrating &&
+        !IsAutoFocusing;
 
     private bool CanManageIllumination() =>
         IsConnected &&
@@ -476,7 +653,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsRunning &&
         !IsApplyingParameters &&
         !IsAutoCalibrating &&
-        !IsApplyingIllumination;
+        !IsAutoFocusing &&
+        !IsApplyingIllumination &&
+        !IsApplyingMotion;
+
+    private bool CanManageMotion() =>
+        IsConnected &&
+        !IsConnecting &&
+        !IsRunning &&
+        !IsApplyingParameters &&
+        !IsAutoCalibrating &&
+        !IsAutoFocusing &&
+        !IsApplyingIllumination &&
+        !IsApplyingMotion;
 
     private bool CanRunAutoCalibration() =>
         IsConnected &&
@@ -484,7 +673,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsRunning &&
         !IsApplyingParameters &&
         !IsApplyingIllumination &&
-        !IsAutoCalibrating;
+        !IsApplyingMotion &&
+        !IsAutoCalibrating &&
+        !IsAutoFocusing;
+
+    private bool CanRunAutoFocus() => CanRunAutoCalibration();
 
     [RelayCommand(CanExecute = nameof(CanExportBuffer))]
     private async Task ExportBuffer()
@@ -564,6 +757,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 statusNotes.Add($"Illumination unavailable: {ex.Message}");
             }
 
+            try
+            {
+                await LoadMotionStateAsync(_session.ConnectionToken);
+                statusNotes.Add("Motion state loaded");
+            }
+            catch (Exception ex)
+            {
+                ResetMotionInputs();
+                statusNotes.Add($"Motion unavailable: {ex.Message}");
+            }
+
             if (IsWarmUpEnabled)
             {
                 var warmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.ConnectionToken);
@@ -618,6 +822,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             IsConnected = false;
             _usbUsageCoordinator.SetScanDebugInUse(false);
             ResetIlluminationInputs();
+            ResetMotionInputs();
             StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
         }
         finally
@@ -753,6 +958,165 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task RefreshMotion()
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        IsApplyingMotion = true;
+        try
+        {
+            StatusText = "Refreshing motion state...";
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            StatusText = "Motion state refreshed.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Motion refresh canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Motion refresh failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingMotion = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task EnableMotor(string? motorDisplayId)
+    {
+        await SetMotorEnabledCoreAsync(motorDisplayId, true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task DisableMotor(string? motorDisplayId)
+    {
+        await SetMotorEnabledCoreAsync(motorDisplayId, false);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task MoveMotor(string? motorDisplayId)
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var targetError))
+        {
+            StatusText = targetError;
+            return;
+        }
+
+        if (!TryBuildMotorMoveRequest(motorId, out var request, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsApplyingMotion = true;
+        try
+        {
+            StatusText = $"Starting finite move on {motorName}...";
+            await _session.MoveMotorStepsAsync(motorId, request.Direction, request.Steps, request.IntervalUs, _session.ConnectionToken);
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            StatusText = $"{motorName} move command sent.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = $"{motorName} move canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{motorName} move failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingMotion = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task StopMotor(string? motorDisplayId)
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsApplyingMotion = true;
+        try
+        {
+            StatusText = $"Stopping {motorName}...";
+            await _session.StopMotorAsync(motorId, _session.ConnectionToken);
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            StatusText = $"{motorName} stop command sent.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = $"{motorName} stop canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{motorName} stop failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingMotion = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanManageMotion))]
+    private async Task ApplyMotorConfig(string? motorDisplayId)
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsApplyingMotion = true;
+        try
+        {
+            StatusText = $"Applying persisted config to {motorName}...";
+            await _session.ApplyMotorConfigAsync(motorId, _session.ConnectionToken);
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            StatusText = $"{motorName} config applied.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = $"{motorName} config apply canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{motorName} config apply failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingMotion = false;
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoBlackAdjust()
         => RunAutoCalibrationAsync((session, snapshot, prompt, status, applied, frame, ct) => _autoCalibration.AutoBlackAdjustAsync(session, snapshot, prompt, status, applied, frame, ct), "Auto black calibration completed.");
@@ -764,6 +1128,101 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoCalibrate()
         => RunAutoCalibrationAsync((session, snapshot, prompt, status, applied, frame, ct) => _autoCalibration.AutoCalibrateAsync(session, snapshot, prompt, status, applied, frame, ct), "Auto calibration completed.");
+
+    [RelayCommand(CanExecute = nameof(CanRunAutoFocus))]
+    private async Task AutoFocus()
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryBuildAutofocusRequest(out var request, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsAutoFocusing = true;
+        using var autofocusCts = CancellationTokenSource.CreateLinkedTokenSource(_session.ConnectionToken);
+        var restoreWarmUp = IsWarmUpEnabled;
+        try
+        {
+            if (restoreWarmUp)
+            {
+                var disableWarmUpResult = await _session.SetWarmUpEnabledAsync(false, _session.ConnectionToken);
+                if (!disableWarmUpResult.Success)
+                    throw new IOException($"Autofocus requires warm-up off: {disableWarmUpResult.Message}");
+
+                _suppressWarmUpToggleCommand = true;
+                try
+                {
+                    IsWarmUpEnabled = false;
+                }
+                finally
+                {
+                    _suppressWarmUpToggleCommand = false;
+                }
+            }
+
+            StatusText = "Autofocus started...";
+            AutofocusSummaryText = $"Autofocus: sampling {request.SampleRows} rows, tilt step {request.TiltProbeSteps}, Z step {request.ZProbeSteps}.";
+
+            var result = await _autoFocus.AutoFocusAsync(
+                _session,
+                request,
+                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                (imageBytes, rows, phase) => _dispatcher.TryEnqueue(() => ShowCalibrationFrame(imageBytes, rows, phase)),
+                autofocusCts.Token);
+
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            AutofocusSummaryText = BuildAutofocusSummary(result);
+            StatusText = "Autofocus completed.";
+        }
+        catch (OperationCanceledException)
+        {
+            AutofocusSummaryText = "Autofocus: canceled.";
+            StatusText = "Autofocus canceled.";
+        }
+        catch (Exception ex)
+        {
+            AutofocusSummaryText = $"Autofocus: failed - {ex.Message}";
+            StatusText = $"Autofocus failed: {ex.Message}";
+        }
+        finally
+        {
+            if (restoreWarmUp && IsConnected)
+            {
+                try
+                {
+                    var restoreWarmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.ConnectionToken);
+                    if (restoreWarmUpResult.Success)
+                    {
+                        _suppressWarmUpToggleCommand = true;
+                        try
+                        {
+                            IsWarmUpEnabled = true;
+                        }
+                        finally
+                        {
+                            _suppressWarmUpToggleCommand = false;
+                        }
+                    }
+                    else
+                    {
+                        StatusText = $"Autofocus finished, but warm-up restore failed: {restoreWarmUpResult.Message}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"Autofocus finished, but warm-up restore failed: {ex.Message}";
+                }
+            }
+
+            IsAutoFocusing = false;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task StartScan()
@@ -1112,6 +1571,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ApplyIlluminationStateToInputs(state);
     }
 
+    private async Task LoadMotionStateAsync(CancellationToken ct)
+    {
+        var states = await _session.GetMotionStateAsync(ct);
+        ApplyMotionStateToInputs(states);
+    }
+
     private void ApplyIlluminationStateToInputs(ScanIlluminationState state)
     {
         Led1Level = state.Led1Level.ToString();
@@ -1152,6 +1617,38 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsLed3SyncEnabled = false;
         IsLed4SyncEnabled = false;
         IlluminationSummaryText = "Illumination state: -";
+    }
+
+    private void ApplyMotionStateToInputs(IReadOnlyList<ScanMotorState> states)
+    {
+        var indexedStates = new ScanMotorState?[ScanDebugConstants.MotionMotorCount];
+        foreach (var state in states)
+        {
+            if (state.MotorId < indexedStates.Length)
+                indexedStates[state.MotorId] = state;
+        }
+
+        Motor1StatusText = BuildMotorStatusText(indexedStates[0]);
+        Motor2StatusText = BuildMotorStatusText(indexedStates[1]);
+        Motor3StatusText = BuildMotorStatusText(indexedStates[2]);
+        MotionSummaryText = BuildMotionSummary(indexedStates);
+    }
+
+    private void ResetMotionInputs()
+    {
+        Motor1StatusText = "State: -";
+        Motor2StatusText = "State: -";
+        Motor3StatusText = "State: -";
+        Motor1MoveDirection = MotorDirectionLabels[0];
+        Motor2MoveDirection = MotorDirectionLabels[0];
+        Motor3MoveDirection = MotorDirectionLabels[0];
+        Motor1MoveSteps = "200";
+        Motor2MoveSteps = "200";
+        Motor3MoveSteps = "200";
+        Motor1IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        Motor2IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        Motor3IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        MotionSummaryText = "Motion state: -";
     }
 
     private bool TryBuildIlluminationRequest(out IlluminationRequest request, out string error)
@@ -1202,6 +1699,136 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return true;
     }
 
+    private async Task SetMotorEnabledCoreAsync(string? motorDisplayId, bool enabled)
+    {
+        if (!IsConnected)
+        {
+            StatusText = "Scanner not connected. Click Connect Devices first.";
+            return;
+        }
+
+        if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        IsApplyingMotion = true;
+        try
+        {
+            StatusText = $"{(enabled ? "Enabling" : "Disabling")} {motorName}...";
+            await _session.SetMotorEnabledAsync(motorId, enabled, _session.ConnectionToken);
+            await LoadMotionStateAsync(_session.ConnectionToken);
+            StatusText = enabled ? $"{motorName} enabled." : $"{motorName} disabled.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = enabled ? $"{motorName} enable canceled." : $"{motorName} disable canceled.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = enabled ? $"{motorName} enable failed: {ex.Message}" : $"{motorName} disable failed: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingMotion = false;
+        }
+    }
+
+    private bool TryParseMotorTarget(string? motorDisplayId, out byte motorId, out string motorName, out string error)
+    {
+        motorId = 0;
+        motorName = string.Empty;
+
+        if (!int.TryParse(motorDisplayId, out var displayIndex) || displayIndex < 1 || displayIndex > ScanDebugConstants.MotionMotorCount)
+        {
+            error = $"Motor selection must be in [1, {ScanDebugConstants.MotionMotorCount}].";
+            return false;
+        }
+
+        motorId = (byte)(displayIndex - 1);
+        motorName = $"Motor{displayIndex}";
+        error = string.Empty;
+        return true;
+    }
+
+    private bool TryBuildMotorMoveRequest(byte motorId, out MotorMoveRequest request, out string error)
+    {
+        request = new MotorMoveRequest(false, 0, 0);
+
+        var (directionText, stepsText, intervalText) = GetMotorMoveInputs(motorId);
+        var direction = string.Equals(directionText, MotorDirectionLabels[1], StringComparison.Ordinal);
+
+        if (!uint.TryParse(stepsText, out var steps) || steps == 0)
+        {
+            error = $"Motor{motorId + 1} Steps must be a positive integer.";
+            return false;
+        }
+
+        if (!uint.TryParse(intervalText, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
+        {
+            error = $"Motor{motorId + 1} Interval must be an integer >= {ScanDebugConstants.MotionMinIntervalUs} us.";
+            return false;
+        }
+
+        request = new MotorMoveRequest(direction, steps, intervalUs);
+        error = string.Empty;
+        return true;
+    }
+
+    private (string DirectionText, string StepsText, string IntervalText) GetMotorMoveInputs(byte motorId)
+        => motorId switch
+        {
+            0 => (Motor1MoveDirection, Motor1MoveSteps, Motor1IntervalUs),
+            1 => (Motor2MoveDirection, Motor2MoveSteps, Motor2IntervalUs),
+            2 => (Motor3MoveDirection, Motor3MoveSteps, Motor3IntervalUs),
+            _ => throw new ArgumentOutOfRangeException(nameof(motorId))
+        };
+
+    private bool TryBuildAutofocusRequest(out ScanAutofocusRequest request, out string error)
+    {
+        request = new ScanAutofocusRequest(0, 0, 0, 0, false, false, 0, 0);
+
+        if (!int.TryParse(AutofocusSampleRows, out var sampleRows) || sampleRows <= 0 || sampleRows > _session.SingleTransferMaxRows)
+        {
+            error = $"Autofocus rows must be an integer in [1, {_session.SingleTransferMaxRows}].";
+            return false;
+        }
+
+        if (!uint.TryParse(AutofocusTiltProbeSteps, out var tiltSteps) || tiltSteps == 0)
+        {
+            error = "Autofocus tilt step must be a positive integer.";
+            return false;
+        }
+
+        if (!uint.TryParse(AutofocusZProbeSteps, out var zSteps) || zSteps == 0)
+        {
+            error = "Autofocus Z step must be a positive integer.";
+            return false;
+        }
+
+        if (!uint.TryParse(AutofocusMotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
+        {
+            error = $"Autofocus interval must be an integer >= {ScanDebugConstants.MotionMinIntervalUs} us.";
+            return false;
+        }
+
+        request = new ScanAutofocusRequest(
+            sampleRows,
+            tiltSteps,
+            zSteps,
+            intervalUs,
+            string.Equals(AutofocusZDirection, MotorDirectionLabels[1], StringComparison.Ordinal),
+            string.Equals(AutofocusTiltDirection, MotorDirectionLabels[1], StringComparison.Ordinal),
+            MaxTiltIterations: 8,
+            MaxZIterations: 10);
+        error = string.Empty;
+        return true;
+    }
+
+    private static string BuildAutofocusSummary(ScanAutofocusResult result)
+        => $"Autofocus: {result.SampleRows} rows, tilt={result.FinalTiltOffsetSteps:+#;-#;0} steps, Z={result.FinalZOffsetSteps:+#;-#;0} steps, overall={result.FinalOverallSharpness:0.0000}, left={result.FinalLeftSharpness:0.0000}, right={result.FinalRightSharpness:0.0000}, imbalance={result.FinalTiltImbalance:+0.0000;-0.0000;0.0000}.";
+
     private static bool TryParseLedLevel(string text, string fieldName, out ushort value, out string error)
     {
         if (!ushort.TryParse(text, out value))
@@ -1247,6 +1874,34 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private static string BuildIlluminationSummary(ScanIlluminationState state)
         => $"Illumination state: Steady={FormatMask(state.SteadyMask)}, Sync={FormatMask(state.SyncMask)}, Active={FormatMask(state.SyncActiveMask)}";
 
+    private static string BuildMotorStatusText(ScanMotorState? state)
+    {
+        if (state is null)
+            return "State: unavailable";
+
+        return $"State: Enabled={FormatBool(state.Enabled)}, Running={FormatBool(state.Running)}, Direction={FormatDirection(state.Direction)}, DIAG={(state.Diag != 0 ? "High" : "Low")}, Interval={state.IntervalUs} us, Remaining={state.RemainingSteps}";
+    }
+
+    private static string BuildMotionSummary(IReadOnlyList<ScanMotorState?> states)
+    {
+        var parts = new List<string>(ScanDebugConstants.MotionMotorCount);
+        for (var index = 0; index < ScanDebugConstants.MotionMotorCount; index++)
+        {
+            var state = states[index];
+            parts.Add(state is null
+                ? $"Motor{index + 1}=unavailable"
+                : $"Motor{index + 1}={(state.Enabled ? (state.Running ? "running" : "enabled") : "disabled")}");
+        }
+
+        return $"Motion state: {string.Join(", ", parts)}";
+    }
+
+    private static string FormatBool(bool value)
+        => value ? "Yes" : "No";
+
+    private static string FormatDirection(bool direction)
+        => direction ? MotorDirectionLabels[1] : MotorDirectionLabels[0];
+
     private static string FormatMask(byte mask)
     {
         if ((mask & ScanDebugConstants.IlluminationValidMask) == 0)
@@ -1273,6 +1928,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         uint Led2PulseClock,
         uint Led3PulseClock,
         uint Led4PulseClock);
+
+    private sealed record MotorMoveRequest(bool Direction, uint Steps, uint IntervalUs);
 
     private bool RenderPreview(int rows)
     {
@@ -1351,6 +2008,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsRunning = false;
         IsApplyingParameters = false;
         IsApplyingIllumination = false;
+        IsApplyingMotion = false;
         ResetIlluminationInputs();
+        ResetMotionInputs();
     }
 }

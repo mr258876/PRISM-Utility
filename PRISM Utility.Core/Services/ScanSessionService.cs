@@ -164,6 +164,61 @@ public class ScanSessionService : IScanSessionService, IDisposable
         EnsurePayloadLength(response, ScanDebugConstants.IlluminationSetSyncPulsePayloadLength, "SET_SYNC_PULSE_CLOCKS");
     }
 
+    public async Task<IReadOnlyList<ScanMotorState>> GetMotionStateAsync(CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildGetMotionStateCommand(),
+            ScanDebugConstants.UsbCmdMotionGetState,
+            "GET_MOTION_STATE",
+            ct);
+
+        return _protocol.ParseMotionStatePayload(response.Payload);
+    }
+
+    public async Task SetMotorEnabledAsync(byte motorId, bool enabled, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildSetMotorEnableCommand(motorId, enabled),
+            ScanDebugConstants.UsbCmdMotionSetEnable,
+            "SET_MOTOR_ENABLE",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.MotionSetEnablePayloadLength, "SET_MOTOR_ENABLE");
+    }
+
+    public async Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildMoveMotorStepsCommand(motorId, direction, steps, intervalUs),
+            ScanDebugConstants.UsbCmdMotionMoveSteps,
+            "MOVE_MOTOR_STEPS",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.MotionMoveStepsPayloadLength, "MOVE_MOTOR_STEPS");
+    }
+
+    public async Task StopMotorAsync(byte motorId, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildStopMotorCommand(motorId),
+            ScanDebugConstants.UsbCmdMotionStop,
+            "STOP_MOTOR",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.MotionSingleMotorPayloadLength, "STOP_MOTOR");
+    }
+
+    public async Task ApplyMotorConfigAsync(byte motorId, CancellationToken ct)
+    {
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildApplyMotorConfigCommand(motorId),
+            ScanDebugConstants.UsbCmdMotionApplyConfig,
+            "APPLY_MOTOR_CONFIG",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.MotionSingleMotorPayloadLength, "APPLY_MOTOR_CONFIG");
+    }
+
     public async Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct)
     {
         if (!IsConnected || _controlSession is null)

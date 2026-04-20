@@ -17,6 +17,17 @@ public class ScanImageDecoder : IScanImageDecoder
         return packedGroupCount * ScanDebugConstants.PackedGroupPixels;
     }
 
+    public (int Start, int EndInclusive) GetEffectivePixelRange()
+    {
+        var width = GetDecodedPixelsPerLine();
+        if (width <= 0)
+            return (0, -1);
+
+        var effectiveStart = Math.Clamp(ScanDebugConstants.EffectivePixelStart, 0, width - 1);
+        var effectiveEnd = Math.Clamp(ScanDebugConstants.EffectivePixelEnd, effectiveStart, width - 1);
+        return (effectiveStart, effectiveEnd);
+    }
+
     public void DecodeToBgra(byte[] lineBuffer, int rows, Stream destination, bool applyGammaCorrection, double gamma)
     {
         var width = GetDecodedPixelsPerLine();

@@ -16,7 +16,7 @@ public static class ScanDebugConstants
     public const int PackedGroupBytes = 4;
     public const int PackedGroupPixels = 2;
     public const int MaxRows = 137;
-    public const int MaxPreviewRows = 4096;
+    public const int MaxPreviewRows = 8192;
     public const int WaterfallPreviewHeight = 512;
     public const int CalibrationSampleRows = 512;
     public const int ShieldPixelStart = 26;
@@ -71,6 +71,11 @@ public static class ScanDebugConstants
     public const byte UsbCmdIlluminationSetSteady = 0x42;
     public const byte UsbCmdIlluminationConfigSync = 0x43;
     public const byte UsbCmdIlluminationSetSyncPulse = 0x44;
+    public const byte UsbCmdMotionGetState = 0x50;
+    public const byte UsbCmdMotionSetEnable = 0x51;
+    public const byte UsbCmdMotionMoveSteps = 0x52;
+    public const byte UsbCmdMotionStop = 0x53;
+    public const byte UsbCmdMotionApplyConfig = 0x54;
     public const byte PrismParamTypeU16 = 2;
     public const byte PrismParamValueLenU16 = 2;
     public const byte PrismParamTypeU32 = 3;
@@ -83,6 +88,15 @@ public static class ScanDebugConstants
     public const int IlluminationSetSyncPulsePayloadLength = 16;
     public const byte IlluminationValidMask = 0x0F;
     public const uint IlluminationMinSyncPulseClock = 2;
+
+    public const int MotionMotorCount = 3;
+    public const int MotionMotorStatePayloadLength = 12;
+    public const int MotionGetStatePayloadLength = MotionMotorCount * MotionMotorStatePayloadLength;
+    public const int MotionSetEnablePayloadLength = 2;
+    public const int MotionMoveStepsPayloadLength = 10;
+    public const int MotionSingleMotorPayloadLength = 1;
+    public const uint MotionMinIntervalUs = 10;
+    public const uint MotionDefaultIntervalUs = 500;
 }
 
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
@@ -114,9 +128,37 @@ public sealed record ScanIlluminationState(
     uint Led3PulseClock,
     uint Led4PulseClock);
 
+public sealed record ScanMotorState(
+    byte MotorId,
+    bool Enabled,
+    bool Running,
+    bool Direction,
+    byte Diag,
+    ushort IntervalUs,
+    uint RemainingSteps);
+
 public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay, string SysClockMhzDisplay);
 
 public sealed record ScanCalibrationPrompt(string Title, string Content, string PrimaryButtonText, string CloseButtonText);
+
+public sealed record ScanAutofocusRequest(
+    int SampleRows,
+    uint TiltProbeSteps,
+    uint ZProbeSteps,
+    uint MotorIntervalUs,
+    bool ZPositiveDirection,
+    bool TiltPositiveDirection,
+    int MaxTiltIterations,
+    int MaxZIterations);
+
+public sealed record ScanAutofocusResult(
+    int SampleRows,
+    int FinalTiltOffsetSteps,
+    int FinalZOffsetSteps,
+    double FinalOverallSharpness,
+    double FinalLeftSharpness,
+    double FinalRightSharpness,
+    double FinalTiltImbalance);
 
 public sealed record ScanCalibrationStatistics(
     int Rows,

@@ -64,6 +64,67 @@ public class ScanProtocolService : IScanProtocolService
         return frame;
     }
 
+    public byte[] BuildGetMotionStateCommand()
+    {
+        var frame = new byte[4];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionGetState;
+        WritePayloadLength(frame, 0);
+        return frame;
+    }
+
+    public byte[] BuildSetMotorEnableCommand(byte motorId, bool enabled)
+    {
+        EnsureMotorId(motorId, nameof(motorId));
+
+        var frame = new byte[4 + ScanDebugConstants.MotionSetEnablePayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionSetEnable;
+        WritePayloadLength(frame, ScanDebugConstants.MotionSetEnablePayloadLength);
+        frame[4] = motorId;
+        frame[5] = enabled ? (byte)1 : (byte)0;
+        return frame;
+    }
+
+    public byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalUs)
+    {
+        EnsureMotorId(motorId, nameof(motorId));
+
+        var frame = new byte[4 + ScanDebugConstants.MotionMoveStepsPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionMoveSteps;
+        WritePayloadLength(frame, ScanDebugConstants.MotionMoveStepsPayloadLength);
+        frame[4] = motorId;
+        frame[5] = direction ? (byte)1 : (byte)0;
+        WriteUInt32(frame, 6, steps);
+        WriteUInt32(frame, 10, intervalUs);
+        return frame;
+    }
+
+    public byte[] BuildStopMotorCommand(byte motorId)
+    {
+        EnsureMotorId(motorId, nameof(motorId));
+
+        var frame = new byte[4 + ScanDebugConstants.MotionSingleMotorPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionStop;
+        WritePayloadLength(frame, ScanDebugConstants.MotionSingleMotorPayloadLength);
+        frame[4] = motorId;
+        return frame;
+    }
+
+    public byte[] BuildApplyMotorConfigCommand(byte motorId)
+    {
+        EnsureMotorId(motorId, nameof(motorId));
+
+        var frame = new byte[4 + ScanDebugConstants.MotionSingleMotorPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionApplyConfig;
+        WritePayloadLength(frame, ScanDebugConstants.MotionSingleMotorPayloadLength);
+        frame[4] = motorId;
+        return frame;
+    }
+
     public byte[] BuildSetScanLinesCommand(int rows)
     {
         var payload = new byte[8];
@@ -157,6 +218,30 @@ public class ScanProtocolService : IScanProtocolService
             BitConverter.ToUInt32(payload, 24));
     }
 
+    public IReadOnlyList<ScanMotorState> ParseMotionStatePayload(byte[] payload)
+    {
+        if (payload.Length != ScanDebugConstants.MotionGetStatePayloadLength)
+            throw new IOException($"Motion state payload length invalid: {payload.Length}");
+
+        var motors = new List<ScanMotorState>(ScanDebugConstants.MotionMotorCount);
+        for (var index = 0; index < ScanDebugConstants.MotionMotorCount; index++)
+        {
+            var offset = index * ScanDebugConstants.MotionMotorStatePayloadLength;
+            var motorId = payload[offset];
+            EnsureMotorId(motorId, $"payload[{offset}]");
+            motors.Add(new ScanMotorState(
+                motorId,
+                payload[offset + 1] != 0,
+                payload[offset + 2] != 0,
+                payload[offset + 3] != 0,
+                payload[offset + 4],
+                BitConverter.ToUInt16(payload, offset + 6),
+                BitConverter.ToUInt32(payload, offset + 8)));
+        }
+
+        return motors;
+    }
+
     public ScanAck ParseScanAck(ScanControlFrame frame)
     {
         if (frame.Payload.Length != 8)
@@ -240,6 +325,11 @@ public class ScanProtocolService : IScanProtocolService
         0xE7 => "USB_STATUS_PARAM_TYPE_MISMATCH",
         0xE8 => "USB_STATUS_PARAM_LEN_INVALID",
         0xE9 => "USB_STATUS_PAYLOAD_INVALID",
+        0xEA => "USB_STATUS_DEBUG_TARGET_UNSUPPORTED",
+        0xEB => "USB_STATUS_SUBORDINATE_TIMEOUT",
+        0xEC => "USB_STATUS_SUBORDINATE_LINK_ERROR",
+        0xED => "USB_STATUS_RANGE_INVALID",
+        0xEE => "USB_STATUS_HW_ERROR",
         _ => "USB_STATUS_UNKNOWN"
     };
 
@@ -297,6 +387,12 @@ public class ScanProtocolService : IScanProtocolService
     {
         if ((mask & ~ScanDebugConstants.IlluminationValidMask) != 0)
             throw new ArgumentOutOfRangeException(parameterName, $"LED mask must only contain bits 0..3. Actual: 0x{mask:X2}");
+    }
+
+    private static void EnsureMotorId(byte motorId, string parameterName)
+    {
+        if (motorId >= ScanDebugConstants.MotionMotorCount)
+            throw new ArgumentOutOfRangeException(parameterName, $"Motor id must be in [0, {ScanDebugConstants.MotionMotorCount - 1}]. Actual: {motorId}");
     }
 
     private static void WriteUInt16(byte[] frame, int offset, ushort value)

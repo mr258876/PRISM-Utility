@@ -73,8 +73,11 @@ public partial class App : Application
             services.AddTransient<IScanImageDecoder, ScanImageDecoder>();
             services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
             services.AddTransient<IScanBufferExportService, ScanBufferExportService>();
+            services.AddTransient<IScanWorkflowService, ScanWorkflowService>();
+            services.AddTransient<IScanChannelImageService, ScanChannelImageService>();
             services.AddTransient<IScanParameterService, ScanParameterService>();
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
+            services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();
 
             // Core Services
@@ -85,6 +88,8 @@ public partial class App : Application
             services.AddTransient<SettingsPage>();
             services.AddTransient<UsbDebugViewModel>();
             services.AddTransient<UsbDebugPage>();
+            services.AddTransient<ScanViewModel>();
+            services.AddTransient<ScanPage>();
             services.AddTransient<ScanDebugViewModel>();
             services.AddTransient<ScanDebugPage>();
             services.AddTransient<MainViewModel>();
