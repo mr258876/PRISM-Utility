@@ -1025,9 +1025,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             StatusText = $"Starting finite move on {motorName}...";
-            await _session.MoveMotorStepsAsync(motorId, request.Direction, request.Steps, request.IntervalUs, _session.ConnectionToken);
+            await _session.MoveMotorStepsAndWaitForCompletionAsync(motorId, request.Direction, request.Steps, request.IntervalUs, _session.ConnectionToken);
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = $"{motorName} move command sent.";
+            StatusText = $"{motorName} move completed.";
         }
         catch (OperationCanceledException)
         {

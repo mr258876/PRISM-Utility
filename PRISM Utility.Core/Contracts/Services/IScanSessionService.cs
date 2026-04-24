@@ -5,6 +5,7 @@ namespace PRISM_Utility.Core.Contracts.Services;
 public interface IScanSessionService
 {
     event EventHandler? TargetsChanged;
+    event Action<ScanMotorState>? MotionEventReceived;
 
     ScanTargetState Targets
     {
@@ -31,6 +32,9 @@ public interface IScanSessionService
     Task<IReadOnlyList<ScanMotorState>> GetMotionStateAsync(CancellationToken ct);
     Task SetMotorEnabledAsync(byte motorId, bool enabled, CancellationToken ct);
     Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct);
+    Task PrepareMotorOnExposureSyncAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct);
+    Task<ScanMotorState> WaitForMotorMotionCompleteAsync(byte motorId, uint steps, uint intervalUs, CancellationToken ct);
+    Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct);
     Task StopMotorAsync(byte motorId, CancellationToken ct);
     Task ApplyMotorConfigAsync(byte motorId, CancellationToken ct);
     Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct);

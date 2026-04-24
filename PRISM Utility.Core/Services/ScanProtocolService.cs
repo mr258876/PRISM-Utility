@@ -101,6 +101,21 @@ public class ScanProtocolService : IScanProtocolService
         return frame;
     }
 
+    public byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalUs)
+    {
+        EnsureMotorId(motorId, nameof(motorId));
+
+        var frame = new byte[4 + ScanDebugConstants.MotionMoveStepsPayloadLength];
+        frame[0] = ScanDebugConstants.HostFrameSof;
+        frame[1] = ScanDebugConstants.UsbCmdMotionPrepareOnSync;
+        WritePayloadLength(frame, ScanDebugConstants.MotionMoveStepsPayloadLength);
+        frame[4] = motorId;
+        frame[5] = direction ? (byte)1 : (byte)0;
+        WriteUInt32(frame, 6, steps);
+        WriteUInt32(frame, 10, intervalUs);
+        return frame;
+    }
+
     public byte[] BuildStopMotorCommand(byte motorId)
     {
         EnsureMotorId(motorId, nameof(motorId));
@@ -227,19 +242,18 @@ public class ScanProtocolService : IScanProtocolService
         for (var index = 0; index < ScanDebugConstants.MotionMotorCount; index++)
         {
             var offset = index * ScanDebugConstants.MotionMotorStatePayloadLength;
-            var motorId = payload[offset];
-            EnsureMotorId(motorId, $"payload[{offset}]");
-            motors.Add(new ScanMotorState(
-                motorId,
-                payload[offset + 1] != 0,
-                payload[offset + 2] != 0,
-                payload[offset + 3] != 0,
-                payload[offset + 4],
-                BitConverter.ToUInt16(payload, offset + 6),
-                BitConverter.ToUInt32(payload, offset + 8)));
+            motors.Add(ParseMotionEntry(payload, offset));
         }
 
         return motors;
+    }
+
+    public ScanMotorState ParseMotionEventPayload(byte[] payload)
+    {
+        if (payload.Length != ScanDebugConstants.MotionMotorStatePayloadLength)
+            throw new IOException($"Motion event payload length invalid: {payload.Length}");
+
+        return ParseMotionEntry(payload, 0);
     }
 
     public ScanAck ParseScanAck(ScanControlFrame frame)
@@ -393,6 +407,20 @@ public class ScanProtocolService : IScanProtocolService
     {
         if (motorId >= ScanDebugConstants.MotionMotorCount)
             throw new ArgumentOutOfRangeException(parameterName, $"Motor id must be in [0, {ScanDebugConstants.MotionMotorCount - 1}]. Actual: {motorId}");
+    }
+
+    private static ScanMotorState ParseMotionEntry(byte[] payload, int offset)
+    {
+        var motorId = payload[offset];
+        EnsureMotorId(motorId, $"payload[{offset}]");
+        return new ScanMotorState(
+            motorId,
+            payload[offset + 1] != 0,
+            payload[offset + 2] != 0,
+            payload[offset + 3] != 0,
+            payload[offset + 4],
+            BitConverter.ToUInt16(payload, offset + 6),
+            BitConverter.ToUInt32(payload, offset + 8));
     }
 
     private static void WriteUInt16(byte[] frame, int offset, ushort value)

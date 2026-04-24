@@ -6,6 +6,9 @@ namespace PRISM_Utility.Core.Services;
 
 public class ScanSessionService : IScanSessionService, IDisposable
 {
+    private const int MotionCompletionPaddingMs = 10000;
+    private const double MotionCompletionTimeoutMultiplier = 2.0;
+
     private readonly IUsbService _usb;
     private readonly IScanProtocolService _protocol;
     private readonly ScanAckChannel _ackChannel;
@@ -21,6 +24,8 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public event EventHandler? TargetsChanged;
 
+    public event Action<ScanMotorState>? MotionEventReceived;
+
     public ScanTargetState Targets { get; private set; } = new(false, null, null);
 
     public bool IsConnected { get; private set; }
@@ -35,6 +40,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
         _usb = usb;
         _protocol = protocol;
         _ackChannel = new ScanAckChannel(protocol);
+        _ackChannel.MotionEventReceived += motionEvent => MotionEventReceived?.Invoke(motionEvent);
         _executionRunner = new ScanExecutionRunner(protocol, transferSettings, _ackChannel);
         _usb.DevicesChanged += OnDevicesChanged;
         RefreshTargets();
@@ -188,6 +194,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public async Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
     {
+        _ackChannel.ClearMotionEvent(motorId);
         var response = await SendControlCommandAndEnsureOkAsync(
             _protocol.BuildMoveMotorStepsCommand(motorId, direction, steps, intervalUs),
             ScanDebugConstants.UsbCmdMotionMoveSteps,
@@ -195,6 +202,54 @@ public class ScanSessionService : IScanSessionService, IDisposable
             ct);
 
         EnsurePayloadLength(response, ScanDebugConstants.MotionMoveStepsPayloadLength, "MOVE_MOTOR_STEPS");
+    }
+
+    public async Task PrepareMotorOnExposureSyncAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    {
+        _ackChannel.ClearMotionEvent(motorId);
+        var response = await SendControlCommandAndEnsureOkAsync(
+            _protocol.BuildPrepareMotorOnSyncCommand(motorId, direction, steps, intervalUs),
+            ScanDebugConstants.UsbCmdMotionPrepareOnSync,
+            "PREPARE_MOTOR_ON_SYNC",
+            ct);
+
+        EnsurePayloadLength(response, ScanDebugConstants.MotionMoveStepsPayloadLength, "PREPARE_MOTOR_ON_SYNC");
+    }
+
+    public async Task<ScanMotorState> WaitForMotorMotionCompleteAsync(byte motorId, uint steps, uint intervalUs, CancellationToken ct)
+    {
+        var expectedTravelMs = Math.Ceiling((double)steps * intervalUs / 1000.0);
+        var totalTimeoutMs = Math.Min(
+            uint.MaxValue,
+            Math.Max(ScanDebugConstants.AckTimeoutMs, (expectedTravelMs * MotionCompletionTimeoutMultiplier) + MotionCompletionPaddingMs));
+        var deadline = DateTime.UtcNow.AddMilliseconds(totalTimeoutMs);
+
+        while (!ct.IsCancellationRequested)
+        {
+            var remainingMs = (uint)Math.Max(0, (deadline - DateTime.UtcNow).TotalMilliseconds);
+            if (remainingMs == 0)
+                break;
+
+            try
+            {
+                return await _ackChannel.ReadMotionCompleteEventAsync(motorId, Math.Min(remainingMs, 500u), ct);
+            }
+            catch (IOException ex) when (_protocol.IsIoTimeout(ex))
+            {
+                var states = await GetMotionStateAsync(ct);
+                var motorState = states.FirstOrDefault(state => state.MotorId == motorId);
+                if (motorState is not null && !motorState.Running && motorState.RemainingSteps == 0)
+                    return motorState;
+            }
+        }
+
+        throw new IOException($"Timed out waiting motion complete event for motor {motorId}.");
+    }
+
+    public async Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    {
+        await MoveMotorStepsAsync(motorId, direction, steps, intervalUs, ct);
+        return await WaitForMotorMotionCompleteAsync(motorId, steps, intervalUs, ct);
     }
 
     public async Task StopMotorAsync(byte motorId, CancellationToken ct)

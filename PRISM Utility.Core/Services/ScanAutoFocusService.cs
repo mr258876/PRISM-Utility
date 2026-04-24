@@ -8,11 +8,12 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
     private const byte FocusMotor1Id = 0;
     private const byte FocusMotor3Id = 2;
     private const int IgnoredLeadingProbeRows = 64;
+    private const int MotionPollDelayMs = 75;
+    private const int MotionTimeoutPaddingMs = 10000;
+    private const double MotionTimeoutMultiplier = 2.0;
     private const double TiltBalanceTolerance = 0.035;
     private const double TiltImprovementEpsilon = 0.0025;
     private const double SharpnessImprovementRatio = 0.005;
-    private const int MotionPollDelayMs = 75;
-    private const int MotionTimeoutPaddingMs = 1500;
     private const uint FineZProbeDivisor = 4;
 
     private readonly IScanImageDecoder _decoder;
@@ -222,7 +223,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
 
         await session.MoveMotorStepsAsync(FocusMotor1Id, motor1Direction, steps, request.MotorIntervalUs, ct);
         await session.MoveMotorStepsAsync(FocusMotor3Id, motor3Direction, steps, request.MotorIntervalUs, ct);
-        await WaitForFocusMotorsIdleAsync(session, steps, request.MotorIntervalUs, ct);
+        await WaitForFocusMotorMotionCompleteEventsAsync(session, steps, request.MotorIntervalUs, ct);
     }
 
     private async Task MoveZAsync(IScanSessionService session, ScanAutofocusRequest request, bool positive, uint steps, CancellationToken ct)
@@ -233,13 +234,28 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         var direction = positive ? request.ZPositiveDirection : !request.ZPositiveDirection;
         await session.MoveMotorStepsAsync(FocusMotor1Id, direction, steps, request.MotorIntervalUs, ct);
         await session.MoveMotorStepsAsync(FocusMotor3Id, direction, steps, request.MotorIntervalUs, ct);
-        await WaitForFocusMotorsIdleAsync(session, steps, request.MotorIntervalUs, ct);
+        await WaitForFocusMotorMotionCompleteEventsAsync(session, steps, request.MotorIntervalUs, ct);
     }
 
-    private async Task WaitForFocusMotorsIdleAsync(IScanSessionService session, uint steps, uint intervalUs, CancellationToken ct)
+    private static async Task WaitForFocusMotorMotionCompleteEventsAsync(IScanSessionService session, uint steps, uint intervalUs, CancellationToken ct)
     {
-        var expectedTravelMs = (int)Math.Ceiling((steps * Math.Max(intervalUs, 1u)) / 1000.0);
-        var timeoutAt = DateTime.UtcNow.AddMilliseconds(Math.Max(MotionTimeoutPaddingMs, expectedTravelMs + MotionTimeoutPaddingMs));
+        try
+        {
+            await Task.WhenAll(
+                session.WaitForMotorMotionCompleteAsync(FocusMotor1Id, steps, intervalUs, ct),
+                session.WaitForMotorMotionCompleteAsync(FocusMotor3Id, steps, intervalUs, ct));
+        }
+        catch (IOException)
+        {
+            await WaitForFocusMotorsIdleAsync(session, steps, intervalUs, ct);
+        }
+    }
+
+    private static async Task WaitForFocusMotorsIdleAsync(IScanSessionService session, uint steps, uint intervalUs, CancellationToken ct)
+    {
+        var expectedTravelMs = Math.Ceiling((double)steps * intervalUs / 1000.0);
+        var timeoutMs = Math.Max(ScanDebugConstants.AckTimeoutMs, (expectedTravelMs * MotionTimeoutMultiplier) + MotionTimeoutPaddingMs);
+        var timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
 
         while (DateTime.UtcNow <= timeoutAt)
         {
@@ -346,7 +362,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         if (count <= 0)
             return 0;
 
-        //return (brennerEnergy / count) / variance; // ¹éÒ»»¯°æ Brenner
+        //return (brennerEnergy / count) / variance; // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ Brenner
         return brennerEnergy; // Brenner
     }
 

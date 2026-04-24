@@ -76,6 +76,7 @@ public static class ScanDebugConstants
     public const byte UsbCmdMotionMoveSteps = 0x52;
     public const byte UsbCmdMotionStop = 0x53;
     public const byte UsbCmdMotionApplyConfig = 0x54;
+    public const byte UsbCmdMotionPrepareOnSync = 0x57;
     public const byte PrismParamTypeU16 = 2;
     public const byte PrismParamValueLenU16 = 2;
     public const byte PrismParamTypeU32 = 3;

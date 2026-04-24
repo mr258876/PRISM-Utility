@@ -16,6 +16,7 @@ public interface IScanProtocolService
     byte[] BuildGetMotionStateCommand();
     byte[] BuildSetMotorEnableCommand(byte motorId, bool enabled);
     byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalUs);
+    byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalUs);
     byte[] BuildStopMotorCommand(byte motorId);
     byte[] BuildApplyMotorConfigCommand(byte motorId);
     byte[] BuildGetParamByHashCommand(uint keyHash);
@@ -24,6 +25,7 @@ public interface IScanProtocolService
 
     ScanIlluminationState ParseIlluminationStatePayload(byte[] payload);
     IReadOnlyList<ScanMotorState> ParseMotionStatePayload(byte[] payload);
+    ScanMotorState ParseMotionEventPayload(byte[] payload);
     ScanAck ParseScanAck(ScanControlFrame frame);
     ushort ParseU16ParamPayload(byte[] payload, uint expectedKeyHash, string paramName);
     uint ParseU32ParamPayload(byte[] payload, uint expectedKeyHash, string paramName);

@@ -49,8 +49,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
                 if (computedMotorSteps > 0)
                 {
-                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: starting Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {computedMotorSteps} step(s)...");
-                    await session.MoveMotorStepsAsync(request.ScanMotorId, directionPositive, computedMotorSteps, request.MotorIntervalUs, ct);
+                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: preparing Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {computedMotorSteps} step(s), waiting for EXPOSURE_SYNC...");
+                    await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, computedMotorSteps, request.MotorIntervalUs, ct);
                     motionStarted = true;
                 }
 
