@@ -326,7 +326,10 @@ internal sealed class ScanAckChannel
 
     private bool TryRouteMotionEvent(ScanControlFrame frame)
     {
-        if (frame.Opcode != ScanDebugConstants.UsbCmdMotionGetState ||
+        var isMotionCompleteEvent = frame.Opcode == ScanDebugConstants.UsbEvtMotionComplete ||
+            frame.Opcode == ScanDebugConstants.UsbCmdMotionGetState;
+
+        if (!isMotionCompleteEvent ||
             frame.Status != 0x00 ||
             frame.Payload.Length != ScanDebugConstants.MotionMotorStatePayloadLength)
         {

@@ -1,7 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
@@ -14,19 +15,28 @@ public partial class ScanViewModel : ObservableRecipient
 {
     private const string ForwardDirection = "Forward";
     private const string ReverseDirection = "Reverse";
+    private const double DefaultRedWavelengthNm = 630.0;
+    private const double DefaultGreenWavelengthNm = 530.0;
+    private const double DefaultBlueWavelengthNm = 470.0;
+    private const double DefaultOutputGamma = 2.2;
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
     private readonly IScanTransferSettingsService _transferSettings;
     private readonly IScanWorkflowService _workflow;
+    private readonly IDebugOutputMirrorService _debugOutputMirror;
     private readonly IScanChannelImageService _channelImages;
+    private readonly IScanColorManagementSettingsService _colorManagementSettings;
+    private readonly IScanChannelParameterProfileService _channelProfiles;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
-    private readonly DispatcherQueue _dispatcher;
+    private readonly IUiDispatcher _dispatcher;
 
     private CancellationTokenSource? _scanCts;
     private ScanWorkflowResult? _lastResult;
+    private ScanParameterSnapshot? _loadedSnapshot;
     private ushort _loadedExposureTicks;
     private uint _loadedSysClockKhz;
     private bool _isDisposed;
+    private bool _isLoadingColorManagementSettings;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096", "8192" };
     public ObservableCollection<string> DirectionOptions { get; } = new() { ForwardDirection, ReverseDirection };
@@ -47,6 +57,9 @@ public partial class ScanViewModel : ObservableRecipient
     public partial bool IsAlternateMotorDirectionEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsColorManagementEnabled { get; set; }
+
+    [ObservableProperty]
     public partial string SelectedStartingDirection { get; set; }
 
     [ObservableProperty]
@@ -63,6 +76,18 @@ public partial class ScanViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string SelectedChannel4Role { get; set; }
+
+    [ObservableProperty]
+    public partial string RedWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string GreenWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string BlueWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string OutputGamma { get; set; }
 
     [ObservableProperty]
     public partial bool IsChannel1Reversed { get; set; }
@@ -171,27 +196,39 @@ public partial class ScanViewModel : ObservableRecipient
         IScanParameterService parameters,
         IScanTransferSettingsService transferSettings,
         IScanWorkflowService workflow,
+        IDebugOutputMirrorService debugOutputMirror,
         IScanChannelImageService channelImages,
-        IUsbUsageCoordinator usbUsageCoordinator)
+        IScanColorManagementSettingsService colorManagementSettings,
+        IScanChannelParameterProfileService channelProfiles,
+        IUsbUsageCoordinator usbUsageCoordinator,
+        IUiDispatcher dispatcher)
     {
         _session = session;
         _parameters = parameters;
         _transferSettings = transferSettings;
         _workflow = workflow;
+        _debugOutputMirror = debugOutputMirror;
         _channelImages = channelImages;
+        _colorManagementSettings = colorManagementSettings;
+        _channelProfiles = channelProfiles;
         _usbUsageCoordinator = usbUsageCoordinator;
-        _dispatcher = App.MainWindow.DispatcherQueue;
+        _dispatcher = dispatcher;
 
         SelectedRows = RowOptions[1];
         IsWarmUpEnabled = false;
         IsPreviewEnabled = true;
         IsAlternateMotorDirectionEnabled = true;
+        IsColorManagementEnabled = true;
         SelectedStartingDirection = DirectionOptions[0];
         SelectedPreviewMode = PreviewModes[0];
         SelectedChannel1Role = "Blue";
         SelectedChannel2Role = "White";
         SelectedChannel3Role = "Red";
         SelectedChannel4Role = "Green";
+        RedWavelengthNm = DefaultRedWavelengthNm.ToString("0");
+        GreenWavelengthNm = DefaultGreenWavelengthNm.ToString("0");
+        BlueWavelengthNm = DefaultBlueWavelengthNm.ToString("0");
+        OutputGamma = DefaultOutputGamma.ToString("0.0");
         IsChannel1Reversed = false;
         IsChannel2Reversed = false;
         IsChannel3Reversed = false;
@@ -220,6 +257,7 @@ public partial class ScanViewModel : ObservableRecipient
         UpdatePassPlan();
         UpdateChannelMappingSummary();
         UpdatePreviewState();
+        _ = LoadColorManagementSettingsAsync();
     }
 
     partial void OnIsAlternateMotorDirectionEnabledChanged(bool value)
@@ -240,6 +278,24 @@ public partial class ScanViewModel : ObservableRecipient
     partial void OnIsPreviewEnabledChanged(bool value)
         => UpdatePreviewState();
 
+    partial void OnStatusTextChanged(string value)
+        => MirrorOutput("Scan.Status", value);
+
+    partial void OnCurrentPassTextChanged(string value)
+        => MirrorOutput("Scan.Pass", value);
+
+    partial void OnCurrentLedTextChanged(string value)
+        => MirrorOutput("Scan.Led", value);
+
+    partial void OnCurrentDirectionTextChanged(string value)
+        => MirrorOutput("Scan.Direction", value);
+
+    partial void OnOutputSummaryTextChanged(string value)
+        => MirrorOutput("Scan.Output", value);
+
+    partial void OnIsColorManagementEnabledChanged(bool value)
+        => OnColorManagementChanged(settings => settings with { IsEnabled = value });
+
     partial void OnSelectedPreviewModeChanged(string value)
         => UpdatePreviewState();
 
@@ -254,6 +310,38 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnSelectedChannel4RoleChanged(string value)
         => OnChannelRoleChanged();
+
+    partial void OnRedWavelengthNmChanged(string value)
+    {
+        if (TryParseColorDouble(value, "Red wavelength", out var parsed, out _))
+            OnColorManagementChanged(settings => settings with { RedWavelengthNm = parsed });
+        else
+            UpdatePreviewState();
+    }
+
+    partial void OnGreenWavelengthNmChanged(string value)
+    {
+        if (TryParseColorDouble(value, "Green wavelength", out var parsed, out _))
+            OnColorManagementChanged(settings => settings with { GreenWavelengthNm = parsed });
+        else
+            UpdatePreviewState();
+    }
+
+    partial void OnBlueWavelengthNmChanged(string value)
+    {
+        if (TryParseColorDouble(value, "Blue wavelength", out var parsed, out _))
+            OnColorManagementChanged(settings => settings with { BlueWavelengthNm = parsed });
+        else
+            UpdatePreviewState();
+    }
+
+    partial void OnOutputGammaChanged(string value)
+    {
+        if (TryParseColorDouble(value, "Output gamma", out var parsed, out _))
+            OnColorManagementChanged(settings => settings with { OutputGamma = parsed });
+        else
+            UpdatePreviewState();
+    }
 
     partial void OnIsChannel1ReversedChanged(bool value)
         => OnChannelRoleChanged();
@@ -308,6 +396,7 @@ public partial class ScanViewModel : ObservableRecipient
         try
         {
             await _transferSettings.InitializeAsync();
+            await _channelProfiles.InitializeAsync();
 
             var result = await _session.ConnectAsync(CancellationToken.None);
             if (!result.Success)
@@ -327,10 +416,12 @@ public partial class ScanViewModel : ObservableRecipient
                 var snapshot = await _parameters.LoadAsync(_session, _session.ConnectionToken);
                 _loadedExposureTicks = snapshot.ExposureTicks;
                 _loadedSysClockKhz = snapshot.SysClockKhz;
+                _loadedSnapshot = snapshot;
                 statusNotes.Add($"Parameters loaded (exp={snapshot.ExposureTicks}, sysclk={snapshot.SysClockKhz} kHz)");
             }
             catch (Exception ex)
             {
+                _loadedSnapshot = null;
                 _loadedExposureTicks = 0;
                 _loadedSysClockKhz = 0;
                 statusNotes.Add($"Parameter load unavailable: {ex.Message}");
@@ -422,7 +513,8 @@ public partial class ScanViewModel : ObservableRecipient
                 request,
                 _scanCts.Token,
                 progress => _dispatcher.TryEnqueue(() => ApplyProgress(progress)),
-                status => _dispatcher.TryEnqueue(() => StatusText = status));
+                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic));
 
             _lastResult = result;
             IsOutputAvailable = true;
@@ -473,6 +565,9 @@ public partial class ScanViewModel : ObservableRecipient
         StatusText = result.Success ? "Stop requested." : result.Message;
     }
 
+    private void MirrorOutput(string source, string message)
+        => _debugOutputMirror.Mirror(source, message);
+
     [RelayCommand(CanExecute = nameof(CanSaveRgbImage))]
     private async Task SaveRgbImage()
     {
@@ -482,7 +577,13 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        if (!_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), null, out var frame, out var error) || frame is null)
+        if (!TryBuildColorManagementOptions(out var colorManagement, out var colorError))
+        {
+            StatusText = colorError;
+            return;
+        }
+
+        if (!_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, null, out var frame, out var error) || frame is null)
         {
             StatusText = error;
             return;
@@ -582,10 +683,18 @@ public partial class ScanViewModel : ObservableRecipient
 
         if (string.Equals(SelectedPreviewMode, PreviewModes[0], StringComparison.Ordinal))
         {
-            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), PreviewImage, out var frame, out var error) && frame is not null)
+            if (!TryBuildColorManagementOptions(out var colorManagement, out var colorError))
+            {
+                PreviewImage = null;
+                PreviewDescriptionText = colorError;
+                PreviewPlaceholderText = colorError;
+                return;
+            }
+
+            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, PreviewImage, out var frame, out var error) && frame is not null)
             {
                 PreviewImage = frame.Bitmap;
-                PreviewDescriptionText = $"Preview mode: {SelectedPreviewMode}. Composite uses current channel-role mapping.";
+                PreviewDescriptionText = $"Preview mode: {SelectedPreviewMode}. Composite uses current channel-role mapping and {(IsColorManagementEnabled ? "spectral sRGB color management" : "sRGB gamma encoding")}.";
                 PreviewPlaceholderText = string.Empty;
             }
             else
@@ -654,7 +763,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
     {
-        request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), 0, 0, false, false, 0, 0);
+        request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), Array.Empty<string>(), Array.Empty<ScanParameterSnapshot>(), 0, 0, false, false, 0, 0);
 
         if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
         {
@@ -679,16 +788,24 @@ public partial class ScanViewModel : ObservableRecipient
             return false;
         }
 
-        if (_loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
+        if (_loadedSnapshot is null || _loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
         {
             error = "Scanner parameters are not loaded yet. Reconnect the scanner and try again.";
             return false;
         }
 
+        var fallbackSnapshot = _loadedSnapshot;
+        var passRoles = new[] { SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role };
+        var passProfiles = passRoles
+            .Select(role => _channelProfiles.TryGetProfile(role, out var profile) ? profile.Parameters : fallbackSnapshot)
+            .ToArray();
+
         request = new ScanWorkflowRequest(
             rows,
             IsWarmUpEnabled,
             new[] { led1, led2, led3, led4 },
+            passRoles,
+            passProfiles,
             motorId,
             intervalUs,
             string.Equals(SelectedStartingDirection, ForwardDirection, StringComparison.OrdinalIgnoreCase),
@@ -738,6 +855,78 @@ public partial class ScanViewModel : ObservableRecipient
     private ScanChannelAssignment BuildChannelAssignment()
         => new(SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role, IsChannel1Reversed, IsChannel2Reversed, IsChannel3Reversed, IsChannel4Reversed);
 
+    private async Task LoadColorManagementSettingsAsync()
+    {
+        _isLoadingColorManagementSettings = true;
+        try
+        {
+            await _colorManagementSettings.InitializeAsync();
+            ApplyColorManagementSettings(_colorManagementSettings.Settings);
+        }
+        finally
+        {
+            _isLoadingColorManagementSettings = false;
+        }
+
+        UpdatePreviewState();
+    }
+
+    private void ApplyColorManagementSettings(ScanColorManagementOptions settings)
+    {
+        IsColorManagementEnabled = settings.IsEnabled;
+        RedWavelengthNm = FormatColorDouble(settings.RedWavelengthNm);
+        GreenWavelengthNm = FormatColorDouble(settings.GreenWavelengthNm);
+        BlueWavelengthNm = FormatColorDouble(settings.BlueWavelengthNm);
+        OutputGamma = FormatColorDouble(settings.OutputGamma);
+    }
+
+    private void OnColorManagementChanged(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)
+    {
+        UpdatePreviewState();
+        if (_isLoadingColorManagementSettings)
+            return;
+
+        _ = SaveColorManagementSettingsAsync(mutate);
+    }
+
+    private async Task SaveColorManagementSettingsAsync(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)
+    {
+        await _colorManagementSettings.InitializeAsync();
+        await _colorManagementSettings.SetSettingsAsync(mutate(_colorManagementSettings.Settings));
+    }
+
+    private bool TryBuildColorManagementOptions(out ScanColorManagementOptions options, out string error)
+    {
+        options = ScanColorManagementOptions.CreateDefault();
+
+        if (!TryParseColorDouble(RedWavelengthNm, "Red wavelength", out var redWavelength, out error)
+            || !TryParseColorDouble(GreenWavelengthNm, "Green wavelength", out var greenWavelength, out error)
+            || !TryParseColorDouble(BlueWavelengthNm, "Blue wavelength", out var blueWavelength, out error)
+            || !TryParseColorDouble(OutputGamma, "Output gamma", out var outputGamma, out error))
+        {
+            return false;
+        }
+
+        options = new ScanColorManagementOptions(IsColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma);
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryParseColorDouble(string text, string fieldName, out double value, out string error)
+    {
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+        {
+            error = $"{fieldName} must be a number.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static string FormatColorDouble(double value)
+        => value.ToString("0.###", CultureInfo.InvariantCulture);
+
     private static string BuildReverseSuffix(bool reversed)
         => reversed ? " (reversed)" : string.Empty;
 
@@ -760,7 +949,7 @@ public partial class ScanViewModel : ObservableRecipient
         _isDisposed = true;
         _scanCts?.Cancel();
 
-        await _session.DisconnectAsync();
+        await _session.DisposeAsync();
         _usbUsageCoordinator.SetScanDebugInUse(false);
         _session.TargetsChanged -= OnSessionTargetsChanged;
         IsConnected = false;

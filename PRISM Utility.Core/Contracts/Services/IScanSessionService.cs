@@ -2,7 +2,7 @@ using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Contracts.Services;
 
-public interface IScanSessionService
+public interface IScanSessionService : IDisposable, IAsyncDisposable
 {
     event EventHandler? TargetsChanged;
     event Action<ScanMotorState>? MotionEventReceived;

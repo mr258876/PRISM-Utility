@@ -29,18 +29,60 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
             {
                 wholeUsb.SetConfiguration(configId);
                 wholeUsb.ClaimInterface(interfaceId);
+                if (altId != 0)
+                    throw new InvalidOperationException($"Alternate setting {altId} is required for interface {interfaceId}, but this LibUsbDotNet version cannot select alternate settings.");
             }
 
             if (inEndpointAddress is not null)
-                _reader = _dev.OpenEndpointReader((ReadEndpointID)inEndpointAddress.Value, 0, EndpointType.Bulk);
+            {
+                _reader = OpenBulkEndpointReader(inEndpointAddress.Value);
+                if (_reader is null)
+                    throw new InvalidOperationException($"Open bulk IN endpoint 0x{inEndpointAddress.Value:X2} failed.");
+            }
 
             if (outEndpointAddress is not null)
-                _writer = _dev.OpenEndpointWriter((WriteEndpointID)outEndpointAddress.Value, EndpointType.Bulk);
+            {
+                _writer = OpenBulkEndpointWriter(outEndpointAddress.Value);
+                if (_writer is null)
+                    throw new InvalidOperationException($"Open bulk OUT endpoint 0x{outEndpointAddress.Value:X2} failed.");
+            }
         }
         catch
         {
             Dispose();
             throw;
+        }
+    }
+
+    private UsbEndpointReader OpenBulkEndpointReader(byte endpointAddress)
+    {
+        try
+        {
+            var reader = _dev.OpenEndpointReader((ReadEndpointID)endpointAddress);
+            if (reader.EndpointInfo is null)
+                throw new InvalidOperationException($"Bulk IN endpoint 0x{endpointAddress:X2} is not exposed by the claimed interface/alternate setting.");
+
+            return reader;
+        }
+        catch (NullReferenceException ex)
+        {
+            throw new InvalidOperationException($"Open bulk IN endpoint 0x{endpointAddress:X2} failed. Check the WinUSB/libusb driver binding for this interface.", ex);
+        }
+    }
+
+    private UsbEndpointWriter OpenBulkEndpointWriter(byte endpointAddress)
+    {
+        try
+        {
+            var writer = _dev.OpenEndpointWriter((WriteEndpointID)endpointAddress);
+            if (writer.EndpointInfo is null)
+                throw new InvalidOperationException($"Bulk OUT endpoint 0x{endpointAddress:X2} is not exposed by the claimed interface/alternate setting.");
+
+            return writer;
+        }
+        catch (NullReferenceException ex)
+        {
+            throw new InvalidOperationException($"Open bulk OUT endpoint 0x{endpointAddress:X2} failed. Check the WinUSB/libusb driver binding for this interface.", ex);
         }
     }
 

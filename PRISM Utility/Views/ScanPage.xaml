@@ -173,6 +173,27 @@
                         </StackPanel>
 
                         <StackPanel Spacing="8">
+                            <TextBlock Text="Color management" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock Text="RGB preview and PNG output are encoded through this shared sRGB color-management stage. Raw channel export is unchanged." Opacity="0.8" TextWrapping="WrapWholeWords" />
+                            <ToggleSwitch Header="Use spectral wavelength mapping" IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
+                            <Grid ColumnSpacing="8" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBox Grid.Row="0" Grid.Column="0" Header="Red wavelength (nm)" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
+                                <TextBox Grid.Row="0" Grid.Column="1" Header="Green wavelength (nm)" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
+                                <TextBox Grid.Row="1" Grid.Column="0" Header="Blue wavelength (nm)" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
+                                <TextBox Grid.Row="1" Grid.Column="1" Header="Output gamma" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
                             <TextBlock x:Uid="Scan_OutputTitle.Text" Style="{ThemeResource SubtitleTextBlockStyle}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" />

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Globalization;
 using System.Windows.Input;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,8 +20,12 @@ namespace PRISM_Utility.ViewModels;
 public partial class SettingsViewModel : ObservableRecipient
 {
     private readonly IThemeSelectorService _themeSelectorService;
+    private readonly IDebugOutputSettingsService _debugOutputSettingsService;
     private readonly IScanTransferSettingsService _scanTransferSettingsService;
+    private readonly IScanColorManagementSettingsService _colorManagementSettingsService;
+    private bool _isLoadingDebugOutputSettings;
     private bool _isLoadingScanTransferMode;
+    private bool _isLoadingColorManagementSettings;
 
     [ObservableProperty]
     public partial ElementTheme ElementTheme { get; set; }
@@ -33,6 +38,12 @@ public partial class SettingsViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial Visibility BuildVisibility { get; set; } = Visibility.Collapsed;
+
+    [ObservableProperty]
+    public partial bool IsDebugConsoleMirrorEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsDebugFileLogEnabled { get; set; }
 
     [ObservableProperty]
     public partial bool IsMultiBufferedBulkInEnabled { get; set; }
@@ -49,6 +60,21 @@ public partial class SettingsViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string MultiBufferedTimeoutMs { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial bool IsColorManagementEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string RedWavelengthNm { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string GreenWavelengthNm { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string BlueWavelengthNm { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string OutputGamma { get; set; } = string.Empty;
+
     public ICommand SwitchThemeCommand
     {
         get;
@@ -56,10 +82,14 @@ public partial class SettingsViewModel : ObservableRecipient
 
     public IAsyncRelayCommand RestoreScanTransferDefaultsCommand { get; }
 
-    public SettingsViewModel(IThemeSelectorService themeSelectorService, IScanTransferSettingsService scanTransferSettingsService)
+    public IAsyncRelayCommand RestoreColorManagementDefaultsCommand { get; }
+
+    public SettingsViewModel(IThemeSelectorService themeSelectorService, IDebugOutputSettingsService debugOutputSettingsService, IScanTransferSettingsService scanTransferSettingsService, IScanColorManagementSettingsService colorManagementSettingsService)
     {
         _themeSelectorService = themeSelectorService;
+        _debugOutputSettingsService = debugOutputSettingsService;
         _scanTransferSettingsService = scanTransferSettingsService;
+        _colorManagementSettingsService = colorManagementSettingsService;
         ElementTheme = _themeSelectorService.Theme;
         var versionInfo = GetVersionInfo();
         VersionDescription = versionInfo.VersionDescription;
@@ -76,8 +106,27 @@ public partial class SettingsViewModel : ObservableRecipient
             });
 
         RestoreScanTransferDefaultsCommand = new AsyncRelayCommand(RestoreScanTransferDefaultsAsync);
+        RestoreColorManagementDefaultsCommand = new AsyncRelayCommand(RestoreColorManagementDefaultsAsync);
 
+        _ = LoadDebugOutputSettingsAsync();
         _ = LoadScanTransferSettingsAsync();
+        _ = LoadColorManagementSettingsAsync();
+    }
+
+    partial void OnIsDebugConsoleMirrorEnabledChanged(bool value)
+    {
+        if (_isLoadingDebugOutputSettings)
+            return;
+
+        _ = _debugOutputSettingsService.SetDebugConsoleEnabledAsync(value);
+    }
+
+    partial void OnIsDebugFileLogEnabledChanged(bool value)
+    {
+        if (_isLoadingDebugOutputSettings)
+            return;
+
+        _ = _debugOutputSettingsService.SetFileLogEnabledAsync(value);
     }
 
     partial void OnIsMultiBufferedBulkInEnabledChanged(bool value)
@@ -121,6 +170,61 @@ public partial class SettingsViewModel : ObservableRecipient
             return;
 
         _ = SaveTransferSettingsAsync(settings => settings with { TimeoutMs = parsed });
+    }
+
+    partial void OnIsColorManagementEnabledChanged(bool value)
+    {
+        if (_isLoadingColorManagementSettings)
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { IsEnabled = value });
+    }
+
+    private async Task LoadDebugOutputSettingsAsync()
+    {
+        _isLoadingDebugOutputSettings = true;
+        try
+        {
+            await _debugOutputSettingsService.InitializeAsync();
+            IsDebugConsoleMirrorEnabled = _debugOutputSettingsService.IsDebugConsoleEnabled;
+            IsDebugFileLogEnabled = _debugOutputSettingsService.IsFileLogEnabled;
+        }
+        finally
+        {
+            _isLoadingDebugOutputSettings = false;
+        }
+    }
+
+    partial void OnRedWavelengthNmChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings || !TryParseColorDouble(value, out var parsed))
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { RedWavelengthNm = parsed });
+    }
+
+    partial void OnGreenWavelengthNmChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings || !TryParseColorDouble(value, out var parsed))
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { GreenWavelengthNm = parsed });
+    }
+
+    partial void OnBlueWavelengthNmChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings || !TryParseColorDouble(value, out var parsed))
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { BlueWavelengthNm = parsed });
+    }
+
+    partial void OnOutputGammaChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings || !TryParseColorDouble(value, out var parsed))
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { OutputGamma = parsed });
     }
 
     private async Task LoadScanTransferSettingsAsync()
@@ -170,6 +274,57 @@ public partial class SettingsViewModel : ObservableRecipient
 
     private static bool TryParsePositiveInt(string value, out int parsed)
         => int.TryParse(value, out parsed) && parsed > 0;
+
+    private async Task LoadColorManagementSettingsAsync()
+    {
+        _isLoadingColorManagementSettings = true;
+        try
+        {
+            await _colorManagementSettingsService.InitializeAsync();
+            ApplyColorManagementSettings(_colorManagementSettingsService.Settings);
+        }
+        finally
+        {
+            _isLoadingColorManagementSettings = false;
+        }
+    }
+
+    private void ApplyColorManagementSettings(ScanColorManagementOptions settings)
+    {
+        IsColorManagementEnabled = settings.IsEnabled;
+        RedWavelengthNm = FormatColorDouble(settings.RedWavelengthNm);
+        GreenWavelengthNm = FormatColorDouble(settings.GreenWavelengthNm);
+        BlueWavelengthNm = FormatColorDouble(settings.BlueWavelengthNm);
+        OutputGamma = FormatColorDouble(settings.OutputGamma);
+    }
+
+    private async Task SaveColorManagementSettingsAsync(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)
+    {
+        await _colorManagementSettingsService.InitializeAsync();
+        await _colorManagementSettingsService.SetSettingsAsync(mutate(_colorManagementSettingsService.Settings));
+    }
+
+    private async Task RestoreColorManagementDefaultsAsync()
+    {
+        _isLoadingColorManagementSettings = true;
+        try
+        {
+            await _colorManagementSettingsService.InitializeAsync();
+            var defaults = _colorManagementSettingsService.DefaultSettings;
+            ApplyColorManagementSettings(defaults);
+            await _colorManagementSettingsService.SetSettingsAsync(defaults);
+        }
+        finally
+        {
+            _isLoadingColorManagementSettings = false;
+        }
+    }
+
+    private static bool TryParseColorDouble(string value, out double parsed)
+        => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed);
+
+    private static string FormatColorDouble(double value)
+        => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private static (string VersionDescription, string BuildDescription) GetVersionInfo()
     {

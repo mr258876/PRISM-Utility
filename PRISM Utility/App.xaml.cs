@@ -60,7 +60,11 @@ public partial class App : Application
 
             // Services
             services.AddSingleton<ILocalSettingsService, LocalSettingsService>();
+            services.AddSingleton<IDebugOutputSettingsService, DebugOutputSettingsService>();
+            services.AddSingleton<IDebugOutputMirrorService, DebugOutputMirrorService>();
             services.AddSingleton<IScanTransferSettingsService, ScanTransferSettingsService>();
+            services.AddSingleton<IScanColorManagementSettingsService, ScanColorManagementSettingsService>();
+            services.AddSingleton<IScanChannelParameterProfileService, ScanChannelParameterProfileService>();
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
             services.AddSingleton<IUsbService, UsbService>();
             services.AddSingleton<IUsbUsageCoordinator, UsbUsageCoordinator>();
@@ -69,6 +73,7 @@ public partial class App : Application
             services.AddSingleton<IActivationService, ActivationService>();
             services.AddSingleton<IPageService, PageService>();
             services.AddSingleton<INavigationService, NavigationService>();
+            services.AddSingleton<IUiDispatcher, UiDispatcherService>();
             services.AddTransient<IScanProtocolService, ScanProtocolService>();
             services.AddTransient<IScanImageDecoder, ScanImageDecoder>();
             services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
@@ -79,6 +84,7 @@ public partial class App : Application
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();
+            services.AddTransient<IScanDebugSessionCoordinator, ScanDebugSessionCoordinator>();
 
             // Core Services
             services.AddSingleton<IFileService, FileService>();
@@ -115,6 +121,7 @@ public partial class App : Application
     {
         base.OnLaunched(args);
 
+        await App.GetService<IDebugOutputSettingsService>().InitializeAsync();
         await App.GetService<IActivationService>().ActivateAsync(args);
     }
 }

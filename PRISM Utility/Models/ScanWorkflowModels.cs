@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Media.Imaging;
+using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Models;
 
@@ -6,6 +7,8 @@ public sealed record ScanWorkflowRequest(
     int Rows,
     bool WarmUpEnabled,
     ushort[] LedLevels,
+    string[] PassChannelRoles,
+    ScanParameterSnapshot[] PassParameterProfiles,
     byte ScanMotorId,
     uint MotorIntervalUs,
     bool StartingDirectionPositive,
@@ -48,6 +51,17 @@ public sealed record ScanChannelAssignment(
 {
     public IReadOnlyList<string> Roles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
     public IReadOnlyList<bool> ReversedFlags => new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed };
+}
+
+public sealed record ScanColorManagementOptions(
+    bool IsEnabled,
+    double RedWavelengthNm,
+    double GreenWavelengthNm,
+    double BlueWavelengthNm,
+    double OutputGamma)
+{
+    public static ScanColorManagementOptions CreateDefault()
+        => new(true, 630.0, 530.0, 470.0, 2.2);
 }
 
 public sealed record ScanCompositeFrame(byte[] Pixels, int Width, int Height, WriteableBitmap Bitmap);

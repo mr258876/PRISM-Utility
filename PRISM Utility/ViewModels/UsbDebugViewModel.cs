@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Dispatching;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Models;
 using PRISM_Utility.Core.Contracts.Services;
@@ -17,7 +16,8 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 {
     private readonly IUsbService _usb;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
-    private readonly DispatcherQueue _dispatcher;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IDebugOutputMirrorService _debugOutputMirror;
 
     public ObservableCollection<UsbDeviceDto> UsbDevices { get; } = new();
     public ObservableCollection<UsbConfigDto> BulkInConfigs { get; } = new();
@@ -62,11 +62,12 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     private void RequestDialog(string title, string content)
         => DialogRequested?.Invoke(this, new DialogRequest(title, content));
 
-    public UsbDebugViewModel(IUsbService usb, IUsbUsageCoordinator usbUsageCoordinator)
+    public UsbDebugViewModel(IUsbService usb, IUsbUsageCoordinator usbUsageCoordinator, IUiDispatcher dispatcher, IDebugOutputMirrorService debugOutputMirror)
     {
         _usb = usb;
         _usbUsageCoordinator = usbUsageCoordinator;
-        _dispatcher = DispatcherQueue.GetForCurrentThread();
+        _dispatcher = dispatcher;
+        _debugOutputMirror = debugOutputMirror;
         SelectedBulkInSize = "4096";
         BulkOutText = string.Empty;
         LogText = string.Empty;
@@ -226,7 +227,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         {
             var hexLen = Math.Min(p.transferred, 64);
             var hex = BitConverter.ToString(p.data, 0, hexLen);
-            LogText += $"[{DateTime.Now:HH:mm:ss}] RX ({p.transferred}): {hex}\r\n";
+            AppendLog($"RX ({p.transferred}): {hex}");
         });
 
         _runningBulkInPipe = new UsbPipeSelection(
@@ -415,6 +416,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 
     private void AppendLog(string msg)
     {
+        _debugOutputMirror.Mirror("UsbDebug.Log", msg);
         _dispatcher.TryEnqueue(() =>
         {
             LogText += $"[{DateTime.Now:HH:mm:ss}] {msg}\r\n";

@@ -34,7 +34,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             await session.SetMotorEnabledAsync(FocusMotor3Id, true, ct);
             await WaitForFocusMotorsIdleAsync(session, 0, request.MotorIntervalUs, ct);
 
-            var current = await CaptureFocusProbeAsync(session, request.SampleRows, 0, 0, "Autofocus baseline", onStatus, onFrameCaptured, ct);
+            var current = await CaptureFocusProbeAsync(session, request.SampleRows, 0, 0, request.RoiSettings, "Autofocus baseline", onStatus, onFrameCaptured, ct);
             current = await OptimizeZAsync(session, request, current, onStatus, onFrameCaptured, ct);
             current = await BalanceTiltAsync(session, request, current, onStatus, onFrameCaptured, ct);
             current = await OptimizeZAsync(session, request, current, onStatus, onFrameCaptured, ct);
@@ -161,6 +161,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps + (positive ? (int)request.TiltProbeSteps : -(int)request.TiltProbeSteps),
             current.ZOffsetSteps,
+            request.RoiSettings,
             label,
             onStatus,
             onFrameCaptured,
@@ -177,6 +178,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps + (positive ? (int)request.TiltProbeSteps : -(int)request.TiltProbeSteps),
             current.ZOffsetSteps,
+            request.RoiSettings,
             label,
             onStatus,
             onFrameCaptured,
@@ -191,6 +193,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps,
             current.ZOffsetSteps + (positive ? (int)zProbeSteps : -(int)zProbeSteps),
+            request.RoiSettings,
             label,
             onStatus,
             onFrameCaptured,
@@ -207,6 +210,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps,
             current.ZOffsetSteps + (positive ? (int)zProbeSteps : -(int)zProbeSteps),
+            request.RoiSettings,
             label,
             onStatus,
             onFrameCaptured,
@@ -271,7 +275,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         throw new IOException("Autofocus motion did not settle before timeout.");
     }
 
-    private async Task<FocusProbe> CaptureFocusProbeAsync(IScanSessionService session, int rows, int tiltOffsetSteps, int zOffsetSteps, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> CaptureFocusProbeAsync(IScanSessionService session, int rows, int tiltOffsetSteps, int zOffsetSteps, ScanCalibrationRoiSettings roiSettings, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke($"{label}: capturing {rows} rows...");
         var result = await session.StartScanAsync(rows, ct);
@@ -279,24 +283,23 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             throw new IOException($"{label} failed: {result.Message}");
 
         onFrameCaptured?.Invoke(result.ImageBytes, rows, label);
-        var metrics = BuildMetrics(result.ImageBytes, rows);
+        var metrics = BuildMetrics(result.ImageBytes, rows, roiSettings);
         return new FocusProbe(tiltOffsetSteps, zOffsetSteps, metrics);
     }
 
-    private FocusMetrics BuildMetrics(byte[] lineBuffer, int rows)
+    private FocusMetrics BuildMetrics(byte[] lineBuffer, int rows, ScanCalibrationRoiSettings roiSettings)
     {
         var width = _decoder.GetDecodedPixelsPerLine();
         if (rows < 3 || width < 16)
             throw new IOException("Autofocus requires at least 3 rows and a valid decoded scan width.");
 
         var analysisStartRow = Math.Min(IgnoredLeadingProbeRows, Math.Max(rows - 3, 0));
-        var effectiveRange = _decoder.GetEffectivePixelRange();
-        if (effectiveRange.EndInclusive - effectiveRange.Start < 15)
-            throw new IOException("Autofocus requires a valid effective-pixel region after excluding line-buffer and dummy-pixel margins.");
-
-        var leftRange = BuildRegionRange(effectiveRange.Start, effectiveRange.EndInclusive, 0.14, 0.42);
-        var rightRange = BuildRegionRange(effectiveRange.Start, effectiveRange.EndInclusive, 0.58, 0.86);
-        var overallRange = BuildRegionRange(effectiveRange.Start, effectiveRange.EndInclusive, 0.14, 0.86);
+        var clampedRoi = roiSettings.Clamp(width);
+        var leftRange = clampedRoi.FocusLeftRange;
+        var rightRange = clampedRoi.FocusRightRange;
+        var overallRange = clampedRoi.FocusOverallRange;
+        if (leftRange.Width < 3 || rightRange.Width < 3 || overallRange.Width < 3)
+            throw new IOException("Autofocus ROI requires valid left/right/overall column ranges.");
 
         var left = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, leftRange.Start, leftRange.EndInclusive);
         var right = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, rightRange.Start, rightRange.EndInclusive);
@@ -393,14 +396,6 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             averaged[index] = counts[index] > 0 ? sums[index] / counts[index] : 0.0;
 
         return averaged;
-    }
-
-    private static (int Start, int EndInclusive) BuildRegionRange(int startInclusive, int endInclusive, double startRatio, double endRatio)
-    {
-        var width = endInclusive - startInclusive + 1;
-        var start = startInclusive + Math.Clamp((int)Math.Round(width * startRatio, MidpointRounding.ToZero), 0, Math.Max(width - 1, 0));
-        var end = startInclusive + Math.Clamp((int)Math.Round(width * endRatio, MidpointRounding.ToZero), (start - startInclusive) + 2, width - 1);
-        return (start, end);
     }
 
     private static FocusProbe SelectBestTiltProbe(FocusProbe current, FocusProbe positive, FocusProbe negative)

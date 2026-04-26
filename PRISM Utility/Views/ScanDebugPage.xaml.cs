@@ -4,7 +4,9 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using PRISM_Utility.Core.Models;
 using PRISM_Utility.ViewModels;
+using Windows.UI;
 using Windows.Foundation;
 
 namespace PRISM_Utility.Views;
@@ -25,6 +27,11 @@ public sealed partial class ScanDebugPage : Page
     private Point _panStartPoint;
     private double _panStartHorizontalOffset;
     private double _panStartVerticalOffset;
+    private bool _isRoiDragging;
+    private bool _isRoiMoveMode;
+    private uint _activeRoiPointerId;
+    private int _roiDragStartX;
+    private ScanColumnRange _roiOriginalRange = new(0, 0);
 
     public ScanDebugViewModel ViewModel
     {
@@ -105,6 +112,13 @@ public sealed partial class ScanDebugPage : Page
     {
         if (e.PropertyName == nameof(ScanDebugViewModel.PreviewImage))
             _ = DispatcherQueue.TryEnqueue(RefreshPreviewLayout);
+
+        if (e.PropertyName == nameof(ScanDebugViewModel.RoiOverlayVersion)
+            || e.PropertyName == nameof(ScanDebugViewModel.SelectedRoiSelection)
+            || e.PropertyName == nameof(ScanDebugViewModel.IsRoiEditModeEnabled))
+        {
+            _ = DispatcherQueue.TryEnqueue(DrawRoiOverlays);
+        }
     }
 
     private void RefreshPreviewLayout()
@@ -116,6 +130,7 @@ public sealed partial class ScanDebugPage : Page
             PreviewImageElement.Height = 0;
             PreviewCanvas.Width = 0;
             PreviewCanvas.Height = 0;
+            RoiCanvas.Children.Clear();
             AxisCanvas.Children.Clear();
             CursorPositionTextBlock.Text = "Cursor: (-, -) px";
             CursorIntensityTextBlock.Text = "Intensity16: -";
@@ -145,8 +160,11 @@ public sealed partial class ScanDebugPage : Page
         PreviewCanvas.Height = AxisMarginTop + imageHeight + AxisMarginBottom;
         AxisCanvas.Width = PreviewCanvas.Width;
         AxisCanvas.Height = PreviewCanvas.Height;
+        RoiCanvas.Width = PreviewCanvas.Width;
+        RoiCanvas.Height = PreviewCanvas.Height;
 
         DrawAxes(imageWidth, imageHeight);
+        DrawRoiOverlays();
         UpdateZoomScaleComboBoxSelection();
 
         if (_pendingInitialFitZoom)
@@ -378,6 +396,26 @@ public sealed partial class ScanDebugPage : Page
         PreviewScrollViewer.ReleasePointerCaptures();
     }
 
+    private void PreviewImageElement_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (!ViewModel.CanMutateRoiFromPreview || ViewModel.PreviewImage is null)
+            return;
+
+        var point = e.GetCurrentPoint(PreviewImageElement);
+        if (!point.Properties.IsLeftButtonPressed)
+            return;
+
+        var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewImage.PixelWidth - 1, 0));
+        _isRoiDragging = true;
+        _activeRoiPointerId = point.PointerId;
+        _roiDragStartX = x;
+        _isRoiMoveMode = ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewImage.PixelWidth, out _roiOriginalRange)
+            && x >= _roiOriginalRange.Start
+            && x <= _roiOriginalRange.EndInclusive;
+        PreviewImageElement.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
     private void PreviewImageElement_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
         var bitmap = ViewModel.PreviewImage;
@@ -400,12 +438,132 @@ public sealed partial class ScanDebugPage : Page
             CursorIntensityTextBlock.Text = $"Intensity16: {sample16}";
         else
             CursorIntensityTextBlock.Text = "Intensity16: -";
+
+        if (!_isRoiDragging)
+            return;
+
+        if (!ViewModel.CanMutateRoiFromPreview)
+        {
+            EndRoiDrag();
+            return;
+        }
+
+        var currentPoint = e.GetCurrentPoint(PreviewImageElement);
+        if (currentPoint.PointerId != _activeRoiPointerId)
+            return;
+
+        if (_isRoiMoveMode)
+        {
+            ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.PixelWidth);
+        }
+        else
+        {
+            ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.PixelWidth);
+        }
+
+        e.Handled = true;
+    }
+
+    private void PreviewImageElement_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isRoiDragging)
+            return;
+
+        var point = e.GetCurrentPoint(PreviewImageElement);
+        if (point.PointerId != _activeRoiPointerId)
+            return;
+
+        EndRoiDrag();
+        e.Handled = true;
+    }
+
+    private void PreviewImageElement_PointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isRoiDragging)
+            return;
+
+        var point = e.GetCurrentPoint(PreviewImageElement);
+        if (point.PointerId != _activeRoiPointerId)
+            return;
+
+        EndRoiDrag();
+        e.Handled = true;
     }
 
     private void PreviewImageElement_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         CursorPositionTextBlock.Text = "Cursor: (-, -) px";
         CursorIntensityTextBlock.Text = "Intensity16: -";
+    }
+
+    private void EndRoiDrag()
+    {
+        _isRoiDragging = false;
+        _isRoiMoveMode = false;
+        _activeRoiPointerId = 0;
+        PreviewImageElement.ReleasePointerCaptures();
+    }
+
+    private void DrawRoiOverlays()
+    {
+        RoiCanvas.Children.Clear();
+
+        var bitmap = ViewModel.PreviewImage;
+        if (bitmap is null || bitmap.PixelWidth <= 0 || bitmap.PixelHeight <= 0)
+            return;
+
+        foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.PixelWidth))
+        {
+            var stroke = new SolidColorBrush(GetRoiColor(overlay.Key, overlay.IsSelected));
+            var fill = new SolidColorBrush(GetRoiFillColor(overlay.Key, overlay.IsSelected));
+            var rectangle = new Rectangle
+            {
+                Width = overlay.Range.Width,
+                Height = bitmap.PixelHeight,
+                Stroke = stroke,
+                Fill = fill,
+                StrokeThickness = overlay.IsSelected ? 2.5 : 1.5,
+                RadiusX = 2,
+                RadiusY = 2
+            };
+
+            Canvas.SetLeft(rectangle, AxisMarginLeft + overlay.Range.Start);
+            Canvas.SetTop(rectangle, AxisMarginTop);
+            RoiCanvas.Children.Add(rectangle);
+
+            var label = new TextBlock
+            {
+                Text = overlay.Label,
+                Foreground = stroke,
+                FontSize = overlay.IsSelected ? 13 : 11,
+                FontWeight = overlay.IsSelected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal
+            };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(label, AxisMarginLeft + overlay.Range.Start + 4);
+            Canvas.SetTop(label, Math.Max(0, AxisMarginTop + 4));
+            RoiCanvas.Children.Add(label);
+        }
+    }
+
+    private static Color GetRoiColor(string key, bool isSelected)
+    {
+        var color = key switch
+        {
+            "BW Active" => Colors.DodgerBlue,
+            "BW Shield" => Colors.DarkOrange,
+            "Focus Overall" => Colors.MediumPurple,
+            "Focus Left" => Colors.LimeGreen,
+            "Focus Right" => Colors.HotPink,
+            _ => Colors.Gray
+        };
+
+        return isSelected ? color : Color.FromArgb(220, color.R, color.G, color.B);
+    }
+
+    private static Color GetRoiFillColor(string key, bool isSelected)
+    {
+        var baseColor = GetRoiColor(key, isSelected);
+        return Color.FromArgb(isSelected ? (byte)52 : (byte)28, baseColor.R, baseColor.G, baseColor.B);
     }
 
     private void DrawAxes(int imageWidth, int imageHeight)

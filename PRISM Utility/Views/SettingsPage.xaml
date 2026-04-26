@@ -59,7 +59,15 @@
             <TextBlock x:Uid="Settings_Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
             <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
                 <ToggleSwitch
+                    Header="Mirror program output to Debug console"
+                    IsOn="{x:Bind ViewModel.IsDebugConsoleMirrorEnabled, Mode=TwoWay}" />
+                <ToggleSwitch
+                    Header="Mirror program output to local log file"
+                    Margin="0,8,0,0"
+                    IsOn="{x:Bind ViewModel.IsDebugFileLogEnabled, Mode=TwoWay}" />
+                <ToggleSwitch
                     x:Uid="Settings_MultiBufferedBulkInToggleSwitch"
+                    Margin="0,8,0,0"
                     IsOn="{x:Bind ViewModel.IsMultiBufferedBulkInEnabled, Mode=TwoWay}" />
                 <ToggleSwitch
                     x:Uid="Settings_RawIoToggleSwitch"
@@ -85,6 +93,37 @@
                     x:Uid="Settings_MultiBufferedBulkInDescription"
                     Margin="0,6,0,0"
                     Opacity="0.8"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
+            <TextBlock Text="Color management" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                <ToggleSwitch
+                    Header="Use spectral wavelength mapping for RGB preview and PNG output"
+                    IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
+                <Grid ColumnSpacing="8" RowSpacing="8" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBox Grid.Row="0" Grid.Column="0" Header="Red wavelength (nm)" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Header="Green wavelength (nm)" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
+                    <TextBox Grid.Row="1" Grid.Column="0" Header="Blue wavelength (nm)" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Header="Output gamma" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                </Grid>
+                <Button
+                    Margin="0,8,0,0"
+                    Content="Restore color defaults"
+                    Command="{x:Bind ViewModel.RestoreColorManagementDefaultsCommand}" />
+                <TextBlock
+                    Margin="0,6,0,0"
+                    Opacity="0.8"
+                    Text="These settings are shared by RGB Composite preview and saved PNG output. Raw channel export remains unchanged."
                     TextWrapping="WrapWholeWords" />
             </StackPanel>
 

@@ -77,6 +77,7 @@ public static class ScanDebugConstants
     public const byte UsbCmdMotionStop = 0x53;
     public const byte UsbCmdMotionApplyConfig = 0x54;
     public const byte UsbCmdMotionPrepareOnSync = 0x57;
+    public const byte UsbEvtMotionComplete = 0x58;
     public const byte PrismParamTypeU16 = 2;
     public const byte PrismParamValueLenU16 = 2;
     public const byte PrismParamTypeU32 = 3;
@@ -98,6 +99,19 @@ public static class ScanDebugConstants
     public const int MotionSingleMotorPayloadLength = 1;
     public const uint MotionMinIntervalUs = 10;
     public const uint MotionDefaultIntervalUs = 500;
+
+    public static int DecodedPixelsPerLine
+    {
+        get
+        {
+            var usableBytes = BytesPerLine - LineBufferMarginLeft - LineBufferMarginRight;
+            if (usableBytes < PackedGroupBytes)
+                return 0;
+
+            var packedGroupCount = usableBytes / PackedGroupBytes;
+            return packedGroupCount * PackedGroupPixels;
+        }
+    }
 }
 
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
@@ -142,6 +156,165 @@ public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Ad
 
 public sealed record ScanCalibrationPrompt(string Title, string Content, string PrimaryButtonText, string CloseButtonText);
 
+public sealed record ScanColumnRange(int Start, int EndInclusive)
+{
+    public int Width => Math.Max(0, EndInclusive - Start + 1);
+
+    public ScanColumnRange Normalize()
+        => Start <= EndInclusive ? this : new ScanColumnRange(EndInclusive, Start);
+
+    public ScanColumnRange Clamp(int width, int minSpan = 4)
+    {
+        if (width <= 0)
+            return new ScanColumnRange(0, -1);
+
+        var normalized = Normalize();
+        var clampedStart = Math.Clamp(normalized.Start, 0, width - 1);
+        var clampedEnd = Math.Clamp(normalized.EndInclusive, clampedStart, width - 1);
+        var requiredEnd = Math.Min(width - 1, clampedStart + Math.Max(minSpan - 1, 0));
+        if (clampedEnd < requiredEnd)
+        {
+            clampedEnd = requiredEnd;
+            if (clampedEnd >= width)
+            {
+                clampedEnd = width - 1;
+                clampedStart = Math.Max(0, clampedEnd - Math.Max(minSpan - 1, 0));
+            }
+        }
+
+        return new ScanColumnRange(clampedStart, clampedEnd);
+    }
+}
+
+public static class ScanDebugValidation
+{
+    public static bool TryNormalizeSnapshot(ScanParameterSnapshot snapshot, out ScanParameterSnapshot normalized)
+    {
+        var isValid = snapshot.Adc1Offset is >= -255 and <= 255
+            && snapshot.Adc2Offset is >= -255 and <= 255
+            && snapshot.Adc1Gain <= 63
+            && snapshot.Adc2Gain <= 63
+            && snapshot.SysClockKhz >= ScanDebugConstants.MinSysClockKhz
+            && snapshot.ExposureTicks >= ScanDebugConstants.MinExposureTicks;
+
+        normalized = new ScanParameterSnapshot(
+            (ushort)Math.Clamp(snapshot.ExposureTicks, ScanDebugConstants.MinExposureTicks, ushort.MaxValue),
+            Math.Clamp(snapshot.Adc1Offset, -255, 255),
+            (ushort)Math.Clamp((int)snapshot.Adc1Gain, 0, 63),
+            Math.Clamp(snapshot.Adc2Offset, -255, 255),
+            (ushort)Math.Clamp((int)snapshot.Adc2Gain, 0, 63),
+            Math.Max(snapshot.SysClockKhz, ScanDebugConstants.MinSysClockKhz));
+
+        return isValid;
+    }
+}
+
+public sealed record ScanCalibrationRoiSettings(
+    ScanColumnRange EffectiveRange,
+    ScanColumnRange ShieldRange,
+    ScanColumnRange FocusLeftRange,
+    ScanColumnRange FocusRightRange,
+    ScanColumnRange FocusOverallRange)
+{
+    public static ScanCalibrationRoiSettings CreateDefault()
+    {
+        var effective = new ScanColumnRange(ScanDebugConstants.EffectivePixelStart, ScanDebugConstants.EffectivePixelEnd);
+        return new ScanCalibrationRoiSettings(
+            effective,
+            new ScanColumnRange(ScanDebugConstants.ShieldPixelStart, ScanDebugConstants.ShieldPixelEnd),
+            BuildRangeByRatio(effective, 0.14, 0.42),
+            BuildRangeByRatio(effective, 0.58, 0.86),
+            BuildRangeByRatio(effective, 0.14, 0.86));
+    }
+
+    public ScanCalibrationRoiSettings Clamp(int width)
+    {
+        var effective = EffectiveRange.Clamp(width);
+        var shield = NormalizeShieldRange(ShieldRange.Clamp(width), effective, width);
+        var left = ClampWithin(FocusLeftRange, effective);
+        var right = ClampWithin(FocusRightRange, effective);
+
+        if (left.Start > right.Start)
+            (left, right) = (right, left);
+
+        if (left.EndInclusive >= right.Start)
+        {
+            var seam = Math.Clamp((left.Start + right.EndInclusive) / 2, effective.Start, Math.Max(effective.EndInclusive - 1, effective.Start));
+            left = new ScanColumnRange(left.Start, Math.Max(left.Start, seam)).Clamp(width);
+            right = new ScanColumnRange(Math.Min(right.EndInclusive, seam + 1), right.EndInclusive).Clamp(width);
+            left = ClampWithin(left, effective);
+            right = ClampWithin(right, effective);
+
+            if (left.EndInclusive >= right.Start)
+            {
+                var leftWidth = Math.Max(4, effective.Width / 5);
+                var rightWidth = Math.Max(4, effective.Width / 5);
+                left = new ScanColumnRange(effective.Start, Math.Min(effective.EndInclusive - 1, effective.Start + leftWidth - 1));
+                right = new ScanColumnRange(Math.Max(left.EndInclusive + 1, effective.EndInclusive - rightWidth + 1), effective.EndInclusive);
+            }
+        }
+
+        var overall = ClampWithin(FocusOverallRange, effective);
+        overall = new ScanColumnRange(
+            Math.Min(overall.Start, Math.Min(left.Start, right.Start)),
+            Math.Max(overall.EndInclusive, Math.Max(left.EndInclusive, right.EndInclusive)));
+        overall = ClampWithin(overall, effective);
+
+        return new ScanCalibrationRoiSettings(effective, shield, left, right, overall);
+    }
+
+    public ScanCalibrationRoiSettings Normalize()
+        => Clamp(ScanDebugConstants.DecodedPixelsPerLine);
+
+    private static ScanColumnRange ClampWithin(ScanColumnRange range, ScanColumnRange container)
+    {
+        var targetWidth = Math.Max(range.Width, 4);
+        var maxStart = Math.Max(container.Start, container.EndInclusive - targetWidth + 1);
+        var start = Math.Clamp(range.Normalize().Start, container.Start, maxStart);
+        var end = Math.Min(container.EndInclusive, start + targetWidth - 1);
+        return new ScanColumnRange(start, end).Clamp(container.EndInclusive + 1);
+    }
+
+    private static ScanColumnRange NormalizeShieldRange(ScanColumnRange shield, ScanColumnRange effective, int width)
+    {
+        if (width <= 0)
+            return new ScanColumnRange(0, -1);
+
+        var preferredWidth = Math.Max(shield.Width, 4);
+        var beforeEnd = effective.Start - 1;
+        if (beforeEnd >= 0)
+        {
+            var end = Math.Min(beforeEnd, shield.EndInclusive);
+            var start = Math.Max(0, end - preferredWidth + 1);
+            return new ScanColumnRange(start, end).Clamp(width);
+        }
+
+        var afterStart = effective.EndInclusive + 1;
+        if (afterStart < width)
+        {
+            var start = Math.Clamp(shield.Start, afterStart, Math.Max(afterStart, width - preferredWidth));
+            var end = Math.Min(width - 1, start + preferredWidth - 1);
+            return new ScanColumnRange(start, end).Clamp(width);
+        }
+
+        return shield.Clamp(width);
+    }
+
+    private static ScanColumnRange BuildRangeByRatio(ScanColumnRange basis, double startRatio, double endRatio)
+    {
+        var normalized = basis.Normalize();
+        var width = normalized.Width;
+        if (width <= 0)
+            return normalized;
+
+        var start = normalized.Start + Math.Clamp((int)Math.Round(width * startRatio, MidpointRounding.ToZero), 0, Math.Max(width - 1, 0));
+        var end = normalized.Start + Math.Clamp((int)Math.Round(width * endRatio, MidpointRounding.ToZero), 3, width - 1);
+        return new ScanColumnRange(start, end).Clamp(normalized.EndInclusive + 1);
+    }
+}
+
+public sealed record ScanChannelCalibrationProfile(ScanParameterSnapshot Parameters, ScanCalibrationRoiSettings RoiSettings);
+
 public sealed record ScanAutofocusRequest(
     int SampleRows,
     uint TiltProbeSteps,
@@ -150,7 +323,8 @@ public sealed record ScanAutofocusRequest(
     bool ZPositiveDirection,
     bool TiltPositiveDirection,
     int MaxTiltIterations,
-    int MaxZIterations);
+    int MaxZIterations,
+    ScanCalibrationRoiSettings RoiSettings);
 
 public sealed record ScanAutofocusResult(
     int SampleRows,

@@ -11,5 +11,6 @@ public interface IScanWorkflowService
         CancellationToken ct,
         Action<ScanWorkflowProgress>? onProgress = null,
         Action<string>? onStatus = null,
+        Action<string>? onDiagnostic = null,
         Action<int, int>? onByteProgress = null);
 }

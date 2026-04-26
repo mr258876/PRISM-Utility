@@ -13,6 +13,11 @@ namespace PRISM_Utility.Services;
 
 public sealed class ScanChannelImageService : IScanChannelImageService
 {
+    private const double MaxSampleValue = ushort.MaxValue;
+    private const double MinimumVisibleWavelengthNm = 380.0;
+    private const double MaximumVisibleWavelengthNm = 780.0;
+    private const double MinimumOutputGamma = 0.1;
+
     private readonly IScanImageDecoder _decoder;
     private readonly IScanPreviewPresenter _previewPresenter;
 
@@ -28,7 +33,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         return _previewPresenter.TryRender(buffer, capture.Rows, new ScanPreviewRenderOptions(false, false, false, 1.0), currentBitmap, out bitmap, out error);
     }
 
-    public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, WriteableBitmap? currentBitmap, out ScanCompositeFrame? frame, out string error)
+    public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, WriteableBitmap? currentBitmap, out ScanCompositeFrame? frame, out string error)
     {
         frame = null;
         error = string.Empty;
@@ -42,7 +47,11 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         if (!TryValidateRgbAssignment(assignment, out error))
             return false;
 
+        if (!TryValidateColorManagement(colorManagement, out error))
+            return false;
+
         var passByRole = BuildRoleMap(result, assignment);
+        var colorTransform = BuildColorTransform(colorManagement);
         var width = _decoder.GetDecodedPixelsPerLine();
         var rows = result.Rows;
         if (width <= 0 || rows <= 0)
@@ -59,11 +68,12 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 var red = GetRoleSample(passByRole, "Red", x, y, rows);
                 var green = GetRoleSample(passByRole, "Green", x, y, rows);
                 var blue = GetRoleSample(passByRole, "Blue", x, y, rows);
+                var displayColor = colorTransform.Transform(red, green, blue);
 
                 var pixelIndex = ((y * width) + x) * 4;
-                pixelBytes[pixelIndex] = ToByte(blue);
-                pixelBytes[pixelIndex + 1] = ToByte(green);
-                pixelBytes[pixelIndex + 2] = ToByte(red);
+                pixelBytes[pixelIndex] = displayColor.Blue;
+                pixelBytes[pixelIndex + 1] = displayColor.Green;
+                pixelBytes[pixelIndex + 2] = displayColor.Red;
                 pixelBytes[pixelIndex + 3] = 255;
             }
         }
@@ -176,6 +186,35 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         return true;
     }
 
+    private static bool TryValidateColorManagement(ScanColorManagementOptions options, out string error)
+    {
+        if (!IsFinite(options.RedWavelengthNm)
+            || !IsFinite(options.GreenWavelengthNm)
+            || !IsFinite(options.BlueWavelengthNm)
+            || !IsFinite(options.OutputGamma))
+        {
+            error = "Color management values must be finite numbers.";
+            return false;
+        }
+
+        if (!IsVisibleWavelength(options.RedWavelengthNm)
+            || !IsVisibleWavelength(options.GreenWavelengthNm)
+            || !IsVisibleWavelength(options.BlueWavelengthNm))
+        {
+            error = $"RGB wavelengths must be between {MinimumVisibleWavelengthNm:0} nm and {MaximumVisibleWavelengthNm:0} nm.";
+            return false;
+        }
+
+        if (options.OutputGamma < MinimumOutputGamma)
+        {
+            error = "Output gamma must be at least 0.1.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
     private static byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse)
     {
         var shouldReverse = !capture.DirectionPositive ^ manuallyReverse;
@@ -200,8 +239,102 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         return shouldReverse ? (rows - 1 - y) : y;
     }
 
-    private static byte ToByte(ushort sample)
-        => (byte)(sample / 256);
+    private static RgbDisplayColorTransform BuildColorTransform(ScanColorManagementOptions options)
+    {
+        if (!options.IsEnabled)
+            return RgbDisplayColorTransform.CreateIdentity(options.OutputGamma);
+
+        return new RgbDisplayColorTransform(
+            BuildSpectralPrimary(options.RedWavelengthNm),
+            BuildSpectralPrimary(options.GreenWavelengthNm),
+            BuildSpectralPrimary(options.BlueWavelengthNm),
+            options.OutputGamma);
+    }
+
+    private static LinearRgb BuildSpectralPrimary(double wavelengthNm)
+    {
+        var xyz = ApproximateCie1931(wavelengthNm);
+        var red = (3.2404542 * xyz.X) + (-1.5371385 * xyz.Y) + (-0.4985314 * xyz.Z);
+        var green = (-0.9692660 * xyz.X) + (1.8760108 * xyz.Y) + (0.0415560 * xyz.Z);
+        var blue = (0.0556434 * xyz.X) + (-0.2040259 * xyz.Y) + (1.0572252 * xyz.Z);
+
+        red = Math.Max(0.0, red);
+        green = Math.Max(0.0, green);
+        blue = Math.Max(0.0, blue);
+
+        var maximum = Math.Max(red, Math.Max(green, blue));
+        return maximum <= 0
+            ? new LinearRgb(0.0, 0.0, 0.0)
+            : new LinearRgb(red / maximum, green / maximum, blue / maximum);
+    }
+
+    private static XyzColor ApproximateCie1931(double wavelengthNm)
+    {
+        var x = Gaussian(wavelengthNm, 599.8, 37.9) + (0.376 * Gaussian(wavelengthNm, 442.0, 16.0)) + (1.056 * Gaussian(wavelengthNm, 501.1, 20.4));
+        var y = (0.821 * Gaussian(wavelengthNm, 568.8, 46.9)) + (0.286 * Gaussian(wavelengthNm, 530.9, 16.3));
+        var z = (1.217 * Gaussian(wavelengthNm, 437.0, 11.8)) + (0.681 * Gaussian(wavelengthNm, 459.0, 26.0));
+        return new XyzColor(x, y, z);
+    }
+
+    private static double Gaussian(double value, double center, double width)
+        => Math.Exp(-0.5 * Math.Pow((value - center) / width, 2.0));
+
+    private static bool IsVisibleWavelength(double wavelengthNm)
+        => wavelengthNm >= MinimumVisibleWavelengthNm && wavelengthNm <= MaximumVisibleWavelengthNm;
+
+    private static bool IsFinite(double value)
+        => !double.IsNaN(value) && !double.IsInfinity(value);
+
+    private static double NormalizeSample(ushort sample)
+        => sample / MaxSampleValue;
+
+    private static byte EncodeOutputByte(double linear, double gamma)
+    {
+        var clamped = Math.Clamp(linear, 0.0, 1.0);
+        var encoded = Math.Pow(clamped, 1.0 / gamma);
+        return (byte)Math.Clamp((int)Math.Round(encoded * byte.MaxValue), 0, byte.MaxValue);
+    }
+
+    private readonly record struct XyzColor(double X, double Y, double Z);
+
+    private readonly record struct LinearRgb(double Red, double Green, double Blue);
+
+    private readonly record struct BgraDisplayColor(byte Blue, byte Green, byte Red);
+
+    private sealed class RgbDisplayColorTransform
+    {
+        private readonly LinearRgb _redPrimary;
+        private readonly LinearRgb _greenPrimary;
+        private readonly LinearRgb _bluePrimary;
+        private readonly double _outputGamma;
+
+        public RgbDisplayColorTransform(LinearRgb redPrimary, LinearRgb greenPrimary, LinearRgb bluePrimary, double outputGamma)
+        {
+            _redPrimary = redPrimary;
+            _greenPrimary = greenPrimary;
+            _bluePrimary = bluePrimary;
+            _outputGamma = outputGamma;
+        }
+
+        public static RgbDisplayColorTransform CreateIdentity(double outputGamma)
+            => new(new LinearRgb(1.0, 0.0, 0.0), new LinearRgb(0.0, 1.0, 0.0), new LinearRgb(0.0, 0.0, 1.0), outputGamma);
+
+        public BgraDisplayColor Transform(ushort redSample, ushort greenSample, ushort blueSample)
+        {
+            var red = NormalizeSample(redSample);
+            var green = NormalizeSample(greenSample);
+            var blue = NormalizeSample(blueSample);
+
+            var linearRed = (red * _redPrimary.Red) + (green * _greenPrimary.Red) + (blue * _bluePrimary.Red);
+            var linearGreen = (red * _redPrimary.Green) + (green * _greenPrimary.Green) + (blue * _bluePrimary.Green);
+            var linearBlue = (red * _redPrimary.Blue) + (green * _greenPrimary.Blue) + (blue * _bluePrimary.Blue);
+
+            return new BgraDisplayColor(
+                EncodeOutputByte(linearBlue, _outputGamma),
+                EncodeOutputByte(linearGreen, _outputGamma),
+                EncodeOutputByte(linearRed, _outputGamma));
+        }
+    }
 
     private static string SanitizeFileComponent(string value)
     {

@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Dispatching;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
@@ -56,6 +58,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private const double DefaultPreviewGamma = 2.2;
     private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
     private static readonly string[] MotorDirectionLabels = { "Dir0", "Dir1" };
+    private static readonly string[] RoiSelectionLabels = { "BW Active", "BW Shield", "Focus Overall", "Focus Left", "Focus Right" };
+    private const string RoiSelectionBwActive = "BW Active";
+    private const string RoiSelectionBwShield = "BW Shield";
+    private const string RoiSelectionFocusOverall = "Focus Overall";
+    private const string RoiSelectionFocusLeft = "Focus Left";
+    private const string RoiSelectionFocusRight = "Focus Right";
+    private const int CalibrationOffsetMin = -255;
+    private const int CalibrationOffsetMax = 255;
+    private const int CalibrationGainMin = 0;
+    private const int CalibrationGainMax = 63;
+    private const int AutofocusRowsMin = 1;
+    private const uint AutofocusStepsMin = 1;
+    private static readonly Brush LimitBlockNormalBrush = new SolidColorBrush(Colors.DarkSeaGreen);
+    private static readonly Brush LimitBlockAlertBrush = new SolidColorBrush(Colors.IndianRed);
 
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
@@ -65,8 +81,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IScanAutoCalibrationService _autoCalibration;
     private readonly IScanAutoFocusService _autoFocus;
     private readonly IScanTransferSettingsService _transferSettings;
+    private readonly IScanChannelParameterProfileService _channelProfiles;
+    private readonly IDebugOutputMirrorService _debugOutputMirror;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
-    private readonly DispatcherQueue _dispatcher;
+    private readonly IScanDebugSessionCoordinator _sessionCoordinator;
+    private readonly IUiDispatcher _dispatcher;
 
     private CancellationTokenSource? _scanCts;
     private byte[] _lineBuffer = Array.Empty<byte>();
@@ -75,11 +94,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _isDisposed;
     private bool _isMultiBufferedBulkInEnabled;
     private bool _suppressWarmUpToggleCommand;
+    private bool _isNormalizingLimitInput;
+    private bool _isUpdatingRoiInputs;
     private int _previewRows;
+    private int _profileLoadVersion;
+    private ScanCalibrationRoiSettings _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
 
     public ObservableCollection<string> MotorDirectionOptions { get; } = new(MotorDirectionLabels);
+
+    public ObservableCollection<string> CalibrationChannelOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR" };
+
+    public ObservableCollection<string> RoiSelectionOptions { get; } = new(RoiSelectionLabels);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -106,6 +133,51 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string PreviewGamma { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedCalibrationChannel { get; set; }
+
+    [ObservableProperty]
+    public partial string CalibrationChannelStatusText { get; set; }
+
+    [ObservableProperty]
+    public partial string FilmProfileName { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedRoiSelection { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsBwActiveRoiOverlayVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsBwShieldRoiOverlayVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsFocusOverallRoiOverlayVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsFocusLeftRoiOverlayVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsFocusRightRoiOverlayVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsRoiEditModeEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string RoiStatusText { get; set; }
+
+    [ObservableProperty]
+    public partial string RoiStartInput { get; set; }
+
+    [ObservableProperty]
+    public partial string RoiEndInput { get; set; }
+
+    [ObservableProperty]
+    public partial string RoiInputStatusText { get; set; }
+
+    [ObservableProperty]
+    public partial int RoiOverlayVersion { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
@@ -184,6 +256,36 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsScanReadProgressVisibleChanged(bool value)
         => ScanReadProgressVisibility = value ? Visibility.Visible : Visibility.Collapsed;
+
+    partial void OnCalibrationChannelStatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Calibration", value);
+
+    partial void OnRoiStatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Roi", value);
+
+    partial void OnRoiInputStatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.RoiInput", value);
+
+    partial void OnStatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Status", value);
+
+    partial void OnIlluminationSummaryTextChanged(string value)
+        => MirrorOutput("ScanDebug.Illumination", value);
+
+    partial void OnMotionSummaryTextChanged(string value)
+        => MirrorOutput("ScanDebug.Motion", value);
+
+    partial void OnMotor1StatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Motor1", value);
+
+    partial void OnMotor2StatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Motor2", value);
+
+    partial void OnMotor3StatusTextChanged(string value)
+        => MirrorOutput("ScanDebug.Motor3", value);
+
+    partial void OnAutofocusSummaryTextChanged(string value)
+        => MirrorOutput("ScanDebug.Autofocus", value);
 
     [ObservableProperty]
     public partial WriteableBitmap? PreviewImage { get; set; }
@@ -421,11 +523,43 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string AutofocusSummaryText { get; set; }
 
+    public string Adc1OffsetLimitText => BuildBoundedLimitText(Adc1Offset, CalibrationOffsetMin, CalibrationOffsetMax, "ADC1 offset");
+
+    public string Adc2OffsetLimitText => BuildBoundedLimitText(Adc2Offset, CalibrationOffsetMin, CalibrationOffsetMax, "ADC2 offset");
+
+    public string Adc1GainLimitText => BuildBoundedLimitText(Adc1Gain, CalibrationGainMin, CalibrationGainMax, "ADC1 gain");
+
+    public string Adc2GainLimitText => BuildBoundedLimitText(Adc2Gain, CalibrationGainMin, CalibrationGainMax, "ADC2 gain");
+
+    public string AutofocusSampleRowsLimitText => BuildBoundedLimitText(AutofocusSampleRows, AutofocusRowsMin, _session.SingleTransferMaxRows, "Sample rows");
+
+    public string AutofocusTiltProbeStepsLimitText => BuildLowerBoundLimitText(AutofocusTiltProbeSteps, AutofocusStepsMin, "Tilt probe steps");
+
+    public string AutofocusZProbeStepsLimitText => BuildLowerBoundLimitText(AutofocusZProbeSteps, AutofocusStepsMin, "Z probe steps");
+
+    public string AutofocusMotorIntervalLimitText => BuildLowerBoundLimitText(AutofocusMotorIntervalUs, ScanDebugConstants.MotionMinIntervalUs, "Motor interval");
+
+    public Brush Adc1OffsetLimitBrush => BuildBoundedLimitBrush(Adc1Offset, CalibrationOffsetMin, CalibrationOffsetMax);
+
+    public Brush Adc2OffsetLimitBrush => BuildBoundedLimitBrush(Adc2Offset, CalibrationOffsetMin, CalibrationOffsetMax);
+
+    public Brush Adc1GainLimitBrush => BuildBoundedLimitBrush(Adc1Gain, CalibrationGainMin, CalibrationGainMax);
+
+    public Brush Adc2GainLimitBrush => BuildBoundedLimitBrush(Adc2Gain, CalibrationGainMin, CalibrationGainMax);
+
+    public Brush AutofocusSampleRowsLimitBrush => BuildBoundedLimitBrush(AutofocusSampleRows, AutofocusRowsMin, _session.SingleTransferMaxRows);
+
+    public Brush AutofocusTiltProbeStepsLimitBrush => BuildLowerBoundLimitBrush(AutofocusTiltProbeSteps, AutofocusStepsMin);
+
+    public Brush AutofocusZProbeStepsLimitBrush => BuildLowerBoundLimitBrush(AutofocusZProbeSteps, AutofocusStepsMin);
+
+    public Brush AutofocusMotorIntervalLimitBrush => BuildLowerBoundLimitBrush(AutofocusMotorIntervalUs, ScanDebugConstants.MotionMinIntervalUs);
+
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
 
-    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanTransferSettingsService transferSettings, IUsbUsageCoordinator usbUsageCoordinator)
+    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanTransferSettingsService transferSettings, IScanChannelParameterProfileService channelProfiles, IDebugOutputMirrorService debugOutputMirror, IUsbUsageCoordinator usbUsageCoordinator, IScanDebugSessionCoordinator sessionCoordinator, IUiDispatcher dispatcher)
     {
         _session = session;
         _parameters = parameters;
@@ -435,13 +569,29 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _autoCalibration = autoCalibration;
         _autoFocus = autoFocus;
         _transferSettings = transferSettings;
+        _channelProfiles = channelProfiles;
+        _debugOutputMirror = debugOutputMirror;
         _usbUsageCoordinator = usbUsageCoordinator;
-        _dispatcher = DispatcherQueue.GetForCurrentThread();
+        _sessionCoordinator = sessionCoordinator;
+        _dispatcher = dispatcher;
         SelectedRows = "128";
         IsPreviewEnabled = true;
         IsWaterfallCompressedEnabled = true;
         IsGammaCorrectionEnabled = true;
         PreviewGamma = DefaultPreviewGamma.ToString("0.0");
+        SelectedCalibrationChannel = CalibrationChannelOptions[0];
+        CalibrationChannelStatusText = "Calibration profile channel: Red (no saved profile loaded yet).";
+        FilmProfileName = "Untitled Film Profile";
+        SelectedRoiSelection = RoiSelectionOptions[0];
+        IsBwActiveRoiOverlayVisible = true;
+        IsBwShieldRoiOverlayVisible = true;
+        IsFocusOverallRoiOverlayVisible = true;
+        IsFocusLeftRoiOverlayVisible = true;
+        IsFocusRightRoiOverlayVisible = true;
+        RoiStatusText = string.Empty;
+        RoiStartInput = "0";
+        RoiEndInput = "0";
+        RoiInputStatusText = "ROI range inputs are synchronized with the selected ROI.";
         StatusText = "Waiting for scanner devices...";
         ExposureTicks = string.Empty;
         Adc1Offset = string.Empty;
@@ -484,11 +634,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         AutofocusZDirection = MotorDirectionLabels[0];
         AutofocusTiltDirection = MotorDirectionLabels[0];
         AutofocusSummaryText = "Autofocus: idle.";
+        RefreshRoiStatus();
 
         _session.TargetsChanged += OnSessionTargetsChanged;
         _transferSettings.BulkInReadModeChanged += OnTransferSettingsChanged;
         _session.RefreshTargets();
         UpdateComputedParameterDisplays();
+        RefreshLimitBlockBindings();
         RefreshPreviewSelectionState();
         RefreshTargets();
         _ = InitializeTransferSettingsAsync();
@@ -498,19 +650,59 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => UpdateComputedParameterDisplays();
 
     partial void OnAdc1OffsetChanged(string value)
-        => UpdateComputedParameterDisplays();
+    {
+        NormalizeBoundedIntInput(value, CalibrationOffsetMin, CalibrationOffsetMax, v => Adc1Offset = v);
+        UpdateComputedParameterDisplays();
+        RefreshLimitBlockBindings();
+    }
 
     partial void OnAdc2OffsetChanged(string value)
-        => UpdateComputedParameterDisplays();
+    {
+        NormalizeBoundedIntInput(value, CalibrationOffsetMin, CalibrationOffsetMax, v => Adc2Offset = v);
+        UpdateComputedParameterDisplays();
+        RefreshLimitBlockBindings();
+    }
 
     partial void OnAdc1GainChanged(string value)
-        => UpdateComputedParameterDisplays();
+    {
+        NormalizeBoundedIntInput(value, CalibrationGainMin, CalibrationGainMax, v => Adc1Gain = v);
+        UpdateComputedParameterDisplays();
+        RefreshLimitBlockBindings();
+    }
 
     partial void OnAdc2GainChanged(string value)
-        => UpdateComputedParameterDisplays();
+    {
+        NormalizeBoundedIntInput(value, CalibrationGainMin, CalibrationGainMax, v => Adc2Gain = v);
+        UpdateComputedParameterDisplays();
+        RefreshLimitBlockBindings();
+    }
 
     partial void OnSysClockKhzChanged(string value)
         => UpdateComputedParameterDisplays();
+
+    partial void OnAutofocusSampleRowsChanged(string value)
+    {
+        NormalizeBoundedIntInput(value, AutofocusRowsMin, _session.SingleTransferMaxRows, v => AutofocusSampleRows = v);
+        RefreshLimitBlockBindings();
+    }
+
+    partial void OnAutofocusTiltProbeStepsChanged(string value)
+    {
+        NormalizeLowerBoundUIntInput(value, AutofocusStepsMin, v => AutofocusTiltProbeSteps = v);
+        RefreshLimitBlockBindings();
+    }
+
+    partial void OnAutofocusZProbeStepsChanged(string value)
+    {
+        NormalizeLowerBoundUIntInput(value, AutofocusStepsMin, v => AutofocusZProbeSteps = v);
+        RefreshLimitBlockBindings();
+    }
+
+    partial void OnAutofocusMotorIntervalUsChanged(string value)
+    {
+        NormalizeLowerBoundUIntInput(value, ScanDebugConstants.MotionMinIntervalUs, v => AutofocusMotorIntervalUs = v);
+        RefreshLimitBlockBindings();
+    }
 
     partial void OnIsWarmUpEnabledChanged(bool value)
     {
@@ -522,6 +714,55 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnSelectedRowsChanged(string value)
         => RefreshPreviewSelectionState();
+
+    partial void OnSelectedCalibrationChannelChanged(string value)
+    {
+        _ = HandleSelectedCalibrationChannelChangedAsync(value);
+    }
+
+    partial void OnSelectedRoiSelectionChanged(string value)
+    {
+        RefreshRoiInputTexts();
+        RefreshRoiStatus();
+    }
+
+    partial void OnIsBwActiveRoiOverlayVisibleChanged(bool value)
+        => RefreshRoiOverlayVisibility();
+
+    partial void OnIsBwShieldRoiOverlayVisibleChanged(bool value)
+        => RefreshRoiOverlayVisibility();
+
+    partial void OnIsFocusOverallRoiOverlayVisibleChanged(bool value)
+        => RefreshRoiOverlayVisibility();
+
+    partial void OnIsFocusLeftRoiOverlayVisibleChanged(bool value)
+        => RefreshRoiOverlayVisibility();
+
+    partial void OnIsFocusRightRoiOverlayVisibleChanged(bool value)
+        => RefreshRoiOverlayVisibility();
+
+    partial void OnIsRoiEditModeEnabledChanged(bool value)
+    {
+        if (value && !CanEditRoiSelection)
+        {
+            IsRoiEditModeEnabled = false;
+            return;
+        }
+
+        RefreshRoiStatus();
+    }
+
+    partial void OnRoiStartInputChanged(string value)
+    {
+        if (!_isUpdatingRoiInputs)
+            RoiInputStatusText = "ROI range changed. Click Apply ROI to commit numeric edits.";
+    }
+
+    partial void OnRoiEndInputChanged(string value)
+    {
+        if (!_isUpdatingRoiInputs)
+            RoiInputStatusText = "ROI range changed. Click Apply ROI to commit numeric edits.";
+    }
 
     partial void OnIsRunningChanged(bool value)
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
@@ -536,6 +777,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         OnPropertyChanged(nameof(IsPreviewToggleEnabled));
         OnPropertyChanged(nameof(IsPreviewEnabledForCurrentRows));
+        OnPropertyChanged(nameof(CanEditRoiSelection));
+
+        EnsureRoiEditModeAvailability();
 
         if (!value)
             ClearPreview();
@@ -545,6 +789,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsWaterfallEnabledChanged(bool value)
     {
+        OnPropertyChanged(nameof(CanEditRoiSelection));
+        EnsureRoiEditModeAvailability();
         _previewPresenter.Reset();
 
         if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || IsPreviewForcedOffForRows(_previewRows))
@@ -595,6 +841,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsApplyingIllumination &&
         !IsApplyingMotion;
 
+    public bool CanEditRoiSelection => PreviewImage is not null && !IsWaterfallEnabled && IsPreviewEnabled;
+
+    public bool CanMutateRoiFromPreview => CanEditRoiSelection && IsRoiEditModeEnabled;
+
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
 
@@ -608,6 +858,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void RefreshTargets()
     {
         IsDevicesPresent = _session.Targets.IsDevicesPresent;
+        RefreshLimitBlockBindings();
 
         if (!IsConnected)
         {
@@ -703,7 +954,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
     {
-        if (_usbUsageCoordinator.IsUsbDebugInUse)
+        if (_sessionCoordinator.IsConnectBlockedByUsbDebug())
         {
             await RequestNoticeAsync(
                 "USB busy",
@@ -716,7 +967,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsConnecting = true;
         try
         {
-            var result = await _session.ConnectAsync(CancellationToken.None);
+            var result = await _sessionCoordinator.ConnectAsync(_session, CancellationToken.None);
             if (!result.Success)
             {
                 StatusText = result.Message;
@@ -724,10 +975,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
 
             IsConnected = true;
-            _usbUsageCoordinator.SetScanDebugInUse(true);
             StatusText = "Scanner sessions connected. Loading parameters...";
 
             var statusNotes = new List<string>();
+
+            await _channelProfiles.InitializeAsync();
+            var selectedCalibrationChannel = await _channelProfiles.GetSelectedCalibrationChannelAsync();
+            if (!string.IsNullOrWhiteSpace(selectedCalibrationChannel)
+                && CalibrationChannelOptions.Contains(selectedCalibrationChannel, StringComparer.OrdinalIgnoreCase))
+            {
+                SelectedCalibrationChannel = selectedCalibrationChannel;
+            }
 
             try
             {
@@ -745,6 +1003,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 statusNotes.Add($"Parameter load unavailable: {ex.Message}");
             }
+
+            await LoadSelectedCalibrationProfileAsync(SelectedCalibrationChannel, ++_profileLoadVersion);
 
             try
             {
@@ -770,7 +1030,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             if (IsWarmUpEnabled)
             {
-                var warmUpResult = await _session.SetWarmUpEnabledAsync(true, _session.ConnectionToken);
+                var warmUpResult = await _sessionCoordinator.SetWarmUpAsync(_session, true, _session.ConnectionToken);
                 statusNotes.Add(warmUpResult.Success ? "Warm-up enabled" : $"Warm-up failed: {warmUpResult.Message}");
             }
 
@@ -780,7 +1040,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         catch (Exception ex)
         {
-            await _session.DisconnectAsync();
+            await _sessionCoordinator.DisconnectAsync(_session, CancellationToken.None);
             IsConnected = false;
             StatusText = $"Connect failed: {ex.Message}";
         }
@@ -803,7 +1063,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             if (IsWarmUpEnabled)
             {
-                var warmUpResult = await _session.SetWarmUpEnabledAsync(false, _session.ConnectionToken);
+                var warmUpResult = await _sessionCoordinator.SetWarmUpAsync(_session, false, _session.ConnectionToken);
                 _suppressWarmUpToggleCommand = true;
                 try
                 {
@@ -818,9 +1078,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     StatusText = $"Warm-up disable before disconnect failed: {warmUpResult.Message}";
             }
 
-            await _session.DisconnectAsync();
+            await _sessionCoordinator.DisconnectAsync(_session, CancellationToken.None);
             IsConnected = false;
-            _usbUsageCoordinator.SetScanDebugInUse(false);
             ResetIlluminationInputs();
             ResetMotionInputs();
             StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
@@ -1119,15 +1378,165 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoBlackAdjust()
-        => RunAutoCalibrationAsync((session, snapshot, prompt, status, applied, frame, ct) => _autoCalibration.AutoBlackAdjustAsync(session, snapshot, prompt, status, applied, frame, ct), "Auto black calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoBlackAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto black calibration completed.");
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoWhiteAdjust()
-        => RunAutoCalibrationAsync((session, snapshot, prompt, status, applied, frame, ct) => _autoCalibration.AutoWhiteAdjustAsync(session, snapshot, prompt, status, applied, frame, ct), "Auto white calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoWhiteAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto white calibration completed.");
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoCalibrate()
-        => RunAutoCalibrationAsync((session, snapshot, prompt, status, applied, frame, ct) => _autoCalibration.AutoCalibrateAsync(session, snapshot, prompt, status, applied, frame, ct), "Auto calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoCalibrateAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto calibration completed.");
+
+    [RelayCommand]
+    private async Task SaveChannelProfile()
+    {
+        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        try
+        {
+            await SaveSelectedCalibrationProfileAsync(snapshot);
+            StatusText = $"Calibration channel '{SelectedCalibrationChannel}' profile saved.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Save channel profile failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearChannelProfile()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedCalibrationChannel))
+        {
+            StatusText = "Calibration channel is empty.";
+            return;
+        }
+
+        try
+        {
+            var removed = await _channelProfiles.ClearProfileAsync(SelectedCalibrationChannel);
+            if (removed)
+            {
+                _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
+                RefreshRoiStatus();
+            }
+            CalibrationChannelStatusText = removed
+                ? $"Calibration profile channel: {SelectedCalibrationChannel} (profile cleared)."
+                : $"Calibration profile channel: {SelectedCalibrationChannel} (no saved profile).";
+            StatusText = removed
+                ? $"Calibration channel '{SelectedCalibrationChannel}' profile cleared."
+                : $"Calibration channel '{SelectedCalibrationChannel}' has no saved profile.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Clear channel profile failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveFilmProfileJson()
+    {
+        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var error))
+        {
+            StatusText = error;
+            return;
+        }
+
+        try
+        {
+            await SaveSelectedCalibrationProfileAsync(snapshot);
+            await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
+                1,
+                string.IsNullOrWhiteSpace(FilmProfileName) ? "Untitled Film Profile" : FilmProfileName.Trim(),
+                DateTimeOffset.Now,
+                _channelProfiles.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
+                SelectedCalibrationChannel));
+            StatusText = $"Film profile '{FilmProfileName}' exported.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Save film profile failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadFilmProfileJson()
+    {
+        try
+        {
+            var imported = await _channelProfiles.ImportProfilesAsync();
+            if (imported is null)
+            {
+                StatusText = "Load film profile canceled.";
+                return;
+            }
+
+            await _channelProfiles.ReplaceProfilesAsync(imported);
+            FilmProfileName = imported.ProfileName;
+
+            var channelToLoad = ResolveProfileChannelToLoad(imported);
+            if (!string.IsNullOrWhiteSpace(channelToLoad))
+            {
+                SelectedCalibrationChannel = channelToLoad;
+                await LoadSelectedCalibrationProfileAsync(channelToLoad, ++_profileLoadVersion);
+            }
+
+            StatusText = $"Film profile '{imported.ProfileName}' loaded.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Load film profile failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void ResetSelectedRoi()
+    {
+        var defaults = ScanCalibrationRoiSettings.CreateDefault();
+        _roiSettings = SelectedRoiSelection switch
+        {
+            RoiSelectionBwActive => _roiSettings with { EffectiveRange = defaults.EffectiveRange },
+            RoiSelectionBwShield => _roiSettings with { ShieldRange = defaults.ShieldRange },
+            RoiSelectionFocusOverall => _roiSettings with { FocusOverallRange = defaults.FocusOverallRange },
+            RoiSelectionFocusLeft => _roiSettings with { FocusLeftRange = defaults.FocusLeftRange },
+            RoiSelectionFocusRight => _roiSettings with { FocusRightRange = defaults.FocusRightRange },
+            _ => _roiSettings
+        };
+        NormalizeCurrentRoiSettings();
+        RefreshRoiStatus();
+    }
+
+    [RelayCommand]
+    private void ApplySelectedRoiInputs()
+    {
+        if (!int.TryParse(RoiStartInput, out var start))
+        {
+            RoiInputStatusText = "ROI Start must be an integer column index.";
+            return;
+        }
+
+        if (!int.TryParse(RoiEndInput, out var endInclusive))
+        {
+            RoiInputStatusText = "ROI End must be an integer column index.";
+            return;
+        }
+
+        UpdateSelectedRoiRange(start, endInclusive, GetRoiEditingWidth());
+        RoiInputStatusText = "ROI range applied from numeric inputs.";
+    }
+
+    [RelayCommand]
+    private void ResetAllRois()
+    {
+        _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
+        NormalizeCurrentRoiSettings();
+        RefreshRoiStatus();
+    }
 
     [RelayCommand(CanExecute = nameof(CanRunAutoFocus))]
     private async Task AutoFocus()
@@ -1321,7 +1730,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 rows,
                 ct,
                 status => _dispatcher.TryEnqueue(() => StatusText = status),
-                diagnostic => Debug.WriteLine(diagnostic),
+                diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
                 ReportScanReadProgress);
         }
 
@@ -1329,9 +1738,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
             rows,
             ct,
             status => _dispatcher.TryEnqueue(() => StatusText = status),
-            diagnostic => Debug.WriteLine(diagnostic),
+            diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
             ReportScanReadProgress);
     }
+
+    private void MirrorOutput(string source, string message)
+        => _debugOutputMirror.Mirror(source, message);
 
     private async Task RunSingleScanAsync(int rows, CancellationToken ct)
     {
@@ -1409,7 +1821,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         try
         {
-            var result = await _session.SetWarmUpEnabledAsync(enabled, _session.ConnectionToken);
+            var result = await _sessionCoordinator.SetWarmUpAsync(_session, enabled, _session.ConnectionToken);
             StatusText = result.Message;
         }
         catch (OperationCanceledException)
@@ -1418,7 +1830,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
     }
 
-    private async Task RunAutoCalibrationAsync(Func<IScanSessionService, ScanParameterSnapshot, Func<ScanCalibrationPrompt, Task<bool>>, Action<string>, Action<ScanParameterSnapshot>, Action<byte[], int, string>, CancellationToken, Task<ScanParameterSnapshot>> operation, string successMessage)
+    private async Task RunAutoCalibrationAsync(Func<IScanSessionService, ScanParameterSnapshot, ScanCalibrationRoiSettings, Func<ScanCalibrationPrompt, Task<bool>>, Action<string>, Action<ScanParameterSnapshot>, Action<byte[], int, string>, CancellationToken, Task<ScanParameterSnapshot>> operation, string successMessage)
     {
         if (!IsConnected)
         {
@@ -1440,6 +1852,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             var calibrated = await operation(
                 _session,
                 snapshot,
+                _roiSettings.Normalize(),
                 RequestCalibrationPromptAsync,
                 status => _dispatcher.TryEnqueue(() => StatusText = status),
                 applied => _dispatcher.TryEnqueue(() => ApplySnapshotToInputs(applied)),
@@ -1447,6 +1860,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 calibrationCts.Token);
 
             ApplySnapshotToInputs(calibrated);
+            await SaveSelectedCalibrationProfileAsync(calibrated);
             StatusText = successMessage;
         }
         catch (OperationCanceledException)
@@ -1462,6 +1876,68 @@ public partial class ScanDebugViewModel : ObservableRecipient
             calibrationCts.Dispose();
             IsAutoCalibrating = false;
         }
+    }
+
+    private async Task LoadSelectedCalibrationProfileAsync(string channelRole, int loadVersion)
+    {
+        if (string.IsNullOrWhiteSpace(channelRole))
+            return;
+
+        await _channelProfiles.SetSelectedCalibrationChannelAsync(channelRole);
+
+        if (loadVersion != _profileLoadVersion || !string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!_channelProfiles.TryGetProfile(channelRole, out var profile))
+        {
+            _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
+            RefreshRoiStatus();
+            CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (no saved profile).";
+            return;
+        }
+
+        ApplySnapshotToInputs(profile.Parameters);
+        _roiSettings = profile.RoiSettings.Normalize();
+        RefreshRoiStatus();
+        CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (saved profile loaded).";
+    }
+
+    private async Task HandleSelectedCalibrationChannelChangedAsync(string channelRole)
+    {
+        var loadVersion = ++_profileLoadVersion;
+        try
+        {
+            await LoadSelectedCalibrationProfileAsync(channelRole, loadVersion);
+        }
+        catch (Exception ex)
+        {
+            if (loadVersion == _profileLoadVersion && string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+                CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (load failed: {ex.Message}).";
+        }
+    }
+
+    private async Task SaveSelectedCalibrationProfileAsync(ScanParameterSnapshot snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(SelectedCalibrationChannel))
+            return;
+
+        await _channelProfiles.SaveProfileAsync(SelectedCalibrationChannel, new ScanChannelCalibrationProfile(snapshot, _roiSettings.Normalize()));
+        CalibrationChannelStatusText = $"Calibration profile channel: {SelectedCalibrationChannel} (saved at {DateTime.Now:HH:mm:ss}).";
+    }
+
+    private string ResolveProfileChannelToLoad(ScanFilmParameterProfileSet imported)
+    {
+        if (!string.IsNullOrWhiteSpace(imported.SelectedCalibrationChannel)
+            && CalibrationChannelOptions.Contains(imported.SelectedCalibrationChannel, StringComparer.OrdinalIgnoreCase))
+        {
+            return imported.SelectedCalibrationChannel;
+        }
+
+        var firstKnown = imported.ChannelProfiles.Keys.FirstOrDefault(role => CalibrationChannelOptions.Contains(role, StringComparer.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(firstKnown))
+            return firstKnown;
+
+        return SelectedCalibrationChannel;
     }
 
     private Task<bool> RequestCalibrationPromptAsync(ScanCalibrationPrompt prompt)
@@ -1551,8 +2027,150 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return _imageDecoder.TryGetSample16(_lineBuffer, _previewRows, x, y, out sample);
     }
 
+    public IReadOnlyList<(string Key, string Label, ScanColumnRange Range, bool IsSelected)> GetPreviewRoiOverlays(int imageWidth)
+    {
+        var clamped = _roiSettings.Clamp(imageWidth);
+        return new[]
+        {
+            (Key: RoiSelectionBwActive, Label: RoiSelectionBwActive, Range: clamped.EffectiveRange, IsSelected: SelectedRoiSelection == RoiSelectionBwActive),
+            (Key: RoiSelectionBwShield, Label: RoiSelectionBwShield, Range: clamped.ShieldRange, IsSelected: SelectedRoiSelection == RoiSelectionBwShield),
+            (Key: RoiSelectionFocusOverall, Label: RoiSelectionFocusOverall, Range: clamped.FocusOverallRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusOverall),
+            (Key: RoiSelectionFocusLeft, Label: RoiSelectionFocusLeft, Range: clamped.FocusLeftRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusLeft),
+            (Key: RoiSelectionFocusRight, Label: RoiSelectionFocusRight, Range: clamped.FocusRightRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusRight)
+        }
+        .Where(overlay => IsRoiOverlayVisible(overlay.Key))
+        .ToArray();
+    }
+
+    public bool TryGetSelectedRoiRange(int imageWidth, out ScanColumnRange range)
+    {
+        var clamped = _roiSettings.Clamp(imageWidth);
+        switch (SelectedRoiSelection)
+        {
+            case RoiSelectionBwActive:
+                range = clamped.EffectiveRange;
+                return true;
+            case RoiSelectionBwShield:
+                range = clamped.ShieldRange;
+                return true;
+            case RoiSelectionFocusOverall:
+                range = clamped.FocusOverallRange;
+                return true;
+            case RoiSelectionFocusLeft:
+                range = clamped.FocusLeftRange;
+                return true;
+            case RoiSelectionFocusRight:
+                range = clamped.FocusRightRange;
+                return true;
+            default:
+                range = new ScanColumnRange(0, -1);
+                return false;
+        }
+    }
+
+    public void UpdateSelectedRoiRange(int start, int endInclusive, int imageWidth)
+    {
+        var nextRange = new ScanColumnRange(start, endInclusive).Clamp(imageWidth);
+        _roiSettings = SelectedRoiSelection switch
+        {
+            RoiSelectionBwActive => _roiSettings with { EffectiveRange = nextRange },
+            RoiSelectionBwShield => _roiSettings with { ShieldRange = nextRange },
+            RoiSelectionFocusOverall => _roiSettings with { FocusOverallRange = nextRange },
+            RoiSelectionFocusLeft => _roiSettings with { FocusLeftRange = nextRange },
+            RoiSelectionFocusRight => _roiSettings with { FocusRightRange = nextRange },
+            _ => _roiSettings
+        };
+
+        NormalizeCurrentRoiSettings();
+        RefreshRoiStatus();
+    }
+
+    public void ShiftSelectedRoiRange(int deltaColumns, int imageWidth)
+    {
+        if (!TryGetSelectedRoiRange(imageWidth, out var range))
+            return;
+
+        var width = range.Width;
+        if (width <= 0)
+            return;
+
+        var start = Math.Clamp(range.Start + deltaColumns, 0, Math.Max(0, imageWidth - width));
+        UpdateSelectedRoiRange(start, start + width - 1, imageWidth);
+    }
+
+    private int GetRoiEditingWidth()
+        => PreviewImage?.PixelWidth > 0 ? PreviewImage.PixelWidth : ScanDebugConstants.DecodedPixelsPerLine;
+
+    private bool IsRoiOverlayVisible(string roiKey)
+        => roiKey switch
+        {
+            RoiSelectionBwActive => IsBwActiveRoiOverlayVisible,
+            RoiSelectionBwShield => IsBwShieldRoiOverlayVisible,
+            RoiSelectionFocusOverall => IsFocusOverallRoiOverlayVisible,
+            RoiSelectionFocusLeft => IsFocusLeftRoiOverlayVisible,
+            RoiSelectionFocusRight => IsFocusRightRoiOverlayVisible,
+            _ => true
+        };
+
     private string BuildExportBufferFileName()
         => _bufferExportService.BuildExportBufferFileName(SelectedRows, _lineBuffer.Length, DateTimeOffset.Now);
+
+    private void NormalizeCurrentRoiSettings()
+        => _roiSettings = _roiSettings.Normalize();
+
+    private void EnsureRoiEditModeAvailability()
+    {
+        if (!CanEditRoiSelection && IsRoiEditModeEnabled)
+            IsRoiEditModeEnabled = false;
+    }
+
+    private void RefreshRoiOverlayVisibility()
+        => RoiOverlayVersion++;
+
+    private void RefreshRoiStatus()
+    {
+        NormalizeCurrentRoiSettings();
+        EnsureRoiEditModeAvailability();
+        RefreshRoiInputTexts();
+        RoiStatusText = BuildRoiStatusText();
+        RoiOverlayVersion++;
+    }
+
+    private void RefreshRoiInputTexts()
+    {
+        var width = GetRoiEditingWidth();
+        if (!TryGetSelectedRoiRange(width, out var range))
+            return;
+
+        _isUpdatingRoiInputs = true;
+        try
+        {
+            RoiStartInput = range.Start.ToString();
+            RoiEndInput = range.EndInclusive.ToString();
+        }
+        finally
+        {
+            _isUpdatingRoiInputs = false;
+        }
+
+        RoiInputStatusText = $"Numeric ROI range mirrors {SelectedRoiSelection}: {range.Start} ~ {range.EndInclusive}.";
+    }
+
+    private string BuildRoiStatusText()
+    {
+        var range = SelectedRoiSelection switch
+        {
+            RoiSelectionBwActive => _roiSettings.EffectiveRange,
+            RoiSelectionBwShield => _roiSettings.ShieldRange,
+            RoiSelectionFocusOverall => _roiSettings.FocusOverallRange,
+            RoiSelectionFocusLeft => _roiSettings.FocusLeftRange,
+            RoiSelectionFocusRight => _roiSettings.FocusRightRange,
+            _ => _roiSettings.EffectiveRange
+        };
+
+        var editState = IsRoiEditModeEnabled ? "edit mode: ON" : "edit mode: OFF";
+        return $"Selected ROI: {SelectedRoiSelection} | columns {range.Start} ~ {range.EndInclusive} ({range.Width} px) | {editState}.";
+    }
 
     private void UpdateComputedParameterDisplays()
     {
@@ -1563,6 +2181,98 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Adc1GainVvDisplay = displays.Adc1GainVvDisplay;
         Adc2GainVvDisplay = displays.Adc2GainVvDisplay;
         SysClockMhzDisplay = displays.SysClockMhzDisplay;
+    }
+
+    private void NormalizeBoundedIntInput(string text, int min, int max, Action<string> assign)
+    {
+        if (_isNormalizingLimitInput || string.IsNullOrWhiteSpace(text) || !int.TryParse(text, out var value))
+            return;
+
+        var clamped = Math.Clamp(value, min, max);
+        if (clamped == value)
+            return;
+
+        _isNormalizingLimitInput = true;
+        try
+        {
+            assign(clamped.ToString());
+        }
+        finally
+        {
+            _isNormalizingLimitInput = false;
+        }
+    }
+
+    private void NormalizeLowerBoundUIntInput(string text, uint min, Action<string> assign)
+    {
+        if (_isNormalizingLimitInput || string.IsNullOrWhiteSpace(text) || !uint.TryParse(text, out var value) || value >= min)
+            return;
+
+        _isNormalizingLimitInput = true;
+        try
+        {
+            assign(min.ToString());
+        }
+        finally
+        {
+            _isNormalizingLimitInput = false;
+        }
+    }
+
+    private static string BuildBoundedLimitText(string text, int min, int max, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return $"{label} limit: {min} ~ {max}";
+
+        if (!int.TryParse(text, out var value))
+            return $"{label} limit: {min} ~ {max} | current input is not an integer";
+
+        return value < min || value > max
+            ? $"{label} limit: {min} ~ {max} | current: {value} (out of range)"
+            : $"{label} limit: {min} ~ {max} | current: {value}";
+    }
+
+    private static string BuildLowerBoundLimitText(string text, uint min, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return $"{label} limit: >= {min}";
+
+        if (!uint.TryParse(text, out var value))
+            return $"{label} limit: >= {min} | current input is not an integer";
+
+        return value < min
+            ? $"{label} limit: >= {min} | current: {value} (below minimum)"
+            : $"{label} limit: >= {min} | current: {value}";
+    }
+
+    private static Brush BuildBoundedLimitBrush(string text, int min, int max)
+        => int.TryParse(text, out var value) && value >= min && value <= max
+            ? LimitBlockNormalBrush
+            : LimitBlockAlertBrush;
+
+    private static Brush BuildLowerBoundLimitBrush(string text, uint min)
+        => uint.TryParse(text, out var value) && value >= min
+            ? LimitBlockNormalBrush
+            : LimitBlockAlertBrush;
+
+    private void RefreshLimitBlockBindings()
+    {
+        OnPropertyChanged(nameof(Adc1OffsetLimitText));
+        OnPropertyChanged(nameof(Adc2OffsetLimitText));
+        OnPropertyChanged(nameof(Adc1GainLimitText));
+        OnPropertyChanged(nameof(Adc2GainLimitText));
+        OnPropertyChanged(nameof(AutofocusSampleRowsLimitText));
+        OnPropertyChanged(nameof(AutofocusTiltProbeStepsLimitText));
+        OnPropertyChanged(nameof(AutofocusZProbeStepsLimitText));
+        OnPropertyChanged(nameof(AutofocusMotorIntervalLimitText));
+        OnPropertyChanged(nameof(Adc1OffsetLimitBrush));
+        OnPropertyChanged(nameof(Adc2OffsetLimitBrush));
+        OnPropertyChanged(nameof(Adc1GainLimitBrush));
+        OnPropertyChanged(nameof(Adc2GainLimitBrush));
+        OnPropertyChanged(nameof(AutofocusSampleRowsLimitBrush));
+        OnPropertyChanged(nameof(AutofocusTiltProbeStepsLimitBrush));
+        OnPropertyChanged(nameof(AutofocusZProbeStepsLimitBrush));
+        OnPropertyChanged(nameof(AutofocusMotorIntervalLimitBrush));
     }
 
     private async Task LoadIlluminationStateAsync(CancellationToken ct)
@@ -1787,7 +2497,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool TryBuildAutofocusRequest(out ScanAutofocusRequest request, out string error)
     {
-        request = new ScanAutofocusRequest(0, 0, 0, 0, false, false, 0, 0);
+        request = new ScanAutofocusRequest(0, 0, 0, 0, false, false, 0, 0, ScanCalibrationRoiSettings.CreateDefault());
 
         if (!int.TryParse(AutofocusSampleRows, out var sampleRows) || sampleRows <= 0 || sampleRows > _session.SingleTransferMaxRows)
         {
@@ -1821,7 +2531,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             string.Equals(AutofocusZDirection, MotorDirectionLabels[1], StringComparison.Ordinal),
             string.Equals(AutofocusTiltDirection, MotorDirectionLabels[1], StringComparison.Ordinal),
             MaxTiltIterations: 8,
-            MaxZIterations: 10);
+            MaxZIterations: 10,
+            RoiSettings: _roiSettings.Normalize());
         error = string.Empty;
         return true;
     }
@@ -1950,6 +2661,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         PreviewImage = bitmap;
+        OnPropertyChanged(nameof(CanEditRoiSelection));
+        RefreshRoiStatus();
         return true;
     }
 
@@ -1957,12 +2670,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         _previewPresenter.Reset();
         PreviewImage = null;
+        OnPropertyChanged(nameof(CanEditRoiSelection));
+        RefreshRoiStatus();
     }
 
     private void RefreshPreviewSelectionState()
     {
         OnPropertyChanged(nameof(IsPreviewToggleEnabled));
         OnPropertyChanged(nameof(IsPreviewEnabledForCurrentRows));
+        OnPropertyChanged(nameof(CanEditRoiSelection));
     }
 
     private bool IsPreviewForcedOffForSelectedRows()
@@ -1999,7 +2715,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
         }
 
-        await _session.DisconnectAsync();
+        await _session.DisposeAsync();
         _usbUsageCoordinator.SetScanDebugInUse(false);
         _session.TargetsChanged -= OnSessionTargetsChanged;
         _transferSettings.BulkInReadModeChanged -= OnTransferSettingsChanged;

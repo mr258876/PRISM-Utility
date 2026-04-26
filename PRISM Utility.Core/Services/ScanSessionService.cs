@@ -4,7 +4,7 @@ using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Services;
 
-public class ScanSessionService : IScanSessionService, IDisposable
+public class ScanSessionService : IScanSessionService
 {
     private const int MotionCompletionPaddingMs = 10000;
     private const double MotionCompletionTimeoutMultiplier = 2.0;
@@ -21,6 +21,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
     private IUsbBulkDuplexSession? _imageSession;
     private CancellationTokenSource? _connectionCts;
     private int _singleTransferMaxBytes = ScanDebugConstants.ImageRingBufferSize;
+    private bool _disposed;
 
     public event EventHandler? TargetsChanged;
 
@@ -57,6 +58,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public async Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
     {
+        ThrowIfDisposed();
         RefreshTargets();
         if (!Targets.IsDevicesPresent)
             return new ScanOperationResult(false, "619C/619D not detected.");
@@ -111,6 +113,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public async Task DisconnectAsync()
     {
+        ThrowIfDisposed();
         await DisconnectSessionsInternalAsync();
         IsConnected = false;
     }
@@ -223,6 +226,7 @@ public class ScanSessionService : IScanSessionService, IDisposable
             uint.MaxValue,
             Math.Max(ScanDebugConstants.AckTimeoutMs, (expectedTravelMs * MotionCompletionTimeoutMultiplier) + MotionCompletionPaddingMs));
         var deadline = DateTime.UtcNow.AddMilliseconds(totalTimeoutMs);
+        ScanMotorState? lastObservedMotorState = null;
 
         while (!ct.IsCancellationRequested)
         {
@@ -234,17 +238,24 @@ public class ScanSessionService : IScanSessionService, IDisposable
             {
                 return await _ackChannel.ReadMotionCompleteEventAsync(motorId, Math.Min(remainingMs, 500u), ct);
             }
-            catch (IOException ex) when (_protocol.IsIoTimeout(ex))
+            catch (IOException ex) when (IsMotionEventWaitTimeout(ex) || _protocol.IsIoTimeout(ex))
             {
                 var states = await GetMotionStateAsync(ct);
                 var motorState = states.FirstOrDefault(state => state.MotorId == motorId);
+                lastObservedMotorState = motorState;
                 if (motorState is not null && !motorState.Running && motorState.RemainingSteps == 0)
                     return motorState;
             }
         }
 
-        throw new IOException($"Timed out waiting motion complete event for motor {motorId}.");
+        var lastObservedStateText = lastObservedMotorState is null
+            ? "last_state=<unavailable>"
+            : $"last_state={{motor={lastObservedMotorState.MotorId}, enabled={lastObservedMotorState.Enabled}, running={lastObservedMotorState.Running}, direction={lastObservedMotorState.Direction}, diag=0x{lastObservedMotorState.Diag:X2}, interval_us={lastObservedMotorState.IntervalUs}, remaining_steps={lastObservedMotorState.RemainingSteps}}}";
+        throw new IOException($"Timed out waiting motion complete event for motor {motorId}. steps={steps}, interval_us={intervalUs}, expected_travel_ms={expectedTravelMs:0}, timeout_ms={totalTimeoutMs:0}, {lastObservedStateText}");
     }
+
+    private static bool IsMotionEventWaitTimeout(IOException ex)
+        => ex.Message.Contains("Timed out waiting motion complete event", StringComparison.OrdinalIgnoreCase);
 
     public async Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
     {
@@ -338,7 +349,42 @@ public class ScanSessionService : IScanSessionService, IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _usb.DevicesChanged -= OnDevicesChanged;
+
+        try
+        {
+            DisconnectSessionsInternalAsync().GetAwaiter().GetResult();
+        }
+        catch
+        {
+        }
+
+        IsConnected = false;
+        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _usb.DevicesChanged -= OnDevicesChanged;
+
+        try
+        {
+            await DisconnectSessionsInternalAsync();
+        }
+        catch
+        {
+        }
+
+        IsConnected = false;
+        GC.SuppressFinalize(this);
     }
 
     private void OnDevicesChanged(object? sender, EventArgs e)
@@ -417,5 +463,11 @@ public class ScanSessionService : IScanSessionService, IDisposable
         _bulkOutPipe = null;
         _bulkOutAckPipe = null;
         _ackChannel.ClearState();
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ScanSessionService));
     }
 }
