@@ -38,8 +38,8 @@ public interface IScanSessionService : IDisposable, IAsyncDisposable
     Task StopMotorAsync(byte motorId, CancellationToken ct);
     Task ApplyMotorConfigAsync(byte motorId, CancellationToken ct);
     Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct);
-    Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null);
-    Task<ScanStartResult> StartWarmUpSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null);
+    Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null);
+    Task<ScanStartResult> StartWarmUpSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null);
     Task<ScanStopResult> StopScanAsync(CancellationToken ct);
     Task<ScanControlFrame> SendControlCommandAndWaitAckAsync(byte[] command, byte expectedCommand, int totalTimeoutMs, CancellationToken ct, bool ignoreForeignCommands = true);
 }

@@ -17,9 +17,10 @@ internal sealed class ScanExecutionRunner
         _ackChannel = ackChannel;
     }
 
-    public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null)
+    public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
     {
         var targetBytes = rows * ScanDebugConstants.BytesPerLine;
+        var doneAckWaitTimeoutMs = ResolveStartScanDoneAckWaitMs(rows, expectedLineTimeUs);
         await _transferSettings.InitializeAsync();
         var transferSettings = _transferSettings.Settings;
         var readMode = transferSettings.ReadMode;
@@ -52,10 +53,10 @@ internal sealed class ScanExecutionRunner
             await controlSession.WriteBulkOutAsync(_protocol.BuildStartScanCommand(), ScanDebugConstants.AckTimeoutMs, ct);
             Mark("START_SCAN sent");
 
-            var ackTask = _ackChannel.MonitorStartScanAcksAsync(rows, ct, runId, scanWatch, onStatus, onDiagnostic);
+            var ackTask = _ackChannel.MonitorStartScanAcksAsync(rows, doneAckWaitTimeoutMs, ct, runId, scanWatch, onStatus, onDiagnostic);
             onStatus?.Invoke("Scan command sent, receiving image lines...");
 
-            var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, ScanDebugConstants.StartScanDoneAckWaitAfterImageMs);
+            var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, doneAckWaitTimeoutMs);
             Mark(gotDoneAck ? "Done ACK observed" : "Done ACK wait timed out");
             if (!gotDoneAck)
             {
@@ -85,10 +86,10 @@ internal sealed class ScanExecutionRunner
         }
     }
 
-    public async Task<ScanStartResult> StartWarmUpSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null)
+    public async Task<ScanStartResult> StartWarmUpSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
     {
         if (totalRows <= singleTransferMaxRows)
-            return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress);
+            return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
 
         var totalTargetBytes = totalRows * ScanDebugConstants.BytesPerLine;
         onProgress?.Invoke(0, totalTargetBytes);
@@ -142,7 +143,8 @@ internal sealed class ScanExecutionRunner
                 await controlSession.WriteBulkOutAsync(_protocol.BuildStartScanCommand(), ScanDebugConstants.AckTimeoutMs, ct);
                 Mark($"Segment {segmentIndex}/{segmentCount}: START_SCAN sent at {segmentWatch.ElapsedMilliseconds} ms");
 
-                var ackTask = _ackChannel.MonitorStartScanAcksAsync(segmentRows, ct, runId, scanWatch, status => onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] {status}"), onDiagnostic);
+                var segmentDoneAckWaitTimeoutMs = ResolveStartScanDoneAckWaitMs(segmentRows, expectedLineTimeUs);
+                var ackTask = _ackChannel.MonitorStartScanAcksAsync(segmentRows, segmentDoneAckWaitTimeoutMs, ct, runId, scanWatch, status => onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] {status}"), onDiagnostic);
 
                 var transferWatch = Stopwatch.StartNew();
                 var imageChunk = await imageReadTask;
@@ -156,7 +158,7 @@ internal sealed class ScanExecutionRunner
                 bufferOffset += segmentTargetBytes;
 
                 var ackWaitWatch = Stopwatch.StartNew();
-                var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, ScanDebugConstants.StartScanDoneAckWaitAfterImageMs);
+                var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, segmentDoneAckWaitTimeoutMs);
                 ackWaitWatch.Stop();
                 totalAckWaitMs += ackWaitWatch.ElapsedMilliseconds;
                 Mark(gotDoneAck
@@ -320,5 +322,15 @@ internal sealed class ScanExecutionRunner
             return false;
 
         return await ackTask;
+    }
+
+    private static int ResolveStartScanDoneAckWaitMs(int rows, uint? expectedLineTimeUs)
+    {
+        if (rows <= 0 || expectedLineTimeUs is null || expectedLineTimeUs.Value == 0)
+            return ScanDebugConstants.StartScanDoneAckWaitAfterImageMs;
+
+        var expectedScanMs = Math.Ceiling((double)rows * expectedLineTimeUs.Value / 1000.0);
+        var timeoutMs = (expectedScanMs * ScanDebugConstants.StartScanDoneAckWaitMultiplier) + ScanDebugConstants.StartScanDoneAckWaitPaddingMs;
+        return (int)Math.Min(int.MaxValue, Math.Max(ScanDebugConstants.StartScanDoneAckWaitAfterImageMs, timeoutMs));
     }
 }

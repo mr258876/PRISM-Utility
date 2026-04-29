@@ -154,9 +154,9 @@ internal sealed class ScanAckChannel
         }
     }
 
-    public async Task<bool> MonitorStartScanAcksAsync(int rows, CancellationToken ct, string runId, Stopwatch scanWatch, Action<string>? onStatus, Action<string>? onDiagnostic)
+    public async Task<bool> MonitorStartScanAcksAsync(int rows, int totalTimeoutMs, CancellationToken ct, string runId, Stopwatch scanWatch, Action<string>? onStatus, Action<string>? onDiagnostic)
     {
-        var deadline = DateTime.UtcNow.AddMilliseconds(ScanDebugConstants.StartScanAckMonitorTotalTimeoutMs);
+        var deadline = DateTime.UtcNow.AddMilliseconds(totalTimeoutMs);
         var hasAcceptAck = false;
         var busyCount = 0;
         var timeoutCount = 0;

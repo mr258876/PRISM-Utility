@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Models;
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Helpers;
 
 namespace PRISM_Utility.ViewModels;
 
@@ -210,13 +211,13 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         if (SelectedBulkInUsbDevice is null || SelectedBulkInConfig is null || SelectedBulkInInterface is null || SelectedBulkInEndpoint is null)
         {
-            RequestDialog("Error", "null param found!");
+            RequestDialog("Shared_Dialog_Error.Title".GetLocalized(), "UsbDebug_Runtime_BulkInMissingParams".GetLocalized());
             return;
         }
 
         if (_usbUsageCoordinator.IsScanDebugInUse)
         {
-            RequestDialog("USB busy", "USB Debugging is unavailable while Scan Debug is connected. Disconnect Scan Debug first.");
+            RequestDialog("Shared_Dialog_UsbBusy.Title".GetLocalized(), "Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content".GetLocalized());
             return;
         }
 
@@ -251,7 +252,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             IsBulkInRunning = true;
             _usbUsageCoordinator.SetUsbDebugInUse(true);
             IsBulkInStopping = false;
-            AppendLog("Bulk IN started.");
+            AppendLog("UsbDebug_Runtime_BulkInStarted".GetLocalized());
 
             while (!_bulkInCts.Token.IsCancellationRequested)
             {
@@ -265,7 +266,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         }
         catch (Exception ex)
         {
-            AppendLog($"Bulk IN error: {ex.Message}");
+            AppendLog("UsbDebug_Runtime_BulkInError".GetLocalizedFormat(ex.Message));
         }
         finally
         {
@@ -280,7 +281,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             IsBulkInStopping = false;
             IsBulkInRunning = false;
             _usbUsageCoordinator.SetUsbDebugInUse(false);
-            AppendLog("Bulk IN stopped.");
+            AppendLog("UsbDebug_Runtime_BulkInStopped".GetLocalized());
         }
     }
 
@@ -290,7 +291,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         IsBulkInStopping = true;
         _bulkInCts?.Cancel();
-        AppendLog("Stopping Bulk IN...");
+        AppendLog("UsbDebug_Runtime_BulkInStopping".GetLocalized());
     }
 
     [RelayCommand(CanExecute = nameof(CanSendBulkOut))]
@@ -298,13 +299,13 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         if (SelectedBulkOutUsbDevice is null || SelectedBulkOutConfig is null || SelectedBulkOutInterface is null || SelectedBulkOutEndpoint is null)
         {
-            RequestDialog("Error", "Bulk OUT params are incomplete.");
+            RequestDialog("Shared_Dialog_Error.Title".GetLocalized(), "UsbDebug_Runtime_BulkOutMissingParams".GetLocalized());
             return;
         }
 
         if (string.IsNullOrWhiteSpace(BulkOutText))
         {
-            RequestDialog("Error", "Please input payload text.");
+            RequestDialog("Shared_Dialog_Error.Title".GetLocalized(), "UsbDebug_Runtime_BulkOutPayloadRequired".GetLocalized());
             return;
         }
 
@@ -322,8 +323,8 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         }
         catch (Exception ex)
         {
-            AppendLog($"Bulk OUT error: {ex.Message}");
-            RequestDialog("Bulk OUT failed", ex.Message);
+            AppendLog("UsbDebug_Runtime_BulkOutError".GetLocalizedFormat(ex.Message));
+            RequestDialog("UsbDebug_Runtime_BulkOutFailed.Title".GetLocalized(), ex.Message);
         }
     }
 
@@ -334,7 +335,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             .ToArray();
 
         if (tokens.Length == 0)
-            throw new FormatException("No hex bytes found.");
+            throw new FormatException("UsbDebug_Runtime_NoHexBytesFound".GetLocalized());
 
         var bytes = new byte[tokens.Length];
         for (var i = 0; i < tokens.Length; i++)
@@ -349,10 +350,10 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
                 token = token[..^1];
 
             if (token.Length != 2)
-                throw new FormatException($"Token #{i + 1} must be exactly 2 hex digits (supports 0xAA / AAh / AAH / AA).");
+                throw new FormatException("UsbDebug_Runtime_HexTokenLength".GetLocalizedFormat(i + 1));
 
             if (!byte.TryParse(token, System.Globalization.NumberStyles.HexNumber, null, out var b))
-                throw new FormatException($"Token #{i + 1} is not valid hex: '{rawToken}'.");
+                throw new FormatException("UsbDebug_Runtime_HexTokenInvalid".GetLocalizedFormat(i + 1, rawToken));
 
             bytes[i] = b;
         }
@@ -363,7 +364,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     private async Task<int> SendBulkOutByBestPathAsync(byte[] data)
     {
         if (SelectedBulkOutUsbDevice is null || SelectedBulkOutConfig is null || SelectedBulkOutInterface is null || SelectedBulkOutEndpoint is null)
-            throw new InvalidOperationException("Bulk OUT params are incomplete.");
+            throw new InvalidOperationException("UsbDebug_Runtime_BulkOutMissingParams".GetLocalized());
 
         var requested = new UsbPipeSelection(
             SelectedBulkOutUsbDevice.Id,

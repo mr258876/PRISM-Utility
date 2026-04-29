@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
+using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
 
 namespace PRISM_Utility.ViewModels;
@@ -15,9 +16,9 @@ public partial class ScanViewModel : ObservableRecipient
 {
     private const string ForwardDirection = "Forward";
     private const string ReverseDirection = "Reverse";
-    private const double DefaultRedWavelengthNm = 630.0;
-    private const double DefaultGreenWavelengthNm = 530.0;
-    private const double DefaultBlueWavelengthNm = 470.0;
+    private const double DefaultRedWavelengthNm = 680.0;
+    private const double DefaultGreenWavelengthNm = 525.0;
+    private const double DefaultBlueWavelengthNm = 450.0;
     private const double DefaultOutputGamma = 2.2;
     private readonly IScanSessionService _session;
     private readonly IScanParameterService _parameters;
@@ -243,14 +244,14 @@ public partial class ScanViewModel : ObservableRecipient
         Pass2DirectionText = ReverseDirection;
         Pass3DirectionText = ForwardDirection;
         Pass4DirectionText = ReverseDirection;
-        StatusText = "Waiting for scanner devices 1D50:619C and 1D50:619D.";
-        CurrentPassText = "Pass - of 4";
-        CurrentLedText = "LED: -";
-        CurrentDirectionText = "Direction: -";
-        PreviewPlaceholderText = "Run a scan to generate RGB or raw channel preview output.";
-        PreviewDescriptionText = "Preview mode: RGB Composite.";
-        OutputSummaryText = "No scan outputs captured yet.";
-        ComputedMotorSummaryText = "Motor step estimate unavailable until scanner parameters are loaded.";
+        StatusText = "Scan_Runtime_StatusWaitingForDevices".GetLocalized();
+        CurrentPassText = "Scan_Runtime_CurrentPassIdle".GetLocalized();
+        CurrentLedText = "Scan_Runtime_CurrentLedIdle".GetLocalized();
+        CurrentDirectionText = "Scan_Runtime_CurrentDirectionIdle".GetLocalized();
+        PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderInitial".GetLocalized();
+        PreviewDescriptionText = "Scan_Runtime_PreviewModeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(PreviewModes[0]));
+        OutputSummaryText = "Scan_Runtime_OutputSummaryEmpty".GetLocalized();
+        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
 
         _session.TargetsChanged += OnSessionTargetsChanged;
         RefreshTargets();
@@ -313,7 +314,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnRedWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Red wavelength", out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_RedWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { RedWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -321,7 +322,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnGreenWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Green wavelength", out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_GreenWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { GreenWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -329,7 +330,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnBlueWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Blue wavelength", out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_BlueWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { BlueWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -337,7 +338,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnOutputGammaChanged(string value)
     {
-        if (TryParseColorDouble(value, "Output gamma", out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_OutputGammaTextBox/Header".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { OutputGamma = parsed });
         else
             UpdatePreviewState();
@@ -371,8 +372,8 @@ public partial class ScanViewModel : ObservableRecipient
         if (!IsConnected && !IsConnecting)
         {
             StatusText = IsDevicesPresent
-                ? "619C/619D detected. Click Connect Devices to open scanner sessions for Scan."
-                : "Waiting for scanner devices 1D50:619C and 1D50:619D.";
+                ? "Scan_Runtime_StatusDevicesDetected".GetLocalized()
+                : "Scan_Runtime_StatusWaitingForDevices".GetLocalized();
         }
     }
 
@@ -388,7 +389,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (_usbUsageCoordinator.IsUsbDebugInUse)
         {
-            StatusText = "USB Debugging is active. Stop it before connecting the Scan page.";
+            StatusText = "Scan_Runtime_UsbDebugActive".GetLocalized();
             return;
         }
 
@@ -401,13 +402,13 @@ public partial class ScanViewModel : ObservableRecipient
             var result = await _session.ConnectAsync(CancellationToken.None);
             if (!result.Success)
             {
-                StatusText = result.Message;
+                StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
                 return;
             }
 
             IsConnected = true;
             _usbUsageCoordinator.SetScanDebugInUse(true);
-            StatusText = "Scanner sessions connected. Loading scan state...";
+            StatusText = "Scan_Runtime_StatusLoadingState".GetLocalized();
 
             var statusNotes = new List<string>();
 
@@ -417,14 +418,14 @@ public partial class ScanViewModel : ObservableRecipient
                 _loadedExposureTicks = snapshot.ExposureTicks;
                 _loadedSysClockKhz = snapshot.SysClockKhz;
                 _loadedSnapshot = snapshot;
-                statusNotes.Add($"Parameters loaded (exp={snapshot.ExposureTicks}, sysclk={snapshot.SysClockKhz} kHz)");
+                statusNotes.Add("Scan_Runtime_StatusParametersLoaded".GetLocalizedFormat(snapshot.ExposureTicks, snapshot.SysClockKhz));
             }
             catch (Exception ex)
             {
                 _loadedSnapshot = null;
                 _loadedExposureTicks = 0;
                 _loadedSysClockKhz = 0;
-                statusNotes.Add($"Parameter load unavailable: {ex.Message}");
+                statusNotes.Add("Scan_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
             }
 
             try
@@ -434,24 +435,24 @@ public partial class ScanViewModel : ObservableRecipient
                 Led2Level = illumination.Led2Level.ToString();
                 Led3Level = illumination.Led3Level.ToString();
                 Led4Level = illumination.Led4Level.ToString();
-                statusNotes.Add("Illumination levels loaded");
+                statusNotes.Add("Scan_Runtime_StatusIlluminationLoaded".GetLocalized());
             }
             catch (Exception ex)
             {
-                statusNotes.Add($"Illumination unavailable: {ex.Message}");
+                statusNotes.Add("Scan_Runtime_StatusIlluminationUnavailable".GetLocalizedFormat(ex.Message));
             }
 
             UpdateComputedMotorSummary();
             StatusText = statusNotes.Count > 0
-                ? $"Scanner sessions connected. {string.Join(". ", statusNotes)}."
-                : "Scanner sessions connected.";
+                ? "Scan_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
+                : "Scan_Runtime_StatusConnected".GetLocalized();
         }
         catch (Exception ex)
         {
             await _session.DisconnectAsync();
             IsConnected = false;
             _usbUsageCoordinator.SetScanDebugInUse(false);
-            StatusText = $"Connect failed: {ex.Message}";
+            StatusText = "Scan_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -472,12 +473,12 @@ public partial class ScanViewModel : ObservableRecipient
             IsOutputAvailable = false;
             _lastResult = null;
             PreviewImage = null;
-            PreviewPlaceholderText = "Run a scan to generate RGB or raw channel preview output.";
-            OutputSummaryText = "No scan outputs captured yet.";
-            StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
-            CurrentPassText = "Pass - of 4";
-            CurrentLedText = "LED: -";
-            CurrentDirectionText = "Direction: -";
+            PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderInitial".GetLocalized();
+            OutputSummaryText = "Scan_Runtime_OutputSummaryEmpty".GetLocalized();
+            StatusText = IsDevicesPresent ? "Scan_Runtime_StatusDisconnectedReconnect".GetLocalized() : "Scan_Runtime_StatusDisconnected".GetLocalized();
+            CurrentPassText = "Scan_Runtime_CurrentPassIdle".GetLocalized();
+            CurrentLedText = "Scan_Runtime_CurrentLedIdle".GetLocalized();
+            CurrentDirectionText = "Scan_Runtime_CurrentDirectionIdle".GetLocalized();
         }
         finally
         {
@@ -496,7 +497,7 @@ public partial class ScanViewModel : ObservableRecipient
 
         if (request.Rows > _session.SingleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
         {
-            StatusText = $"Rows above {_session.SingleTransferMaxRows} require Multi-buffer bulk IN and Raw I/O, or enable Warm-up segmented mode.";
+            StatusText = "Scan_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(_session.SingleTransferMaxRows);
             return;
         }
 
@@ -504,7 +505,7 @@ public partial class ScanViewModel : ObservableRecipient
         IsRunning = true;
         IsOutputAvailable = false;
         _lastResult = null;
-        OutputSummaryText = "Scan in progress...";
+        OutputSummaryText = "Scan_Runtime_OutputSummaryInProgress".GetLocalized();
 
         try
         {
@@ -513,26 +514,26 @@ public partial class ScanViewModel : ObservableRecipient
                 request,
                 _scanCts.Token,
                 progress => _dispatcher.TryEnqueue(() => ApplyProgress(progress)),
-                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status)),
                 diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic));
 
             _lastResult = result;
             IsOutputAvailable = true;
-            OutputSummaryText = $"Captured {result.Passes.Count} pass(es), rows={result.Rows}, motor steps/pass={result.ComputedMotorStepsPerPass}, interval={result.MotorIntervalUs} us.";
-            StatusText = "Scan completed.";
+            OutputSummaryText = "Scan_Runtime_OutputSummaryCaptured".GetLocalizedFormat(result.Passes.Count, result.Rows, result.ComputedMotorStepsPerPass, result.MotorIntervalUs);
+            StatusText = "Scan_Runtime_StatusCompleted".GetLocalized();
             UpdatePreviewState();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Scan canceled.";
-            CurrentPassText = "Pass canceled";
-            CurrentLedText = "LED: Idle";
-            CurrentDirectionText = "Direction: Idle";
+            StatusText = "Scan_Runtime_StatusCanceled".GetLocalized();
+            CurrentPassText = "Scan_Runtime_CurrentPassCanceled".GetLocalized();
+            CurrentLedText = "Scan_Runtime_CurrentLedStopped".GetLocalized();
+            CurrentDirectionText = "Scan_Runtime_CurrentDirectionStopped".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Scan failed: {ex.Message}";
-            OutputSummaryText = "Scan failed before outputs were produced.";
+            StatusText = "Scan_Runtime_StatusFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(ex.Message));
+            OutputSummaryText = "Scan_Runtime_OutputSummaryFailed".GetLocalized();
         }
         finally
         {
@@ -562,7 +563,7 @@ public partial class ScanViewModel : ObservableRecipient
         }
 
         var result = await _session.StopScanAsync(CancellationToken.None);
-        StatusText = result.Success ? "Stop requested." : result.Message;
+        StatusText = result.Success ? "Scan_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
     }
 
     private void MirrorOutput(string source, string message)
@@ -573,7 +574,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (_lastResult is null)
         {
-            StatusText = "No scan result available for RGB save.";
+            StatusText = "Scan_Runtime_StatusNoRgbResult".GetLocalized();
             return;
         }
 
@@ -594,16 +595,16 @@ public partial class ScanViewModel : ObservableRecipient
             var file = await _channelImages.PickRgbImageFileAsync($"scan_rgb_{DateTimeOffset.Now:yyyyMMdd_HHmmss}");
             if (file is null)
             {
-                StatusText = "RGB save canceled.";
+                StatusText = "Scan_Runtime_StatusRgbSaveCanceled".GetLocalized();
                 return;
             }
 
             await _channelImages.SaveRgbImageAsync(file, frame);
-            StatusText = $"RGB image saved: {file.Path}";
+            StatusText = "Scan_Runtime_StatusRgbSaved".GetLocalizedFormat(file.Path);
         }
         catch (Exception ex)
         {
-            StatusText = $"RGB save failed: {ex.Message}";
+            StatusText = "Scan_Runtime_StatusRgbSaveFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -612,7 +613,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (_lastResult is null)
         {
-            StatusText = "No scan result available for raw export.";
+            StatusText = "Scan_Runtime_StatusNoRawResult".GetLocalized();
             return;
         }
 
@@ -621,24 +622,24 @@ public partial class ScanViewModel : ObservableRecipient
             var folder = await _channelImages.PickRawExportFolderAsync();
             if (folder is null)
             {
-                StatusText = "Raw export canceled.";
+                StatusText = "Scan_Runtime_StatusRawExportCanceled".GetLocalized();
                 return;
             }
 
             await _channelImages.ExportRawChannelsAsync(folder, _lastResult, BuildChannelAssignment());
-            StatusText = $"Raw channel buffers exported to {folder.Path}";
+            StatusText = "Scan_Runtime_StatusRawExported".GetLocalizedFormat(folder.Path);
         }
         catch (Exception ex)
         {
-            StatusText = $"Raw export failed: {ex.Message}";
+            StatusText = "Scan_Runtime_StatusRawExportFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
     private void ApplyProgress(ScanWorkflowProgress progress)
     {
-        CurrentPassText = $"Pass {progress.CurrentPass} of {progress.TotalPasses} - {progress.Stage}";
-        CurrentLedText = $"LED: LED{progress.LedChannelIndex + 1}";
-        CurrentDirectionText = $"Direction: {(progress.DirectionPositive ? ForwardDirection : ReverseDirection)}";
+        CurrentPassText = "Scan_Runtime_CurrentPassProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage));
+        CurrentLedText = "Scan_Runtime_CurrentLedProgress".GetLocalizedFormat(progress.LedChannelIndex + 1);
+        CurrentDirectionText = "Scan_Runtime_CurrentDirectionProgress".GetLocalizedFormat(GetDirectionDisplayName(progress.DirectionPositive ? ForwardDirection : ReverseDirection));
     }
 
     private void UpdatePassPlan()
@@ -649,7 +650,7 @@ public partial class ScanViewModel : ObservableRecipient
         Pass4DirectionText = GetDirectionForPass(3);
 
         if (!IsRunning && IsConnected)
-            CurrentDirectionText = $"Direction: {Pass1DirectionText}";
+            CurrentDirectionText = "Scan_Runtime_CurrentDirectionProgress".GetLocalizedFormat(GetDirectionDisplayName(Pass1DirectionText));
     }
 
     private string GetDirectionForPass(int passIndex)
@@ -668,16 +669,16 @@ public partial class ScanViewModel : ObservableRecipient
         if (!IsPreviewEnabled)
         {
             PreviewImage = null;
-            PreviewDescriptionText = "Preview is disabled.";
-            PreviewPlaceholderText = "Preview disabled.";
+            PreviewDescriptionText = "Scan_Runtime_PreviewDisabledDescription".GetLocalized();
+            PreviewPlaceholderText = "Scan_Runtime_PreviewDisabledPlaceholder".GetLocalized();
             return;
         }
 
         if (_lastResult is null)
         {
             PreviewImage = null;
-            PreviewDescriptionText = $"Preview mode: {SelectedPreviewMode}.";
-            PreviewPlaceholderText = $"{SelectedPreviewMode} preview will appear here after the next scan.";
+            PreviewDescriptionText = "Scan_Runtime_PreviewModeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode));
+            PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderNextScan".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode));
             return;
         }
 
@@ -694,7 +695,7 @@ public partial class ScanViewModel : ObservableRecipient
             if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, PreviewImage, out var frame, out var error) && frame is not null)
             {
                 PreviewImage = frame.Bitmap;
-                PreviewDescriptionText = $"Preview mode: {SelectedPreviewMode}. Composite uses current channel-role mapping and {(IsColorManagementEnabled ? "spectral sRGB color management" : "sRGB gamma encoding")}.";
+                PreviewDescriptionText = "Scan_Runtime_PreviewCompositeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), IsColorManagementEnabled ? "Scan_Runtime_PreviewCompositeModeSpectral".GetLocalized() : "Scan_Runtime_PreviewCompositeModeGamma".GetLocalized());
                 PreviewPlaceholderText = string.Empty;
             }
             else
@@ -710,7 +711,7 @@ public partial class ScanViewModel : ObservableRecipient
         if (!TryParsePreviewChannelIndex(out var channelIndex) || _lastResult.Passes.Count <= channelIndex)
         {
             PreviewImage = null;
-            PreviewDescriptionText = "Selected raw preview channel is unavailable.";
+            PreviewDescriptionText = "Scan_Runtime_PreviewRawUnavailable".GetLocalized();
             PreviewPlaceholderText = PreviewDescriptionText;
             return;
         }
@@ -719,7 +720,7 @@ public partial class ScanViewModel : ObservableRecipient
         if (_channelImages.TryBuildRawPreview(capture, PreviewImage, out var bitmap, out var rawError))
         {
             PreviewImage = bitmap;
-            PreviewDescriptionText = $"Preview mode: {SelectedPreviewMode}. Showing grayscale raw buffer from pass {capture.PassIndex}.";
+            PreviewDescriptionText = "Scan_Runtime_PreviewRawDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), capture.PassIndex);
             PreviewPlaceholderText = string.Empty;
         }
         else
@@ -732,33 +733,33 @@ public partial class ScanViewModel : ObservableRecipient
 
     private void UpdateChannelMappingSummary()
     {
-        ChannelMappingSummaryText = $"Channel 1 → {SelectedChannel1Role}{BuildReverseSuffix(IsChannel1Reversed)}, Channel 2 → {SelectedChannel2Role}{BuildReverseSuffix(IsChannel2Reversed)}, Channel 3 → {SelectedChannel3Role}{BuildReverseSuffix(IsChannel3Reversed)}, Channel 4 → {SelectedChannel4Role}{BuildReverseSuffix(IsChannel4Reversed)}.";
+        ChannelMappingSummaryText = "Scan_Runtime_ChannelMappingSummary".GetLocalizedFormat(GetChannelRoleDisplayName(SelectedChannel1Role), GetChannelRoleDisplayName(SelectedChannel2Role), GetChannelRoleDisplayName(SelectedChannel3Role), GetChannelRoleDisplayName(SelectedChannel4Role));
     }
 
     private void UpdateComputedMotorSummary()
     {
         if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
         {
-            ComputedMotorSummaryText = "Motor step estimate unavailable until rows are valid.";
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilRowsValid".GetLocalized();
             return;
         }
 
         if (!uint.TryParse(MotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
         {
-            ComputedMotorSummaryText = $"Motor interval must be at least {ScanDebugConstants.MotionMinIntervalUs} us.";
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
             return;
         }
 
         if (_loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
         {
-            ComputedMotorSummaryText = "Motor step estimate unavailable until scanner exposure/system clock parameters are loaded.";
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
             return;
         }
 
         var lineExposureNs = (45827.0 + (_loadedExposureTicks * 6.0)) * (1_000_000.0 / _loadedSysClockKhz);
         var scanDurationUs = (rows * lineExposureNs) / 1000.0;
         var computedSteps = (uint)Math.Max(1, (int)Math.Round(scanDurationUs / Math.Max(intervalUs, 1u), MidpointRounding.AwayFromZero));
-        ComputedMotorSummaryText = $"Motor{GetMotorDisplayIndex()} transport estimate: {computedSteps} step(s) per pass at {intervalUs} us interval, based on current exposure/system clock and {rows} row(s).";
+        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorSummary".GetLocalizedFormat(GetMotorDisplayIndex(), computedSteps, intervalUs, rows);
     }
 
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
@@ -767,7 +768,7 @@ public partial class ScanViewModel : ObservableRecipient
 
         if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
         {
-            error = "Rows must be a positive integer.";
+            error = "Scan_Runtime_ErrorRowsPositiveInteger".GetLocalized();
             return false;
         }
 
@@ -776,21 +777,21 @@ public partial class ScanViewModel : ObservableRecipient
 
         if (!uint.TryParse(MotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
         {
-            error = $"Motor interval must be an integer >= {ScanDebugConstants.MotionMinIntervalUs} us.";
+            error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
-        if (!TryParseLedLevel(Led1Level, "LED1 level", out var led1, out error)
-            || !TryParseLedLevel(Led2Level, "LED2 level", out var led2, out error)
-            || !TryParseLedLevel(Led3Level, "LED3 level", out var led3, out error)
-            || !TryParseLedLevel(Led4Level, "LED4 level", out var led4, out error))
+        if (!TryParseLedLevel(Led1Level, "Scan_Led1LevelTextBox.Header".GetLocalized(), out var led1, out error)
+            || !TryParseLedLevel(Led2Level, "Scan_Led2LevelTextBox.Header".GetLocalized(), out var led2, out error)
+            || !TryParseLedLevel(Led3Level, "Scan_Led3LevelTextBox.Header".GetLocalized(), out var led3, out error)
+            || !TryParseLedLevel(Led4Level, "Scan_Led4LevelTextBox.Header".GetLocalized(), out var led4, out error))
         {
             return false;
         }
 
         if (_loadedSnapshot is null || _loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
         {
-            error = "Scanner parameters are not loaded yet. Reconnect the scanner and try again.";
+            error = "Scan_Runtime_ErrorParametersNotLoaded".GetLocalized();
             return false;
         }
 
@@ -825,7 +826,7 @@ public partial class ScanViewModel : ObservableRecipient
             || displayIndex < 1
             || displayIndex > ScanDebugConstants.MotionMotorCount)
         {
-            error = $"Scan motor must be one of Motor1..Motor{ScanDebugConstants.MotionMotorCount}.";
+            error = "Scan_Runtime_ErrorScanMotorRange".GetLocalizedFormat(ScanDebugConstants.MotionMotorCount);
             return false;
         }
 
@@ -841,7 +842,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (!ushort.TryParse(text, out value))
         {
-            error = $"{fieldName} must be an integer in [0, 65535].";
+            error = "Shared_Runtime_ErrorIntegerRange0To65535".GetLocalizedFormat(fieldName);
             return false;
         }
 
@@ -853,7 +854,7 @@ public partial class ScanViewModel : ObservableRecipient
         => _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered && _transferSettings.Settings.RawIoEnabled;
 
     private ScanChannelAssignment BuildChannelAssignment()
-        => new(SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role, IsChannel1Reversed, IsChannel2Reversed, IsChannel3Reversed, IsChannel4Reversed);
+        => new(SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role, false, false, false, false);
 
     private async Task LoadColorManagementSettingsAsync()
     {
@@ -899,10 +900,10 @@ public partial class ScanViewModel : ObservableRecipient
     {
         options = ScanColorManagementOptions.CreateDefault();
 
-        if (!TryParseColorDouble(RedWavelengthNm, "Red wavelength", out var redWavelength, out error)
-            || !TryParseColorDouble(GreenWavelengthNm, "Green wavelength", out var greenWavelength, out error)
-            || !TryParseColorDouble(BlueWavelengthNm, "Blue wavelength", out var blueWavelength, out error)
-            || !TryParseColorDouble(OutputGamma, "Output gamma", out var outputGamma, out error))
+        if (!TryParseColorDouble(RedWavelengthNm, "Scan_RedWavelengthTextBox/Header".GetLocalized(), out var redWavelength, out error)
+            || !TryParseColorDouble(GreenWavelengthNm, "Scan_GreenWavelengthTextBox/Header".GetLocalized(), out var greenWavelength, out error)
+            || !TryParseColorDouble(BlueWavelengthNm, "Scan_BlueWavelengthTextBox/Header".GetLocalized(), out var blueWavelength, out error)
+            || !TryParseColorDouble(OutputGamma, "Scan_OutputGammaTextBox/Header".GetLocalized(), out var outputGamma, out error))
         {
             return false;
         }
@@ -916,7 +917,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
         {
-            error = $"{fieldName} must be a number.";
+            error = "Shared_Runtime_ErrorNumber".GetLocalizedFormat(fieldName);
             return false;
         }
 
@@ -927,8 +928,33 @@ public partial class ScanViewModel : ObservableRecipient
     private static string FormatColorDouble(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
 
-    private static string BuildReverseSuffix(bool reversed)
-        => reversed ? " (reversed)" : string.Empty;
+    private static string GetDirectionDisplayName(string direction)
+        => string.Equals(direction, ForwardDirection, StringComparison.OrdinalIgnoreCase)
+            ? "Scan_Runtime_DirectionForward".GetLocalized()
+            : "Scan_Runtime_DirectionReverse".GetLocalized();
+
+    private static string GetPreviewModeDisplayName(string mode)
+        => mode switch
+        {
+            "RGB Composite" => "Scan_Runtime_PreviewModeRgbComposite".GetLocalized(),
+            "Raw Channel 1" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(1),
+            "Raw Channel 2" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(2),
+            "Raw Channel 3" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(3),
+            "Raw Channel 4" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(4),
+            _ => mode
+        };
+
+    private static string GetChannelRoleDisplayName(string role)
+        => role switch
+        {
+            "Red" => "Scan_Runtime_ChannelRoleRed".GetLocalized(),
+            "Green" => "Scan_Runtime_ChannelRoleGreen".GetLocalized(),
+            "Blue" => "Scan_Runtime_ChannelRoleBlue".GetLocalized(),
+            "White" => "Scan_Runtime_ChannelRoleWhite".GetLocalized(),
+            "IR" => "Scan_Runtime_ChannelRoleIr".GetLocalized(),
+            "Unused" => "Scan_Runtime_ChannelRoleUnused".GetLocalized(),
+            _ => role
+        };
 
     private bool TryParsePreviewChannelIndex(out int channelIndex)
     {

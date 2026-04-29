@@ -81,13 +81,13 @@ public class NavigationViewService : INavigationViewService
     {
         if (pageKey == typeof(UsbDebugViewModel).FullName && _usbUsageCoordinator.IsScanDebugInUse)
         {
-            await ShowNavigationBlockedDialogAsync("USB Debugging is unavailable while Scan Debug is connected. Disconnect Scan Debug first.");
+            await ShowNavigationBlockedDialogAsync("Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content".GetLocalized());
             return true;
         }
 
         if (pageKey == typeof(ScanDebugViewModel).FullName && _usbUsageCoordinator.IsUsbDebugInUse)
         {
-            await ShowNavigationBlockedDialogAsync("Scan Debug is unavailable while USB Debugging is active. Stop USB Debugging first.");
+            await ShowNavigationBlockedDialogAsync("Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content".GetLocalized());
             return true;
         }
 
@@ -102,9 +102,9 @@ public class NavigationViewService : INavigationViewService
         var dialog = new ContentDialog
         {
             XamlRoot = _navigationView.XamlRoot,
-            Title = "USB busy",
+            Title = "Shared_Dialog_UsbBusy.Title".GetLocalized(),
             Content = content,
-            CloseButtonText = "OK"
+            CloseButtonText = "Shared_Dialog_Ok.CloseButtonText".GetLocalized()
         };
 
         await dialog.ShowAsync();

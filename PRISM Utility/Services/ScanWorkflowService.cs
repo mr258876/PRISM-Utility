@@ -51,6 +51,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var directionPositive = GetDirectionForPass(request, passIndex);
                 var passProfile = request.PassParameterProfiles[passIndex];
                 var passRole = request.PassChannelRoles[passIndex];
+                var expectedLineTimeUs = ComputeLineExposureUs(passProfile.ExposureTicks, passProfile.SysClockKhz);
                 var passMotorSteps = ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalUs);
                 if (passIndex == 0)
                     computedMotorSteps = passMotorSteps;
@@ -71,7 +72,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Scanning"));
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: LED{ledIndex + 1} active, capturing {request.Rows} row(s)...");
 
-                var scanResult = await RunScanAsync(session, request.Rows, request.WarmUpEnabled, ct, onStatus, onDiagnostic, onByteProgress);
+                var scanResult = await RunScanAsync(session, request.Rows, request.WarmUpEnabled, expectedLineTimeUs, ct, onStatus, onDiagnostic, onByteProgress);
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {passIndex + 1} failed: {scanResult.Message}");
 
@@ -81,6 +82,15 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 {
                     onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Waiting for motor"));
                     await WaitForMotorIdleAsync(session, request.ScanMotorId, passMotorSteps, request.MotorIntervalUs, ct);
+                    motionStarted = false;
+                }
+
+                if (!request.AlternateMotorDirection && passMotorSteps > 0 && passIndex < (TotalPasses - 1))
+                {
+                    onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, !directionPositive, "Returning"));
+                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: returning Motor{request.ScanMotorId + 1} to start position before next channel scan...");
+                    motionStarted = true;
+                    await session.MoveMotorStepsAndWaitForCompletionAsync(request.ScanMotorId, !directionPositive, passMotorSteps, request.MotorIntervalUs, ct);
                     motionStarted = false;
                 }
 
@@ -124,6 +134,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         IScanSessionService session,
         int rows,
         bool warmUpEnabled,
+        uint expectedLineTimeUs,
         CancellationToken ct,
         Action<string>? onStatus,
         Action<string>? onDiagnostic,
@@ -136,7 +147,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 ct,
                 onStatus,
                 onDiagnostic,
-                onByteProgress);
+                onByteProgress,
+                expectedLineTimeUs);
         }
 
         return await session.StartScanAsync(
@@ -144,7 +156,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             ct,
             onStatus,
             onDiagnostic,
-            onByteProgress);
+            onByteProgress,
+            expectedLineTimeUs);
     }
 
     private static async Task ApplySingleLedIlluminationAsync(IScanSessionService session, ushort[] ledLevels, byte ledIndex, CancellationToken ct)
@@ -178,9 +191,14 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
     private static uint ComputeMotorStepsPerPass(int rows, ushort exposureTicks, uint sysClockKhz, uint motorIntervalUs)
     {
-        var lineExposureNs = (45827.0 + (exposureTicks * 6.0)) * (1_000_000.0 / Math.Max(sysClockKhz, 1u));
-        var scanDurationUs = (rows * lineExposureNs) / 1000.0;
+        var scanDurationUs = (double)rows * ComputeLineExposureUs(exposureTicks, sysClockKhz);
         return (uint)Math.Max(1, (int)Math.Round(scanDurationUs / Math.Max(motorIntervalUs, 1u), MidpointRounding.AwayFromZero));
+    }
+
+    private static uint ComputeLineExposureUs(ushort exposureTicks, uint sysClockKhz)
+    {
+        var lineExposureNs = (45827.0 + (exposureTicks * 6.0)) * (1_000_000.0 / Math.Max(sysClockKhz, 1u));
+        return (uint)Math.Max(1, (int)Math.Ceiling(lineExposureNs / 1000.0));
     }
 
     private static bool GetDirectionForPass(ScanWorkflowRequest request, int passIndex)

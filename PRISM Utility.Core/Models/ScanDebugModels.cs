@@ -30,6 +30,8 @@ public static class ScanDebugConstants
     public const int AckTimeoutMs = 2000;
     public const int ImageReadTimeoutMs = 30000;
     public const int StartScanDoneAckWaitAfterImageMs = 5000;
+    public const int StartScanDoneAckWaitPaddingMs = 2000;
+    public const double StartScanDoneAckWaitMultiplier = 1.25;
     public const int AckReadSliceTimeoutMs = 1000;
     public const int AckReadChunkSize = 64;
     public const int ControlFrameMaxPayloadBytes = 64;

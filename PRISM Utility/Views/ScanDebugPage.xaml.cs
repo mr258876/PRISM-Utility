@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using PRISM_Utility.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.ViewModels;
 using Windows.UI;
@@ -18,6 +19,11 @@ public sealed partial class ScanDebugPage : Page
     private const double AxisMarginRight = 16;
     private const double AxisMarginBottom = 36;
     private static readonly float[] ZoomLevels = { 0.1f, 0.125f, 0.2f, 0.25f, 0.5f, 0.75f, 1f, 2f, 3f, 4f, 6f, 8f, 12f, 16f, 20f };
+    private const string RoiSelectionBwActive = "BW Active";
+    private const string RoiSelectionBwShield = "BW Shield";
+    private const string RoiSelectionFocusOverall = "Focus Overall";
+    private const string RoiSelectionFocusLeft = "Focus Left";
+    private const string RoiSelectionFocusRight = "Focus Right";
     private bool _updatingZoomScaleComboBox;
     private bool _pendingInitialFitZoom;
     private int _lastPreviewImageWidth = -1;
@@ -132,8 +138,7 @@ public sealed partial class ScanDebugPage : Page
             PreviewCanvas.Height = 0;
             RoiCanvas.Children.Clear();
             AxisCanvas.Children.Clear();
-            CursorPositionTextBlock.Text = "Cursor: (-, -) px";
-            CursorIntensityTextBlock.Text = "Intensity16: -";
+            SetDefaultCursorText();
             _pendingInitialFitZoom = false;
             _lastPreviewImageWidth = -1;
             _lastPreviewImageHeight = -1;
@@ -428,16 +433,15 @@ public sealed partial class ScanDebugPage : Page
 
         if (x < 0 || y < 0 || x >= bitmap.PixelWidth || y >= bitmap.PixelHeight)
         {
-            CursorPositionTextBlock.Text = "Cursor: (-, -) px";
-            CursorIntensityTextBlock.Text = "Intensity16: -";
+            SetDefaultCursorText();
             return;
         }
 
-        CursorPositionTextBlock.Text = $"Cursor: ({x}, {y}) px";
+        CursorPositionTextBlock.Text = "ScanDebug_Runtime_CursorPosition".GetLocalizedFormat(x, y);
         if (ViewModel.TryGetPreviewSample16(x, y, out var sample16))
-            CursorIntensityTextBlock.Text = $"Intensity16: {sample16}";
+            CursorIntensityTextBlock.Text = "ScanDebug_Runtime_CursorIntensity".GetLocalizedFormat(sample16);
         else
-            CursorIntensityTextBlock.Text = "Intensity16: -";
+            CursorIntensityTextBlock.Text = "ScanDebug_CursorIntensityTextBlock/Text".GetLocalized();
 
         if (!_isRoiDragging)
             return;
@@ -492,8 +496,7 @@ public sealed partial class ScanDebugPage : Page
 
     private void PreviewImageElement_PointerExited(object sender, PointerRoutedEventArgs e)
     {
-        CursorPositionTextBlock.Text = "Cursor: (-, -) px";
-        CursorIntensityTextBlock.Text = "Intensity16: -";
+        SetDefaultCursorText();
     }
 
     private void EndRoiDrag()
@@ -549,11 +552,11 @@ public sealed partial class ScanDebugPage : Page
     {
         var color = key switch
         {
-            "BW Active" => Colors.DodgerBlue,
-            "BW Shield" => Colors.DarkOrange,
-            "Focus Overall" => Colors.MediumPurple,
-            "Focus Left" => Colors.LimeGreen,
-            "Focus Right" => Colors.HotPink,
+            RoiSelectionBwActive => Colors.DodgerBlue,
+            RoiSelectionBwShield => Colors.DarkOrange,
+            RoiSelectionFocusOverall => Colors.MediumPurple,
+            RoiSelectionFocusLeft => Colors.LimeGreen,
+            RoiSelectionFocusRight => Colors.HotPink,
             _ => Colors.Gray
         };
 
@@ -564,6 +567,12 @@ public sealed partial class ScanDebugPage : Page
     {
         var baseColor = GetRoiColor(key, isSelected);
         return Color.FromArgb(isSelected ? (byte)52 : (byte)28, baseColor.R, baseColor.G, baseColor.B);
+    }
+
+    private void SetDefaultCursorText()
+    {
+        CursorPositionTextBlock.Text = "ScanDebug_CursorPositionTextBlock/Text".GetLocalized();
+        CursorIntensityTextBlock.Text = "ScanDebug_CursorIntensityTextBlock/Text".GetLocalized();
     }
 
     private void DrawAxes(int imageWidth, int imageHeight)

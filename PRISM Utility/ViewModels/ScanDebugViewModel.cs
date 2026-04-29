@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
+using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
 
 namespace PRISM_Utility.ViewModels;
@@ -580,8 +581,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsGammaCorrectionEnabled = true;
         PreviewGamma = DefaultPreviewGamma.ToString("0.0");
         SelectedCalibrationChannel = CalibrationChannelOptions[0];
-        CalibrationChannelStatusText = "Calibration profile channel: Red (no saved profile loaded yet).";
-        FilmProfileName = "Untitled Film Profile";
+        CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet".GetLocalizedFormat(GetCalibrationChannelDisplayName(CalibrationChannelOptions[0]));
+        FilmProfileName = "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized();
         SelectedRoiSelection = RoiSelectionOptions[0];
         IsBwActiveRoiOverlayVisible = true;
         IsBwShieldRoiOverlayVisible = true;
@@ -591,20 +592,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RoiStatusText = string.Empty;
         RoiStartInput = "0";
         RoiEndInput = "0";
-        RoiInputStatusText = "ROI range inputs are synchronized with the selected ROI.";
-        StatusText = "Waiting for scanner devices...";
+        RoiInputStatusText = "ScanDebug_Runtime_RoiInputsSynchronized".GetLocalized();
+        StatusText = "ScanDebug_Runtime_StatusWaitingForDevicesShort".GetLocalized();
         ExposureTicks = string.Empty;
         Adc1Offset = string.Empty;
         Adc1Gain = string.Empty;
         Adc2Offset = string.Empty;
         Adc2Gain = string.Empty;
         SysClockKhz = string.Empty;
-        ExposureTimeDisplay = "Exposure time: -";
-        Adc1OffsetMvDisplay = "Offset amplitude: -";
-        Adc2OffsetMvDisplay = "Offset amplitude: -";
-        Adc1GainVvDisplay = "Gain: -";
-        Adc2GainVvDisplay = "Gain: -";
-        SysClockMhzDisplay = "System clock: -";
+        ExposureTimeDisplay = "ScanDebug_Runtime_ExposureTimeIdle".GetLocalized();
+        Adc1OffsetMvDisplay = "ScanDebug_Runtime_OffsetAmplitudeIdle".GetLocalized();
+        Adc2OffsetMvDisplay = "ScanDebug_Runtime_OffsetAmplitudeIdle".GetLocalized();
+        Adc1GainVvDisplay = "ScanDebug_Runtime_GainIdle".GetLocalized();
+        Adc2GainVvDisplay = "ScanDebug_Runtime_GainIdle".GetLocalized();
+        SysClockMhzDisplay = "ScanDebug_Runtime_SystemClockIdle".GetLocalized();
         Led1Level = "0";
         Led2Level = "0";
         Led3Level = "0";
@@ -613,11 +614,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Led2PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         Led3PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         Led4PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
-        IlluminationSummaryText = "Illumination state: -";
-        MotionSummaryText = "Motion state: -";
-        Motor1StatusText = "State: -";
-        Motor2StatusText = "State: -";
-        Motor3StatusText = "State: -";
+        IlluminationSummaryText = "ScanDebug_Runtime_IlluminationSummaryIdle".GetLocalized();
+        MotionSummaryText = "ScanDebug_Runtime_MotionSummaryIdle".GetLocalized();
+        Motor1StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
+        Motor2StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
+        Motor3StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
         Motor1MoveDirection = MotorDirectionLabels[0];
         Motor2MoveDirection = MotorDirectionLabels[0];
         Motor3MoveDirection = MotorDirectionLabels[0];
@@ -633,7 +634,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         AutofocusMotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         AutofocusZDirection = MotorDirectionLabels[0];
         AutofocusTiltDirection = MotorDirectionLabels[0];
-        AutofocusSummaryText = "Autofocus: idle.";
+        AutofocusSummaryText = "ScanDebug_Runtime_AutofocusIdle".GetLocalized();
         RefreshRoiStatus();
 
         _session.TargetsChanged += OnSessionTargetsChanged;
@@ -755,13 +756,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
     partial void OnRoiStartInputChanged(string value)
     {
         if (!_isUpdatingRoiInputs)
-            RoiInputStatusText = "ROI range changed. Click Apply ROI to commit numeric edits.";
+            RoiInputStatusText = "ScanDebug_Runtime_RoiRangeChanged".GetLocalized();
     }
 
     partial void OnRoiEndInputChanged(string value)
     {
         if (!_isUpdatingRoiInputs)
-            RoiInputStatusText = "ROI range changed. Click Apply ROI to commit numeric edits.";
+            RoiInputStatusText = "ScanDebug_Runtime_RoiRangeChanged".GetLocalized();
     }
 
     partial void OnIsRunningChanged(bool value)
@@ -863,8 +864,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!IsConnected)
         {
             StatusText = IsDevicesPresent
-                ? "619C/619D detected. Click Connect Devices to validate endpoints and open sessions."
-                : "Waiting for scanner devices 1D50:619C and 1D50:619D.";
+                ? "ScanDebug_Runtime_StatusDevicesDetected".GetLocalized()
+                : "ScanDebug_Runtime_StatusWaitingForDevices".GetLocalized();
         }
 
         ConnectDevicesCommand.NotifyCanExecuteChanged();
@@ -938,16 +939,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
             var file = await _bufferExportService.PickExportFileAsync(BuildExportBufferFileName());
             if (file is null)
             {
-                StatusText = "Export canceled.";
+                StatusText = "ScanDebug_Runtime_StatusExportCanceled".GetLocalized();
                 return;
             }
 
             await _bufferExportService.WriteBufferAsync(file, _lineBuffer);
-            StatusText = $"Buffer exported: {_lineBuffer.Length} bytes -> {file.Path}";
+            StatusText = "ScanDebug_Runtime_StatusBufferExported".GetLocalizedFormat(_lineBuffer.Length, file.Path);
         }
         catch (Exception ex)
         {
-            StatusText = $"Export failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusExportFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -957,10 +958,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (_sessionCoordinator.IsConnectBlockedByUsbDebug())
         {
             await RequestNoticeAsync(
-                "USB busy",
-                "Scan Debug is unavailable while USB Debugging is active. Stop USB Debugging first.",
-                "OK");
-            StatusText = "USB Debugging is active. Stop it before connecting Scan Debug.";
+                "Shared_Dialog_UsbBusy.Title".GetLocalized(),
+                "Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content".GetLocalized(),
+                "Shared_Dialog_Ok.CloseButtonText".GetLocalized());
+            StatusText = "ScanDebug_Runtime_StatusUsbDebugActive".GetLocalized();
             return;
         }
 
@@ -970,12 +971,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
             var result = await _sessionCoordinator.ConnectAsync(_session, CancellationToken.None);
             if (!result.Success)
             {
-                StatusText = result.Message;
+                StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
                 return;
             }
 
             IsConnected = true;
-            StatusText = "Scanner sessions connected. Loading parameters...";
+            StatusText = "ScanDebug_Runtime_StatusLoadingParameters".GetLocalized();
 
             var statusNotes = new List<string>();
 
@@ -997,11 +998,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 Adc2Gain = snapshot.Adc2Gain.ToString();
                 SysClockKhz = snapshot.SysClockKhz.ToString();
                 UpdateComputedParameterDisplays();
-                statusNotes.Add("Parameters loaded");
+                statusNotes.Add("ScanDebug_Runtime_StatusParametersLoaded".GetLocalized());
             }
             catch (Exception ex)
             {
-                statusNotes.Add($"Parameter load unavailable: {ex.Message}");
+                statusNotes.Add("ScanDebug_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
             }
 
             await LoadSelectedCalibrationProfileAsync(SelectedCalibrationChannel, ++_profileLoadVersion);
@@ -1009,40 +1010,40 @@ public partial class ScanDebugViewModel : ObservableRecipient
             try
             {
                 await LoadIlluminationStateAsync(_session.ConnectionToken);
-                statusNotes.Add("Illumination state loaded");
+                statusNotes.Add("ScanDebug_Runtime_StatusIlluminationLoaded".GetLocalized());
             }
             catch (Exception ex)
             {
                 ResetIlluminationInputs();
-                statusNotes.Add($"Illumination unavailable: {ex.Message}");
+                statusNotes.Add("ScanDebug_Runtime_StatusIlluminationUnavailable".GetLocalizedFormat(ex.Message));
             }
 
             try
             {
                 await LoadMotionStateAsync(_session.ConnectionToken);
-                statusNotes.Add("Motion state loaded");
+                statusNotes.Add("ScanDebug_Runtime_StatusMotionLoaded".GetLocalized());
             }
             catch (Exception ex)
             {
                 ResetMotionInputs();
-                statusNotes.Add($"Motion unavailable: {ex.Message}");
+                statusNotes.Add("ScanDebug_Runtime_StatusMotionUnavailable".GetLocalizedFormat(ex.Message));
             }
 
             if (IsWarmUpEnabled)
             {
                 var warmUpResult = await _sessionCoordinator.SetWarmUpAsync(_session, true, _session.ConnectionToken);
-                statusNotes.Add(warmUpResult.Success ? "Warm-up enabled" : $"Warm-up failed: {warmUpResult.Message}");
+                statusNotes.Add(warmUpResult.Success ? "ScanDebug_Runtime_StatusWarmUpEnabled".GetLocalized() : "ScanDebug_Runtime_StatusWarmUpFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(warmUpResult.Message)));
             }
 
             StatusText = statusNotes.Count > 0
-                ? $"Scanner sessions connected. {string.Join(". ", statusNotes)}."
-                : "Scanner sessions connected.";
+                ? "ScanDebug_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
+                : "ScanDebug_Runtime_StatusConnected".GetLocalized();
         }
         catch (Exception ex)
         {
             await _sessionCoordinator.DisconnectAsync(_session, CancellationToken.None);
             IsConnected = false;
-            StatusText = $"Connect failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1075,14 +1076,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 }
 
                 if (!warmUpResult.Success)
-                    StatusText = $"Warm-up disable before disconnect failed: {warmUpResult.Message}";
+                    StatusText = "ScanDebug_Runtime_StatusWarmUpDisableBeforeDisconnectFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(warmUpResult.Message));
             }
 
             await _sessionCoordinator.DisconnectAsync(_session, CancellationToken.None);
             IsConnected = false;
             ResetIlluminationInputs();
             ResetMotionInputs();
-            StatusText = IsDevicesPresent ? "Disconnected. Click Connect Devices to reconnect." : "Disconnected.";
+            StatusText = IsDevicesPresent ? "ScanDebug_Runtime_StatusDisconnectedReconnect".GetLocalized() : "ScanDebug_Runtime_StatusDisconnected".GetLocalized();
         }
         finally
         {
@@ -1098,14 +1099,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
         var now = DateTime.UtcNow;
         if (now - _lastApplyParametersAtUtc < ParameterApplyDebounceWindow)
         {
-            StatusText = "Apply ignored: please wait 1 second before next update.";
+            StatusText = "ScanDebug_Runtime_StatusApplyIgnoredDebounce".GetLocalized();
             return;
         }
 
@@ -1120,17 +1121,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingParameters = true;
         try
         {
-            StatusText = "Applying scan parameters...";
+            StatusText = "ScanDebug_Runtime_StatusApplyingParameters".GetLocalized();
             await _parameters.ApplyAsync(_session, snapshot, _session.ConnectionToken);
-            StatusText = "Parameters updated successfully.";
+            StatusText = "ScanDebug_Runtime_StatusParametersUpdated".GetLocalized();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Parameter update canceled.";
+            StatusText = "ScanDebug_Runtime_StatusParameterUpdateCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Parameter update failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusParameterUpdateFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1143,24 +1144,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
         IsApplyingIllumination = true;
         try
         {
-            StatusText = "Refreshing illumination state...";
+            StatusText = "ScanDebug_Runtime_StatusRefreshingIllumination".GetLocalized();
             await LoadIlluminationStateAsync(_session.ConnectionToken);
-            StatusText = "Illumination state refreshed.";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationRefreshed".GetLocalized();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Illumination refresh canceled.";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationRefreshCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Illumination refresh failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationRefreshFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1173,7 +1174,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1186,7 +1187,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingIllumination = true;
         try
         {
-            StatusText = "Applying illumination settings...";
+            StatusText = "ScanDebug_Runtime_StatusApplyingIllumination".GetLocalized();
 
             var currentState = await _session.GetIlluminationStateAsync(_session.ConnectionToken);
             if (currentState.SyncMask != 0)
@@ -1201,15 +1202,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
             await _session.ConfigureExposureLightingAsync(request.SyncMask, _session.ConnectionToken);
 
             await LoadIlluminationStateAsync(_session.ConnectionToken);
-            StatusText = "Illumination settings updated.";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationUpdated".GetLocalized();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Illumination update canceled.";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationUpdateCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Illumination update failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusIlluminationUpdateFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1222,24 +1223,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
         IsApplyingMotion = true;
         try
         {
-            StatusText = "Refreshing motion state...";
+            StatusText = "ScanDebug_Runtime_StatusRefreshingMotion".GetLocalized();
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = "Motion state refreshed.";
+            StatusText = "ScanDebug_Runtime_StatusMotionRefreshed".GetLocalized();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Motion refresh canceled.";
+            StatusText = "ScanDebug_Runtime_StatusMotionRefreshCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Motion refresh failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusMotionRefreshFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1264,7 +1265,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1283,18 +1284,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingMotion = true;
         try
         {
-            StatusText = $"Starting finite move on {motorName}...";
+            StatusText = "ScanDebug_Runtime_StatusMotorMoveStarting".GetLocalizedFormat(motorName);
             await _session.MoveMotorStepsAndWaitForCompletionAsync(motorId, request.Direction, request.Steps, request.IntervalUs, _session.ConnectionToken);
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = $"{motorName} move completed.";
+            StatusText = "ScanDebug_Runtime_StatusMotorMoveCompleted".GetLocalizedFormat(motorName);
         }
         catch (OperationCanceledException)
         {
-            StatusText = $"{motorName} move canceled.";
+            StatusText = "ScanDebug_Runtime_StatusMotorMoveCanceled".GetLocalizedFormat(motorName);
         }
         catch (Exception ex)
         {
-            StatusText = $"{motorName} move failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusMotorMoveFailed".GetLocalizedFormat(motorName, ex.Message);
         }
         finally
         {
@@ -1307,7 +1308,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1320,18 +1321,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingMotion = true;
         try
         {
-            StatusText = $"Stopping {motorName}...";
+            StatusText = "ScanDebug_Runtime_StatusMotorStopping".GetLocalizedFormat(motorName);
             await _session.StopMotorAsync(motorId, _session.ConnectionToken);
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = $"{motorName} stop command sent.";
+            StatusText = "ScanDebug_Runtime_StatusMotorStopSent".GetLocalizedFormat(motorName);
         }
         catch (OperationCanceledException)
         {
-            StatusText = $"{motorName} stop canceled.";
+            StatusText = "ScanDebug_Runtime_StatusMotorStopCanceled".GetLocalizedFormat(motorName);
         }
         catch (Exception ex)
         {
-            StatusText = $"{motorName} stop failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusMotorStopFailed".GetLocalizedFormat(motorName, ex.Message);
         }
         finally
         {
@@ -1344,7 +1345,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1357,18 +1358,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingMotion = true;
         try
         {
-            StatusText = $"Applying persisted config to {motorName}...";
+            StatusText = "ScanDebug_Runtime_StatusMotorConfigApplying".GetLocalizedFormat(motorName);
             await _session.ApplyMotorConfigAsync(motorId, _session.ConnectionToken);
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = $"{motorName} config applied.";
+            StatusText = "ScanDebug_Runtime_StatusMotorConfigApplied".GetLocalizedFormat(motorName);
         }
         catch (OperationCanceledException)
         {
-            StatusText = $"{motorName} config apply canceled.";
+            StatusText = "ScanDebug_Runtime_StatusMotorConfigCanceled".GetLocalizedFormat(motorName);
         }
         catch (Exception ex)
         {
-            StatusText = $"{motorName} config apply failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusMotorConfigFailed".GetLocalizedFormat(motorName, ex.Message);
         }
         finally
         {
@@ -1378,15 +1379,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoBlackAdjust()
-        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoBlackAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto black calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoBlackAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "ScanDebug_Runtime_StatusAutoBlackCompleted".GetLocalized());
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoWhiteAdjust()
-        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoWhiteAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto white calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoWhiteAdjustAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "ScanDebug_Runtime_StatusAutoWhiteCompleted".GetLocalized());
 
     [RelayCommand(CanExecute = nameof(CanRunAutoCalibration))]
     private Task AutoCalibrate()
-        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoCalibrateAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "Auto calibration completed.");
+        => RunAutoCalibrationAsync((session, snapshot, roiSettings, prompt, status, applied, frame, ct) => _autoCalibration.AutoCalibrateAsync(session, snapshot, roiSettings, prompt, status, applied, frame, ct), "ScanDebug_Runtime_StatusAutoCalibrationCompleted".GetLocalized());
 
     [RelayCommand]
     private async Task SaveChannelProfile()
@@ -1400,11 +1401,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             await SaveSelectedCalibrationProfileAsync(snapshot);
-            StatusText = $"Calibration channel '{SelectedCalibrationChannel}' profile saved.";
+            StatusText = "ScanDebug_Runtime_StatusCalibrationChannelProfileSaved".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel));
         }
         catch (Exception ex)
         {
-            StatusText = $"Save channel profile failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusSaveChannelProfileFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -1413,7 +1414,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (string.IsNullOrWhiteSpace(SelectedCalibrationChannel))
         {
-            StatusText = "Calibration channel is empty.";
+            StatusText = "ScanDebug_Runtime_StatusCalibrationChannelEmpty".GetLocalized();
             return;
         }
 
@@ -1426,15 +1427,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 RefreshRoiStatus();
             }
             CalibrationChannelStatusText = removed
-                ? $"Calibration profile channel: {SelectedCalibrationChannel} (profile cleared)."
-                : $"Calibration profile channel: {SelectedCalibrationChannel} (no saved profile).";
+                ? "ScanDebug_Runtime_CalibrationChannel_ProfileCleared".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel))
+                : "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel));
             StatusText = removed
-                ? $"Calibration channel '{SelectedCalibrationChannel}' profile cleared."
-                : $"Calibration channel '{SelectedCalibrationChannel}' has no saved profile.";
+                ? "ScanDebug_Runtime_StatusCalibrationChannelProfileCleared".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel))
+                : "ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel));
         }
         catch (Exception ex)
         {
-            StatusText = $"Clear channel profile failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusClearChannelProfileFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -1452,15 +1453,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
             await SaveSelectedCalibrationProfileAsync(snapshot);
             await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
                 1,
-                string.IsNullOrWhiteSpace(FilmProfileName) ? "Untitled Film Profile" : FilmProfileName.Trim(),
+                string.IsNullOrWhiteSpace(FilmProfileName) ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized() : FilmProfileName.Trim(),
                 DateTimeOffset.Now,
                 _channelProfiles.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
                 SelectedCalibrationChannel));
-            StatusText = $"Film profile '{FilmProfileName}' exported.";
+            StatusText = "ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormat(FilmProfileName);
         }
         catch (Exception ex)
         {
-            StatusText = $"Save film profile failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusSaveFilmProfileFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -1472,7 +1473,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             var imported = await _channelProfiles.ImportProfilesAsync();
             if (imported is null)
             {
-                StatusText = "Load film profile canceled.";
+                StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileCanceled".GetLocalized();
                 return;
             }
 
@@ -1486,11 +1487,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 await LoadSelectedCalibrationProfileAsync(channelToLoad, ++_profileLoadVersion);
             }
 
-            StatusText = $"Film profile '{imported.ProfileName}' loaded.";
+            StatusText = "ScanDebug_Runtime_StatusFilmProfileLoaded".GetLocalizedFormat(imported.ProfileName);
         }
         catch (Exception ex)
         {
-            StatusText = $"Load film profile failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -1516,18 +1517,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!int.TryParse(RoiStartInput, out var start))
         {
-            RoiInputStatusText = "ROI Start must be an integer column index.";
+            RoiInputStatusText = "ScanDebug_Runtime_RoiStartIntegerRequired".GetLocalized();
             return;
         }
 
         if (!int.TryParse(RoiEndInput, out var endInclusive))
         {
-            RoiInputStatusText = "ROI End must be an integer column index.";
+            RoiInputStatusText = "ScanDebug_Runtime_RoiEndIntegerRequired".GetLocalized();
             return;
         }
 
         UpdateSelectedRoiRange(start, endInclusive, GetRoiEditingWidth());
-        RoiInputStatusText = "ROI range applied from numeric inputs.";
+        RoiInputStatusText = "ScanDebug_Runtime_RoiRangeApplied".GetLocalized();
     }
 
     [RelayCommand]
@@ -1543,7 +1544,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1562,7 +1563,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 var disableWarmUpResult = await _session.SetWarmUpEnabledAsync(false, _session.ConnectionToken);
                 if (!disableWarmUpResult.Success)
-                    throw new IOException($"Autofocus requires warm-up off: {disableWarmUpResult.Message}");
+                    throw new IOException("ScanDebug_Runtime_ErrorAutofocusWarmUpOffRequired".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(disableWarmUpResult.Message)));
 
                 _suppressWarmUpToggleCommand = true;
                 try
@@ -1575,29 +1576,29 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 }
             }
 
-            StatusText = "Autofocus started...";
-            AutofocusSummaryText = $"Autofocus: sampling {request.SampleRows} rows, tilt step {request.TiltProbeSteps}, Z step {request.ZProbeSteps}.";
+            StatusText = "ScanDebug_Runtime_StatusAutofocusStarted".GetLocalized();
+            AutofocusSummaryText = "ScanDebug_Runtime_AutofocusSampling".GetLocalizedFormat(request.SampleRows, request.TiltProbeSteps, request.ZProbeSteps);
 
             var result = await _autoFocus.AutoFocusAsync(
                 _session,
                 request,
-                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                 (imageBytes, rows, phase) => _dispatcher.TryEnqueue(() => ShowCalibrationFrame(imageBytes, rows, phase)),
                 autofocusCts.Token);
 
             await LoadMotionStateAsync(_session.ConnectionToken);
             AutofocusSummaryText = BuildAutofocusSummary(result);
-            StatusText = "Autofocus completed.";
+            StatusText = "ScanDebug_Runtime_StatusAutofocusCompleted".GetLocalized();
         }
         catch (OperationCanceledException)
         {
-            AutofocusSummaryText = "Autofocus: canceled.";
-            StatusText = "Autofocus canceled.";
+            AutofocusSummaryText = "ScanDebug_Runtime_AutofocusCanceled".GetLocalized();
+            StatusText = "ScanDebug_Runtime_StatusAutofocusCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            AutofocusSummaryText = $"Autofocus: failed - {ex.Message}";
-            StatusText = $"Autofocus failed: {ex.Message}";
+            AutofocusSummaryText = "ScanDebug_Runtime_AutofocusFailed".GetLocalizedFormat(ex.Message);
+            StatusText = "ScanDebug_Runtime_StatusAutofocusFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1620,12 +1621,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     }
                     else
                     {
-                        StatusText = $"Autofocus finished, but warm-up restore failed: {restoreWarmUpResult.Message}";
+                        StatusText = "ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(restoreWarmUpResult.Message));
                     }
                 }
                 catch (Exception ex)
                 {
-                    StatusText = $"Autofocus finished, but warm-up restore failed: {ex.Message}";
+                    StatusText = "ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed".GetLocalizedFormat(ex.Message);
                 }
             }
 
@@ -1642,24 +1643,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             var singleTransferMaxRows = _session.SingleTransferMaxRows;
             StatusText = IsWarmUpEnabled
-                ? "Rows must be a positive number when warm-up is enabled."
-                : $"Rows must be a number in [1, {singleTransferMaxRows}].";
+                ? "ScanDebug_Runtime_ErrorRowsWarmUpPositive".GetLocalized()
+                : "ScanDebug_Runtime_ErrorRowsRange".GetLocalizedFormat(singleTransferMaxRows);
             return;
         }
 
         if (rows > _session.SingleTransferMaxRows && !CanRunExtendedScan())
         {
             await RequestNoticeAsync(
-                "Rows limit exceeded",
-                $"Rows greater than {_session.SingleTransferMaxRows} require both Multi-buffer bulk IN and Raw I/O to be enabled in Settings.",
-                "OK");
-            StatusText = $"Rows above {_session.SingleTransferMaxRows} require Multi-buffer bulk IN and Raw I/O.";
+                "ScanDebug_Runtime_RowsLimitExceeded.Title".GetLocalized(),
+                "ScanDebug_Runtime_RowsLimitExceeded.Content".GetLocalizedFormat(_session.SingleTransferMaxRows),
+                "Shared_Dialog_Ok.CloseButtonText".GetLocalized());
+            StatusText = "ScanDebug_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(_session.SingleTransferMaxRows);
             return;
         }
 
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1668,7 +1669,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsScanReadProgressVisible = true;
         ScanReadProgressValue = 0;
         ScanReadProgressMaximum = Math.Max(1, rows * ScanDebugConstants.BytesPerLine);
-        StatusText = IsContinuousScanEnabled ? "Starting continuous scan..." : "Starting scan...";
+        StatusText = IsContinuousScanEnabled ? "ScanDebug_Runtime_StatusStartingContinuousScan".GetLocalized() : "ScanDebug_Runtime_StatusStartingScan".GetLocalized();
 
         try
         {
@@ -1694,7 +1695,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         _scanCts?.Cancel();
         var result = await _session.StopScanAsync(CancellationToken.None);
-        StatusText = result.Success ? "Stop requested." : result.Message;
+        StatusText = result.Success ? "ScanDebug_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
     }
 
     private bool TryParseRows(out int rows)
@@ -1729,7 +1730,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return await _session.StartScanAsync(
                 rows,
                 ct,
-                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                 diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
                 ReportScanReadProgress);
         }
@@ -1737,7 +1738,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return await _session.StartWarmUpSegmentedScanAsync(
             rows,
             ct,
-            status => _dispatcher.TryEnqueue(() => StatusText = status),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
             diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
             ReportScanReadProgress);
     }
@@ -1749,11 +1750,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         var result = await RunScanAsync(rows, ct);
 
-        StatusText = result.Message;
+        StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
         if (!result.Success || result.ImageBytes is null)
             return;
 
-        ApplyScanFrame(result.ImageBytes, rows, result.Message);
+        ApplyScanFrame(result.ImageBytes, rows, ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message));
     }
 
     private async Task RunContinuousScanLoopAsync(int rows, CancellationToken ct)
@@ -1764,18 +1765,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
             var result = await RunScanAsync(rows, ct);
             if (!result.Success)
             {
-                StatusText = result.Message;
+                StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
                 return;
             }
 
             if (result.ImageBytes is null)
             {
-                StatusText = "Continuous scan completed without image data.";
+                StatusText = "ScanDebug_Runtime_StatusContinuousScanNoImageData".GetLocalized();
                 return;
             }
 
             frameCount++;
-            ApplyScanFrame(result.ImageBytes, rows, $"Continuous preview updated ({frameCount}).");
+            ApplyScanFrame(result.ImageBytes, rows, "ScanDebug_Runtime_StatusContinuousPreviewUpdated".GetLocalizedFormat(frameCount));
         }
     }
 
@@ -1789,14 +1790,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (IsPreviewForcedOffForRows(rows))
         {
             ClearPreview();
-            StatusText = $"{successStatus} Preview skipped automatically for scans over {ScanDebugConstants.MaxPreviewRows} rows.";
+            StatusText = "ScanDebug_Runtime_StatusPreviewSkippedAuto".GetLocalizedFormat(successStatus, ScanDebugConstants.MaxPreviewRows);
             return;
         }
 
         if (!IsPreviewEnabled)
         {
             ClearPreview();
-            StatusText = $"{successStatus} Preview skipped.";
+            StatusText = "ScanDebug_Runtime_StatusPreviewSkipped".GetLocalizedFormat(successStatus);
             return;
         }
 
@@ -1814,19 +1815,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!IsConnected)
         {
             StatusText = enabled
-                ? "Warm-up will be enabled after the scanner is connected."
-                : "Warm-up disabled.";
+                ? "ScanDebug_Runtime_StatusWarmUpWillEnableAfterConnect".GetLocalized()
+                : "ScanDebug_Runtime_StatusWarmUpDisabled".GetLocalized();
             return;
         }
 
         try
         {
             var result = await _sessionCoordinator.SetWarmUpAsync(_session, enabled, _session.ConnectionToken);
-            StatusText = result.Message;
+            StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
         }
         catch (OperationCanceledException)
         {
-            StatusText = enabled ? "Warm-up enable canceled." : "Warm-up disable canceled.";
+            StatusText = enabled ? "ScanDebug_Runtime_StatusWarmUpEnableCanceled".GetLocalized() : "ScanDebug_Runtime_StatusWarmUpDisableCanceled".GetLocalized();
         }
     }
 
@@ -1834,7 +1835,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -1848,13 +1849,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var calibrationCts = new CancellationTokenSource();
         try
         {
-            StatusText = "Auto calibration started...";
+            StatusText = "ScanDebug_Runtime_StatusAutoCalibrationStarted".GetLocalized();
             var calibrated = await operation(
                 _session,
                 snapshot,
                 _roiSettings.Normalize(),
                 RequestCalibrationPromptAsync,
-                status => _dispatcher.TryEnqueue(() => StatusText = status),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                 applied => _dispatcher.TryEnqueue(() => ApplySnapshotToInputs(applied)),
                 (imageBytes, rows, phase) => _dispatcher.TryEnqueue(() => ShowCalibrationFrame(imageBytes, rows, phase)),
                 calibrationCts.Token);
@@ -1865,11 +1866,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Auto calibration canceled.";
+            StatusText = "ScanDebug_Runtime_StatusAutoCalibrationCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
-            StatusText = $"Auto calibration failed: {ex.Message}";
+            StatusText = "ScanDebug_Runtime_StatusAutoCalibrationFailed".GetLocalizedFormat(ex.Message);
         }
         finally
         {
@@ -1892,14 +1893,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
             RefreshRoiStatus();
-            CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (no saved profile).";
+            CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
             return;
         }
 
         ApplySnapshotToInputs(profile.Parameters);
         _roiSettings = profile.RoiSettings.Normalize();
         RefreshRoiStatus();
-        CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (saved profile loaded).";
+        CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
     }
 
     private async Task HandleSelectedCalibrationChannelChangedAsync(string channelRole)
@@ -1912,7 +1913,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (loadVersion == _profileLoadVersion && string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
-                CalibrationChannelStatusText = $"Calibration profile channel: {channelRole} (load failed: {ex.Message}).";
+                CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_LoadFailed".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole), ex.Message);
         }
     }
 
@@ -1922,7 +1923,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         await _channelProfiles.SaveProfileAsync(SelectedCalibrationChannel, new ScanChannelCalibrationProfile(snapshot, _roiSettings.Normalize()));
-        CalibrationChannelStatusText = $"Calibration profile channel: {SelectedCalibrationChannel} (saved at {DateTime.Now:HH:mm:ss}).";
+        CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedAt".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel), DateTime.Now.ToString("HH:mm:ss"));
     }
 
     private string ResolveProfileChannelToLoad(ScanFilmParameterProfileSet imported)
@@ -1992,7 +1993,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 }
             }))
         {
-            completion.SetException(new InvalidOperationException("Failed to dispatch work to the UI thread."));
+            completion.SetException(new InvalidOperationException("ScanDebug_Runtime_DispatchFailed".GetLocalized()));
         }
 
         return completion.Task;
@@ -2011,7 +2012,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void ShowCalibrationFrame(byte[] imageBytes, int rows, string phase)
     {
-        ApplyScanFrame(imageBytes, rows, $"{phase}: preview updated.");
+        ApplyScanFrame(imageBytes, rows, "ScanDebug_Runtime_StatusPhasePreviewUpdated".GetLocalizedFormat(phase));
     }
 
     public bool TryGetPreviewSample16(int x, int y, out ushort sample)
@@ -2032,11 +2033,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var clamped = _roiSettings.Clamp(imageWidth);
         return new[]
         {
-            (Key: RoiSelectionBwActive, Label: RoiSelectionBwActive, Range: clamped.EffectiveRange, IsSelected: SelectedRoiSelection == RoiSelectionBwActive),
-            (Key: RoiSelectionBwShield, Label: RoiSelectionBwShield, Range: clamped.ShieldRange, IsSelected: SelectedRoiSelection == RoiSelectionBwShield),
-            (Key: RoiSelectionFocusOverall, Label: RoiSelectionFocusOverall, Range: clamped.FocusOverallRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusOverall),
-            (Key: RoiSelectionFocusLeft, Label: RoiSelectionFocusLeft, Range: clamped.FocusLeftRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusLeft),
-            (Key: RoiSelectionFocusRight, Label: RoiSelectionFocusRight, Range: clamped.FocusRightRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusRight)
+            (Key: RoiSelectionBwActive, Label: GetRoiSelectionDisplayName(RoiSelectionBwActive), Range: clamped.EffectiveRange, IsSelected: SelectedRoiSelection == RoiSelectionBwActive),
+            (Key: RoiSelectionBwShield, Label: GetRoiSelectionDisplayName(RoiSelectionBwShield), Range: clamped.ShieldRange, IsSelected: SelectedRoiSelection == RoiSelectionBwShield),
+            (Key: RoiSelectionFocusOverall, Label: GetRoiSelectionDisplayName(RoiSelectionFocusOverall), Range: clamped.FocusOverallRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusOverall),
+            (Key: RoiSelectionFocusLeft, Label: GetRoiSelectionDisplayName(RoiSelectionFocusLeft), Range: clamped.FocusLeftRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusLeft),
+            (Key: RoiSelectionFocusRight, Label: GetRoiSelectionDisplayName(RoiSelectionFocusRight), Range: clamped.FocusRightRange, IsSelected: SelectedRoiSelection == RoiSelectionFocusRight)
         }
         .Where(overlay => IsRoiOverlayVisible(overlay.Key))
         .ToArray();
@@ -2153,7 +2154,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _isUpdatingRoiInputs = false;
         }
 
-        RoiInputStatusText = $"Numeric ROI range mirrors {SelectedRoiSelection}: {range.Start} ~ {range.EndInclusive}.";
+        RoiInputStatusText = "ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(GetRoiSelectionDisplayName(SelectedRoiSelection), range.Start, range.EndInclusive);
     }
 
     private string BuildRoiStatusText()
@@ -2168,8 +2169,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _ => _roiSettings.EffectiveRange
         };
 
-        var editState = IsRoiEditModeEnabled ? "edit mode: ON" : "edit mode: OFF";
-        return $"Selected ROI: {SelectedRoiSelection} | columns {range.Start} ~ {range.EndInclusive} ({range.Width} px) | {editState}.";
+        var editState = IsRoiEditModeEnabled ? "ScanDebug_Runtime_RoiEditModeOn".GetLocalized() : "ScanDebug_Runtime_RoiEditModeOff".GetLocalized();
+        return "ScanDebug_Runtime_RoiStatus".GetLocalizedFormat(GetRoiSelectionDisplayName(SelectedRoiSelection), range.Start, range.EndInclusive, range.Width, editState);
     }
 
     private void UpdateComputedParameterDisplays()
@@ -2222,27 +2223,27 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private static string BuildBoundedLimitText(string text, int min, int max, string label)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return $"{label} limit: {min} ~ {max}";
+            return "ScanDebug_Runtime_LimitBounded".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, max);
 
         if (!int.TryParse(text, out var value))
-            return $"{label} limit: {min} ~ {max} | current input is not an integer";
+            return "ScanDebug_Runtime_LimitBoundedInvalidInteger".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, max);
 
         return value < min || value > max
-            ? $"{label} limit: {min} ~ {max} | current: {value} (out of range)"
-            : $"{label} limit: {min} ~ {max} | current: {value}";
+            ? "ScanDebug_Runtime_LimitBoundedCurrentOutOfRange".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, max, value)
+            : "ScanDebug_Runtime_LimitBoundedCurrent".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, max, value);
     }
 
     private static string BuildLowerBoundLimitText(string text, uint min, string label)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return $"{label} limit: >= {min}";
+            return "ScanDebug_Runtime_LimitLowerBound".GetLocalizedFormat(GetLimitLabelDisplayName(label), min);
 
         if (!uint.TryParse(text, out var value))
-            return $"{label} limit: >= {min} | current input is not an integer";
+            return "ScanDebug_Runtime_LimitLowerBoundInvalidInteger".GetLocalizedFormat(GetLimitLabelDisplayName(label), min);
 
         return value < min
-            ? $"{label} limit: >= {min} | current: {value} (below minimum)"
-            : $"{label} limit: >= {min} | current: {value}";
+            ? "ScanDebug_Runtime_LimitLowerBoundCurrentBelowMinimum".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, value)
+            : "ScanDebug_Runtime_LimitLowerBoundCurrent".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, value);
     }
 
     private static Brush BuildBoundedLimitBrush(string text, int min, int max)
@@ -2326,7 +2327,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsLed2SyncEnabled = false;
         IsLed3SyncEnabled = false;
         IsLed4SyncEnabled = false;
-        IlluminationSummaryText = "Illumination state: -";
+        IlluminationSummaryText = "ScanDebug_Runtime_IlluminationSummaryIdle".GetLocalized();
     }
 
     private void ApplyMotionStateToInputs(IReadOnlyList<ScanMotorState> states)
@@ -2346,9 +2347,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void ResetMotionInputs()
     {
-        Motor1StatusText = "State: -";
-        Motor2StatusText = "State: -";
-        Motor3StatusText = "State: -";
+        Motor1StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
+        Motor2StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
+        Motor3StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
         Motor1MoveDirection = MotorDirectionLabels[0];
         Motor2MoveDirection = MotorDirectionLabels[0];
         Motor3MoveDirection = MotorDirectionLabels[0];
@@ -2358,21 +2359,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Motor1IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         Motor2IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         Motor3IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
-        MotionSummaryText = "Motion state: -";
+        MotionSummaryText = "ScanDebug_Runtime_MotionSummaryIdle".GetLocalized();
     }
 
     private bool TryBuildIlluminationRequest(out IlluminationRequest request, out string error)
     {
         request = new IlluminationRequest(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
-        if (!TryParseLedLevel(Led1Level, "LED1 Level", out var led1Level, out error)
-            || !TryParseLedLevel(Led2Level, "LED2 Level", out var led2Level, out error)
-            || !TryParseLedLevel(Led3Level, "LED3 Level", out var led3Level, out error)
-            || !TryParseLedLevel(Led4Level, "LED4 Level", out var led4Level, out error)
-            || !TryParsePulseClock(Led1PulseClock, "LED1 Pulse Clock", out var led1PulseClock, out error)
-            || !TryParsePulseClock(Led2PulseClock, "LED2 Pulse Clock", out var led2PulseClock, out error)
-            || !TryParsePulseClock(Led3PulseClock, "LED3 Pulse Clock", out var led3PulseClock, out error)
-            || !TryParsePulseClock(Led4PulseClock, "LED4 Pulse Clock", out var led4PulseClock, out error))
+        if (!TryParseLedLevel(Led1Level, "ScanDebug_Led1LevelTextBox.Header".GetLocalized(), out var led1Level, out error)
+            || !TryParseLedLevel(Led2Level, "ScanDebug_Led2LevelTextBox.Header".GetLocalized(), out var led2Level, out error)
+            || !TryParseLedLevel(Led3Level, "ScanDebug_Led3LevelTextBox.Header".GetLocalized(), out var led3Level, out error)
+            || !TryParseLedLevel(Led4Level, "ScanDebug_Led4LevelTextBox.Header".GetLocalized(), out var led4Level, out error)
+            || !TryParsePulseClock(Led1PulseClock, "ScanDebug_Led1PulseTextBox.Header".GetLocalized(), out var led1PulseClock, out error)
+            || !TryParsePulseClock(Led2PulseClock, "ScanDebug_Led2PulseTextBox.Header".GetLocalized(), out var led2PulseClock, out error)
+            || !TryParsePulseClock(Led3PulseClock, "ScanDebug_Led3PulseTextBox.Header".GetLocalized(), out var led3PulseClock, out error)
+            || !TryParsePulseClock(Led4PulseClock, "ScanDebug_Led4PulseTextBox.Header".GetLocalized(), out var led4PulseClock, out error))
         {
             return false;
         }
@@ -2382,14 +2383,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         if ((steadyMask & syncMask) != 0)
         {
-            error = "Steady and sync selections cannot overlap on the same LED channel.";
+            error = "ScanDebug_Runtime_ErrorSteadySyncOverlap".GetLocalized();
             return false;
         }
 
-        if (!ValidateSyncPulse(syncMask, 0x01, led1PulseClock, "LED1 Pulse Clock", out error)
-            || !ValidateSyncPulse(syncMask, 0x02, led2PulseClock, "LED2 Pulse Clock", out error)
-            || !ValidateSyncPulse(syncMask, 0x04, led3PulseClock, "LED3 Pulse Clock", out error)
-            || !ValidateSyncPulse(syncMask, 0x08, led4PulseClock, "LED4 Pulse Clock", out error))
+        if (!ValidateSyncPulse(syncMask, 0x01, led1PulseClock, "ScanDebug_Led1PulseTextBox.Header".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x02, led2PulseClock, "ScanDebug_Led2PulseTextBox.Header".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x04, led3PulseClock, "ScanDebug_Led3PulseTextBox.Header".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x08, led4PulseClock, "ScanDebug_Led4PulseTextBox.Header".GetLocalized(), out error))
         {
             return false;
         }
@@ -2413,7 +2414,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!IsConnected)
         {
-            StatusText = "Scanner not connected. Click Connect Devices first.";
+            StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
 
@@ -2426,18 +2427,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsApplyingMotion = true;
         try
         {
-            StatusText = $"{(enabled ? "Enabling" : "Disabling")} {motorName}...";
+            StatusText = enabled ? "ScanDebug_Runtime_StatusMotorEnabling".GetLocalizedFormat(motorName) : "ScanDebug_Runtime_StatusMotorDisabling".GetLocalizedFormat(motorName);
             await _session.SetMotorEnabledAsync(motorId, enabled, _session.ConnectionToken);
             await LoadMotionStateAsync(_session.ConnectionToken);
-            StatusText = enabled ? $"{motorName} enabled." : $"{motorName} disabled.";
+            StatusText = enabled ? "ScanDebug_Runtime_StatusMotorEnabled".GetLocalizedFormat(motorName) : "ScanDebug_Runtime_StatusMotorDisabled".GetLocalizedFormat(motorName);
         }
         catch (OperationCanceledException)
         {
-            StatusText = enabled ? $"{motorName} enable canceled." : $"{motorName} disable canceled.";
+            StatusText = enabled ? "ScanDebug_Runtime_StatusMotorEnableCanceled".GetLocalizedFormat(motorName) : "ScanDebug_Runtime_StatusMotorDisableCanceled".GetLocalizedFormat(motorName);
         }
         catch (Exception ex)
         {
-            StatusText = enabled ? $"{motorName} enable failed: {ex.Message}" : $"{motorName} disable failed: {ex.Message}";
+            StatusText = enabled ? "ScanDebug_Runtime_StatusMotorEnableFailed".GetLocalizedFormat(motorName, ex.Message) : "ScanDebug_Runtime_StatusMotorDisableFailed".GetLocalizedFormat(motorName, ex.Message);
         }
         finally
         {
@@ -2452,7 +2453,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         if (!int.TryParse(motorDisplayId, out var displayIndex) || displayIndex < 1 || displayIndex > ScanDebugConstants.MotionMotorCount)
         {
-            error = $"Motor selection must be in [1, {ScanDebugConstants.MotionMotorCount}].";
+            error = "ScanDebug_Runtime_ErrorMotorSelectionRange".GetLocalizedFormat(ScanDebugConstants.MotionMotorCount);
             return false;
         }
 
@@ -2471,13 +2472,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         if (!uint.TryParse(stepsText, out var steps) || steps == 0)
         {
-            error = $"Motor{motorId + 1} Steps must be a positive integer.";
+            error = "ScanDebug_Runtime_ErrorMotorStepsPositive".GetLocalizedFormat(motorId + 1);
             return false;
         }
 
         if (!uint.TryParse(intervalText, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
         {
-            error = $"Motor{motorId + 1} Interval must be an integer >= {ScanDebugConstants.MotionMinIntervalUs} us.";
+            error = "ScanDebug_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(motorId + 1, ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
@@ -2501,25 +2502,25 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         if (!int.TryParse(AutofocusSampleRows, out var sampleRows) || sampleRows <= 0 || sampleRows > _session.SingleTransferMaxRows)
         {
-            error = $"Autofocus rows must be an integer in [1, {_session.SingleTransferMaxRows}].";
+            error = "ScanDebug_Runtime_ErrorAutofocusRowsRange".GetLocalizedFormat(_session.SingleTransferMaxRows);
             return false;
         }
 
         if (!uint.TryParse(AutofocusTiltProbeSteps, out var tiltSteps) || tiltSteps == 0)
         {
-            error = "Autofocus tilt step must be a positive integer.";
+            error = "ScanDebug_Runtime_ErrorAutofocusTiltPositive".GetLocalized();
             return false;
         }
 
         if (!uint.TryParse(AutofocusZProbeSteps, out var zSteps) || zSteps == 0)
         {
-            error = "Autofocus Z step must be a positive integer.";
+            error = "ScanDebug_Runtime_ErrorAutofocusZPositive".GetLocalized();
             return false;
         }
 
         if (!uint.TryParse(AutofocusMotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
         {
-            error = $"Autofocus interval must be an integer >= {ScanDebugConstants.MotionMinIntervalUs} us.";
+            error = "ScanDebug_Runtime_ErrorAutofocusIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
@@ -2538,13 +2539,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private static string BuildAutofocusSummary(ScanAutofocusResult result)
-        => $"Autofocus: {result.SampleRows} rows, tilt={result.FinalTiltOffsetSteps:+#;-#;0} steps, Z={result.FinalZOffsetSteps:+#;-#;0} steps, overall={result.FinalOverallSharpness:0.0000}, left={result.FinalLeftSharpness:0.0000}, right={result.FinalRightSharpness:0.0000}, imbalance={result.FinalTiltImbalance:+0.0000;-0.0000;0.0000}.";
+        => "ScanDebug_Runtime_AutofocusSummary".GetLocalizedFormat(result.SampleRows, result.FinalTiltOffsetSteps.ToString("+#;-#;0"), result.FinalZOffsetSteps.ToString("+#;-#;0"), result.FinalOverallSharpness.ToString("0.0000"), result.FinalLeftSharpness.ToString("0.0000"), result.FinalRightSharpness.ToString("0.0000"), result.FinalTiltImbalance.ToString("+0.0000;-0.0000;0.0000"));
 
     private static bool TryParseLedLevel(string text, string fieldName, out ushort value, out string error)
     {
         if (!ushort.TryParse(text, out value))
         {
-            error = $"{fieldName} must be an integer in [0, 65535].";
+            error = "Shared_Runtime_ErrorIntegerRange0To65535".GetLocalizedFormat(fieldName);
             return false;
         }
 
@@ -2556,7 +2557,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!uint.TryParse(text, out value))
         {
-            error = $"{fieldName} must be a non-negative integer.";
+            error = "ScanDebug_Runtime_ErrorNonNegativeInteger".GetLocalizedFormat(fieldName);
             return false;
         }
 
@@ -2568,7 +2569,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if ((syncMask & channelBit) != 0 && pulseClock < ScanDebugConstants.IlluminationMinSyncPulseClock)
         {
-            error = $"{fieldName} must be at least {ScanDebugConstants.IlluminationMinSyncPulseClock} when sync is enabled for that channel.";
+            error = "ScanDebug_Runtime_ErrorSyncPulseMinimum".GetLocalizedFormat(fieldName, ScanDebugConstants.IlluminationMinSyncPulseClock);
             return false;
         }
 
@@ -2583,14 +2584,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
                   (bit3 ? 0x08 : 0x00));
 
     private static string BuildIlluminationSummary(ScanIlluminationState state)
-        => $"Illumination state: Steady={FormatMask(state.SteadyMask)}, Sync={FormatMask(state.SyncMask)}, Active={FormatMask(state.SyncActiveMask)}";
+        => "ScanDebug_Runtime_IlluminationSummary".GetLocalizedFormat(FormatMask(state.SteadyMask), FormatMask(state.SyncMask), FormatMask(state.SyncActiveMask));
 
     private static string BuildMotorStatusText(ScanMotorState? state)
     {
         if (state is null)
-            return "State: unavailable";
+            return "ScanDebug_Runtime_MotorStatusUnavailable".GetLocalized();
 
-        return $"State: Enabled={FormatBool(state.Enabled)}, Running={FormatBool(state.Running)}, Direction={FormatDirection(state.Direction)}, DIAG={(state.Diag != 0 ? "High" : "Low")}, Interval={state.IntervalUs} us, Remaining={state.RemainingSteps}";
+        return "ScanDebug_Runtime_MotorStatus".GetLocalizedFormat(FormatBool(state.Enabled), FormatBool(state.Running), FormatDirection(state.Direction), state.Diag != 0 ? "ScanDebug_Runtime_DiagHigh".GetLocalized() : "ScanDebug_Runtime_DiagLow".GetLocalized(), state.IntervalUs, state.RemainingSteps);
     }
 
     private static string BuildMotionSummary(IReadOnlyList<ScanMotorState?> states)
@@ -2600,23 +2601,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             var state = states[index];
             parts.Add(state is null
-                ? $"Motor{index + 1}=unavailable"
-                : $"Motor{index + 1}={(state.Enabled ? (state.Running ? "running" : "enabled") : "disabled")}");
+                ? "ScanDebug_Runtime_MotionSummaryItemUnavailable".GetLocalizedFormat(index + 1)
+                : "ScanDebug_Runtime_MotionSummaryItem".GetLocalizedFormat(index + 1, state.Enabled ? (state.Running ? "ScanDebug_Runtime_MotionStateRunning".GetLocalized() : "ScanDebug_Runtime_MotionStateEnabled".GetLocalized()) : "ScanDebug_Runtime_MotionStateDisabled".GetLocalized()));
         }
 
-        return $"Motion state: {string.Join(", ", parts)}";
+        return "ScanDebug_Runtime_MotionSummary".GetLocalizedFormat(string.Join(", ", parts));
     }
 
     private static string FormatBool(bool value)
-        => value ? "Yes" : "No";
+        => value ? "ScanDebug_Runtime_Yes".GetLocalized() : "ScanDebug_Runtime_No".GetLocalized();
 
     private static string FormatDirection(bool direction)
-        => direction ? MotorDirectionLabels[1] : MotorDirectionLabels[0];
+        => ScanRuntimeMessageLocalizer.GetLocalizedDirection(direction);
 
     private static string FormatMask(byte mask)
     {
         if ((mask & ScanDebugConstants.IlluminationValidMask) == 0)
-            return "none";
+            return "ScanDebug_Runtime_None".GetLocalized();
 
         var labels = new List<string>(ScanDebugConstants.IlluminationChannelCount);
         for (var index = 0; index < ScanDebugConstants.IlluminationChannelCount; index++)
@@ -2627,6 +2628,42 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         return string.Join(", ", labels);
     }
+
+    private static string GetCalibrationChannelDisplayName(string channelRole)
+        => channelRole switch
+        {
+            "Red" => "Scan_Runtime_ChannelRoleRed".GetLocalized(),
+            "Green" => "Scan_Runtime_ChannelRoleGreen".GetLocalized(),
+            "Blue" => "Scan_Runtime_ChannelRoleBlue".GetLocalized(),
+            "White" => "Scan_Runtime_ChannelRoleWhite".GetLocalized(),
+            "IR" => "Scan_Runtime_ChannelRoleIr".GetLocalized(),
+            _ => channelRole
+        };
+
+    private static string GetRoiSelectionDisplayName(string roiSelection)
+        => roiSelection switch
+        {
+            RoiSelectionBwActive => "ScanDebug_Runtime_RoiSelectionBwActive".GetLocalized(),
+            RoiSelectionBwShield => "ScanDebug_Runtime_RoiSelectionBwShield".GetLocalized(),
+            RoiSelectionFocusOverall => "ScanDebug_Runtime_RoiSelectionFocusOverall".GetLocalized(),
+            RoiSelectionFocusLeft => "ScanDebug_Runtime_RoiSelectionFocusLeft".GetLocalized(),
+            RoiSelectionFocusRight => "ScanDebug_Runtime_RoiSelectionFocusRight".GetLocalized(),
+            _ => roiSelection
+        };
+
+    private static string GetLimitLabelDisplayName(string label)
+        => label switch
+        {
+            "ADC1 offset" => "ScanDebug_Runtime_LimitLabelAdc1Offset".GetLocalized(),
+            "ADC2 offset" => "ScanDebug_Runtime_LimitLabelAdc2Offset".GetLocalized(),
+            "ADC1 gain" => "ScanDebug_Runtime_LimitLabelAdc1Gain".GetLocalized(),
+            "ADC2 gain" => "ScanDebug_Runtime_LimitLabelAdc2Gain".GetLocalized(),
+            "Sample rows" => "ScanDebug_Runtime_LimitLabelSampleRows".GetLocalized(),
+            "Tilt probe steps" => "ScanDebug_Runtime_LimitLabelTiltProbeSteps".GetLocalized(),
+            "Z probe steps" => "ScanDebug_Runtime_LimitLabelZProbeSteps".GetLocalized(),
+            "Motor interval" => "ScanDebug_Runtime_LimitLabelMotorInterval".GetLocalized(),
+            _ => label
+        };
 
     private sealed record IlluminationRequest(
         ushort Led1Level,

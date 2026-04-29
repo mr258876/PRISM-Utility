@@ -61,7 +61,7 @@ public sealed record ScanColorManagementOptions(
     double OutputGamma)
 {
     public static ScanColorManagementOptions CreateDefault()
-        => new(true, 630.0, 530.0, 470.0, 2.2);
+        => new(true, 680.0, 525.0, 450.0, 2.2);
 }
 
 public sealed record ScanCompositeFrame(byte[] Pixels, int Width, int Height, WriteableBitmap Bitmap);

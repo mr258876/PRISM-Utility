@@ -183,6 +183,36 @@
   <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve">
     <value>Queues multiple concurrent reads on the scan image endpoint to reduce host-side gaps between bulk IN completions and allow scans larger than the single-request 2 MiB limit.</value>
   </data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.Header" xml:space="preserve">
+    <value>Mirror program output to Debug console</value>
+  </data>
+  <data name="Settings_DebugFileLogToggleSwitch.Header" xml:space="preserve">
+    <value>Mirror program output to local log file</value>
+  </data>
+  <data name="Settings_ColorManagement.Text" xml:space="preserve">
+    <value>Color management</value>
+  </data>
+  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve">
+    <value>Use spectral wavelength mapping for RGB preview and PNG output</value>
+  </data>
+  <data name="Settings_RedWavelengthTextBox.Header" xml:space="preserve">
+    <value>Red wavelength (nm)</value>
+  </data>
+  <data name="Settings_GreenWavelengthTextBox.Header" xml:space="preserve">
+    <value>Green wavelength (nm)</value>
+  </data>
+  <data name="Settings_BlueWavelengthTextBox.Header" xml:space="preserve">
+    <value>Blue wavelength (nm)</value>
+  </data>
+  <data name="Settings_OutputGammaTextBox.Header" xml:space="preserve">
+    <value>Output gamma</value>
+  </data>
+  <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve">
+    <value>Restore color defaults</value>
+  </data>
+  <data name="Settings_ColorManagementDescription.Text" xml:space="preserve">
+    <value>These settings are shared by RGB Composite preview and saved PNG output. Raw channel export remains unchanged.</value>
+  </data>
   <data name="Settings_About.Text" xml:space="preserve">
     <value>About this application</value>
   </data>
@@ -288,6 +318,9 @@
   <data name="Scan_SetupTitle.Text" xml:space="preserve">
     <value>Scan Setup</value>
   </data>
+  <data name="Scan_CoreSetupSection.Text" xml:space="preserve">
+    <value>Core scan setup</value>
+  </data>
   <data name="Scan_RowsComboBox.Header" xml:space="preserve">
     <value>Rows</value>
   </data>
@@ -322,10 +355,61 @@
     <value>Starting direction</value>
   </data>
   <data name="Scan_DirectionHelpText.Text" xml:space="preserve">
-    <value>The four LED passes follow the selected starting direction and alternate automatically when enabled.</value>
+    <value>The four LED passes start in the selected direction. When alternating is enabled, each pass flips direction. When disabled, each pass scans in the same direction and the motor returns to the starting position before the next pass.</value>
   </data>
   <data name="Scan_PassPlanTitle.Text" xml:space="preserve">
     <value>Scan Pass Plan</value>
+  </data>
+  <data name="Scan_PassPlanSection.Text" xml:space="preserve">
+    <value>Pass and illumination plan</value>
+  </data>
+  <data name="Scan_Pass1Title.Text" xml:space="preserve">
+    <value>Pass 1 · LED1</value>
+  </data>
+  <data name="Scan_Pass1DirectionToggleSwitch.Header" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Scan_Pass1DirectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Pass1DirectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Scan_Pass2Title.Text" xml:space="preserve">
+    <value>Pass 2 · LED2</value>
+  </data>
+  <data name="Scan_Pass2DirectionToggleSwitch.Header" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Scan_Pass2DirectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Pass2DirectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Scan_Pass3Title.Text" xml:space="preserve">
+    <value>Pass 3 · LED3</value>
+  </data>
+  <data name="Scan_Pass3DirectionToggleSwitch.Header" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Scan_Pass3DirectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Pass3DirectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Scan_Pass4Title.Text" xml:space="preserve">
+    <value>Pass 4 · LED4</value>
+  </data>
+  <data name="Scan_Pass4DirectionToggleSwitch.Header" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Scan_Pass4DirectionToggleSwitch.OnContent" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Pass4DirectionToggleSwitch.OffContent" xml:space="preserve">
+    <value>Forward</value>
   </data>
   <data name="Scan_PassHeader.Text" xml:space="preserve">
     <value>Pass</value>
@@ -393,6 +477,30 @@
   <data name="Scan_OutputTitle.Text" xml:space="preserve">
     <value>Output</value>
   </data>
+  <data name="Scan_ColorManagementSection.Text" xml:space="preserve">
+    <value>Color management</value>
+  </data>
+  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve">
+    <value>RGB preview and PNG output are encoded through this shared sRGB color-management stage. Raw channel export is unchanged.</value>
+  </data>
+  <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve">
+    <value>Use spectral wavelength mapping</value>
+  </data>
+  <data name="Scan_RedWavelengthTextBox.Header" xml:space="preserve">
+    <value>Red wavelength (nm)</value>
+  </data>
+  <data name="Scan_GreenWavelengthTextBox.Header" xml:space="preserve">
+    <value>Green wavelength (nm)</value>
+  </data>
+  <data name="Scan_BlueWavelengthTextBox.Header" xml:space="preserve">
+    <value>Blue wavelength (nm)</value>
+  </data>
+  <data name="Scan_OutputGammaTextBox.Header" xml:space="preserve">
+    <value>Output gamma</value>
+  </data>
+  <data name="Scan_OutputSection.Text" xml:space="preserve">
+    <value>Output</value>
+  </data>
   <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve">
     <value>Save RGB Image</value>
   </data>
@@ -425,6 +533,9 @@
   </data>
   <data name="ScanDebug_ExportBufferButton.Content" xml:space="preserve">
     <value>Export Buffer</value>
+  </data>
+  <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve">
+    <value>Acquisition</value>
   </data>
   <data name="ScanDebug_RowsComboBox.Header" xml:space="preserve">
     <value>Rows</value>
@@ -501,6 +612,24 @@
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>Exposure time = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
+  <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve">
+    <value>Film profile name</value>
+  </data>
+  <data name="ScanDebug_CalibrationChannelComboBox.Header" xml:space="preserve">
+    <value>Calibration channel</value>
+  </data>
+  <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
+    <value>Save Channel</value>
+  </data>
+  <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
+    <value>Clear Channel</value>
+  </data>
+  <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve">
+    <value>Save JSON</value>
+  </data>
+  <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve">
+    <value>Load JSON</value>
+  </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>Exposure Ticks</value>
   </data>
@@ -548,6 +677,33 @@
   </data>
   <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve">
     <value>Auto Calibrate</value>
+  </data>
+  <data name="ScanDebug_AutofocusTitle.Text" xml:space="preserve">
+    <value>Autofocus</value>
+  </data>
+  <data name="ScanDebug_AutofocusNote.Text" xml:space="preserve">
+    <value>Host-side scan-debug autofocus. Overall sharpness is optimized first on fresh raw scan buffers, then tilt is balanced from relative left/right sharpness.</value>
+  </data>
+  <data name="ScanDebug_AutofocusSampleRowsTextBox.Header" xml:space="preserve">
+    <value>Sample rows</value>
+  </data>
+  <data name="ScanDebug_AutofocusTiltProbeStepsTextBox.Header" xml:space="preserve">
+    <value>Tilt probe steps</value>
+  </data>
+  <data name="ScanDebug_AutofocusZProbeStepsTextBox.Header" xml:space="preserve">
+    <value>Z probe steps</value>
+  </data>
+  <data name="ScanDebug_AutofocusMotorIntervalUsTextBox.Header" xml:space="preserve">
+    <value>Motor interval (us)</value>
+  </data>
+  <data name="ScanDebug_AutofocusZDirectionComboBox.Header" xml:space="preserve">
+    <value>Logical Z+ direction</value>
+  </data>
+  <data name="ScanDebug_AutofocusTiltDirectionComboBox.Header" xml:space="preserve">
+    <value>Logical Tilt+ direction on Motor1</value>
+  </data>
+  <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve">
+    <value>Run Autofocus</value>
   </data>
   <data name="ScanDebug_IlluminationTitle.Text" xml:space="preserve">
     <value>Illumination Control</value>
@@ -645,6 +801,135 @@
   <data name="ScanDebug_ApplyIlluminationButton.Content" xml:space="preserve">
     <value>Apply LED Settings</value>
   </data>
+  <data name="ScanDebug_MotionTitle.Text" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="ScanDebug_MotionNote.Text" xml:space="preserve">
+    <value>Debug controls for the three motors exposed by the scanner main-board USB motion API.</value>
+  </data>
+  <data name="ScanDebug_RefreshMotionButton.Content" xml:space="preserve">
+    <value>Refresh Motion</value>
+  </data>
+  <data name="ScanDebug_Motor1Title.Text" xml:space="preserve">
+    <value>Motor1</value>
+  </data>
+  <data name="ScanDebug_Motor1EnableButton.Content" xml:space="preserve">
+    <value>Enable</value>
+  </data>
+  <data name="ScanDebug_Motor1DisableButton.Content" xml:space="preserve">
+    <value>Disable</value>
+  </data>
+  <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve">
+    <value>Steps</value>
+  </data>
+  <data name="ScanDebug_Motor1IntervalUsTextBox.Header" xml:space="preserve">
+    <value>Interval (us)</value>
+  </data>
+  <data name="ScanDebug_Motor1MoveButton.Content" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="ScanDebug_Motor1StopButton.Content" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="ScanDebug_Motor1ApplyConfigButton.Content" xml:space="preserve">
+    <value>Apply Config</value>
+  </data>
+  <data name="ScanDebug_Motor2Title.Text" xml:space="preserve">
+    <value>Motor2</value>
+  </data>
+  <data name="ScanDebug_Motor2EnableButton.Content" xml:space="preserve">
+    <value>Enable</value>
+  </data>
+  <data name="ScanDebug_Motor2DisableButton.Content" xml:space="preserve">
+    <value>Disable</value>
+  </data>
+  <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve">
+    <value>Steps</value>
+  </data>
+  <data name="ScanDebug_Motor2IntervalUsTextBox.Header" xml:space="preserve">
+    <value>Interval (us)</value>
+  </data>
+  <data name="ScanDebug_Motor2MoveButton.Content" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="ScanDebug_Motor2StopButton.Content" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="ScanDebug_Motor2ApplyConfigButton.Content" xml:space="preserve">
+    <value>Apply Config</value>
+  </data>
+  <data name="ScanDebug_Motor3Title.Text" xml:space="preserve">
+    <value>Motor3</value>
+  </data>
+  <data name="ScanDebug_Motor3EnableButton.Content" xml:space="preserve">
+    <value>Enable</value>
+  </data>
+  <data name="ScanDebug_Motor3DisableButton.Content" xml:space="preserve">
+    <value>Disable</value>
+  </data>
+  <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve">
+    <value>Steps</value>
+  </data>
+  <data name="ScanDebug_Motor3IntervalUsTextBox.Header" xml:space="preserve">
+    <value>Interval (us)</value>
+  </data>
+  <data name="ScanDebug_Motor3MoveButton.Content" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="ScanDebug_Motor3StopButton.Content" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="ScanDebug_Motor3ApplyConfigButton.Content" xml:space="preserve">
+    <value>Apply Config</value>
+  </data>
+  <data name="ScanDebug_RoiEditToggleSwitch.Header" xml:space="preserve">
+    <value>ROI Edit</value>
+  </data>
+  <data name="ScanDebug_RoiTargetComboBox.Header" xml:space="preserve">
+    <value>ROI Target</value>
+  </data>
+  <data name="ScanDebug_ResetSelectedRoiButton.Content" xml:space="preserve">
+    <value>Reset Selected ROI</value>
+  </data>
+  <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve">
+    <value>Reset All ROIs</value>
+  </data>
+  <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve">
+    <value>Cursor: (-, -) px</value>
+  </data>
+  <data name="ScanDebug_CursorIntensityTextBlock.Text" xml:space="preserve">
+    <value>Intensity16: -</value>
+  </data>
+  <data name="ScanDebug_OverlayToolsHeader.Text" xml:space="preserve">
+    <value>Overlay and ROI tools</value>
+  </data>
+  <data name="ScanDebug_VisibleOverlaysText.Text" xml:space="preserve">
+    <value>Visible overlays</value>
+  </data>
+  <data name="ScanDebug_BwActiveOverlayCheckBox.Content" xml:space="preserve">
+    <value>BW Active</value>
+  </data>
+  <data name="ScanDebug_BwShieldOverlayCheckBox.Content" xml:space="preserve">
+    <value>BW Shield</value>
+  </data>
+  <data name="ScanDebug_FocusOverallOverlayCheckBox.Content" xml:space="preserve">
+    <value>Focus Overall</value>
+  </data>
+  <data name="ScanDebug_FocusLeftOverlayCheckBox.Content" xml:space="preserve">
+    <value>Focus Left</value>
+  </data>
+  <data name="ScanDebug_FocusRightOverlayCheckBox.Content" xml:space="preserve">
+    <value>Focus Right</value>
+  </data>
+  <data name="ScanDebug_RoiStartTextBox.Header" xml:space="preserve">
+    <value>ROI Start</value>
+  </data>
+  <data name="ScanDebug_RoiEndTextBox.Header" xml:space="preserve">
+    <value>ROI End</value>
+  </data>
+  <data name="ScanDebug_ApplyRoiButton.Content" xml:space="preserve">
+    <value>Apply ROI</value>
+  </data>
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
     <value>Restore defaults</value>
   </data>
@@ -680,5 +965,1022 @@
   </data>
   <data name="Scan_Led4LevelTextBox.PlaceholderText" xml:space="preserve">
     <value>0-65535</value>
+  </data>
+  <data name="Shared_Dialog_UsbBusy.Title" xml:space="preserve">
+    <value>USB busy</value>
+  </data>
+  <data name="Shared_Dialog_Ok.CloseButtonText" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Shared_Dialog_Error.Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content" xml:space="preserve">
+    <value>USB Debugging is unavailable while Scan Debug is connected. Disconnect Scan Debug first.</value>
+  </data>
+  <data name="Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content" xml:space="preserve">
+    <value>Scan Debug is unavailable while USB Debugging is active. Stop USB Debugging first.</value>
+  </data>
+  <data name="Shared_Runtime_ErrorIntegerRange0To65535" xml:space="preserve">
+    <value>{0} must be an integer in [0, 65535].</value>
+  </data>
+  <data name="Shared_Runtime_ErrorNumber" xml:space="preserve">
+    <value>{0} must be a number.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkInMissingParams" xml:space="preserve">
+    <value>Bulk IN parameters are incomplete.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkInStarted" xml:space="preserve">
+    <value>Bulk IN started.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkInError" xml:space="preserve">
+    <value>Bulk IN error: {0}</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkInStopped" xml:space="preserve">
+    <value>Bulk IN stopped.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkInStopping" xml:space="preserve">
+    <value>Stopping Bulk IN...</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkOutMissingParams" xml:space="preserve">
+    <value>Bulk OUT parameters are incomplete.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkOutPayloadRequired" xml:space="preserve">
+    <value>Please input payload text.</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkOutError" xml:space="preserve">
+    <value>Bulk OUT error: {0}</value>
+  </data>
+  <data name="UsbDebug_Runtime_BulkOutFailed.Title" xml:space="preserve">
+    <value>Bulk OUT failed</value>
+  </data>
+  <data name="UsbDebug_Runtime_NoHexBytesFound" xml:space="preserve">
+    <value>No hex bytes found.</value>
+  </data>
+  <data name="UsbDebug_Runtime_HexTokenLength" xml:space="preserve">
+    <value>Token #{0} must be exactly 2 hex digits (supports 0xAA / AAh / AAH / AA).</value>
+  </data>
+  <data name="UsbDebug_Runtime_HexTokenInvalid" xml:space="preserve">
+    <value>Token #{0} is not valid hex: '{1}'.</value>
+  </data>
+  <data name="Scan_Runtime_StatusWaitingForDevices" xml:space="preserve">
+    <value>Waiting for scanner devices 1D50:619C and 1D50:619D.</value>
+  </data>
+  <data name="Scan_Runtime_StatusDevicesDetected" xml:space="preserve">
+    <value>619C/619D detected. Click Connect Devices to open scanner sessions for Scan.</value>
+  </data>
+  <data name="Scan_Runtime_UsbDebugActive" xml:space="preserve">
+    <value>USB Debugging is active. Stop it before connecting the Scan page.</value>
+  </data>
+  <data name="Scan_Runtime_StatusLoadingState" xml:space="preserve">
+    <value>Scanner sessions connected. Loading scan state...</value>
+  </data>
+  <data name="Scan_Runtime_StatusParametersLoaded" xml:space="preserve">
+    <value>Parameters loaded (exp={0}, sysclk={1} kHz)</value>
+  </data>
+  <data name="Scan_Runtime_StatusParameterLoadUnavailable" xml:space="preserve">
+    <value>Parameter load unavailable: {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusIlluminationLoaded" xml:space="preserve">
+    <value>Illumination levels loaded</value>
+  </data>
+  <data name="Scan_Runtime_StatusIlluminationUnavailable" xml:space="preserve">
+    <value>Illumination unavailable: {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusConnectedWithNotes" xml:space="preserve">
+    <value>Scanner sessions connected. {0}.</value>
+  </data>
+  <data name="Scan_Runtime_StatusConnected" xml:space="preserve">
+    <value>Scanner sessions connected.</value>
+  </data>
+  <data name="Scan_Runtime_StatusConnectFailed" xml:space="preserve">
+    <value>Connect failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusDisconnectedReconnect" xml:space="preserve">
+    <value>Disconnected. Click Connect Devices to reconnect.</value>
+  </data>
+  <data name="Scan_Runtime_StatusDisconnected" xml:space="preserve">
+    <value>Disconnected.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceDevicesNotDetected" xml:space="preserve">
+    <value>Scanner devices 619C and 619D were not detected.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceDeviceDisappearedDuringConnect" xml:space="preserve">
+    <value>A scanner device disappeared during connect.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceEndpointCheckFailed" xml:space="preserve">
+    <value>Endpoint check failed. Required endpoints: 619C IN 0x82 and 619D OUT 0x01 / IN 0x81.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceEndpointInterfaceMismatch" xml:space="preserve">
+    <value>Endpoint check failed. 619D OUT 0x01 and IN 0x81 must be on the same interface.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceScannerNotConnected" xml:space="preserve">
+    <value>Scanner not connected. Click Connect Devices first.</value>
+  </data>
+  <data name="Scan_Runtime_ServiceScannerNotConnectedShort" xml:space="preserve">
+    <value>Scanner not connected.</value>
+  </data>
+  <data name="Scan_Runtime_StatusSegmentPrefix" xml:space="preserve">
+    <value>[{0}/{1}] {2}</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanLinesConfigured" xml:space="preserve">
+    <value>Scan lines configured. 619C input opened. Starting scan...</value>
+  </data>
+  <data name="Scan_Runtime_StatusReadStartedSendingStartScan" xml:space="preserve">
+    <value>619C read started. Sending START_SCAN...</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanCommandSentReceiving" xml:space="preserve">
+    <value>Scan command sent. Receiving image lines...</value>
+  </data>
+  <data name="Scan_Runtime_StatusAckMonitorTimedOut" xml:space="preserve">
+    <value>START_SCAN ACK monitor timed out.</value>
+  </data>
+  <data name="Scan_Runtime_StatusDeviceBusy" xml:space="preserve">
+    <value>Device busy (cmd=0x{0}).</value>
+  </data>
+  <data name="Scan_Runtime_StatusDeviceBusyTooLong" xml:space="preserve">
+    <value>Device stayed busy for too long.</value>
+  </data>
+  <data name="Scan_Runtime_StatusStartScanAckStatus" xml:space="preserve">
+    <value>START_SCAN ACK status: {0} (0x{1})</value>
+  </data>
+  <data name="Scan_Runtime_StatusStartScanAckTargetMismatch" xml:space="preserve">
+    <value>START_SCAN ACK target mismatch: {0} (expected {1})</value>
+  </data>
+  <data name="Scan_Runtime_StatusStartScanAckReceived" xml:space="preserve">
+    <value>START_SCAN ACK received.</value>
+  </data>
+  <data name="Scan_Runtime_StatusStartScanDoneAckReceived" xml:space="preserve">
+    <value>START_SCAN done ACK received.</value>
+  </data>
+  <data name="Scan_Runtime_StatusStartScanDoneAckTimeout" xml:space="preserve">
+    <value>START_SCAN done ACK not received in time.</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanCompleted" xml:space="preserve">
+    <value>Scan completed.</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanStopped" xml:space="preserve">
+    <value>Scan stopped.</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanCompletedInSegments" xml:space="preserve">
+    <value>Scan completed in {0} segment(s).</value>
+  </data>
+  <data name="Scan_Runtime_StatusScanFailedAfterMs" xml:space="preserve">
+    <value>Scan failed after {0} ms: {1}</value>
+  </data>
+  <data name="Scan_Runtime_StatusSegmentDoneAckTimeout" xml:space="preserve">
+    <value>Segment {0}/{1} done ACK was not received in time.</value>
+  </data>
+  <data name="Scan_Runtime_StatusUnexpectedStopAck" xml:space="preserve">
+    <value>Unexpected ACK command while stopping: 0x{0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusStopAckReceived" xml:space="preserve">
+    <value>STOP_SCAN ACK received (target={0}, completed={1}).</value>
+  </data>
+  <data name="Scan_Runtime_StatusStopAckStatus" xml:space="preserve">
+    <value>STOP_SCAN ACK status: {0} (0x{1})</value>
+  </data>
+  <data name="Scan_Runtime_StatusStopSendFailed" xml:space="preserve">
+    <value>STOP_SCAN send failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowEnableMotor" xml:space="preserve">
+    <value>Enabling Motor{0} for scan transport...</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowApplyCcdProfile" xml:space="preserve">
+    <value>Pass {0}/{1}: applying CCD profile for {2} channel...</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowPrepareMotorOnExposureSync" xml:space="preserve">
+    <value>Pass {0}/{1}: preparing Motor{2} {3} for {4} step(s), waiting for EXPOSURE_SYNC...</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowCaptureRows" xml:space="preserve">
+    <value>Pass {0}/{1}: LED{2} active, capturing {3} row(s)...</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowReturnMotor" xml:space="preserve">
+    <value>Pass {0}/{1}: returning Motor{2} to start position before the next channel scan...</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowPassComplete" xml:space="preserve">
+    <value>Pass {0}/{1} complete.</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowCompleted" xml:space="preserve">
+    <value>Four-channel scan workflow completed.</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowPassFailed" xml:space="preserve">
+    <value>Pass {0} failed: {1}</value>
+  </data>
+  <data name="Scan_Runtime_StatusRowsLimitExceeded" xml:space="preserve">
+    <value>Rows above {0} require Multi-buffer bulk IN and Raw I/O, or enable Warm-up segmented mode.</value>
+  </data>
+  <data name="Scan_Runtime_OutputSummaryInProgress" xml:space="preserve">
+    <value>Scan in progress...</value>
+  </data>
+  <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve">
+    <value>Captured {0} pass(es), rows={1}, motor steps/pass={2}, interval={3} us.</value>
+  </data>
+  <data name="Scan_Runtime_StatusCompleted" xml:space="preserve">
+    <value>Scan completed.</value>
+  </data>
+  <data name="Scan_Runtime_StatusCanceled" xml:space="preserve">
+    <value>Scan canceled.</value>
+  </data>
+  <data name="Scan_Runtime_StatusFailed" xml:space="preserve">
+    <value>Scan failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_OutputSummaryFailed" xml:space="preserve">
+    <value>Scan failed before outputs were produced.</value>
+  </data>
+  <data name="Scan_Runtime_StatusStopRequested" xml:space="preserve">
+    <value>Stop requested.</value>
+  </data>
+  <data name="Scan_Runtime_StatusNoRgbResult" xml:space="preserve">
+    <value>No scan result available for RGB save.</value>
+  </data>
+  <data name="Scan_Runtime_StatusRgbSaveCanceled" xml:space="preserve">
+    <value>RGB save canceled.</value>
+  </data>
+  <data name="Scan_Runtime_StatusRgbSaved" xml:space="preserve">
+    <value>RGB image saved: {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusRgbSaveFailed" xml:space="preserve">
+    <value>RGB save failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusNoRawResult" xml:space="preserve">
+    <value>No scan result available for raw export.</value>
+  </data>
+  <data name="Scan_Runtime_StatusRawExportCanceled" xml:space="preserve">
+    <value>Raw export canceled.</value>
+  </data>
+  <data name="Scan_Runtime_StatusRawExported" xml:space="preserve">
+    <value>Raw channel buffers exported to {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusRawExportFailed" xml:space="preserve">
+    <value>Raw export failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_CurrentPassIdle" xml:space="preserve">
+    <value>Pass - of 4</value>
+  </data>
+  <data name="Scan_Runtime_CurrentPassCanceled" xml:space="preserve">
+    <value>Pass canceled</value>
+  </data>
+  <data name="Scan_Runtime_CurrentPassProgress" xml:space="preserve">
+    <value>Pass {0} of {1} - {2}</value>
+  </data>
+  <data name="Scan_Runtime_CurrentLedIdle" xml:space="preserve">
+    <value>LED: -</value>
+  </data>
+  <data name="Scan_Runtime_CurrentLedStopped" xml:space="preserve">
+    <value>LED: Idle</value>
+  </data>
+  <data name="Scan_Runtime_CurrentLedProgress" xml:space="preserve">
+    <value>LED: LED{0}</value>
+  </data>
+  <data name="Scan_Runtime_CurrentDirectionIdle" xml:space="preserve">
+    <value>Direction: -</value>
+  </data>
+  <data name="Scan_Runtime_CurrentDirectionStopped" xml:space="preserve">
+    <value>Direction: Idle</value>
+  </data>
+  <data name="Scan_Runtime_CurrentDirectionProgress" xml:space="preserve">
+    <value>Direction: {0}</value>
+  </data>
+  <data name="Scan_Runtime_PreviewPlaceholderInitial" xml:space="preserve">
+    <value>Run a scan to generate RGB or raw channel preview output.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewPlaceholderNextScan" xml:space="preserve">
+    <value>{0} preview will appear here after the next scan.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewDisabledDescription" xml:space="preserve">
+    <value>Preview is disabled.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewDisabledPlaceholder" xml:space="preserve">
+    <value>Preview disabled.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeDescription" xml:space="preserve">
+    <value>Preview mode: {0}.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewCompositeDescription" xml:space="preserve">
+    <value>Preview mode: {0}. Composite uses current channel-role mapping and {1}.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewCompositeModeSpectral" xml:space="preserve">
+    <value>spectral sRGB color management</value>
+  </data>
+  <data name="Scan_Runtime_PreviewCompositeModeGamma" xml:space="preserve">
+    <value>sRGB gamma encoding</value>
+  </data>
+  <data name="Scan_Runtime_PreviewRawUnavailable" xml:space="preserve">
+    <value>Selected raw preview channel is unavailable.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewRawDescription" xml:space="preserve">
+    <value>Preview mode: {0}. Showing grayscale raw buffer from pass {1}.</value>
+  </data>
+  <data name="Scan_Runtime_OutputSummaryEmpty" xml:space="preserve">
+    <value>No scan outputs captured yet.</value>
+  </data>
+  <data name="Scan_Runtime_ChannelMappingSummary" xml:space="preserve">
+    <value>Channel 1 → {0}, Channel 2 → {1}, Channel 3 → {2}, Channel 4 → {3}.</value>
+  </data>
+  <data name="Scan_Runtime_ComputedMotorUnavailableUntilRowsValid" xml:space="preserve">
+    <value>Motor step estimate unavailable until rows are valid.</value>
+  </data>
+  <data name="Scan_Runtime_ComputedMotorIntervalMinimum" xml:space="preserve">
+    <value>Motor interval must be at least {0} us.</value>
+  </data>
+  <data name="Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded" xml:space="preserve">
+    <value>Motor step estimate unavailable until scanner parameters are loaded.</value>
+  </data>
+  <data name="Scan_Runtime_ComputedMotorSummary" xml:space="preserve">
+    <value>Motor{0} transport estimate: {1} step(s) per pass at {2} us interval, based on current exposure/system clock and {3} row(s).</value>
+  </data>
+  <data name="Scan_Runtime_ErrorRowsPositiveInteger" xml:space="preserve">
+    <value>Rows must be a positive integer.</value>
+  </data>
+  <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve">
+    <value>Motor interval must be an integer &gt;= {0} us.</value>
+  </data>
+  <data name="Scan_Runtime_ErrorParametersNotLoaded" xml:space="preserve">
+    <value>Scanner parameters are not loaded yet. Reconnect the scanner and try again.</value>
+  </data>
+  <data name="Scan_Runtime_ErrorScanMotorRange" xml:space="preserve">
+    <value>Scan motor must be one of Motor1..Motor{0}.</value>
+  </data>
+  <data name="Scan_Runtime_DirectionForward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Scan_Runtime_DirectionReverse" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Scan_Runtime_ProgressStagePreparing" xml:space="preserve">
+    <value>Preparing</value>
+  </data>
+  <data name="Scan_Runtime_ProgressStageScanning" xml:space="preserve">
+    <value>Scanning</value>
+  </data>
+  <data name="Scan_Runtime_ProgressStageWaitingForMotor" xml:space="preserve">
+    <value>Waiting for motor</value>
+  </data>
+  <data name="Scan_Runtime_ProgressStageReturning" xml:space="preserve">
+    <value>Returning</value>
+  </data>
+  <data name="Scan_Runtime_ProgressStageCompleted" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeRgbComposite" xml:space="preserve">
+    <value>RGB Composite</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve">
+    <value>Raw Channel {0}</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleWhite" xml:space="preserve">
+    <value>White</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleIr" xml:space="preserve">
+    <value>IR</value>
+  </data>
+  <data name="Scan_Runtime_ChannelRoleUnused" xml:space="preserve">
+    <value>Unused</value>
+  </data>
+  <data name="Scan_Runtime_MotorOption1" xml:space="preserve">
+    <value>Motor1</value>
+  </data>
+  <data name="Scan_Runtime_MotorOption2" xml:space="preserve">
+    <value>Motor2</value>
+  </data>
+  <data name="Scan_Runtime_MotorOption3" xml:space="preserve">
+    <value>Motor3</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve">
+    <value>Calibration profile channel: {0} (no saved profile loaded yet).</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfile" xml:space="preserve">
+    <value>Calibration profile channel: {0} (no saved profile).</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded" xml:space="preserve">
+    <value>Calibration profile channel: {0} (saved profile loaded).</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_ProfileCleared" xml:space="preserve">
+    <value>Calibration profile channel: {0} (profile cleared).</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_LoadFailed" xml:space="preserve">
+    <value>Calibration profile channel: {0} (load failed: {1}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_SavedAt" xml:space="preserve">
+    <value>Calibration profile channel: {0} (saved at {1}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_FilmProfileUntitled" xml:space="preserve">
+    <value>Untitled Film Profile</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiInputsSynchronized" xml:space="preserve">
+    <value>ROI range inputs are synchronized with the selected ROI.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiRangeChanged" xml:space="preserve">
+    <value>ROI range changed. Click Apply ROI to commit numeric edits.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiStartIntegerRequired" xml:space="preserve">
+    <value>ROI Start must be an integer column index.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiEndIntegerRequired" xml:space="preserve">
+    <value>ROI End must be an integer column index.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiRangeApplied" xml:space="preserve">
+    <value>ROI range applied from numeric inputs.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiNumericMirror" xml:space="preserve">
+    <value>Numeric ROI range mirrors {0}: {1} ~ {2}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiEditModeOn" xml:space="preserve">
+    <value>edit mode: ON</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiEditModeOff" xml:space="preserve">
+    <value>edit mode: OFF</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiStatus" xml:space="preserve">
+    <value>Selected ROI: {0} | columns {1} ~ {2} ({3} px) | {4}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiSelectionBwActive" xml:space="preserve">
+    <value>BW Active</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiSelectionBwShield" xml:space="preserve">
+    <value>BW Shield</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusOverall" xml:space="preserve">
+    <value>Focus Overall</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusLeft" xml:space="preserve">
+    <value>Focus Left</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusRight" xml:space="preserve">
+    <value>Focus Right</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotorDirectionDir0" xml:space="preserve">
+    <value>Dir0</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotorDirectionDir1" xml:space="preserve">
+    <value>Dir1</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWaitingForDevicesShort" xml:space="preserve">
+    <value>Waiting for scanner devices...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWaitingForDevices" xml:space="preserve">
+    <value>Waiting for scanner devices 1D50:619C and 1D50:619D.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusDevicesDetected" xml:space="preserve">
+    <value>619C/619D detected. Click Connect Devices to validate endpoints and open sessions.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ExposureTimeIdle" xml:space="preserve">
+    <value>Exposure time: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_OffsetAmplitudeIdle" xml:space="preserve">
+    <value>Offset amplitude: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_GainIdle" xml:space="preserve">
+    <value>Gain: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_SystemClockIdle" xml:space="preserve">
+    <value>System clock: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_IlluminationSummaryIdle" xml:space="preserve">
+    <value>Illumination state: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionSummaryIdle" xml:space="preserve">
+    <value>Motion state: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotorStatusIdle" xml:space="preserve">
+    <value>State: -</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusIdle" xml:space="preserve">
+    <value>Autofocus: idle.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve">
+    <value>Export canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusBufferExported" xml:space="preserve">
+    <value>Buffer exported: {0} bytes -&gt; {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusExportFailed" xml:space="preserve">
+    <value>Export failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusUsbDebugActive" xml:space="preserve">
+    <value>USB Debugging is active. Stop it before connecting Scan Debug.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusLoadingParameters" xml:space="preserve">
+    <value>Scanner sessions connected. Loading parameters...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusParametersLoaded" xml:space="preserve">
+    <value>Parameters loaded</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusParameterLoadUnavailable" xml:space="preserve">
+    <value>Parameter load unavailable: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationLoaded" xml:space="preserve">
+    <value>Illumination state loaded</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUnavailable" xml:space="preserve">
+    <value>Illumination unavailable: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotionLoaded" xml:space="preserve">
+    <value>Motion state loaded</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotionUnavailable" xml:space="preserve">
+    <value>Motion unavailable: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnabled" xml:space="preserve">
+    <value>Warm-up enabled</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpFailed" xml:space="preserve">
+    <value>Warm-up failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusConnectedWithNotes" xml:space="preserve">
+    <value>Scanner sessions connected. {0}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusConnected" xml:space="preserve">
+    <value>Scanner sessions connected.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusConnectFailed" xml:space="preserve">
+    <value>Connect failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisableBeforeDisconnectFailed" xml:space="preserve">
+    <value>Warm-up disable before disconnect failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusDisconnectedReconnect" xml:space="preserve">
+    <value>Disconnected. Click Connect Devices to reconnect.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusDisconnected" xml:space="preserve">
+    <value>Disconnected.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceDevicesNotDetected" xml:space="preserve">
+    <value>Scanner devices 619C and 619D were not detected.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceDeviceDisappearedDuringConnect" xml:space="preserve">
+    <value>A scanner device disappeared during connect.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceEndpointCheckFailed" xml:space="preserve">
+    <value>Endpoint check failed. Required endpoints: 619C IN 0x82 and 619D OUT 0x01 / IN 0x81.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceEndpointInterfaceMismatch" xml:space="preserve">
+    <value>Endpoint check failed. 619D OUT 0x01 and IN 0x81 must be on the same interface.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceScannerNotConnected" xml:space="preserve">
+    <value>Scanner not connected. Click Connect Devices first.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ServiceScannerNotConnectedShort" xml:space="preserve">
+    <value>Scanner not connected.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusSegmentPrefix" xml:space="preserve">
+    <value>[{0}/{1}] {2}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanLinesConfigured" xml:space="preserve">
+    <value>Scan lines configured. 619C input opened. Starting scan...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusReadStartedSendingStartScan" xml:space="preserve">
+    <value>619C read started. Sending START_SCAN...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanCommandSentReceiving" xml:space="preserve">
+    <value>Scan command sent. Receiving image lines...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAckMonitorTimedOut" xml:space="preserve">
+    <value>START_SCAN ACK monitor timed out.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusDeviceBusy" xml:space="preserve">
+    <value>Device busy (cmd=0x{0}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusDeviceBusyTooLong" xml:space="preserve">
+    <value>Device stayed busy for too long.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckStatus" xml:space="preserve">
+    <value>START_SCAN ACK status: {0} (0x{1})</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckTargetMismatch" xml:space="preserve">
+    <value>START_SCAN ACK target mismatch: {0} (expected {1})</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckReceived" xml:space="preserve">
+    <value>START_SCAN ACK received.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartScanDoneAckReceived" xml:space="preserve">
+    <value>START_SCAN done ACK received.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartScanDoneAckTimeout" xml:space="preserve">
+    <value>START_SCAN done ACK not received in time.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanCompleted" xml:space="preserve">
+    <value>Scan completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanStopped" xml:space="preserve">
+    <value>Scan stopped.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanCompletedInSegments" xml:space="preserve">
+    <value>Scan completed in {0} segment(s).</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScanFailedAfterMs" xml:space="preserve">
+    <value>Scan failed after {0} ms: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusSegmentDoneAckTimeout" xml:space="preserve">
+    <value>Segment {0}/{1} done ACK was not received in time.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusUnexpectedStopAck" xml:space="preserve">
+    <value>Unexpected ACK command while stopping: 0x{0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStopAckReceived" xml:space="preserve">
+    <value>STOP_SCAN ACK received (target={0}, completed={1}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStopAckStatus" xml:space="preserve">
+    <value>STOP_SCAN ACK status: {0} (0x{1})</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStopSendFailed" xml:space="preserve">
+    <value>STOP_SCAN send failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusUnexpectedWarmUpAck" xml:space="preserve">
+    <value>Unexpected ACK command while enabling warm-up: 0x{0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpAckStatus" xml:space="preserve">
+    <value>WARM_UP ACK status: {0} (0x{1})</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnabledDetailed" xml:space="preserve">
+    <value>Warm-up enabled (target={0}, completed={1}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpCommandFailed" xml:space="preserve">
+    <value>Warm-up command failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusScannerNotConnected" xml:space="preserve">
+    <value>Scanner not connected. Click Connect Devices first.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusApplyIgnoredDebounce" xml:space="preserve">
+    <value>Apply ignored: please wait 1 second before next update.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusApplyingParameters" xml:space="preserve">
+    <value>Applying scan parameters...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusParametersUpdated" xml:space="preserve">
+    <value>Parameters updated successfully.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusParameterUpdateCanceled" xml:space="preserve">
+    <value>Parameter update canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusParameterUpdateFailed" xml:space="preserve">
+    <value>Parameter update failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusRefreshingIllumination" xml:space="preserve">
+    <value>Refreshing illumination state...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshed" xml:space="preserve">
+    <value>Illumination state refreshed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshCanceled" xml:space="preserve">
+    <value>Illumination refresh canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshFailed" xml:space="preserve">
+    <value>Illumination refresh failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusApplyingIllumination" xml:space="preserve">
+    <value>Applying illumination settings...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdated" xml:space="preserve">
+    <value>Illumination settings updated.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdateCanceled" xml:space="preserve">
+    <value>Illumination update canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdateFailed" xml:space="preserve">
+    <value>Illumination update failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusRefreshingMotion" xml:space="preserve">
+    <value>Refreshing motion state...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshed" xml:space="preserve">
+    <value>Motion state refreshed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshCanceled" xml:space="preserve">
+    <value>Motion refresh canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshFailed" xml:space="preserve">
+    <value>Motion refresh failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveStarting" xml:space="preserve">
+    <value>Starting finite move on {0}...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveCompleted" xml:space="preserve">
+    <value>{0} move completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveCanceled" xml:space="preserve">
+    <value>{0} move canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveFailed" xml:space="preserve">
+    <value>{0} move failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorStopping" xml:space="preserve">
+    <value>Stopping {0}...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorStopSent" xml:space="preserve">
+    <value>{0} stop command sent.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorStopCanceled" xml:space="preserve">
+    <value>{0} stop canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorStopFailed" xml:space="preserve">
+    <value>{0} stop failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigApplying" xml:space="preserve">
+    <value>Applying persisted config to {0}...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigApplied" xml:space="preserve">
+    <value>{0} config applied.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigCanceled" xml:space="preserve">
+    <value>{0} config apply canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigFailed" xml:space="preserve">
+    <value>{0} config apply failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorEnabling" xml:space="preserve">
+    <value>Enabling {0}...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorDisabling" xml:space="preserve">
+    <value>Disabling {0}...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorEnabled" xml:space="preserve">
+    <value>{0} enabled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorDisabled" xml:space="preserve">
+    <value>{0} disabled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorEnableCanceled" xml:space="preserve">
+    <value>{0} enable canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorDisableCanceled" xml:space="preserve">
+    <value>{0} disable canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorEnableFailed" xml:space="preserve">
+    <value>{0} enable failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMotorDisableFailed" xml:space="preserve">
+    <value>{0} disable failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoBlackCompleted" xml:space="preserve">
+    <value>Auto black calibration completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoWhiteCompleted" xml:space="preserve">
+    <value>Auto white calibration completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationCompleted" xml:space="preserve">
+    <value>Auto calibration completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileSaved" xml:space="preserve">
+    <value>Calibration channel '{0}' profile saved.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusSaveChannelProfileFailed" xml:space="preserve">
+    <value>Save channel profile failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelEmpty" xml:space="preserve">
+    <value>Calibration channel is empty.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileCleared" xml:space="preserve">
+    <value>Calibration channel '{0}' profile cleared.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve">
+    <value>Calibration channel '{0}' has no saved profile.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusClearChannelProfileFailed" xml:space="preserve">
+    <value>Clear channel profile failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve">
+    <value>Film profile '{0}' exported.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve">
+    <value>Save film profile failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusLoadFilmProfileCanceled" xml:space="preserve">
+    <value>Load film profile canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileLoaded" xml:space="preserve">
+    <value>Film profile '{0}' loaded.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve">
+    <value>Load film profile failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutofocusStarted" xml:space="preserve">
+    <value>Autofocus started...</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusSampling" xml:space="preserve">
+    <value>Autofocus: sampling {0} rows, tilt step {1}, Z step {2}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutofocusCompleted" xml:space="preserve">
+    <value>Autofocus completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusCanceled" xml:space="preserve">
+    <value>Autofocus: canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutofocusCanceled" xml:space="preserve">
+    <value>Autofocus canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusFailed" xml:space="preserve">
+    <value>Autofocus: failed - {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutofocusFailed" xml:space="preserve">
+    <value>Autofocus failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed" xml:space="preserve">
+    <value>Autofocus finished, but warm-up restore failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusWarmUpOffRequired" xml:space="preserve">
+    <value>Autofocus requires warm-up off: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_RowsLimitExceeded.Title" xml:space="preserve">
+    <value>Rows limit exceeded</value>
+  </data>
+  <data name="ScanDebug_Runtime_RowsLimitExceeded.Content" xml:space="preserve">
+    <value>Rows greater than {0} require both Multi-buffer bulk IN and Raw I/O to be enabled in Settings.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusRowsLimitExceeded" xml:space="preserve">
+    <value>Rows above {0} require Multi-buffer bulk IN and Raw I/O.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorRowsWarmUpPositive" xml:space="preserve">
+    <value>Rows must be a positive number when warm-up is enabled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorRowsRange" xml:space="preserve">
+    <value>Rows must be a number in [1, {0}].</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartingContinuousScan" xml:space="preserve">
+    <value>Starting continuous scan...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartingScan" xml:space="preserve">
+    <value>Starting scan...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStopRequested" xml:space="preserve">
+    <value>Stop requested.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusContinuousScanNoImageData" xml:space="preserve">
+    <value>Continuous scan completed without image data.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusContinuousPreviewUpdated" xml:space="preserve">
+    <value>Continuous preview updated ({0}).</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusPreviewSkippedAuto" xml:space="preserve">
+    <value>{0} Preview skipped automatically for scans over {1} rows.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusPreviewSkipped" xml:space="preserve">
+    <value>{0} Preview skipped.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpWillEnableAfterConnect" xml:space="preserve">
+    <value>Warm-up will be enabled after the scanner is connected.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisabled" xml:space="preserve">
+    <value>Warm-up disabled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnableCanceled" xml:space="preserve">
+    <value>Warm-up enable canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisableCanceled" xml:space="preserve">
+    <value>Warm-up disable canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationStarted" xml:space="preserve">
+    <value>Auto calibration started...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationCanceled" xml:space="preserve">
+    <value>Auto calibration canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationFailed" xml:space="preserve">
+    <value>Auto calibration failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_DispatchFailed" xml:space="preserve">
+    <value>Failed to dispatch work to the UI thread.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusPhasePreviewUpdated" xml:space="preserve">
+    <value>{0}: preview updated.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc1Offset" xml:space="preserve">
+    <value>ADC1 offset</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc2Offset" xml:space="preserve">
+    <value>ADC2 offset</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc1Gain" xml:space="preserve">
+    <value>ADC1 gain</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc2Gain" xml:space="preserve">
+    <value>ADC2 gain</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelSampleRows" xml:space="preserve">
+    <value>Sample rows</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelTiltProbeSteps" xml:space="preserve">
+    <value>Tilt probe steps</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelZProbeSteps" xml:space="preserve">
+    <value>Z probe steps</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelMotorInterval" xml:space="preserve">
+    <value>Motor interval</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitBounded" xml:space="preserve">
+    <value>{0} limit: {1} ~ {2}</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitBoundedInvalidInteger" xml:space="preserve">
+    <value>{0} limit: {1} ~ {2} | current input is not an integer</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitBoundedCurrentOutOfRange" xml:space="preserve">
+    <value>{0} limit: {1} ~ {2} | current: {3} (out of range)</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitBoundedCurrent" xml:space="preserve">
+    <value>{0} limit: {1} ~ {2} | current: {3}</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLowerBound" xml:space="preserve">
+    <value>{0} limit: &gt;= {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundInvalidInteger" xml:space="preserve">
+    <value>{0} limit: &gt;= {1} | current input is not an integer</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundCurrentBelowMinimum" xml:space="preserve">
+    <value>{0} limit: &gt;= {1} | current: {2} (below minimum)</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundCurrent" xml:space="preserve">
+    <value>{0} limit: &gt;= {1} | current: {2}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorSteadySyncOverlap" xml:space="preserve">
+    <value>Steady and sync selections cannot overlap on the same LED channel.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorSelectionRange" xml:space="preserve">
+    <value>Motor selection must be in [1, {0}].</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorStepsPositive" xml:space="preserve">
+    <value>Motor{0} Steps must be a positive integer.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve">
+    <value>Motor{0} Interval must be an integer &gt;= {1} us.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusRowsRange" xml:space="preserve">
+    <value>Autofocus rows must be an integer in [1, {0}].</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusTiltPositive" xml:space="preserve">
+    <value>Autofocus tilt step must be a positive integer.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusZPositive" xml:space="preserve">
+    <value>Autofocus Z step must be a positive integer.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusIntervalMinimum" xml:space="preserve">
+    <value>Autofocus interval must be an integer &gt;= {0} us.</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusSummary" xml:space="preserve">
+    <value>Autofocus: {0} rows, tilt={1} steps, Z={2} steps, overall={3}, left={4}, right={5}, imbalance={6}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorNonNegativeInteger" xml:space="preserve">
+    <value>{0} must be a non-negative integer.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorSyncPulseMinimum" xml:space="preserve">
+    <value>{0} must be at least {1} when sync is enabled for that channel.</value>
+  </data>
+  <data name="ScanDebug_Runtime_IlluminationSummary" xml:space="preserve">
+    <value>Illumination state: Steady={0}, Sync={1}, Active={2}</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotorStatusUnavailable" xml:space="preserve">
+    <value>State: unavailable</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotorStatus" xml:space="preserve">
+    <value>State: Enabled={0}, Running={1}, Direction={2}, DIAG={3}, Interval={4} us, Remaining={5}</value>
+  </data>
+  <data name="ScanDebug_Runtime_DiagHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="ScanDebug_Runtime_DiagLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionSummaryItemUnavailable" xml:space="preserve">
+    <value>Motor{0}=unavailable</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionSummaryItem" xml:space="preserve">
+    <value>Motor{0}={1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionSummary" xml:space="preserve">
+    <value>Motion state: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionStateRunning" xml:space="preserve">
+    <value>running</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionStateEnabled" xml:space="preserve">
+    <value>enabled</value>
+  </data>
+  <data name="ScanDebug_Runtime_MotionStateDisabled" xml:space="preserve">
+    <value>disabled</value>
+  </data>
+  <data name="ScanDebug_Runtime_Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="ScanDebug_Runtime_No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="ScanDebug_Runtime_None" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="ScanDebug_Runtime_CursorPosition" xml:space="preserve">
+    <value>Cursor: ({0}, {1}) px</value>
+  </data>
+  <data name="ScanDebug_Runtime_CursorIntensity" xml:space="preserve">
+    <value>Intensity16: {0}</value>
   </data>
 </root>
