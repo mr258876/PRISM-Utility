@@ -1,6 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 
 using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Helpers;
 
 namespace PRISM_Utility.Services;

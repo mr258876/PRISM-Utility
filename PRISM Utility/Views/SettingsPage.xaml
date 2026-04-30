@@ -54,6 +54,17 @@
                         </RadioButton.CommandParameter>
                     </RadioButton>
                 </StackPanel>
+
+                <TextBlock
+                    x:Uid="Settings_Language"
+                    Margin="{StaticResource SmallTopMargin}" />
+
+                <ComboBox
+                    Margin="{StaticResource XSmallTopMargin}"
+                    ItemsSource="{x:Bind ViewModel.LanguageOptions, Mode=OneWay}"
+                    DisplayMemberPath="DisplayName"
+                    SelectedValuePath="LanguageTag"
+                    SelectedValue="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}" />
             </StackPanel>
 
             <TextBlock x:Uid="Settings_Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Media.Imaging;
+using PRISM_Utility.Core.Models;
 using PRISM_Utility.Models;
 
 namespace PRISM_Utility.Contracts.Services;

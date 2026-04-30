@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
 
-using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Helpers;

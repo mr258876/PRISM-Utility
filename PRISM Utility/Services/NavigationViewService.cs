@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml.Controls;
 
 using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.ViewModels;
 

@@ -36,6 +36,7 @@ public partial class ScanViewModel : ObservableRecipient
     private ScanParameterSnapshot? _loadedSnapshot;
     private ushort _loadedExposureTicks;
     private uint _loadedSysClockKhz;
+    private ScanFilmAcquisitionSettings? _selectedConfigAcquisitionSettings;
     private bool _isDisposed;
     private bool _isLoadingColorManagementSettings;
 
@@ -104,6 +105,9 @@ public partial class ScanViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string SelectedScanMotor { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedConfigProfileName { get; set; }
 
     [ObservableProperty]
     public partial string MotorIntervalUs { get; set; }
@@ -235,6 +239,7 @@ public partial class ScanViewModel : ObservableRecipient
         IsChannel3Reversed = false;
         IsChannel4Reversed = false;
         SelectedScanMotor = MotorOptions[Math.Min(1, MotorOptions.Count - 1)];
+        SelectedConfigProfileName = "Scan_Runtime_ConfigProfileNotSelected".GetLocalized();
         MotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         Led1Level = "0";
         Led2Level = "0";
@@ -442,6 +447,9 @@ public partial class ScanViewModel : ObservableRecipient
                 statusNotes.Add("Scan_Runtime_StatusIlluminationUnavailable".GetLocalizedFormat(ex.Message));
             }
 
+            if (_selectedConfigAcquisitionSettings is not null)
+                ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);
+
             UpdateComputedMotorSummary();
             StatusText = statusNotes.Count > 0
                 ? "Scan_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
@@ -635,6 +643,38 @@ public partial class ScanViewModel : ObservableRecipient
         }
     }
 
+    [RelayCommand]
+    private async Task LoadConfigProfile()
+    {
+        try
+        {
+            await _channelProfiles.InitializeAsync();
+
+            var imported = await _channelProfiles.ImportProfilesAsync();
+            if (imported is null)
+            {
+                StatusText = "Scan_Runtime_StatusLoadConfigProfileCanceled".GetLocalized();
+                return;
+            }
+
+            await _channelProfiles.ReplaceProfilesAsync(imported);
+            SelectedConfigProfileName = imported.ProfileName;
+            _selectedConfigAcquisitionSettings = imported.AcquisitionSettings?.Normalize();
+
+            if (_selectedConfigAcquisitionSettings is not null)
+                ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);
+
+            StatusText = (_selectedConfigAcquisitionSettings is null
+                    ? "Scan_Runtime_StatusConfigProfileLoadedLegacy"
+                    : "Scan_Runtime_StatusConfigProfileLoaded")
+                .GetLocalizedFormat(imported.ProfileName);
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Scan_Runtime_StatusLoadConfigProfileFailed".GetLocalizedFormat(ex.Message);
+        }
+    }
+
     private void ApplyProgress(ScanWorkflowProgress progress)
     {
         CurrentPassText = "Scan_Runtime_CurrentPassProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage));
@@ -716,8 +756,10 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
+        var assignment = BuildChannelAssignment();
         var capture = _lastResult.Passes[channelIndex];
-        if (_channelImages.TryBuildRawPreview(capture, PreviewImage, out var bitmap, out var rawError))
+        var manuallyReverse = channelIndex < assignment.ReversedFlags.Count && assignment.ReversedFlags[channelIndex];
+        if (_channelImages.TryBuildRawPreview(capture, manuallyReverse, PreviewImage, out var bitmap, out var rawError))
         {
             PreviewImage = bitmap;
             PreviewDescriptionText = "Scan_Runtime_PreviewRawDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), capture.PassIndex);
@@ -764,7 +806,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
     {
-        request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), Array.Empty<string>(), Array.Empty<ScanParameterSnapshot>(), 0, 0, false, false, 0, 0);
+        request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), Array.Empty<string>(), Array.Empty<ScanParameterSnapshot>(), 0, 0, false, false, 0, 0, null);
 
         if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
         {
@@ -812,7 +854,8 @@ public partial class ScanViewModel : ObservableRecipient
             string.Equals(SelectedStartingDirection, ForwardDirection, StringComparison.OrdinalIgnoreCase),
             IsAlternateMotorDirectionEnabled,
             _loadedExposureTicks,
-            _loadedSysClockKhz);
+            _loadedSysClockKhz,
+            BuildWorkflowAcquisitionSettings(intervalUs, led1, led2, led3, led4));
 
         error = string.Empty;
         return true;
@@ -838,6 +881,33 @@ public partial class ScanViewModel : ObservableRecipient
     private int GetMotorDisplayIndex()
         => TryParseSelectedMotor(out var motorId, out _) ? motorId + 1 : 1;
 
+    private void ApplyAcquisitionSettingsToInputs(ScanFilmAcquisitionSettings settings)
+    {
+        var normalized = settings.Normalize();
+        MotorIntervalUs = normalized.MotorIntervalUs.ToString(CultureInfo.InvariantCulture);
+        Led1Level = normalized.Led1Level.ToString(CultureInfo.InvariantCulture);
+        Led2Level = normalized.Led2Level.ToString(CultureInfo.InvariantCulture);
+        Led3Level = normalized.Led3Level.ToString(CultureInfo.InvariantCulture);
+        Led4Level = normalized.Led4Level.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private ScanFilmAcquisitionSettings BuildWorkflowAcquisitionSettings(uint motorIntervalUs, ushort led1, ushort led2, ushort led3, ushort led4)
+    {
+        var source = _selectedConfigAcquisitionSettings?.Normalize() ?? ScanFilmAcquisitionSettings.CreateDefault();
+        return new ScanFilmAcquisitionSettings(
+            led1,
+            led2,
+            led3,
+            led4,
+            source.SteadyMask,
+            source.SyncMask,
+            source.Led1PulseClock,
+            source.Led2PulseClock,
+            source.Led3PulseClock,
+            source.Led4PulseClock,
+            motorIntervalUs).Normalize();
+    }
+
     private static bool TryParseLedLevel(string text, string fieldName, out ushort value, out string error)
     {
         if (!ushort.TryParse(text, out value))
@@ -854,7 +924,7 @@ public partial class ScanViewModel : ObservableRecipient
         => _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered && _transferSettings.Settings.RawIoEnabled;
 
     private ScanChannelAssignment BuildChannelAssignment()
-        => new(SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role, false, false, false, false);
+        => new(SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role, IsChannel1Reversed, IsChannel2Reversed, IsChannel3Reversed, IsChannel4Reversed);
 
     private async Task LoadColorManagementSettingsAsync()
     {

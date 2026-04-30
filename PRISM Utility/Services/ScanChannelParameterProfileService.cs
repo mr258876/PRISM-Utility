@@ -1,4 +1,5 @@
 using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Models;
 using Windows.Storage;
@@ -10,7 +11,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
 {
     private const string ProfilesKey = "ScanChannelParameterProfiles";
     private const string SelectedCalibrationChannelKey = "ScanCalibrationSelectedChannel";
-    private const int ExchangeSchemaVersion = 1;
+    private const int ExchangeSchemaVersion = 2;
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
@@ -236,8 +237,12 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
             string.IsNullOrWhiteSpace(profileSet.ProfileName) ? "Untitled Film Profile" : profileSet.ProfileName.Trim(),
             profileSet.SavedAtUtc == default ? DateTimeOffset.Now : profileSet.SavedAtUtc,
             normalizedProfiles,
-            NormalizeRole(profileSet.SelectedCalibrationChannel));
+            NormalizeRole(profileSet.SelectedCalibrationChannel),
+            NormalizeImportedAcquisitionSettings(profileSet.AcquisitionSettings));
     }
+
+    private static ScanFilmAcquisitionSettings? NormalizeImportedAcquisitionSettings(ScanFilmAcquisitionSettings? acquisitionSettings)
+        => acquisitionSettings?.Normalize();
 
     private static bool TryNormalizeProfile(ScanChannelCalibrationProfile? profile, out ScanChannelCalibrationProfile normalized)
     {
@@ -255,7 +260,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
         if (roiSettings is null)
         {
             roiSettings = ScanCalibrationRoiSettings.CreateDefault();
-            isRoiValid = false;
+            isRoiValid = true;
         }
 
         normalized = new ScanChannelCalibrationProfile(normalizedSnapshot, roiSettings.Normalize());

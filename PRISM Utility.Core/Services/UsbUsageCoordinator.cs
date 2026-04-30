@@ -1,6 +1,6 @@
-using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Core.Contracts.Services;
 
-namespace PRISM_Utility.Services;
+namespace PRISM_Utility.Core.Services;
 
 public sealed class UsbUsageCoordinator : IUsbUsageCoordinator
 {

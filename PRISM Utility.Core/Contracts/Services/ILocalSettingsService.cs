@@ -1,4 +1,4 @@
-﻿namespace PRISM_Utility.Contracts.Services;
+namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface ILocalSettingsService
 {

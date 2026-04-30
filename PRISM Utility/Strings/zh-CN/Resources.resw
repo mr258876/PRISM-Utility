@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppDisplayName" xml:space="preserve"><value>PRISM 实用工具</value></data>
+  <data name="AppDescription" xml:space="preserve"><value>PRISM 实用工具</value></data>
+  <data name="Shell_Main.Content" xml:space="preserve"><value>主页</value></data>
+  <data name="Settings_Personalization.Text" xml:space="preserve"><value>个性化</value></data>
+  <data name="Settings_Theme.Text" xml:space="preserve"><value>主题</value></data>
+  <data name="Settings_Theme_Light.Content" xml:space="preserve"><value>浅色</value></data>
+  <data name="Settings_Theme_Dark.Content" xml:space="preserve"><value>深色</value></data>
+  <data name="Settings_Theme_Default.Content" xml:space="preserve"><value>默认</value></data>
+  <data name="Settings_Language.Text" xml:space="preserve"><value>语言</value></data>
+  <data name="Settings_Language_System" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="Settings_Language_English" xml:space="preserve"><value>英语</value></data>
+  <data name="Settings_Language_SimplifiedChinese" xml:space="preserve"><value>简体中文</value></data>
+  <data name="Settings_Scanner.Text" xml:space="preserve"><value>扫描仪</value></data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve"><value>多缓冲 Bulk IN</value></data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
+  <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
+  <data name="Settings_RawIoToggleSwitch.Header" xml:space="preserve"><value>原始 I/O</value></data>
+  <data name="Settings_RawIoToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
+  <data name="Settings_RawIoToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
+  <data name="Settings_RequestBytesTextBox.Header" xml:space="preserve"><value>请求字节数</value></data>
+  <data name="Settings_RequestBytesTextBox.PlaceholderText" xml:space="preserve"><value>每个进行中读取的字节数</value></data>
+  <data name="Settings_OutstandingReadsTextBox.Header" xml:space="preserve"><value>未完成读取数</value></data>
+  <data name="Settings_OutstandingReadsTextBox.PlaceholderText" xml:space="preserve"><value>并发读取请求数</value></data>
+  <data name="Settings_TimeoutMsTextBox.Header" xml:space="preserve"><value>传输超时 (ms)</value></data>
+  <data name="Settings_TimeoutMsTextBox.PlaceholderText" xml:space="preserve"><value>每次读取请求的超时时间</value></data>
+  <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve"><value>在扫描图像端点上排队多个并发读取，以减少主机端 Bulk IN 完成之间的间隙，并支持超过单次请求 2 MiB 限制的大尺寸扫描。</value></data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.Header" xml:space="preserve"><value>将程序输出镜像到调试控制台</value></data>
+  <data name="Settings_DebugFileLogToggleSwitch.Header" xml:space="preserve"><value>将程序输出镜像到本地日志文件</value></data>
+  <data name="Settings_ColorManagement.Text" xml:space="preserve"><value>色彩管理</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>对 RGB 预览和 PNG 输出使用光谱波长映射</value></data>
+  <data name="Settings_RedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
+  <data name="Settings_GreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
+  <data name="Settings_BlueWavelengthTextBox.Header" xml:space="preserve"><value>蓝色波长 (nm)</value></data>
+  <data name="Settings_OutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
+  <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve"><value>恢复颜色默认值</value></data>
+  <data name="Settings_ColorManagementDescription.Text" xml:space="preserve"><value>这些设置由 RGB 合成预览和保存的 PNG 输出共用。原始通道导出不受影响。</value></data>
+  <data name="Settings_About.Text" xml:space="preserve"><value>关于本应用</value></data>
+  <data name="Settings_AboutDescription.Text" xml:space="preserve"><value>github.com/mr258876/PRISM-Utility</value></data>
+  <data name="SettingsPage_PrivacyTermsLink.Content" xml:space="preserve"><value>隐私声明</value></data>
+  <data name="SettingsPage_PrivacyTermsLink.NavigateUri" xml:space="preserve"><value>https://YourPrivacyUrlGoesHere/</value></data>
+  <data name="Shell_UsbDebug.Content" xml:space="preserve"><value>USB 调试</value></data>
+  <data name="Shell_Scan.Content" xml:space="preserve"><value>扫描</value></data>
+  <data name="UsbDebug_SelectDevice.Text" xml:space="preserve"><value>选择设备</value></data>
+  <data name="UsbDebug_BuckIn.Text" xml:space="preserve"><value>Bulk IN</value></data>
+  <data name="UsbDebug_StopBulkInButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="UsbDebug_StartBulkInButton.Content" xml:space="preserve"><value>启动 Bulk IN</value></data>
+  <data name="UsbDebug_Results.Text" xml:space="preserve"><value>结果</value></data>
+  <data name="UsbDebug_BulkInEndpointComboBox.Header" xml:space="preserve"><value>端点</value></data>
+  <data name="UsbDebug_BulkInInterfaceComboBox.Header" xml:space="preserve"><value>接口</value></data>
+  <data name="UsbDebug_BulkInConfigComboBox.Header" xml:space="preserve"><value>配置</value></data>
+  <data name="UsbDebug_DeviceBulkInRequestSizeComboBox.Header" xml:space="preserve"><value>数据大小</value></data>
+  <data name="UsbDebug_DeviceBulkInRequestSizeComboBox.PlaceholderText" xml:space="preserve"><value>选择或输入</value></data>
+  <data name="UsbDebug_DeviceBuliInRequestSizeComboBox_HelpText.Text" xml:space="preserve"><value>您也可以直接输入数值。由于 WinUSB，最大值为 2097152。</value></data>
+  <data name="UsbDebug_BulkOut.Text" xml:space="preserve"><value>Bulk OUT</value></data>
+  <data name="UsbDebug_BulkOutDeviceComboBox.Header" xml:space="preserve"><value>设备</value></data>
+  <data name="UsbDebug_BulkOutConfigComboBox.Header" xml:space="preserve"><value>配置</value></data>
+  <data name="UsbDebug_BulkOutInterfaceComboBox.Header" xml:space="preserve"><value>接口</value></data>
+  <data name="UsbDebug_BulkOutEndpointComboBox.Header" xml:space="preserve"><value>端点</value></data>
+  <data name="UsbDebug_BulkOutPayloadTextBox.Header" xml:space="preserve"><value>负载（文本）</value></data>
+  <data name="UsbDebug_BulkOutPayloadTextBox.PlaceholderText" xml:space="preserve"><value>输入要以 UTF-8 发送的文本</value></data>
+  <data name="UsbDebug_SendBulkOutButton.Content" xml:space="preserve"><value>发送 Bulk OUT</value></data>
+  <data name="UsbDebug_BulkOutHexModeToggleSwitch.Header" xml:space="preserve"><value>十六进制模式</value></data>
+  <data name="UsbDebug_BulkOutHexModeToggleSwitch.OnContent" xml:space="preserve"><value>开（Hex）</value></data>
+  <data name="UsbDebug_BulkOutHexModeToggleSwitch.OffContent" xml:space="preserve"><value>关（UTF-8 文本）</value></data>
+  <data name="UsbDebug_BulkInDeviceComboBox.Header" xml:space="preserve"><value>设备</value></data>
+  <data name="Shell_ScanDebug.Content" xml:space="preserve"><value>扫描调试</value></data>
+  <data name="Scan_ConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
+  <data name="Scan_DisconnectButton.Content" xml:space="preserve"><value>断开连接</value></data>
+  <data name="Scan_StartButton.Content" xml:space="preserve"><value>开始扫描</value></data>
+  <data name="Scan_StopButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="Scan_SetupTitle.Text" xml:space="preserve"><value>扫描设置</value></data>
+  <data name="Scan_CoreSetupSection.Text" xml:space="preserve"><value>核心扫描设置</value></data>
+  <data name="Scan_RowsComboBox.Header" xml:space="preserve"><value>行数</value></data>
+  <data name="Scan_WarmUpToggleSwitch.Header" xml:space="preserve"><value>预热</value></data>
+  <data name="Scan_WarmUpToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_WarmUpToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve"><value>预览</value></data>
+  <data name="Scan_PreviewToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_PreviewToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_AlternateDirectionToggleSwitch.Header" xml:space="preserve"><value>每轮交替电机方向</value></data>
+  <data name="Scan_AlternateDirectionToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_AlternateDirectionToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_StartingDirectionComboBox.Header" xml:space="preserve"><value>起始方向</value></data>
+  <data name="Scan_DirectionHelpText.Text" xml:space="preserve"><value>四个 LED 扫描轮次将从所选方向开始。启用交替时，每轮都会翻转方向。禁用时，每轮都按相同方向扫描，电机会在下一轮开始前返回起始位置。</value></data>
+  <data name="Scan_PassPlanTitle.Text" xml:space="preserve"><value>扫描轮次计划</value></data>
+  <data name="Scan_PassPlanSection.Text" xml:space="preserve"><value>轮次与照明计划</value></data>
+  <data name="Scan_Pass1Title.Text" xml:space="preserve"><value>第 1 轮 · LED1</value></data>
+  <data name="Scan_Pass1DirectionToggleSwitch.Header" xml:space="preserve"><value>方向</value></data>
+  <data name="Scan_Pass1DirectionToggleSwitch.OnContent" xml:space="preserve"><value>反向</value></data>
+  <data name="Scan_Pass1DirectionToggleSwitch.OffContent" xml:space="preserve"><value>正向</value></data>
+  <data name="Scan_Pass2Title.Text" xml:space="preserve"><value>第 2 轮 · LED2</value></data>
+  <data name="Scan_Pass2DirectionToggleSwitch.Header" xml:space="preserve"><value>方向</value></data>
+  <data name="Scan_Pass2DirectionToggleSwitch.OnContent" xml:space="preserve"><value>反向</value></data>
+  <data name="Scan_Pass2DirectionToggleSwitch.OffContent" xml:space="preserve"><value>正向</value></data>
+  <data name="Scan_Pass3Title.Text" xml:space="preserve"><value>第 3 轮 · LED3</value></data>
+  <data name="Scan_Pass3DirectionToggleSwitch.Header" xml:space="preserve"><value>方向</value></data>
+  <data name="Scan_Pass3DirectionToggleSwitch.OnContent" xml:space="preserve"><value>反向</value></data>
+  <data name="Scan_Pass3DirectionToggleSwitch.OffContent" xml:space="preserve"><value>正向</value></data>
+  <data name="Scan_Pass4Title.Text" xml:space="preserve"><value>第 4 轮 · LED4</value></data>
+  <data name="Scan_Pass4DirectionToggleSwitch.Header" xml:space="preserve"><value>方向</value></data>
+  <data name="Scan_Pass4DirectionToggleSwitch.OnContent" xml:space="preserve"><value>反向</value></data>
+  <data name="Scan_Pass4DirectionToggleSwitch.OffContent" xml:space="preserve"><value>正向</value></data>
+  <data name="Scan_PassHeader.Text" xml:space="preserve"><value>轮次</value></data>
+  <data name="Scan_LedHeader.Text" xml:space="preserve"><value>LED</value></data>
+  <data name="Scan_DirectionHeader.Text" xml:space="preserve"><value>方向</value></data>
+  <data name="Scan_ChannelMappingTitle.Text" xml:space="preserve"><value>通道映射</value></data>
+  <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve"><value>在保存 RGB 或原始结果前，为每个采集通道指定最终输出角色。</value></data>
+  <data name="Scan_Channel1Label.Text" xml:space="preserve"><value>采集通道 1</value></data>
+  <data name="Scan_Channel1ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel1ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_Channel1ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_Channel2Label.Text" xml:space="preserve"><value>采集通道 2</value></data>
+  <data name="Scan_Channel2ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel2ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_Channel2ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_Channel3Label.Text" xml:space="preserve"><value>采集通道 3</value></data>
+  <data name="Scan_Channel3ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel3ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_Channel3ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_Channel4Label.Text" xml:space="preserve"><value>采集通道 4</value></data>
+  <data name="Scan_Channel4ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel4ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="Scan_Channel4ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_OutputTitle.Text" xml:space="preserve"><value>输出</value></data>
+  <data name="Scan_ColorManagementSection.Text" xml:space="preserve"><value>色彩管理</value></data>
+  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve"><value>RGB 预览和 PNG 输出都会经过这个共享的 sRGB 色彩管理阶段编码。原始通道导出不变。</value></data>
+  <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>使用光谱波长映射</value></data>
+  <data name="Scan_RedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
+  <data name="Scan_GreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
+  <data name="Scan_BlueWavelengthTextBox.Header" xml:space="preserve"><value>蓝色波长 (nm)</value></data>
+  <data name="Scan_OutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
+  <data name="Scan_OutputSection.Text" xml:space="preserve"><value>输出</value></data>
+  <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve"><value>保存 RGB 图像</value></data>
+  <data name="Scan_ExportRawChannelsButton.Content" xml:space="preserve"><value>导出原始通道</value></data>
+  <data name="Scan_PreviewTitle.Text" xml:space="preserve"><value>预览</value></data>
+  <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve"><value>预览模式</value></data>
+  <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve"><value>预览区域</value></data>
+  <data name="Scan_RunDetailsTitle.Text" xml:space="preserve"><value>运行详情</value></data>
+  <data name="ScanDebug_StartButton.Content" xml:space="preserve"><value>开始</value></data>
+  <data name="ScanDebug_ConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
+  <data name="ScanDebug_DisconnectButton.Content" xml:space="preserve"><value>断开连接</value></data>
+  <data name="ScanDebug_StopButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="ScanDebug_ExportBufferButton.Content" xml:space="preserve"><value>导出缓冲区</value></data>
+  <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve"><value>采集</value></data>
+  <data name="ScanDebug_RowsComboBox.Header" xml:space="preserve"><value>行数</value></data>
+  <data name="ScanDebug_RowsComboBox.PlaceholderText" xml:space="preserve"><value>输入行数</value></data>
+  <data name="ScanDebug_WarmUpToggleSwitch.Header" xml:space="preserve"><value>预热</value></data>
+  <data name="ScanDebug_WarmUpToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_WarmUpToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_PreviewToggleSwitch.Header" xml:space="preserve"><value>预览</value></data>
+  <data name="ScanDebug_PreviewToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_PreviewToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_ContinuousToggleSwitch.Header" xml:space="preserve"><value>连续</value></data>
+  <data name="ScanDebug_ContinuousToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_ContinuousToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_WaterfallToggleSwitch.Header" xml:space="preserve"><value>瀑布流</value></data>
+  <data name="ScanDebug_WaterfallToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_WaterfallToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.Header" xml:space="preserve"><value>压缩为单行</value></data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_WaterfallCompressionToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.Header" xml:space="preserve"><value>伽马校正</value></data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_GammaCorrectionToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_GammaTextBox.Header" xml:space="preserve"><value>伽马</value></data>
+  <data name="ScanDebug_GammaTextBox.PlaceholderText" xml:space="preserve"><value>例如 2.2</value></data>
+  <data name="ScanDebug_Preview.Text" xml:space="preserve"><value>图像预览</value></data>
+  <data name="ScanDebug_ParamsTitle.Text" xml:space="preserve"><value>扫描仪参数</value></data>
+  <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve"><value>曝光时间 = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value></data>
+  <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve"><value>胶片配置名称</value></data>
+  <data name="ScanDebug_CalibrationChannelComboBox.Header" xml:space="preserve"><value>校准通道</value></data>
+  <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve"><value>保存通道</value></data>
+  <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve"><value>清除通道</value></data>
+  <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve"><value>保存 JSON</value></data>
+  <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve"><value>加载 JSON</value></data>
+  <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve"><value>曝光 Tick</value></data>
+  <data name="ScanDebug_ExposureTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_Adc1OffsetTextBox.Header" xml:space="preserve"><value>ADC1 偏移</value></data>
+  <data name="ScanDebug_Adc1OffsetTextBox.PlaceholderText" xml:space="preserve"><value>-256 to +256</value></data>
+  <data name="ScanDebug_Adc1GainTextBox.Header" xml:space="preserve"><value>ADC1 增益</value></data>
+  <data name="ScanDebug_Adc1GainTextBox.PlaceholderText" xml:space="preserve"><value>0-63</value></data>
+  <data name="ScanDebug_Adc2OffsetTextBox.Header" xml:space="preserve"><value>ADC2 偏移</value></data>
+  <data name="ScanDebug_Adc2OffsetTextBox.PlaceholderText" xml:space="preserve"><value>-256 to +256</value></data>
+  <data name="ScanDebug_Adc2GainTextBox.Header" xml:space="preserve"><value>ADC2 增益</value></data>
+  <data name="ScanDebug_Adc2GainTextBox.PlaceholderText" xml:space="preserve"><value>0-63</value></data>
+  <data name="ScanDebug_SysClockKhzTextBox.Header" xml:space="preserve"><value>系统时钟 (kHz)</value></data>
+  <data name="ScanDebug_SysClockKhzTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=30000</value></data>
+  <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve"><value>应用参数</value></data>
+  <data name="ScanDebug_AutoBlackButton.Content" xml:space="preserve"><value>自动黑电平 / 偏移</value></data>
+  <data name="ScanDebug_AutoWhiteButton.Content" xml:space="preserve"><value>自动白电平 / 增益</value></data>
+  <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve"><value>自动校准</value></data>
+  <data name="ScanDebug_AutofocusTitle.Text" xml:space="preserve"><value>自动对焦</value></data>
+  <data name="ScanDebug_AutofocusNote.Text" xml:space="preserve"><value>主机端扫描调试自动对焦。先在新的原始扫描缓冲区上优化整体清晰度，再根据左右相对清晰度平衡倾斜。</value></data>
+  <data name="ScanDebug_AutofocusSampleRowsTextBox.Header" xml:space="preserve"><value>采样行数</value></data>
+  <data name="ScanDebug_AutofocusTiltProbeStepsTextBox.Header" xml:space="preserve"><value>倾斜探测步数</value></data>
+  <data name="ScanDebug_AutofocusZProbeStepsTextBox.Header" xml:space="preserve"><value>Z 探测步数</value></data>
+  <data name="ScanDebug_AutofocusMotorIntervalUsTextBox.Header" xml:space="preserve"><value>电机间隔 (us)</value></data>
+  <data name="ScanDebug_AutofocusZDirectionComboBox.Header" xml:space="preserve"><value>逻辑 Z+ 方向</value></data>
+  <data name="ScanDebug_AutofocusTiltDirectionComboBox.Header" xml:space="preserve"><value>Motor1 上的逻辑 Tilt+ 方向</value></data>
+  <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve"><value>运行自动对焦</value></data>
+  <data name="ScanDebug_IlluminationTitle.Text" xml:space="preserve"><value>照明控制</value></data>
+  <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve"><value>LED2 在 RGBW 背光中对应 White，在 RGBIR 背光中对应 IR。同一通道不能同时启用常亮和同步。</value></data>
+  <data name="ScanDebug_Led1Channel.Text" xml:space="preserve"><value>LED1（蓝）</value></data>
+  <data name="ScanDebug_Led2Channel.Text" xml:space="preserve"><value>LED2（白 / IR）</value></data>
+  <data name="ScanDebug_Led3Channel.Text" xml:space="preserve"><value>LED3（红）</value></data>
+  <data name="ScanDebug_Led4Channel.Text" xml:space="preserve"><value>LED4（绿）</value></data>
+  <data name="ScanDebug_Led1LevelTextBox.Header" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_Led1LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_Led2LevelTextBox.Header" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_Led2LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_Led3LevelTextBox.Header" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_Led3LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_Led4LevelTextBox.Header" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_Led4LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_Led1PulseTextBox.Header" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_Led1PulseTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=2 用于同步</value></data>
+  <data name="ScanDebug_Led2PulseTextBox.Header" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_Led2PulseTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=2 用于同步</value></data>
+  <data name="ScanDebug_Led3PulseTextBox.Header" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_Led3PulseTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=2 用于同步</value></data>
+  <data name="ScanDebug_Led4PulseTextBox.Header" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_Led4PulseTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=2 用于同步</value></data>
+  <data name="ScanDebug_Led1SteadyCheckBox.Content" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_Led2SteadyCheckBox.Content" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_Led3SteadyCheckBox.Content" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_Led4SteadyCheckBox.Content" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_Led1SyncCheckBox.Content" xml:space="preserve"><value>曝光同步</value></data>
+  <data name="ScanDebug_Led2SyncCheckBox.Content" xml:space="preserve"><value>曝光同步</value></data>
+  <data name="ScanDebug_Led3SyncCheckBox.Content" xml:space="preserve"><value>曝光同步</value></data>
+  <data name="ScanDebug_Led4SyncCheckBox.Content" xml:space="preserve"><value>曝光同步</value></data>
+  <data name="ScanDebug_RefreshIlluminationButton.Content" xml:space="preserve"><value>刷新 LED 状态</value></data>
+  <data name="ScanDebug_ApplyIlluminationButton.Content" xml:space="preserve"><value>应用 LED 设置</value></data>
+  <data name="ScanDebug_MotionTitle.Text" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_MotionNote.Text" xml:space="preserve"><value>通过扫描仪主板 USB 运动 API 暴露的三个电机的调试控制。</value></data>
+  <data name="ScanDebug_RefreshMotionButton.Content" xml:space="preserve"><value>刷新运动状态</value></data>
+  <data name="ScanDebug_Motor1Title.Text" xml:space="preserve"><value>Motor1</value></data>
+  <data name="ScanDebug_Motor1EnableButton.Content" xml:space="preserve"><value>启用</value></data>
+  <data name="ScanDebug_Motor1DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
+  <data name="ScanDebug_Motor1IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
+  <data name="ScanDebug_Motor1MoveButton.Content" xml:space="preserve"><value>移动</value></data>
+  <data name="ScanDebug_Motor1StopButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="ScanDebug_Motor1ApplyConfigButton.Content" xml:space="preserve"><value>应用配置</value></data>
+  <data name="ScanDebug_Motor2Title.Text" xml:space="preserve"><value>Motor2</value></data>
+  <data name="ScanDebug_Motor2EnableButton.Content" xml:space="preserve"><value>启用</value></data>
+  <data name="ScanDebug_Motor2DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
+  <data name="ScanDebug_Motor2IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
+  <data name="ScanDebug_Motor2MoveButton.Content" xml:space="preserve"><value>移动</value></data>
+  <data name="ScanDebug_Motor2StopButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="ScanDebug_Motor2ApplyConfigButton.Content" xml:space="preserve"><value>应用配置</value></data>
+  <data name="ScanDebug_Motor3Title.Text" xml:space="preserve"><value>Motor3</value></data>
+  <data name="ScanDebug_Motor3EnableButton.Content" xml:space="preserve"><value>启用</value></data>
+  <data name="ScanDebug_Motor3DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
+  <data name="ScanDebug_Motor3IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
+  <data name="ScanDebug_Motor3MoveButton.Content" xml:space="preserve"><value>移动</value></data>
+  <data name="ScanDebug_Motor3StopButton.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="ScanDebug_Motor3ApplyConfigButton.Content" xml:space="preserve"><value>应用配置</value></data>
+  <data name="ScanDebug_RoiEditToggleSwitch.Header" xml:space="preserve"><value>ROI 编辑</value></data>
+  <data name="ScanDebug_RoiTargetComboBox.Header" xml:space="preserve"><value>ROI 目标</value></data>
+  <data name="ScanDebug_ResetSelectedRoiButton.Content" xml:space="preserve"><value>重置所选 ROI</value></data>
+  <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve"><value>重置所有 ROI</value></data>
+  <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve"><value>光标：(-, -) px</value></data>
+  <data name="ScanDebug_CursorIntensityTextBlock.Text" xml:space="preserve"><value>Intensity16: -</value></data>
+  <data name="ScanDebug_OverlayToolsHeader.Text" xml:space="preserve"><value>叠加层和 ROI 工具</value></data>
+  <data name="ScanDebug_VisibleOverlaysText.Text" xml:space="preserve"><value>可见叠加层</value></data>
+  <data name="ScanDebug_BwActiveOverlayCheckBox.Content" xml:space="preserve"><value>BW 活动区</value></data>
+  <data name="ScanDebug_BwShieldOverlayCheckBox.Content" xml:space="preserve"><value>BW 屏蔽区</value></data>
+  <data name="ScanDebug_FocusOverallOverlayCheckBox.Content" xml:space="preserve"><value>整体对焦</value></data>
+  <data name="ScanDebug_FocusLeftOverlayCheckBox.Content" xml:space="preserve"><value>左侧对焦</value></data>
+  <data name="ScanDebug_FocusRightOverlayCheckBox.Content" xml:space="preserve"><value>右侧对焦</value></data>
+  <data name="ScanDebug_RoiStartTextBox.Header" xml:space="preserve"><value>ROI 起始</value></data>
+  <data name="ScanDebug_RoiEndTextBox.Header" xml:space="preserve"><value>ROI 结束</value></data>
+  <data name="ScanDebug_ApplyRoiButton.Content" xml:space="preserve"><value>应用 ROI</value></data>
+  <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve"><value>恢复默认值</value></data>
+  <data name="Settings_VersionDescriptionFormat" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="Settings_BuildDescriptionFormat" xml:space="preserve"><value>构建 - {0}</value></data>
+  <data name="Scan_ScanMotorComboBox.Header" xml:space="preserve"><value>扫描电机</value></data>
+  <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve"><value>电机间隔 (us)</value></data>
+  <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=10</value></data>
+  <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve"><value>配置文件</value></data>
+  <data name="Scan_LoadConfigButton.Content" xml:space="preserve"><value>加载配置</value></data>
+  <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve"><value>LED1 电平</value></data>
+  <data name="Scan_Led1LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="Scan_Led2LevelTextBox.Header" xml:space="preserve"><value>LED2 电平</value></data>
+  <data name="Scan_Led2LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="Scan_Led3LevelTextBox.Header" xml:space="preserve"><value>LED3 电平</value></data>
+  <data name="Scan_Led3LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="Scan_Led4LevelTextBox.Header" xml:space="preserve"><value>LED4 电平</value></data>
+  <data name="Scan_Led4LevelTextBox.PlaceholderText" xml:space="preserve"><value>0-65535</value></data>
+  <data name="Shared_Dialog_UsbBusy.Title" xml:space="preserve"><value>USB 忙碌</value></data>
+  <data name="Shared_Dialog_Ok.CloseButtonText" xml:space="preserve"><value>确定</value></data>
+  <data name="Shared_Dialog_Error.Title" xml:space="preserve"><value>错误</value></data>
+  <data name="Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content" xml:space="preserve"><value>扫描调试已连接时，USB 调试不可用。请先断开扫描调试。</value></data>
+  <data name="Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content" xml:space="preserve"><value>USB 调试处于活动状态时，扫描调试不可用。请先停止 USB 调试。</value></data>
+  <data name="Shared_Runtime_ErrorIntegerRange0To65535" xml:space="preserve"><value>{0} 必须是 [0, 65535] 范围内的整数。</value></data>
+  <data name="Shared_Runtime_ErrorNumber" xml:space="preserve"><value>{0} 必须是数字。</value></data>
+  <data name="UsbDebug_Runtime_BulkInMissingParams" xml:space="preserve"><value>Bulk IN 参数不完整。</value></data>
+  <data name="UsbDebug_Runtime_BulkInStarted" xml:space="preserve"><value>Bulk IN 已启动。</value></data>
+  <data name="UsbDebug_Runtime_BulkInError" xml:space="preserve"><value>Bulk IN 错误：{0}</value></data>
+  <data name="UsbDebug_Runtime_BulkInStopped" xml:space="preserve"><value>Bulk IN 已停止。</value></data>
+  <data name="UsbDebug_Runtime_BulkInStopping" xml:space="preserve"><value>正在停止 Bulk IN...</value></data>
+  <data name="UsbDebug_Runtime_BulkOutMissingParams" xml:space="preserve"><value>Bulk OUT 参数不完整。</value></data>
+  <data name="UsbDebug_Runtime_BulkOutPayloadRequired" xml:space="preserve"><value>请输入负载文本。</value></data>
+  <data name="UsbDebug_Runtime_BulkOutError" xml:space="preserve"><value>Bulk OUT 错误：{0}</value></data>
+  <data name="UsbDebug_Runtime_BulkOutFailed.Title" xml:space="preserve"><value>Bulk OUT 失败</value></data>
+  <data name="UsbDebug_Runtime_NoHexBytesFound" xml:space="preserve"><value>未找到十六进制字节。</value></data>
+  <data name="UsbDebug_Runtime_HexTokenLength" xml:space="preserve"><value>第 {0} 个标记必须正好为 2 位十六进制数字（支持 0xAA / AAh / AAH / AA）。</value></data>
+  <data name="UsbDebug_Runtime_HexTokenInvalid" xml:space="preserve"><value>第 {0} 个标记不是有效的十六进制值：'{1}'。</value></data>
+  <data name="Scan_Runtime_StatusWaitingForDevices" xml:space="preserve"><value>正在等待扫描仪设备 1D50:619C 和 1D50:619D。</value></data>
+  <data name="Scan_Runtime_StatusDevicesDetected" xml:space="preserve"><value>已检测到 619C/619D。点击“连接设备”以为扫描打开扫描仪会话。</value></data>
+  <data name="Scan_Runtime_UsbDebugActive" xml:space="preserve"><value>USB 调试处于活动状态。连接扫描页面前请先停止它。</value></data>
+  <data name="Scan_Runtime_StatusLoadingState" xml:space="preserve"><value>扫描仪会话已连接。正在加载扫描状态...</value></data>
+  <data name="Scan_Runtime_StatusParametersLoaded" xml:space="preserve"><value>参数已加载（exp={0}, sysclk={1} kHz）</value></data>
+  <data name="Scan_Runtime_StatusParameterLoadUnavailable" xml:space="preserve"><value>参数加载不可用：{0}</value></data>
+  <data name="Scan_Runtime_StatusIlluminationLoaded" xml:space="preserve"><value>照明电平已加载</value></data>
+  <data name="Scan_Runtime_StatusIlluminationUnavailable" xml:space="preserve"><value>照明不可用：{0}</value></data>
+  <data name="Scan_Runtime_StatusConnectedWithNotes" xml:space="preserve"><value>扫描仪会话已连接。{0}。</value></data>
+  <data name="Scan_Runtime_StatusConnected" xml:space="preserve"><value>扫描仪会话已连接。</value></data>
+  <data name="Scan_Runtime_StatusConnectFailed" xml:space="preserve"><value>连接失败：{0}</value></data>
+  <data name="Scan_Runtime_StatusDisconnectedReconnect" xml:space="preserve"><value>已断开连接。点击“连接设备”重新连接。</value></data>
+  <data name="Scan_Runtime_StatusDisconnected" xml:space="preserve"><value>已断开连接。</value></data>
+  <data name="Scan_Runtime_ServiceDevicesNotDetected" xml:space="preserve"><value>未检测到扫描仪设备 619C 和 619D。</value></data>
+  <data name="Scan_Runtime_ServiceDeviceDisappearedDuringConnect" xml:space="preserve"><value>连接过程中有扫描仪设备消失。</value></data>
+  <data name="Scan_Runtime_ServiceEndpointCheckFailed" xml:space="preserve"><value>端点检查失败。所需端点：619C IN 0x82 和 619D OUT 0x01 / IN 0x81。</value></data>
+  <data name="Scan_Runtime_ServiceEndpointInterfaceMismatch" xml:space="preserve"><value>端点检查失败。619D OUT 0x01 和 IN 0x81 必须位于同一接口上。</value></data>
+  <data name="Scan_Runtime_ServiceScannerNotConnected" xml:space="preserve"><value>扫描仪未连接。请先点击“连接设备”。</value></data>
+  <data name="Scan_Runtime_ServiceScannerNotConnectedShort" xml:space="preserve"><value>扫描仪未连接。</value></data>
+  <data name="Scan_Runtime_StatusSegmentPrefix" xml:space="preserve"><value>[{0}/{1}] {2}</value></data>
+  <data name="Scan_Runtime_StatusScanLinesConfigured" xml:space="preserve"><value>扫描行已配置。619C 输入已打开。正在开始扫描...</value></data>
+  <data name="Scan_Runtime_StatusReadStartedSendingStartScan" xml:space="preserve"><value>619C 读取已开始。正在发送 START_SCAN...</value></data>
+  <data name="Scan_Runtime_StatusScanCommandSentReceiving" xml:space="preserve"><value>扫描命令已发送。正在接收图像行...</value></data>
+  <data name="Scan_Runtime_StatusAckMonitorTimedOut" xml:space="preserve"><value>START_SCAN ACK 监视超时。</value></data>
+  <data name="Scan_Runtime_StatusDeviceBusy" xml:space="preserve"><value>设备忙碌（cmd=0x{0}）。</value></data>
+  <data name="Scan_Runtime_StatusDeviceBusyTooLong" xml:space="preserve"><value>设备忙碌时间过长。</value></data>
+  <data name="Scan_Runtime_StatusStartScanAckStatus" xml:space="preserve"><value>START_SCAN ACK 状态：{0} (0x{1})</value></data>
+  <data name="Scan_Runtime_StatusStartScanAckTargetMismatch" xml:space="preserve"><value>START_SCAN ACK 目标不匹配：{0}（预期 {1}）</value></data>
+  <data name="Scan_Runtime_StatusStartScanAckReceived" xml:space="preserve"><value>已收到 START_SCAN ACK。</value></data>
+  <data name="Scan_Runtime_StatusStartScanDoneAckReceived" xml:space="preserve"><value>已收到 START_SCAN 完成 ACK。</value></data>
+  <data name="Scan_Runtime_StatusStartScanDoneAckTimeout" xml:space="preserve"><value>未及时收到 START_SCAN 完成 ACK。</value></data>
+  <data name="Scan_Runtime_StatusScanCompleted" xml:space="preserve"><value>扫描已完成。</value></data>
+  <data name="Scan_Runtime_StatusScanStopped" xml:space="preserve"><value>扫描已停止。</value></data>
+  <data name="Scan_Runtime_StatusScanCompletedInSegments" xml:space="preserve"><value>扫描已分 {0} 段完成。</value></data>
+  <data name="Scan_Runtime_StatusScanFailedAfterMs" xml:space="preserve"><value>扫描在 {0} ms 后失败：{1}</value></data>
+  <data name="Scan_Runtime_StatusSegmentDoneAckTimeout" xml:space="preserve"><value>未及时收到第 {0}/{1} 段完成 ACK。</value></data>
+  <data name="Scan_Runtime_StatusUnexpectedStopAck" xml:space="preserve"><value>停止时收到意外 ACK 命令：0x{0}</value></data>
+  <data name="Scan_Runtime_StatusStopAckReceived" xml:space="preserve"><value>已收到 STOP_SCAN ACK（target={0}, completed={1}）。</value></data>
+  <data name="Scan_Runtime_StatusStopAckStatus" xml:space="preserve"><value>STOP_SCAN ACK 状态：{0} (0x{1})</value></data>
+  <data name="Scan_Runtime_StatusStopSendFailed" xml:space="preserve"><value>发送 STOP_SCAN 失败：{0}</value></data>
+  <data name="Scan_Runtime_WorkflowEnableMotor" xml:space="preserve"><value>正在为扫描传送启用 Motor{0}...</value></data>
+  <data name="Scan_Runtime_WorkflowApplyCcdProfile" xml:space="preserve"><value>第 {0}/{1} 轮：正在为 {2} 通道应用 CCD 配置...</value></data>
+  <data name="Scan_Runtime_WorkflowPrepareMotorOnExposureSync" xml:space="preserve"><value>第 {0}/{1} 轮：正在准备 Motor{2} {3} {4} 步，等待 EXPOSURE_SYNC...</value></data>
+  <data name="Scan_Runtime_WorkflowCaptureRows" xml:space="preserve"><value>第 {0}/{1} 轮：LED{2} 已激活，正在采集 {3} 行...</value></data>
+  <data name="Scan_Runtime_WorkflowReturnMotor" xml:space="preserve"><value>第 {0}/{1} 轮：正在将 Motor{2} 返回起始位置，以便进行下一通道扫描...</value></data>
+  <data name="Scan_Runtime_WorkflowPassComplete" xml:space="preserve"><value>第 {0}/{1} 轮完成。</value></data>
+  <data name="Scan_Runtime_WorkflowCompleted" xml:space="preserve"><value>四通道扫描流程已完成。</value></data>
+  <data name="Scan_Runtime_WorkflowPassFailed" xml:space="preserve"><value>第 {0} 轮失败：{1}</value></data>
+  <data name="Scan_Runtime_StatusRowsLimitExceeded" xml:space="preserve"><value>高于 {0} 的行数需要启用 Multi-buffer bulk IN 和 Raw I/O，或启用预热分段模式。</value></data>
+  <data name="Scan_Runtime_OutputSummaryInProgress" xml:space="preserve"><value>扫描进行中...</value></data>
+  <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve"><value>已采集 {0} 轮，rows={1}，每轮电机步数={2}，间隔={3} us。</value></data>
+  <data name="Scan_Runtime_StatusCompleted" xml:space="preserve"><value>扫描已完成。</value></data>
+  <data name="Scan_Runtime_StatusCanceled" xml:space="preserve"><value>扫描已取消。</value></data>
+  <data name="Scan_Runtime_StatusFailed" xml:space="preserve"><value>扫描失败：{0}</value></data>
+  <data name="Scan_Runtime_OutputSummaryFailed" xml:space="preserve"><value>在生成输出前扫描失败。</value></data>
+  <data name="Scan_Runtime_StatusStopRequested" xml:space="preserve"><value>已请求停止。</value></data>
+  <data name="Scan_Runtime_StatusNoRgbResult" xml:space="preserve"><value>没有可用于保存 RGB 的扫描结果。</value></data>
+  <data name="Scan_Runtime_StatusRgbSaveCanceled" xml:space="preserve"><value>RGB 保存已取消。</value></data>
+  <data name="Scan_Runtime_StatusRgbSaved" xml:space="preserve"><value>RGB 图像已保存：{0}</value></data>
+  <data name="Scan_Runtime_StatusRgbSaveFailed" xml:space="preserve"><value>RGB 保存失败：{0}</value></data>
+  <data name="Scan_Runtime_StatusNoRawResult" xml:space="preserve"><value>没有可用于原始导出的扫描结果。</value></data>
+  <data name="Scan_Runtime_StatusRawExportCanceled" xml:space="preserve"><value>原始导出已取消。</value></data>
+  <data name="Scan_Runtime_StatusRawExported" xml:space="preserve"><value>原始通道缓冲区已导出到 {0}</value></data>
+  <data name="Scan_Runtime_StatusRawExportFailed" xml:space="preserve"><value>原始导出失败：{0}</value></data>
+  <data name="Scan_Runtime_CurrentPassIdle" xml:space="preserve"><value>第 - / 4 轮</value></data>
+  <data name="Scan_Runtime_CurrentPassCanceled" xml:space="preserve"><value>当前轮次已取消</value></data>
+  <data name="Scan_Runtime_CurrentPassProgress" xml:space="preserve"><value>第 {0} / {1} 轮 - {2}</value></data>
+  <data name="Scan_Runtime_CurrentLedIdle" xml:space="preserve"><value>LED：-</value></data>
+  <data name="Scan_Runtime_CurrentLedStopped" xml:space="preserve"><value>LED：空闲</value></data>
+  <data name="Scan_Runtime_CurrentLedProgress" xml:space="preserve"><value>LED：LED{0}</value></data>
+  <data name="Scan_Runtime_CurrentDirectionIdle" xml:space="preserve"><value>方向：-</value></data>
+  <data name="Scan_Runtime_CurrentDirectionStopped" xml:space="preserve"><value>方向：空闲</value></data>
+  <data name="Scan_Runtime_CurrentDirectionProgress" xml:space="preserve"><value>方向：{0}</value></data>
+  <data name="Scan_Runtime_PreviewPlaceholderInitial" xml:space="preserve"><value>运行一次扫描以生成 RGB 或原始通道预览输出。</value></data>
+  <data name="Scan_Runtime_PreviewPlaceholderNextScan" xml:space="preserve"><value>下次扫描后，{0} 预览将显示在此处。</value></data>
+  <data name="Scan_Runtime_PreviewDisabledDescription" xml:space="preserve"><value>预览已禁用。</value></data>
+  <data name="Scan_Runtime_PreviewDisabledPlaceholder" xml:space="preserve"><value>预览已禁用。</value></data>
+  <data name="Scan_Runtime_PreviewModeDescription" xml:space="preserve"><value>预览模式：{0}。</value></data>
+  <data name="Scan_Runtime_PreviewCompositeDescription" xml:space="preserve"><value>预览模式：{0}。合成预览使用当前通道角色映射和 {1}。</value></data>
+  <data name="Scan_Runtime_PreviewCompositeModeSpectral" xml:space="preserve"><value>光谱 sRGB 色彩管理</value></data>
+  <data name="Scan_Runtime_PreviewCompositeModeGamma" xml:space="preserve"><value>sRGB 伽马编码</value></data>
+  <data name="Scan_Runtime_PreviewRawUnavailable" xml:space="preserve"><value>所选原始预览通道不可用。</value></data>
+  <data name="Scan_Runtime_PreviewRawDescription" xml:space="preserve"><value>预览模式：{0}。正在显示第 {1} 轮的灰度原始缓冲区。</value></data>
+  <data name="Scan_Runtime_OutputSummaryEmpty" xml:space="preserve"><value>尚未采集任何扫描输出。</value></data>
+  <data name="Scan_Runtime_ChannelMappingSummary" xml:space="preserve"><value>通道 1 → {0}，通道 2 → {1}，通道 3 → {2}，通道 4 → {3}。</value></data>
+  <data name="Scan_Runtime_ComputedMotorUnavailableUntilRowsValid" xml:space="preserve"><value>在行数有效前，无法估算电机步数。</value></data>
+  <data name="Scan_Runtime_ComputedMotorIntervalMinimum" xml:space="preserve"><value>电机间隔至少必须为 {0} us。</value></data>
+  <data name="Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded" xml:space="preserve"><value>在扫描仪参数加载前，无法估算电机步数。</value></data>
+  <data name="Scan_Runtime_ComputedMotorSummary" xml:space="preserve"><value>基于当前曝光/系统时钟和 {3} 行，估算 Motor{0} 传送为每轮 {1} 步，间隔 {2} us。</value></data>
+  <data name="Scan_Runtime_ErrorRowsPositiveInteger" xml:space="preserve"><value>行数必须是正整数。</value></data>
+  <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve"><value>电机间隔必须是整数且 &gt;= {0} us。</value></data>
+  <data name="Scan_Runtime_ConfigProfileNotSelected" xml:space="preserve"><value>未加载配置文件</value></data>
+  <data name="Scan_Runtime_StatusLoadConfigProfileCanceled" xml:space="preserve"><value>加载配置文件已取消。</value></data>
+  <data name="Scan_Runtime_StatusConfigProfileLoaded" xml:space="preserve"><value>已加载配置文件 &quot;{0}&quot;，并应用已保存的 LED 和电机设置。</value></data>
+  <data name="Scan_Runtime_StatusConfigProfileLoadedLegacy" xml:space="preserve"><value>已加载配置文件 &quot;{0}&quot;。此文件不包含 LED 或电机设置。</value></data>
+  <data name="Scan_Runtime_StatusLoadConfigProfileFailed" xml:space="preserve"><value>加载配置文件失败：{0}</value></data>
+  <data name="Scan_Runtime_ErrorParametersNotLoaded" xml:space="preserve"><value>扫描仪参数尚未加载。请重新连接扫描仪后再试。</value></data>
+  <data name="Scan_Runtime_ErrorScanMotorRange" xml:space="preserve"><value>扫描电机必须是 Motor1..Motor{0} 之一。</value></data>
+  <data name="Scan_Runtime_DirectionForward" xml:space="preserve"><value>正向</value></data>
+  <data name="Scan_Runtime_DirectionReverse" xml:space="preserve"><value>反向</value></data>
+  <data name="Scan_Runtime_ProgressStagePreparing" xml:space="preserve"><value>准备中</value></data>
+  <data name="Scan_Runtime_ProgressStageScanning" xml:space="preserve"><value>扫描中</value></data>
+  <data name="Scan_Runtime_ProgressStageWaitingForMotor" xml:space="preserve"><value>等待电机</value></data>
+  <data name="Scan_Runtime_ProgressStageReturning" xml:space="preserve"><value>返回中</value></data>
+  <data name="Scan_Runtime_ProgressStageCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="Scan_Runtime_PreviewModeRgbComposite" xml:space="preserve"><value>RGB 合成</value></data>
+  <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve"><value>原始通道 {0}</value></data>
+  <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve"><value>红</value></data>
+  <data name="Scan_Runtime_ChannelRoleGreen" xml:space="preserve"><value>绿</value></data>
+  <data name="Scan_Runtime_ChannelRoleBlue" xml:space="preserve"><value>蓝</value></data>
+  <data name="Scan_Runtime_ChannelRoleWhite" xml:space="preserve"><value>白</value></data>
+  <data name="Scan_Runtime_ChannelRoleIr" xml:space="preserve"><value>IR</value></data>
+  <data name="Scan_Runtime_ChannelRoleUnused" xml:space="preserve"><value>未使用</value></data>
+  <data name="Scan_Runtime_MotorOption1" xml:space="preserve"><value>Motor1</value></data>
+  <data name="Scan_Runtime_MotorOption2" xml:space="preserve"><value>Motor2</value></data>
+  <data name="Scan_Runtime_MotorOption3" xml:space="preserve"><value>Motor3</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve"><value>校准配置通道：{0}（尚未加载已保存配置）。</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfile" xml:space="preserve"><value>校准配置通道：{0}（无已保存配置）。</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded" xml:space="preserve"><value>校准配置通道：{0}（已加载已保存配置）。</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_ProfileCleared" xml:space="preserve"><value>校准配置通道：{0}（配置已清除）。</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_LoadFailed" xml:space="preserve"><value>校准配置通道：{0}（加载失败：{1}）。</value></data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_SavedAt" xml:space="preserve"><value>校准配置通道：{0}（保存于 {1}）。</value></data>
+  <data name="ScanDebug_Runtime_FilmProfileUntitled" xml:space="preserve"><value>未命名胶片配置</value></data>
+  <data name="ScanDebug_Runtime_RoiInputsSynchronized" xml:space="preserve"><value>ROI 范围输入已与所选 ROI 同步。</value></data>
+  <data name="ScanDebug_Runtime_RoiRangeChanged" xml:space="preserve"><value>ROI 范围已更改。点击“应用 ROI”以提交数值修改。</value></data>
+  <data name="ScanDebug_Runtime_RoiStartIntegerRequired" xml:space="preserve"><value>ROI 起始必须是整数列索引。</value></data>
+  <data name="ScanDebug_Runtime_RoiEndIntegerRequired" xml:space="preserve"><value>ROI 结束必须是整数列索引。</value></data>
+  <data name="ScanDebug_Runtime_RoiRangeApplied" xml:space="preserve"><value>已根据数值输入应用 ROI 范围。</value></data>
+  <data name="ScanDebug_Runtime_RoiNumericMirror" xml:space="preserve"><value>数值 ROI 范围与 {0} 同步：{1} ~ {2}。</value></data>
+  <data name="ScanDebug_Runtime_RoiEditModeOn" xml:space="preserve"><value>编辑模式：开</value></data>
+  <data name="ScanDebug_Runtime_RoiEditModeOff" xml:space="preserve"><value>编辑模式：关</value></data>
+  <data name="ScanDebug_Runtime_RoiStatus" xml:space="preserve"><value>所选 ROI：{0} | 列 {1} ~ {2}（{3} px）| {4}。</value></data>
+  <data name="ScanDebug_Runtime_RoiSelectionBwActive" xml:space="preserve"><value>BW 活动区</value></data>
+  <data name="ScanDebug_Runtime_RoiSelectionBwShield" xml:space="preserve"><value>BW 屏蔽区</value></data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusOverall" xml:space="preserve"><value>整体对焦</value></data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusLeft" xml:space="preserve"><value>左侧对焦</value></data>
+  <data name="ScanDebug_Runtime_RoiSelectionFocusRight" xml:space="preserve"><value>右侧对焦</value></data>
+  <data name="ScanDebug_Runtime_MotorDirectionDir0" xml:space="preserve"><value>Dir0</value></data>
+  <data name="ScanDebug_Runtime_MotorDirectionDir1" xml:space="preserve"><value>Dir1</value></data>
+  <data name="ScanDebug_Runtime_StatusWaitingForDevicesShort" xml:space="preserve"><value>正在等待扫描仪设备...</value></data>
+  <data name="ScanDebug_Runtime_StatusWaitingForDevices" xml:space="preserve"><value>正在等待扫描仪设备 1D50:619C 和 1D50:619D。</value></data>
+  <data name="ScanDebug_Runtime_StatusDevicesDetected" xml:space="preserve"><value>已检测到 619C/619D。点击“连接设备”以验证端点并打开会话。</value></data>
+  <data name="ScanDebug_Runtime_ExposureTimeIdle" xml:space="preserve"><value>曝光时间：-</value></data>
+  <data name="ScanDebug_Runtime_OffsetAmplitudeIdle" xml:space="preserve"><value>偏移幅度：-</value></data>
+  <data name="ScanDebug_Runtime_GainIdle" xml:space="preserve"><value>增益：-</value></data>
+  <data name="ScanDebug_Runtime_SystemClockIdle" xml:space="preserve"><value>系统时钟：-</value></data>
+  <data name="ScanDebug_Runtime_IlluminationSummaryIdle" xml:space="preserve"><value>照明状态：-</value></data>
+  <data name="ScanDebug_Runtime_MotionSummaryIdle" xml:space="preserve"><value>运动状态：-</value></data>
+  <data name="ScanDebug_Runtime_MotorStatusIdle" xml:space="preserve"><value>状态：-</value></data>
+  <data name="ScanDebug_Runtime_AutofocusIdle" xml:space="preserve"><value>自动对焦：空闲。</value></data>
+  <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve"><value>导出已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusBufferExported" xml:space="preserve"><value>缓冲区已导出：{0} 字节 -&gt; {1}</value></data>
+  <data name="ScanDebug_Runtime_StatusExportFailed" xml:space="preserve"><value>导出失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusUsbDebugActive" xml:space="preserve"><value>USB 调试处于活动状态。连接扫描调试前请先停止它。</value></data>
+  <data name="ScanDebug_Runtime_StatusLoadingParameters" xml:space="preserve"><value>扫描仪会话已连接。正在加载参数...</value></data>
+  <data name="ScanDebug_Runtime_StatusParametersLoaded" xml:space="preserve"><value>参数已加载</value></data>
+  <data name="ScanDebug_Runtime_StatusParameterLoadUnavailable" xml:space="preserve"><value>参数加载不可用：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationLoaded" xml:space="preserve"><value>照明状态已加载</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUnavailable" xml:space="preserve"><value>照明不可用：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotionLoaded" xml:space="preserve"><value>运动状态已加载</value></data>
+  <data name="ScanDebug_Runtime_StatusMotionUnavailable" xml:space="preserve"><value>运动不可用：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnabled" xml:space="preserve"><value>预热已启用</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpFailed" xml:space="preserve"><value>预热失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusConnectedWithNotes" xml:space="preserve"><value>扫描仪会话已连接。{0}。</value></data>
+  <data name="ScanDebug_Runtime_StatusConnected" xml:space="preserve"><value>扫描仪会话已连接。</value></data>
+  <data name="ScanDebug_Runtime_StatusConnectFailed" xml:space="preserve"><value>连接失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisableBeforeDisconnectFailed" xml:space="preserve"><value>断开连接前禁用预热失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusDisconnectedReconnect" xml:space="preserve"><value>已断开连接。点击“连接设备”重新连接。</value></data>
+  <data name="ScanDebug_Runtime_StatusDisconnected" xml:space="preserve"><value>已断开连接。</value></data>
+  <data name="ScanDebug_Runtime_ServiceDevicesNotDetected" xml:space="preserve"><value>未检测到扫描仪设备 619C 和 619D。</value></data>
+  <data name="ScanDebug_Runtime_ServiceDeviceDisappearedDuringConnect" xml:space="preserve"><value>连接过程中有扫描仪设备消失。</value></data>
+  <data name="ScanDebug_Runtime_ServiceEndpointCheckFailed" xml:space="preserve"><value>端点检查失败。所需端点：619C IN 0x82 和 619D OUT 0x01 / IN 0x81。</value></data>
+  <data name="ScanDebug_Runtime_ServiceEndpointInterfaceMismatch" xml:space="preserve"><value>端点检查失败。619D OUT 0x01 和 IN 0x81 必须位于同一接口上。</value></data>
+  <data name="ScanDebug_Runtime_ServiceScannerNotConnected" xml:space="preserve"><value>扫描仪未连接。请先点击“连接设备”。</value></data>
+  <data name="ScanDebug_Runtime_ServiceScannerNotConnectedShort" xml:space="preserve"><value>扫描仪未连接。</value></data>
+  <data name="ScanDebug_Runtime_StatusSegmentPrefix" xml:space="preserve"><value>[{0}/{1}] {2}</value></data>
+  <data name="ScanDebug_Runtime_StatusScanLinesConfigured" xml:space="preserve"><value>扫描行已配置。619C 输入已打开。正在开始扫描...</value></data>
+  <data name="ScanDebug_Runtime_StatusReadStartedSendingStartScan" xml:space="preserve"><value>619C 读取已开始。正在发送 START_SCAN...</value></data>
+  <data name="ScanDebug_Runtime_StatusScanCommandSentReceiving" xml:space="preserve"><value>扫描命令已发送。正在接收图像行...</value></data>
+  <data name="ScanDebug_Runtime_StatusAckMonitorTimedOut" xml:space="preserve"><value>START_SCAN ACK 监视超时。</value></data>
+  <data name="ScanDebug_Runtime_StatusDeviceBusy" xml:space="preserve"><value>设备忙碌（cmd=0x{0}）。</value></data>
+  <data name="ScanDebug_Runtime_StatusDeviceBusyTooLong" xml:space="preserve"><value>设备忙碌时间过长。</value></data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckStatus" xml:space="preserve"><value>START_SCAN ACK 状态：{0} (0x{1})</value></data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckTargetMismatch" xml:space="preserve"><value>START_SCAN ACK 目标不匹配：{0}（预期 {1}）</value></data>
+  <data name="ScanDebug_Runtime_StatusStartScanAckReceived" xml:space="preserve"><value>已收到 START_SCAN ACK。</value></data>
+  <data name="ScanDebug_Runtime_StatusStartScanDoneAckReceived" xml:space="preserve"><value>已收到 START_SCAN 完成 ACK。</value></data>
+  <data name="ScanDebug_Runtime_StatusStartScanDoneAckTimeout" xml:space="preserve"><value>未及时收到 START_SCAN 完成 ACK。</value></data>
+  <data name="ScanDebug_Runtime_StatusScanCompleted" xml:space="preserve"><value>扫描已完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusScanStopped" xml:space="preserve"><value>扫描已停止。</value></data>
+  <data name="ScanDebug_Runtime_StatusScanCompletedInSegments" xml:space="preserve"><value>扫描已分 {0} 段完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusScanFailedAfterMs" xml:space="preserve"><value>扫描在 {0} ms 后失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusSegmentDoneAckTimeout" xml:space="preserve"><value>未及时收到第 {0}/{1} 段完成 ACK。</value></data>
+  <data name="ScanDebug_Runtime_StatusUnexpectedStopAck" xml:space="preserve"><value>停止时收到意外 ACK 命令：0x{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusStopAckReceived" xml:space="preserve"><value>已收到 STOP_SCAN ACK（target={0}, completed={1}）。</value></data>
+  <data name="ScanDebug_Runtime_StatusStopAckStatus" xml:space="preserve"><value>STOP_SCAN ACK 状态：{0} (0x{1})</value></data>
+  <data name="ScanDebug_Runtime_StatusStopSendFailed" xml:space="preserve"><value>发送 STOP_SCAN 失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusUnexpectedWarmUpAck" xml:space="preserve"><value>启用预热时收到意外 ACK 命令：0x{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpAckStatus" xml:space="preserve"><value>WARM_UP ACK 状态：{0} (0x{1})</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnabledDetailed" xml:space="preserve"><value>预热已启用（target={0}, completed={1}）。</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpCommandFailed" xml:space="preserve"><value>预热命令失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusScannerNotConnected" xml:space="preserve"><value>扫描仪未连接。请先点击“连接设备”。</value></data>
+  <data name="ScanDebug_Runtime_StatusApplyIgnoredDebounce" xml:space="preserve"><value>已忽略应用：请等待 1 秒后再更新。</value></data>
+  <data name="ScanDebug_Runtime_StatusApplyingParameters" xml:space="preserve"><value>正在应用扫描参数...</value></data>
+  <data name="ScanDebug_Runtime_StatusParametersUpdated" xml:space="preserve"><value>参数更新成功。</value></data>
+  <data name="ScanDebug_Runtime_StatusParameterUpdateCanceled" xml:space="preserve"><value>参数更新已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusParameterUpdateFailed" xml:space="preserve"><value>参数更新失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusRefreshingIllumination" xml:space="preserve"><value>正在刷新照明状态...</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshed" xml:space="preserve"><value>照明状态已刷新。</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshCanceled" xml:space="preserve"><value>照明刷新已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationRefreshFailed" xml:space="preserve"><value>照明刷新失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusApplyingIllumination" xml:space="preserve"><value>正在应用照明设置...</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdated" xml:space="preserve"><value>照明设置已更新。</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdateCanceled" xml:space="preserve"><value>照明更新已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusIlluminationUpdateFailed" xml:space="preserve"><value>照明更新失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusRefreshingMotion" xml:space="preserve"><value>正在刷新运动状态...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshed" xml:space="preserve"><value>运动状态已刷新。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshCanceled" xml:space="preserve"><value>运动刷新已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotionRefreshFailed" xml:space="preserve"><value>运动刷新失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveStarting" xml:space="preserve"><value>正在开始 {0} 的有限移动...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveCompleted" xml:space="preserve"><value>{0} 移动已完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveCanceled" xml:space="preserve"><value>{0} 移动已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorMoveFailed" xml:space="preserve"><value>{0} 移动失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorStopping" xml:space="preserve"><value>正在停止 {0}...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorStopSent" xml:space="preserve"><value>{0} 停止命令已发送。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorStopCanceled" xml:space="preserve"><value>{0} 停止已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorStopFailed" xml:space="preserve"><value>{0} 停止失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigApplying" xml:space="preserve"><value>正在将持久化配置应用到 {0}...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigApplied" xml:space="preserve"><value>{0} 配置已应用。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigCanceled" xml:space="preserve"><value>{0} 配置应用已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorConfigFailed" xml:space="preserve"><value>{0} 配置应用失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorEnabling" xml:space="preserve"><value>正在启用 {0}...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorDisabling" xml:space="preserve"><value>正在禁用 {0}...</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorEnabled" xml:space="preserve"><value>{0} 已启用。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorDisabled" xml:space="preserve"><value>{0} 已禁用。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorEnableCanceled" xml:space="preserve"><value>{0} 启用已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorDisableCanceled" xml:space="preserve"><value>{0} 禁用已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorEnableFailed" xml:space="preserve"><value>{0} 启用失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusMotorDisableFailed" xml:space="preserve"><value>{0} 禁用失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoBlackCompleted" xml:space="preserve"><value>自动黑电平校准已完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoWhiteCompleted" xml:space="preserve"><value>自动白电平校准已完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationCompleted" xml:space="preserve"><value>自动校准已完成。</value></data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileSaved" xml:space="preserve"><value>校准通道 '{0}' 的配置已保存。</value></data>
+  <data name="ScanDebug_Runtime_StatusSaveChannelProfileFailed" xml:space="preserve"><value>保存通道配置失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelEmpty" xml:space="preserve"><value>校准通道为空。</value></data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileCleared" xml:space="preserve"><value>校准通道 '{0}' 的配置已清除。</value></data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve"><value>校准通道 '{0}' 没有已保存配置。</value></data>
+  <data name="ScanDebug_Runtime_StatusClearChannelProfileFailed" xml:space="preserve"><value>清除通道配置失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve"><value>胶片配置 '{0}' 已导出。</value></data>
+  <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve"><value>保存胶片配置失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusLoadFilmProfileCanceled" xml:space="preserve"><value>加载胶片配置已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileLoaded" xml:space="preserve"><value>胶片配置 '{0}' 已加载。</value></data>
+  <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve"><value>加载胶片配置失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusAutofocusStarted" xml:space="preserve"><value>自动对焦已开始...</value></data>
+  <data name="ScanDebug_Runtime_AutofocusSampling" xml:space="preserve"><value>自动对焦：正在采样 {0} 行，倾斜步长 {1}，Z 步长 {2}。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutofocusCompleted" xml:space="preserve"><value>自动对焦已完成。</value></data>
+  <data name="ScanDebug_Runtime_AutofocusCanceled" xml:space="preserve"><value>自动对焦：已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutofocusCanceled" xml:space="preserve"><value>自动对焦已取消。</value></data>
+  <data name="ScanDebug_Runtime_AutofocusFailed" xml:space="preserve"><value>自动对焦：失败 - {0}</value></data>
+  <data name="ScanDebug_Runtime_StatusAutofocusFailed" xml:space="preserve"><value>自动对焦失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed" xml:space="preserve"><value>自动对焦已结束，但恢复预热失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusWarmUpOffRequired" xml:space="preserve"><value>自动对焦要求预热关闭：{0}</value></data>
+  <data name="ScanDebug_Runtime_RowsLimitExceeded.Title" xml:space="preserve"><value>超出行数限制</value></data>
+  <data name="ScanDebug_Runtime_RowsLimitExceeded.Content" xml:space="preserve"><value>大于 {0} 的行数要求在“设置”中同时启用 Multi-buffer bulk IN 和 Raw I/O。</value></data>
+  <data name="ScanDebug_Runtime_StatusRowsLimitExceeded" xml:space="preserve"><value>高于 {0} 的行数需要启用 Multi-buffer bulk IN 和 Raw I/O。</value></data>
+  <data name="ScanDebug_Runtime_ErrorRowsWarmUpPositive" xml:space="preserve"><value>启用预热时，行数必须是正数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorRowsRange" xml:space="preserve"><value>行数必须是 [1, {0}] 范围内的数字。</value></data>
+  <data name="ScanDebug_Runtime_StatusStartingContinuousScan" xml:space="preserve"><value>正在开始连续扫描...</value></data>
+  <data name="ScanDebug_Runtime_StatusStartingScan" xml:space="preserve"><value>正在开始扫描...</value></data>
+  <data name="ScanDebug_Runtime_StatusStopRequested" xml:space="preserve"><value>已请求停止。</value></data>
+  <data name="ScanDebug_Runtime_StatusContinuousScanNoImageData" xml:space="preserve"><value>连续扫描已完成，但没有图像数据。</value></data>
+  <data name="ScanDebug_Runtime_StatusContinuousPreviewUpdated" xml:space="preserve"><value>连续预览已更新（{0}）。</value></data>
+  <data name="ScanDebug_Runtime_StatusPreviewSkippedAuto" xml:space="preserve"><value>对于超过 {1} 行的扫描，{0} 预览已自动跳过。</value></data>
+  <data name="ScanDebug_Runtime_StatusPreviewSkipped" xml:space="preserve"><value>{0} 预览已跳过。</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpWillEnableAfterConnect" xml:space="preserve"><value>扫描仪连接后将启用预热。</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisabled" xml:space="preserve"><value>预热已禁用。</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpEnableCanceled" xml:space="preserve"><value>启用预热已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusWarmUpDisableCanceled" xml:space="preserve"><value>禁用预热已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationStarted" xml:space="preserve"><value>自动校准已开始...</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationCanceled" xml:space="preserve"><value>自动校准已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusAutoCalibrationFailed" xml:space="preserve"><value>自动校准失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_DispatchFailed" xml:space="preserve"><value>无法将工作调度到 UI 线程。</value></data>
+  <data name="ScanDebug_Runtime_StatusPhasePreviewUpdated" xml:space="preserve"><value>{0}：预览已更新。</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc1Offset" xml:space="preserve"><value>ADC1 偏移</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc2Offset" xml:space="preserve"><value>ADC2 偏移</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc1Gain" xml:space="preserve"><value>ADC1 增益</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelAdc2Gain" xml:space="preserve"><value>ADC2 增益</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelSampleRows" xml:space="preserve"><value>采样行数</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelTiltProbeSteps" xml:space="preserve"><value>倾斜探测步数</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelZProbeSteps" xml:space="preserve"><value>Z 探测步数</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelMotorInterval" xml:space="preserve"><value>电机间隔</value></data>
+  <data name="ScanDebug_Runtime_LimitBounded" xml:space="preserve"><value>{0} 限制：{1} ~ {2}</value></data>
+  <data name="ScanDebug_Runtime_LimitBoundedInvalidInteger" xml:space="preserve"><value>{0} 限制：{1} ~ {2} | 当前输入不是整数</value></data>
+  <data name="ScanDebug_Runtime_LimitBoundedCurrentOutOfRange" xml:space="preserve"><value>{0} 限制：{1} ~ {2} | 当前：{3}（超出范围）</value></data>
+  <data name="ScanDebug_Runtime_LimitBoundedCurrent" xml:space="preserve"><value>{0} 限制：{1} ~ {2} | 当前：{3}</value></data>
+  <data name="ScanDebug_Runtime_LimitLowerBound" xml:space="preserve"><value>{0} 限制：&gt;= {1}</value></data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundInvalidInteger" xml:space="preserve"><value>{0} 限制：&gt;= {1} | 当前输入不是整数</value></data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundCurrentBelowMinimum" xml:space="preserve"><value>{0} 限制：&gt;= {1} | 当前：{2}（低于最小值）</value></data>
+  <data name="ScanDebug_Runtime_LimitLowerBoundCurrent" xml:space="preserve"><value>{0} 限制：&gt;= {1} | 当前：{2}</value></data>
+  <data name="ScanDebug_Runtime_ErrorSteadySyncOverlap" xml:space="preserve"><value>同一 LED 通道上的常亮和同步选择不能重叠。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorSelectionRange" xml:space="preserve"><value>电机选择必须在 [1, {0}] 范围内。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorStepsPositive" xml:space="preserve"><value>Motor{0} 步数必须是正整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve"><value>Motor{0} 间隔必须是整数且 &gt;= {1} us。</value></data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusRowsRange" xml:space="preserve"><value>自动对焦行数必须是 [1, {0}] 范围内的整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusTiltPositive" xml:space="preserve"><value>自动对焦倾斜步长必须是正整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusZPositive" xml:space="preserve"><value>自动对焦 Z 步长必须是正整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorAutofocusIntervalMinimum" xml:space="preserve"><value>自动对焦间隔必须是整数且 &gt;= {0} us。</value></data>
+  <data name="ScanDebug_Runtime_AutofocusSummary" xml:space="preserve"><value>自动对焦：{0} 行，倾斜={1} 步，Z={2} 步，整体={3}，左侧={4}，右侧={5}，失衡={6}。</value></data>
+  <data name="ScanDebug_Runtime_ErrorNonNegativeInteger" xml:space="preserve"><value>{0} 必须是非负整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorSyncPulseMinimum" xml:space="preserve"><value>当该通道启用同步时，{0} 至少必须为 {1}。</value></data>
+  <data name="ScanDebug_Runtime_IlluminationSummary" xml:space="preserve"><value>照明状态：Steady={0}, Sync={1}, Active={2}</value></data>
+  <data name="ScanDebug_Runtime_MotorStatusUnavailable" xml:space="preserve"><value>状态：不可用</value></data>
+  <data name="ScanDebug_Runtime_MotorStatus" xml:space="preserve"><value>状态：Enabled={0}, Running={1}, Direction={2}, DIAG={3}, Interval={4} us, Remaining={5}</value></data>
+  <data name="ScanDebug_Runtime_DiagHigh" xml:space="preserve"><value>高</value></data>
+  <data name="ScanDebug_Runtime_DiagLow" xml:space="preserve"><value>低</value></data>
+  <data name="ScanDebug_Runtime_MotionSummaryItemUnavailable" xml:space="preserve"><value>Motor{0}=不可用</value></data>
+  <data name="ScanDebug_Runtime_MotionSummaryItem" xml:space="preserve"><value>Motor{0}={1}</value></data>
+  <data name="ScanDebug_Runtime_MotionSummary" xml:space="preserve"><value>运动状态：{0}</value></data>
+  <data name="ScanDebug_Runtime_MotionStateRunning" xml:space="preserve"><value>运行中</value></data>
+  <data name="ScanDebug_Runtime_MotionStateEnabled" xml:space="preserve"><value>已启用</value></data>
+  <data name="ScanDebug_Runtime_MotionStateDisabled" xml:space="preserve"><value>已禁用</value></data>
+  <data name="ScanDebug_Runtime_Yes" xml:space="preserve"><value>是</value></data>
+  <data name="ScanDebug_Runtime_No" xml:space="preserve"><value>否</value></data>
+  <data name="ScanDebug_Runtime_None" xml:space="preserve"><value>无</value></data>
+  <data name="ScanDebug_Runtime_CursorPosition" xml:space="preserve"><value>光标：({0}, {1}) px</value></data>
+  <data name="ScanDebug_Runtime_CursorIntensity" xml:space="preserve"><value>Intensity16: {0}</value></data>
+</root>

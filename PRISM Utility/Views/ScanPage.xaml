@@ -90,14 +90,15 @@
                                          <ColumnDefinition Width="*" />
                                          <ColumnDefinition Width="*" />
                                      </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
+                                     <Grid.RowDefinitions>
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
+                                     </Grid.RowDefinitions>
 
                                     <ComboBox
                                         Grid.Row="0"
@@ -132,26 +133,37 @@
                                         Grid.Column="1"
                                         x:Uid="Scan_AlternateDirectionToggleSwitch"
                                         IsOn="{x:Bind ViewModel.IsAlternateMotorDirectionEnabled, Mode=TwoWay}" />
-                                     <ComboBox
-                                         Grid.Row="3"
+                                      <TextBox
+                                          Grid.Row="3"
+                                          Grid.Column="0"
+                                          x:Uid="Scan_ConfigProfileTextBox"
+                                          IsReadOnly="True"
+                                          Text="{x:Bind ViewModel.SelectedConfigProfileName, Mode=OneWay}" />
+                                      <Button
+                                          Grid.Row="3"
+                                          Grid.Column="1"
+                                          x:Uid="Scan_LoadConfigButton"
+                                          Command="{x:Bind ViewModel.LoadConfigProfileCommand}" />
+                                      <ComboBox
+                                          Grid.Row="4"
+                                          Grid.Column="0"
+                                          Grid.ColumnSpan="2"
+                                          x:Uid="Scan_StartingDirectionComboBox"
+                                          ItemsSource="{x:Bind ViewModel.DirectionOptions, Mode=OneWay}"
+                                          ItemTemplate="{StaticResource ScanDirectionOptionTemplate}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
+                                     <TextBlock
+                                         Grid.Row="5"
                                          Grid.Column="0"
                                          Grid.ColumnSpan="2"
-                                         x:Uid="Scan_StartingDirectionComboBox"
-                                         ItemsSource="{x:Bind ViewModel.DirectionOptions, Mode=OneWay}"
-                                         ItemTemplate="{StaticResource ScanDirectionOptionTemplate}"
-                                         SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
-                                    <TextBlock
-                                        Grid.Row="4"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        x:Uid="Scan_DirectionHelpText"
-                                        Opacity="0.8"
-                                        TextWrapping="WrapWholeWords" />
-                                    <TextBlock
-                                        Grid.Row="5"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}"
+                                         x:Uid="Scan_DirectionHelpText"
+                                         Opacity="0.8"
+                                         TextWrapping="WrapWholeWords" />
+                                     <TextBlock
+                                         Grid.Row="6"
+                                         Grid.Column="0"
+                                         Grid.ColumnSpan="2"
+                                         Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}"
                                         Opacity="0.8"
                                         TextWrapping="WrapWholeWords" />
                                 </Grid>

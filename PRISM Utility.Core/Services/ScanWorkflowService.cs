@@ -1,9 +1,7 @@
-using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
-using PRISM_Utility.Models;
 
-namespace PRISM_Utility.Services;
+namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanWorkflowService : IScanWorkflowService
 {
@@ -60,7 +58,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, passProfile, ct);
 
-                await ApplySingleLedIlluminationAsync(session, request.LedLevels, ledIndex, ct);
+                await ApplySingleLedIlluminationAsync(session, request, ledIndex, ct);
 
                 if (passMotorSteps > 0)
                 {
@@ -160,14 +158,50 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             expectedLineTimeUs);
     }
 
-    private static async Task ApplySingleLedIlluminationAsync(IScanSessionService session, ushort[] ledLevels, byte ledIndex, CancellationToken ct)
+    private static async Task ApplySingleLedIlluminationAsync(IScanSessionService session, ScanWorkflowRequest request, byte ledIndex, CancellationToken ct)
     {
+        var acquisitionSettings = request.AcquisitionSettings?.Normalize() ?? BuildDefaultAcquisitionSettings(request.LedLevels, request.MotorIntervalUs);
         var levels = new ushort[ScanDebugConstants.IlluminationChannelCount];
-        levels[ledIndex] = ledLevels[ledIndex];
+        levels[ledIndex] = ledIndex switch
+        {
+            0 => acquisitionSettings.Led1Level,
+            1 => acquisitionSettings.Led2Level,
+            2 => acquisitionSettings.Led3Level,
+            3 => acquisitionSettings.Led4Level,
+            _ => 0
+        };
+
+        var ledMask = (byte)(1 << ledIndex);
+        var syncMask = (byte)(acquisitionSettings.SyncMask & ledMask);
+        var steadyMask = (byte)(acquisitionSettings.SteadyMask & ledMask);
+        if (syncMask == 0 && steadyMask == 0)
+            steadyMask = ledMask;
 
         await session.SetIlluminationLevelsAsync(levels[0], levels[1], levels[2], levels[3], ct);
-        await session.SetSteadyIlluminationAsync((byte)(1 << ledIndex), ct);
-        await session.ConfigureExposureLightingAsync(0, ct);
+        await session.SetSyncPulseClocksAsync(acquisitionSettings.Led1PulseClock, acquisitionSettings.Led2PulseClock, acquisitionSettings.Led3PulseClock, acquisitionSettings.Led4PulseClock, ct);
+        await session.SetSteadyIlluminationAsync(steadyMask, ct);
+        await session.ConfigureExposureLightingAsync(syncMask, ct);
+    }
+
+    private static ScanFilmAcquisitionSettings BuildDefaultAcquisitionSettings(ushort[] ledLevels, uint motorIntervalUs)
+    {
+        var level1 = ledLevels.Length > 0 ? ledLevels[0] : (ushort)0;
+        var level2 = ledLevels.Length > 1 ? ledLevels[1] : (ushort)0;
+        var level3 = ledLevels.Length > 2 ? ledLevels[2] : (ushort)0;
+        var level4 = ledLevels.Length > 3 ? ledLevels[3] : (ushort)0;
+
+        return new ScanFilmAcquisitionSettings(
+            level1,
+            level2,
+            level3,
+            level4,
+            ScanDebugConstants.IlluminationValidMask,
+            0,
+            ScanDebugConstants.IlluminationMinSyncPulseClock,
+            ScanDebugConstants.IlluminationMinSyncPulseClock,
+            ScanDebugConstants.IlluminationMinSyncPulseClock,
+            ScanDebugConstants.IlluminationMinSyncPulseClock,
+            motorIntervalUs).Normalize();
     }
 
     private static async Task RestoreIlluminationAsync(IScanSessionService session, ScanIlluminationState state)

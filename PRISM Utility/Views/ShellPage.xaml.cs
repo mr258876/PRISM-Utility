@@ -32,6 +32,7 @@ public sealed partial class ShellPage : Page
         App.MainWindow.ExtendsContentIntoTitleBar = true;
         App.MainWindow.SetTitleBar(AppTitleBar);
         App.MainWindow.Activated += MainWindow_Activated;
+        Unloaded += OnUnloaded;
         AppTitleBarText.Text = "AppDisplayName".GetLocalized();
     }
 
@@ -57,6 +58,14 @@ public sealed partial class ShellPage : Page
             Right = AppTitleBar.Margin.Right,
             Bottom = AppTitleBar.Margin.Bottom
         };
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        App.MainWindow.Activated -= MainWindow_Activated;
+        ViewModel.NavigationViewService.UnregisterEvents();
+        ViewModel.UnregisterNavigation();
+        Unloaded -= OnUnloaded;
     }
 
     private static KeyboardAccelerator BuildKeyboardAccelerator(VirtualKey key, VirtualKeyModifiers? modifiers = null)

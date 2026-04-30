@@ -141,6 +141,18 @@
   <data name="Settings_Theme_Default.Content" xml:space="preserve">
     <value>Default</value>
   </data>
+  <data name="Settings_Language.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_Language_SimplifiedChinese" xml:space="preserve">
+    <value>Simplified Chinese</value>
+  </data>
   <data name="Settings_Scanner.Text" xml:space="preserve">
     <value>Scanner</value>
   </data>
@@ -933,6 +945,12 @@
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
     <value>Restore defaults</value>
   </data>
+  <data name="Settings_VersionDescriptionFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
+  <data name="Settings_BuildDescriptionFormat" xml:space="preserve">
+    <value>Build - {0}</value>
+  </data>
   <data name="Scan_ScanMotorComboBox.Header" xml:space="preserve">
     <value>Scan Motor</value>
   </data>
@@ -941,6 +959,12 @@
   </data>
   <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve">
     <value>&gt;=10</value>
+  </data>
+  <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve">
+    <value>Config profile</value>
+  </data>
+  <data name="Scan_LoadConfigButton.Content" xml:space="preserve">
+    <value>Load Config</value>
   </data>
   <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve">
     <value>LED1 Level</value>
@@ -1295,6 +1319,21 @@
   </data>
   <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve">
     <value>Motor interval must be an integer &gt;= {0} us.</value>
+  </data>
+  <data name="Scan_Runtime_ConfigProfileNotSelected" xml:space="preserve">
+    <value>No config profile loaded</value>
+  </data>
+  <data name="Scan_Runtime_StatusLoadConfigProfileCanceled" xml:space="preserve">
+    <value>Config profile load canceled.</value>
+  </data>
+  <data name="Scan_Runtime_StatusConfigProfileLoaded" xml:space="preserve">
+    <value>Loaded config profile &quot;{0}&quot; and applied saved LED and motor settings.</value>
+  </data>
+  <data name="Scan_Runtime_StatusConfigProfileLoadedLegacy" xml:space="preserve">
+    <value>Loaded config profile &quot;{0}&quot;. This file does not contain LED or motor settings.</value>
+  </data>
+  <data name="Scan_Runtime_StatusLoadConfigProfileFailed" xml:space="preserve">
+    <value>Failed to load config profile: {0}</value>
   </data>
   <data name="Scan_Runtime_ErrorParametersNotLoaded" xml:space="preserve">
     <value>Scanner parameters are not loaded yet. Reconnect the scanner and try again.</value>

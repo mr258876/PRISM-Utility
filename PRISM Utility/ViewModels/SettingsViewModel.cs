@@ -20,15 +20,20 @@ namespace PRISM_Utility.ViewModels;
 public partial class SettingsViewModel : ObservableRecipient
 {
     private readonly IThemeSelectorService _themeSelectorService;
+    private readonly ILanguageSelectorService _languageSelectorService;
     private readonly IDebugOutputSettingsService _debugOutputSettingsService;
     private readonly IScanTransferSettingsService _scanTransferSettingsService;
     private readonly IScanColorManagementSettingsService _colorManagementSettingsService;
+    private bool _isLoadingLanguageSettings;
     private bool _isLoadingDebugOutputSettings;
     private bool _isLoadingScanTransferMode;
     private bool _isLoadingColorManagementSettings;
 
     [ObservableProperty]
     public partial ElementTheme ElementTheme { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedLanguage { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string VersionDescription { get; set; }
@@ -75,6 +80,13 @@ public partial class SettingsViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string OutputGamma { get; set; } = string.Empty;
 
+    public IReadOnlyList<AppLanguageOption> LanguageOptions { get; } =
+    [
+        new("system", "Settings_Language_System".GetLocalized()),
+        new("en-US", "Settings_Language_English".GetLocalized()),
+        new("zh-CN", "Settings_Language_SimplifiedChinese".GetLocalized())
+    ];
+
     public ICommand SwitchThemeCommand
     {
         get;
@@ -84,9 +96,10 @@ public partial class SettingsViewModel : ObservableRecipient
 
     public IAsyncRelayCommand RestoreColorManagementDefaultsCommand { get; }
 
-    public SettingsViewModel(IThemeSelectorService themeSelectorService, IDebugOutputSettingsService debugOutputSettingsService, IScanTransferSettingsService scanTransferSettingsService, IScanColorManagementSettingsService colorManagementSettingsService)
+    public SettingsViewModel(IThemeSelectorService themeSelectorService, ILanguageSelectorService languageSelectorService, IDebugOutputSettingsService debugOutputSettingsService, IScanTransferSettingsService scanTransferSettingsService, IScanColorManagementSettingsService colorManagementSettingsService)
     {
         _themeSelectorService = themeSelectorService;
+        _languageSelectorService = languageSelectorService;
         _debugOutputSettingsService = debugOutputSettingsService;
         _scanTransferSettingsService = scanTransferSettingsService;
         _colorManagementSettingsService = colorManagementSettingsService;
@@ -108,9 +121,18 @@ public partial class SettingsViewModel : ObservableRecipient
         RestoreScanTransferDefaultsCommand = new AsyncRelayCommand(RestoreScanTransferDefaultsAsync);
         RestoreColorManagementDefaultsCommand = new AsyncRelayCommand(RestoreColorManagementDefaultsAsync);
 
+        _ = LoadLanguageSettingsAsync();
         _ = LoadDebugOutputSettingsAsync();
         _ = LoadScanTransferSettingsAsync();
         _ = LoadColorManagementSettingsAsync();
+    }
+
+    partial void OnSelectedLanguageChanged(string value)
+    {
+        if (_isLoadingLanguageSettings || string.IsNullOrWhiteSpace(value))
+            return;
+
+        _ = _languageSelectorService.SetLanguageAsync(value);
     }
 
     partial void OnIsDebugConsoleMirrorEnabledChanged(bool value)
@@ -192,6 +214,20 @@ public partial class SettingsViewModel : ObservableRecipient
         finally
         {
             _isLoadingDebugOutputSettings = false;
+        }
+    }
+
+    private async Task LoadLanguageSettingsAsync()
+    {
+        _isLoadingLanguageSettings = true;
+        try
+        {
+            await _languageSelectorService.InitializeAsync();
+            SelectedLanguage = _languageSelectorService.CurrentLanguage;
+        }
+        finally
+        {
+            _isLoadingLanguageSettings = false;
         }
     }
 
@@ -344,13 +380,15 @@ public partial class SettingsViewModel : ObservableRecipient
         var assembly = Assembly.GetExecutingAssembly();
         var buildLabel = TryGetBuildLabel(assembly);
 
-        var versionText = $"{"AppDisplayName".GetLocalized()} - {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        var versionText = "Settings_VersionDescriptionFormat".GetLocalizedFormat(
+            "AppDisplayName".GetLocalized(),
+            $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}");
         if (string.IsNullOrWhiteSpace(buildLabel))
             return (versionText, string.Empty);
 
         return string.IsNullOrWhiteSpace(buildLabel)
             ? (versionText, string.Empty)
-            : (versionText, $"Build - {buildLabel}");
+            : (versionText, "Settings_BuildDescriptionFormat".GetLocalizedFormat(buildLabel));
     }
 
     partial void OnBuildDescriptionChanged(string value)

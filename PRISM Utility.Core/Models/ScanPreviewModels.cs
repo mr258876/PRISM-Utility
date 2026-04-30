@@ -1,4 +1,4 @@
-namespace PRISM_Utility.Models;
+namespace PRISM_Utility.Core.Models;
 
 public sealed record ScanPreviewRenderOptions(
     bool IsWaterfallEnabled,

@@ -99,6 +99,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _isUpdatingRoiInputs;
     private int _previewRows;
     private int _profileLoadVersion;
+    private ScanFilmAcquisitionSettings? _selectedFilmAcquisitionSettings;
     private ScanCalibrationRoiSettings _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
@@ -1029,6 +1030,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 statusNotes.Add("ScanDebug_Runtime_StatusMotionUnavailable".GetLocalizedFormat(ex.Message));
             }
 
+            if (_selectedFilmAcquisitionSettings is not null)
+                ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);
+
             if (IsWarmUpEnabled)
             {
                 var warmUpResult = await _sessionCoordinator.SetWarmUpAsync(_session, true, _session.ConnectionToken);
@@ -1451,12 +1455,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             await SaveSelectedCalibrationProfileAsync(snapshot);
+            if (!TryBuildFilmAcquisitionSettings(out var acquisitionSettings, out error))
+            {
+                StatusText = error;
+                return;
+            }
+
             await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
-                1,
+                2,
                 string.IsNullOrWhiteSpace(FilmProfileName) ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized() : FilmProfileName.Trim(),
                 DateTimeOffset.Now,
                 _channelProfiles.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-                SelectedCalibrationChannel));
+                SelectedCalibrationChannel,
+                acquisitionSettings));
             StatusText = "ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormat(FilmProfileName);
         }
         catch (Exception ex)
@@ -1479,6 +1490,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             await _channelProfiles.ReplaceProfilesAsync(imported);
             FilmProfileName = imported.ProfileName;
+            _selectedFilmAcquisitionSettings = imported.AcquisitionSettings?.Normalize();
+
+            if (_selectedFilmAcquisitionSettings is not null)
+                ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);
 
             var channelToLoad = ResolveProfileChannelToLoad(imported);
             if (!string.IsNullOrWhiteSpace(channelToLoad))
@@ -1941,6 +1956,35 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return SelectedCalibrationChannel;
     }
 
+    private bool TryBuildFilmAcquisitionSettings(out ScanFilmAcquisitionSettings settings, out string error)
+    {
+        settings = ScanFilmAcquisitionSettings.CreateDefault();
+
+        if (!TryBuildIlluminationRequest(out var illuminationRequest, out error))
+            return false;
+
+        if (!uint.TryParse(Motor2IntervalUs, out var motorIntervalUs) || motorIntervalUs < ScanDebugConstants.MotionMinIntervalUs)
+        {
+            error = "ScanDebug_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat("ScanDebug_Motor2IntervalUsTextBox.Header".GetLocalized(), ScanDebugConstants.MotionMinIntervalUs);
+            return false;
+        }
+
+        settings = new ScanFilmAcquisitionSettings(
+            illuminationRequest.Led1Level,
+            illuminationRequest.Led2Level,
+            illuminationRequest.Led3Level,
+            illuminationRequest.Led4Level,
+            illuminationRequest.SteadyMask,
+            illuminationRequest.SyncMask,
+            illuminationRequest.Led1PulseClock,
+            illuminationRequest.Led2PulseClock,
+            illuminationRequest.Led3PulseClock,
+            illuminationRequest.Led4PulseClock,
+            motorIntervalUs).Normalize();
+        error = string.Empty;
+        return true;
+    }
+
     private Task<bool> RequestCalibrationPromptAsync(ScanCalibrationPrompt prompt)
     {
         var request = new ScanCalibrationPromptRequest(prompt);
@@ -2307,6 +2351,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsLed3SyncEnabled = (state.SyncMask & 0x04) != 0;
         IsLed4SyncEnabled = (state.SyncMask & 0x08) != 0;
         IlluminationSummaryText = BuildIlluminationSummary(state);
+    }
+
+    private void ApplyProfileAcquisitionSettings(ScanFilmAcquisitionSettings settings)
+    {
+        var normalized = settings.Normalize();
+        ApplyIlluminationStateToInputs(new ScanIlluminationState(
+            normalized.Led1Level,
+            normalized.Led2Level,
+            normalized.Led3Level,
+            normalized.Led4Level,
+            normalized.SteadyMask,
+            normalized.SyncMask,
+            0,
+            normalized.Led1PulseClock,
+            normalized.Led2PulseClock,
+            normalized.Led3PulseClock,
+            normalized.Led4PulseClock));
+        Motor2IntervalUs = normalized.MotorIntervalUs.ToString();
     }
 
     private void ResetIlluminationInputs()

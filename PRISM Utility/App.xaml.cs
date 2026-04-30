@@ -37,7 +37,9 @@ public partial class App : Application
         return service;
     }
 
-    public static WindowEx MainWindow { get; } = new MainWindow();
+    private static WindowEx? _mainWindow;
+
+    public static WindowEx MainWindow => _mainWindow ??= new MainWindow();
 
     public static UIElement? AppTitlebar
     {
@@ -46,8 +48,6 @@ public partial class App : Application
 
     public App()
     {
-        InitializeComponent();
-
         Host = Microsoft.Extensions.Hosting.Host.
         CreateDefaultBuilder().
         UseContentRoot(AppContext.BaseDirectory).
@@ -65,6 +65,7 @@ public partial class App : Application
             services.AddSingleton<IScanTransferSettingsService, ScanTransferSettingsService>();
             services.AddSingleton<IScanColorManagementSettingsService, ScanColorManagementSettingsService>();
             services.AddSingleton<IScanChannelParameterProfileService, ScanChannelParameterProfileService>();
+            services.AddSingleton<ILanguageSelectorService, LanguageSelectorService>();
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
             services.AddSingleton<IUsbService, UsbService>();
             services.AddSingleton<IUsbUsageCoordinator, UsbUsageCoordinator>();
@@ -77,6 +78,7 @@ public partial class App : Application
             services.AddTransient<IScanProtocolService, ScanProtocolService>();
             services.AddTransient<IScanImageDecoder, ScanImageDecoder>();
             services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
+            services.AddTransient<IScanCompositeImageProcessor, ScanCompositeImageProcessor>();
             services.AddTransient<IScanBufferExportService, ScanBufferExportService>();
             services.AddTransient<IScanWorkflowService, ScanWorkflowService>();
             services.AddTransient<IScanChannelImageService, ScanChannelImageService>();
@@ -108,6 +110,8 @@ public partial class App : Application
         }).
         Build();
 
+        InitializeComponent();
+
         UnhandledException += App_UnhandledException;
     }
 
@@ -121,6 +125,8 @@ public partial class App : Application
     {
         base.OnLaunched(args);
 
+        await App.GetService<ILanguageSelectorService>().InitializeAsync();
+        await App.GetService<ILanguageSelectorService>().ApplyLanguageAsync();
         await App.GetService<IDebugOutputSettingsService>().InitializeAsync();
         await App.GetService<IActivationService>().ActivateAsync(args);
     }
