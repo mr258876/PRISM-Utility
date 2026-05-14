@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -9,6 +10,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
@@ -59,6 +61,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private const double DefaultPreviewGamma = 2.2;
     private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
     private static readonly string[] MotorDirectionLabels = { "Dir0", "Dir1" };
+    private const string MotorUnitSteps = "steps";
+    private const string MotorUnitMicrometers = "um";
+    private const string MotorUnitMillimeters = "mm";
+    private static readonly string[] MotorUnitLabels = { MotorUnitSteps, MotorUnitMicrometers, MotorUnitMillimeters };
     private static readonly string[] RoiSelectionLabels = { "BW Active", "BW Shield", "Focus Overall", "Focus Left", "Focus Right" };
     private const string RoiSelectionBwActive = "BW Active";
     private const string RoiSelectionBwShield = "BW Shield";
@@ -81,7 +87,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IScanBufferExportService _bufferExportService;
     private readonly IScanAutoCalibrationService _autoCalibration;
     private readonly IScanAutoFocusService _autoFocus;
+    private readonly IScanIlluminationService _illumination;
     private readonly IScanTransferSettingsService _transferSettings;
+    private readonly IScanDeviceSettingsService _deviceSettings;
     private readonly IScanChannelParameterProfileService _channelProfiles;
     private readonly IDebugOutputMirrorService _debugOutputMirror;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
@@ -97,14 +105,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _suppressWarmUpToggleCommand;
     private bool _isNormalizingLimitInput;
     private bool _isUpdatingRoiInputs;
+    private bool _isApplyingDerivedMotorSpeed;
+    private bool _isMotor1SpeedDerivedFromInterval = true;
+    private bool _isMotor2SpeedDerivedFromInterval = true;
+    private bool _isMotor3SpeedDerivedFromInterval = true;
     private int _previewRows;
     private int _profileLoadVersion;
     private ScanFilmAcquisitionSettings? _selectedFilmAcquisitionSettings;
     private ScanCalibrationRoiSettings _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
+    private readonly Task _deviceSettingsInitializationTask;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
 
     public ObservableCollection<string> MotorDirectionOptions { get; } = new(MotorDirectionLabels);
+
+    public ObservableCollection<string> MotorUnitOptions { get; } = new(MotorUnitLabels);
 
     public ObservableCollection<string> CalibrationChannelOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR" };
 
@@ -487,6 +502,42 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial string Motor3MoveDirection { get; set; }
 
     [ObservableProperty]
+    public partial string Motor1MoveValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2MoveValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3MoveValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1MoveUnit { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2MoveUnit { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3MoveUnit { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1SpeedValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2SpeedValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3SpeedValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor1SpeedUnit { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor2SpeedUnit { get; set; }
+
+    [ObservableProperty]
+    public partial string Motor3SpeedUnit { get; set; }
+
+    [ObservableProperty]
     public partial string Motor1MoveSteps { get; set; }
 
     [ObservableProperty]
@@ -561,7 +612,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
 
-    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanTransferSettingsService transferSettings, IScanChannelParameterProfileService channelProfiles, IDebugOutputMirrorService debugOutputMirror, IUsbUsageCoordinator usbUsageCoordinator, IScanDebugSessionCoordinator sessionCoordinator, IUiDispatcher dispatcher)
+    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanIlluminationService illumination, IScanTransferSettingsService transferSettings, IScanDeviceSettingsService deviceSettings, IScanChannelParameterProfileService channelProfiles, IDebugOutputMirrorService debugOutputMirror, IUsbUsageCoordinator usbUsageCoordinator, IScanDebugSessionCoordinator sessionCoordinator, IUiDispatcher dispatcher)
     {
         _session = session;
         _parameters = parameters;
@@ -570,12 +621,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _bufferExportService = bufferExportService;
         _autoCalibration = autoCalibration;
         _autoFocus = autoFocus;
+        _illumination = illumination;
         _transferSettings = transferSettings;
+        _deviceSettings = deviceSettings;
         _channelProfiles = channelProfiles;
         _debugOutputMirror = debugOutputMirror;
         _usbUsageCoordinator = usbUsageCoordinator;
         _sessionCoordinator = sessionCoordinator;
         _dispatcher = dispatcher;
+        _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
         SelectedRows = "128";
         IsPreviewEnabled = true;
         IsWaterfallCompressedEnabled = true;
@@ -623,12 +677,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Motor1MoveDirection = MotorDirectionLabels[0];
         Motor2MoveDirection = MotorDirectionLabels[0];
         Motor3MoveDirection = MotorDirectionLabels[0];
+        Motor1MoveValue = "200";
+        Motor2MoveValue = "200";
+        Motor3MoveValue = "200";
+        Motor1MoveUnit = MotorUnitSteps;
+        Motor2MoveUnit = MotorUnitSteps;
+        Motor3MoveUnit = MotorUnitSteps;
         Motor1MoveSteps = "200";
         Motor2MoveSteps = "200";
         Motor3MoveSteps = "200";
-        Motor1IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
-        Motor2IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
-        Motor3IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        ApplyMotorSpeedFromInterval(0, ScanDebugConstants.MotionDefaultIntervalUs);
+        ApplyMotorSpeedFromInterval(1, ScanDebugConstants.MotionDefaultIntervalUs);
+        ApplyMotorSpeedFromInterval(2, ScanDebugConstants.MotionDefaultIntervalUs);
         AutofocusSampleRows = "128";
         AutofocusTiltProbeSteps = "40";
         AutofocusZProbeSteps = "20";
@@ -647,6 +707,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RefreshTargets();
         _ = InitializeTransferSettingsAsync();
     }
+
+    partial void OnMotor1SpeedValueChanged(string value)
+        => OnMotorSpeedInputChanged(0);
+
+    partial void OnMotor2SpeedValueChanged(string value)
+        => OnMotorSpeedInputChanged(1);
+
+    partial void OnMotor3SpeedValueChanged(string value)
+        => OnMotorSpeedInputChanged(2);
+
+    partial void OnMotor1SpeedUnitChanged(string value)
+        => OnMotorSpeedInputChanged(0);
+
+    partial void OnMotor2SpeedUnitChanged(string value)
+        => OnMotorSpeedInputChanged(1);
+
+    partial void OnMotor3SpeedUnitChanged(string value)
+        => OnMotorSpeedInputChanged(2);
 
     partial void OnExposureTicksChanged(string value)
         => UpdateComputedParameterDisplays();
@@ -1193,17 +1271,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             StatusText = "ScanDebug_Runtime_StatusApplyingIllumination".GetLocalized();
 
-            var currentState = await _session.GetIlluminationStateAsync(_session.ConnectionToken);
-            if (currentState.SyncMask != 0)
-                await _session.ConfigureExposureLightingAsync(0, _session.ConnectionToken);
-
-            if (currentState.SteadyMask != 0)
-                await _session.SetSteadyIlluminationAsync(0, _session.ConnectionToken);
-
-            await _session.SetIlluminationLevelsAsync(request.Led1Level, request.Led2Level, request.Led3Level, request.Led4Level, _session.ConnectionToken);
-            await _session.SetSyncPulseClocksAsync(request.Led1PulseClock, request.Led2PulseClock, request.Led3PulseClock, request.Led4PulseClock, _session.ConnectionToken);
-            await _session.SetSteadyIlluminationAsync(request.SteadyMask, _session.ConnectionToken);
-            await _session.ConfigureExposureLightingAsync(request.SyncMask, _session.ConnectionToken);
+            await _illumination.ApplyStateWithSafeTransitionAsync(_session, BuildIlluminationState(request), _session.ConnectionToken);
 
             await LoadIlluminationStateAsync(_session.ConnectionToken);
             StatusText = "ScanDebug_Runtime_StatusIlluminationUpdated".GetLocalized();
@@ -1278,6 +1346,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             StatusText = targetError;
             return;
         }
+
+        await EnsureDeviceSettingsInitializedAsync();
 
         if (!TryBuildMotorMoveRequest(motorId, out var request, out var error))
         {
@@ -1449,30 +1519,55 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var error))
         {
             StatusText = error;
+            MirrorOutput("ScanDebug.SaveFilmProfileJson", $"Input validation failed: {error}");
             return;
         }
 
+        var stage = "initialization";
         try
         {
+            stage = "device settings initialization";
+            await EnsureDeviceSettingsInitializedAsync();
+
+            stage = "calibration profile save";
             await SaveSelectedCalibrationProfileAsync(snapshot);
+
+            stage = "film acquisition settings validation";
             if (!TryBuildFilmAcquisitionSettings(out var acquisitionSettings, out error))
             {
                 StatusText = error;
+                MirrorOutput("ScanDebug.SaveFilmProfileJson", $"Film acquisition settings validation failed: {error}");
                 return;
             }
 
-            await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
+            stage = "film profile name resolution";
+            var profileName = string.IsNullOrWhiteSpace(FilmProfileName)
+                ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalizedOrFallback("Untitled Film Profile")
+                : FilmProfileName.Trim();
+
+            stage = "JSON export";
+            var exported = await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
                 2,
-                string.IsNullOrWhiteSpace(FilmProfileName) ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized() : FilmProfileName.Trim(),
+                profileName,
                 DateTimeOffset.Now,
                 _channelProfiles.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
                 SelectedCalibrationChannel,
                 acquisitionSettings));
-            StatusText = "ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormat(FilmProfileName);
+
+            if (!exported)
+            {
+                StatusText = "ScanDebug_Runtime_StatusFilmProfileExportCanceled".GetLocalizedOrFallback("Save film profile canceled.");
+                MirrorOutput("ScanDebug.SaveFilmProfileJson", $"JSON export canceled during {stage}.");
+                return;
+            }
+
+            StatusText = "ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormatOrFallback("Film profile '{0}' exported.", profileName);
+            MirrorOutput("ScanDebug.SaveFilmProfileJson", $"JSON export completed for profile '{profileName}'.");
         }
         catch (Exception ex)
         {
-            StatusText = "ScanDebug_Runtime_StatusSaveFilmProfileFailed".GetLocalizedFormat(ex.Message);
+            MirrorOutput("ScanDebug.SaveFilmProfileJson", $"Save JSON failed during {stage}.{Environment.NewLine}{ex}");
+            StatusText = "ScanDebug_Runtime_StatusSaveFilmProfileFailed".GetLocalizedFormatOrFallback("Save film profile failed: {0}", ex.Message);
         }
     }
 
@@ -1663,16 +1758,6 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         }
 
-        if (rows > _session.SingleTransferMaxRows && !CanRunExtendedScan())
-        {
-            await RequestNoticeAsync(
-                "ScanDebug_Runtime_RowsLimitExceeded.Title".GetLocalized(),
-                "ScanDebug_Runtime_RowsLimitExceeded.Content".GetLocalizedFormat(_session.SingleTransferMaxRows),
-                "Shared_Dialog_Ok.CloseButtonText".GetLocalized());
-            StatusText = "ScanDebug_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(_session.SingleTransferMaxRows);
-            return;
-        }
-
         if (!IsConnected)
         {
             StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
@@ -1729,18 +1814,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!int.TryParse(SelectedRows, out rows))
             return false;
 
-        if (IsWarmUpEnabled)
-            return rows > 0;
-
-        if (CanRunExtendedScan())
-            return rows > 0;
-
-        return rows > 0 && rows <= _session.SingleTransferMaxRows;
+        return rows > 0;
     }
 
     private async Task<ScanStartResult> RunScanAsync(int rows, CancellationToken ct)
     {
-        if (CanRunExtendedScan() || !IsWarmUpEnabled || rows <= _session.SingleTransferMaxRows)
+        if (CanRunExtendedScan() || rows <= _session.SingleTransferMaxRows)
         {
             return await _session.StartScanAsync(
                 rows,
@@ -1750,7 +1829,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 ReportScanReadProgress);
         }
 
-        return await _session.StartWarmUpSegmentedScanAsync(
+        return await _session.StartSegmentedScanAsync(
             rows,
             ct,
                 status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
@@ -1963,9 +2042,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryBuildIlluminationRequest(out var illuminationRequest, out error))
             return false;
 
-        if (!uint.TryParse(Motor2IntervalUs, out var motorIntervalUs) || motorIntervalUs < ScanDebugConstants.MotionMinIntervalUs)
+        if (!TryBuildMotorIntervalFromInputs(1, Motor2SpeedValue, Motor2SpeedUnit, out var motorIntervalUs, out error))
         {
-            error = "ScanDebug_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat("ScanDebug_Motor2IntervalUsTextBox.Header".GetLocalized(), ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
@@ -2322,9 +2400,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private async Task LoadIlluminationStateAsync(CancellationToken ct)
     {
-        var state = await _session.GetIlluminationStateAsync(ct);
+        var state = await _illumination.GetStateAsync(_session, ct);
         ApplyIlluminationStateToInputs(state);
     }
+
+    private static ScanIlluminationState BuildIlluminationState(IlluminationRequest request)
+        => new(
+            request.Led1Level,
+            request.Led2Level,
+            request.Led3Level,
+            request.Led4Level,
+            request.SteadyMask,
+            request.SyncMask,
+            0,
+            request.Led1PulseClock,
+            request.Led2PulseClock,
+            request.Led3PulseClock,
+            request.Led4PulseClock);
 
     private async Task LoadMotionStateAsync(CancellationToken ct)
     {
@@ -2368,7 +2460,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             normalized.Led2PulseClock,
             normalized.Led3PulseClock,
             normalized.Led4PulseClock));
-        Motor2IntervalUs = normalized.MotorIntervalUs.ToString();
+        ApplyMotorSpeedFromInterval(1, normalized.MotorIntervalUs);
     }
 
     private void ResetIlluminationInputs()
@@ -2415,12 +2507,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Motor1MoveDirection = MotorDirectionLabels[0];
         Motor2MoveDirection = MotorDirectionLabels[0];
         Motor3MoveDirection = MotorDirectionLabels[0];
+        Motor1MoveValue = "200";
+        Motor2MoveValue = "200";
+        Motor3MoveValue = "200";
+        Motor1MoveUnit = MotorUnitSteps;
+        Motor2MoveUnit = MotorUnitSteps;
+        Motor3MoveUnit = MotorUnitSteps;
         Motor1MoveSteps = "200";
         Motor2MoveSteps = "200";
         Motor3MoveSteps = "200";
-        Motor1IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
-        Motor2IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
-        Motor3IntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        ApplyMotorSpeedFromInterval(0, ScanDebugConstants.MotionDefaultIntervalUs);
+        ApplyMotorSpeedFromInterval(1, ScanDebugConstants.MotionDefaultIntervalUs);
+        ApplyMotorSpeedFromInterval(2, ScanDebugConstants.MotionDefaultIntervalUs);
         MotionSummaryText = "ScanDebug_Runtime_MotionSummaryIdle".GetLocalized();
     }
 
@@ -2428,14 +2526,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         request = new IlluminationRequest(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
-        if (!TryParseLedLevel(Led1Level, "ScanDebug_Led1LevelTextBox.Header".GetLocalized(), out var led1Level, out error)
-            || !TryParseLedLevel(Led2Level, "ScanDebug_Led2LevelTextBox.Header".GetLocalized(), out var led2Level, out error)
-            || !TryParseLedLevel(Led3Level, "ScanDebug_Led3LevelTextBox.Header".GetLocalized(), out var led3Level, out error)
-            || !TryParseLedLevel(Led4Level, "ScanDebug_Led4LevelTextBox.Header".GetLocalized(), out var led4Level, out error)
-            || !TryParsePulseClock(Led1PulseClock, "ScanDebug_Led1PulseTextBox.Header".GetLocalized(), out var led1PulseClock, out error)
-            || !TryParsePulseClock(Led2PulseClock, "ScanDebug_Led2PulseTextBox.Header".GetLocalized(), out var led2PulseClock, out error)
-            || !TryParsePulseClock(Led3PulseClock, "ScanDebug_Led3PulseTextBox.Header".GetLocalized(), out var led3PulseClock, out error)
-            || !TryParsePulseClock(Led4PulseClock, "ScanDebug_Led4PulseTextBox.Header".GetLocalized(), out var led4PulseClock, out error))
+        if (!TryParseLedLevel(Led1Level, "ScanDebug_Runtime_FieldLed1Level".GetLocalized(), out var led1Level, out error)
+            || !TryParseLedLevel(Led2Level, "ScanDebug_Runtime_FieldLed2Level".GetLocalized(), out var led2Level, out error)
+            || !TryParseLedLevel(Led3Level, "ScanDebug_Runtime_FieldLed3Level".GetLocalized(), out var led3Level, out error)
+            || !TryParseLedLevel(Led4Level, "ScanDebug_Runtime_FieldLed4Level".GetLocalized(), out var led4Level, out error)
+            || !TryParsePulseClock(Led1PulseClock, "ScanDebug_Runtime_FieldLed1PulseClock".GetLocalized(), out var led1PulseClock, out error)
+            || !TryParsePulseClock(Led2PulseClock, "ScanDebug_Runtime_FieldLed2PulseClock".GetLocalized(), out var led2PulseClock, out error)
+            || !TryParsePulseClock(Led3PulseClock, "ScanDebug_Runtime_FieldLed3PulseClock".GetLocalized(), out var led3PulseClock, out error)
+            || !TryParsePulseClock(Led4PulseClock, "ScanDebug_Runtime_FieldLed4PulseClock".GetLocalized(), out var led4PulseClock, out error))
         {
             return false;
         }
@@ -2449,10 +2547,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return false;
         }
 
-        if (!ValidateSyncPulse(syncMask, 0x01, led1PulseClock, "ScanDebug_Led1PulseTextBox.Header".GetLocalized(), out error)
-            || !ValidateSyncPulse(syncMask, 0x02, led2PulseClock, "ScanDebug_Led2PulseTextBox.Header".GetLocalized(), out error)
-            || !ValidateSyncPulse(syncMask, 0x04, led3PulseClock, "ScanDebug_Led3PulseTextBox.Header".GetLocalized(), out error)
-            || !ValidateSyncPulse(syncMask, 0x08, led4PulseClock, "ScanDebug_Led4PulseTextBox.Header".GetLocalized(), out error))
+        if (!ValidateSyncPulse(syncMask, 0x01, led1PulseClock, "ScanDebug_Runtime_FieldLed1PulseClock".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x02, led2PulseClock, "ScanDebug_Runtime_FieldLed2PulseClock".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x04, led3PulseClock, "ScanDebug_Runtime_FieldLed3PulseClock".GetLocalized(), out error)
+            || !ValidateSyncPulse(syncMask, 0x08, led4PulseClock, "ScanDebug_Runtime_FieldLed4PulseClock".GetLocalized(), out error))
         {
             return false;
         }
@@ -2529,18 +2627,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         request = new MotorMoveRequest(false, 0, 0);
 
-        var (directionText, stepsText, intervalText) = GetMotorMoveInputs(motorId);
+        var (directionText, moveValueText, moveUnitText, speedValueText, speedUnitText) = GetMotorMoveInputs(motorId);
         var direction = string.Equals(directionText, MotorDirectionLabels[1], StringComparison.Ordinal);
 
-        if (!uint.TryParse(stepsText, out var steps) || steps == 0)
+        if (!TryBuildMotorMoveSteps(motorId, moveValueText, moveUnitText, out var steps, out error)
+            || !TryBuildMotorIntervalFromInputs(motorId, speedValueText, speedUnitText, out var intervalUs, out error))
         {
-            error = "ScanDebug_Runtime_ErrorMotorStepsPositive".GetLocalizedFormat(motorId + 1);
-            return false;
-        }
-
-        if (!uint.TryParse(intervalText, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
-        {
-            error = "ScanDebug_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(motorId + 1, ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
@@ -2549,14 +2641,195 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return true;
     }
 
-    private (string DirectionText, string StepsText, string IntervalText) GetMotorMoveInputs(byte motorId)
+    private (string DirectionText, string MoveValueText, string MoveUnitText, string SpeedValueText, string SpeedUnitText) GetMotorMoveInputs(byte motorId)
         => motorId switch
         {
-            0 => (Motor1MoveDirection, Motor1MoveSteps, Motor1IntervalUs),
-            1 => (Motor2MoveDirection, Motor2MoveSteps, Motor2IntervalUs),
-            2 => (Motor3MoveDirection, Motor3MoveSteps, Motor3IntervalUs),
+            0 => (Motor1MoveDirection, Motor1MoveValue, Motor1MoveUnit, Motor1SpeedValue, Motor1SpeedUnit),
+            1 => (Motor2MoveDirection, Motor2MoveValue, Motor2MoveUnit, Motor2SpeedValue, Motor2SpeedUnit),
+            2 => (Motor3MoveDirection, Motor3MoveValue, Motor3MoveUnit, Motor3SpeedValue, Motor3SpeedUnit),
             _ => throw new ArgumentOutOfRangeException(nameof(motorId))
         };
+
+    private bool TryBuildMotorMoveSteps(byte motorId, string moveValueText, string moveUnitText, out uint steps, out string error)
+    {
+        steps = 0;
+        var unit = NormalizeMotorUnit(moveUnitText);
+        var displayMotorId = motorId + 1;
+
+        if (unit == MotorUnitSteps)
+        {
+            if (!uint.TryParse(moveValueText, NumberStyles.Integer, CultureInfo.InvariantCulture, out steps) || steps == 0)
+            {
+                error = "ScanDebug_Runtime_ErrorMotorStepsPositive".GetLocalizedFormat(displayMotorId);
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        if (!double.TryParse(moveValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var distanceValue) || !double.IsFinite(distanceValue) || distanceValue <= 0.0)
+        {
+            error = "ScanDebug_Runtime_ErrorMotorMoveValuePositive".GetLocalizedFormat(displayMotorId, unit);
+            return false;
+        }
+
+        var distanceMm = unit == MotorUnitMicrometers ? distanceValue / 1000.0 : distanceValue;
+        if (!ScanTimingMath.TryConvertMillimetersToMotorSteps(distanceMm, _deviceSettings.Settings.GetMotorSettings(motorId), out steps))
+        {
+            error = "ScanDebug_Runtime_ErrorMotorMoveDistanceTooSmall".GetLocalizedFormat(displayMotorId, unit);
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private bool TryBuildMotorIntervalFromInputs(byte motorId, string speedValueText, string speedUnitText, out uint intervalUs, out string error)
+    {
+        intervalUs = 0;
+        var unit = NormalizeMotorUnit(speedUnitText);
+        var displayMotorId = motorId + 1;
+
+        if (unit == MotorUnitSteps && TryGetDerivedMotorIntervalUs(motorId, out var preservedIntervalUs))
+        {
+            intervalUs = preservedIntervalUs;
+            error = string.Empty;
+            return true;
+        }
+
+        if (!double.TryParse(speedValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var speedValue) || !double.IsFinite(speedValue) || speedValue <= 0.0)
+        {
+            error = "ScanDebug_Runtime_ErrorMotorSpeedValuePositive".GetLocalizedFormat(displayMotorId, unit);
+            return false;
+        }
+
+        if (unit == MotorUnitSteps)
+        {
+            var computed = Math.Ceiling(1_000_000.0 / speedValue);
+            if (!double.IsFinite(computed) || computed < ScanDebugConstants.MotionMinIntervalUs || computed > uint.MaxValue)
+            {
+                error = "ScanDebug_Runtime_ErrorMotorSpeedTooHigh".GetLocalizedFormat(displayMotorId, ScanDebugConstants.MotionMinIntervalUs);
+                return false;
+            }
+
+            intervalUs = (uint)computed;
+            error = string.Empty;
+            return true;
+        }
+
+        var speedMmPerSecond = unit == MotorUnitMicrometers ? speedValue / 1000.0 : speedValue;
+        if (!ScanTimingMath.TryConvertMillimetersPerSecondToMotorIntervalUs(speedMmPerSecond, _deviceSettings.Settings.GetMotorSettings(motorId), ScanDebugConstants.MotionMinIntervalUs, out intervalUs))
+        {
+            error = "ScanDebug_Runtime_ErrorMotorSpeedTooHigh".GetLocalizedFormat(displayMotorId, ScanDebugConstants.MotionMinIntervalUs);
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static string NormalizeMotorUnit(string? unitText)
+        => unitText?.Trim().ToLowerInvariant() switch
+        {
+            MotorUnitMicrometers => MotorUnitMicrometers,
+            MotorUnitMillimeters => MotorUnitMillimeters,
+            _ => MotorUnitSteps
+        };
+
+    private static string FormatMotorSpeedStepsPerSecond(uint intervalUs)
+        => ScanTimingMath.ConvertMotorIntervalToStepsPerSecond(intervalUs).ToString("0.###", CultureInfo.InvariantCulture);
+
+    private async Task EnsureDeviceSettingsInitializedAsync()
+        => await _deviceSettingsInitializationTask;
+
+    private void OnMotorSpeedInputChanged(byte motorId)
+    {
+        if (_isApplyingDerivedMotorSpeed)
+            return;
+
+        SetMotorSpeedDerivedFromInterval(motorId, false);
+    }
+
+    private void ApplyMotorSpeedFromInterval(byte motorId, uint intervalUs)
+    {
+        _isApplyingDerivedMotorSpeed = true;
+        try
+        {
+            var speedValue = FormatMotorSpeedStepsPerSecond(intervalUs);
+            switch (motorId)
+            {
+                case 0:
+                    Motor1SpeedValue = speedValue;
+                    Motor1SpeedUnit = MotorUnitSteps;
+                    Motor1IntervalUs = intervalUs.ToString(CultureInfo.InvariantCulture);
+                    break;
+                case 1:
+                    Motor2SpeedValue = speedValue;
+                    Motor2SpeedUnit = MotorUnitSteps;
+                    Motor2IntervalUs = intervalUs.ToString(CultureInfo.InvariantCulture);
+                    break;
+                case 2:
+                    Motor3SpeedValue = speedValue;
+                    Motor3SpeedUnit = MotorUnitSteps;
+                    Motor3IntervalUs = intervalUs.ToString(CultureInfo.InvariantCulture);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(motorId));
+            }
+        }
+        finally
+        {
+            _isApplyingDerivedMotorSpeed = false;
+        }
+
+        SetMotorSpeedDerivedFromInterval(motorId, true);
+    }
+
+    private bool TryGetDerivedMotorIntervalUs(byte motorId, out uint intervalUs)
+    {
+        intervalUs = 0;
+        if (!IsMotorSpeedDerivedFromInterval(motorId))
+            return false;
+
+        var intervalText = motorId switch
+        {
+            0 => Motor1IntervalUs,
+            1 => Motor2IntervalUs,
+            2 => Motor3IntervalUs,
+            _ => throw new ArgumentOutOfRangeException(nameof(motorId))
+        };
+
+        return uint.TryParse(intervalText, NumberStyles.Integer, CultureInfo.InvariantCulture, out intervalUs)
+            && intervalUs >= ScanDebugConstants.MotionMinIntervalUs;
+    }
+
+    private bool IsMotorSpeedDerivedFromInterval(byte motorId)
+        => motorId switch
+        {
+            0 => _isMotor1SpeedDerivedFromInterval,
+            1 => _isMotor2SpeedDerivedFromInterval,
+            2 => _isMotor3SpeedDerivedFromInterval,
+            _ => throw new ArgumentOutOfRangeException(nameof(motorId))
+        };
+
+    private void SetMotorSpeedDerivedFromInterval(byte motorId, bool value)
+    {
+        switch (motorId)
+        {
+            case 0:
+                _isMotor1SpeedDerivedFromInterval = value;
+                break;
+            case 1:
+                _isMotor2SpeedDerivedFromInterval = value;
+                break;
+            case 2:
+                _isMotor3SpeedDerivedFromInterval = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(motorId));
+        }
+    }
 
     private bool TryBuildAutofocusRequest(out ScanAutofocusRequest request, out string error)
     {

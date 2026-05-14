@@ -1,4 +1,5 @@
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Services;
@@ -8,10 +9,14 @@ public sealed class ScanWorkflowService : IScanWorkflowService
     private const int TotalPasses = ScanDebugConstants.IlluminationChannelCount;
 
     private readonly IScanParameterService _parameters;
+    private readonly IScanIlluminationService _illumination;
+    private readonly IScanTransferSettingsService _transferSettings;
 
-    public ScanWorkflowService(IScanParameterService parameters)
+    public ScanWorkflowService(IScanParameterService parameters, IScanIlluminationService illumination, IScanTransferSettingsService transferSettings)
     {
         _parameters = parameters;
+        _illumination = illumination;
+        _transferSettings = transferSettings;
     }
 
     public async Task<ScanWorkflowResult> ExecuteAsync(
@@ -25,7 +30,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
     {
         ValidateRequest(session, request);
 
-        var originalIllumination = await session.GetIlluminationStateAsync(ct);
+        var originalIllumination = await _illumination.GetStateAsync(session, ct);
         var originalMotion = await session.GetMotionStateAsync(ct);
         var originalMotorState = originalMotion.FirstOrDefault(state => state.MotorId == request.ScanMotorId);
 
@@ -49,8 +54,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var directionPositive = GetDirectionForPass(request, passIndex);
                 var passProfile = request.PassParameterProfiles[passIndex];
                 var passRole = request.PassChannelRoles[passIndex];
-                var expectedLineTimeUs = ComputeLineExposureUs(passProfile.ExposureTicks, passProfile.SysClockKhz);
-                var passMotorSteps = ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalUs);
+                var expectedLineTimeUs = ScanTimingMath.ExposureTicksToMicrosecondsCeil(passProfile.ExposureTicks, passProfile.SysClockKhz);
+                var passMotorSteps = ScanTimingMath.ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalNs);
                 if (passIndex == 0)
                     computedMotorSteps = passMotorSteps;
 
@@ -58,19 +63,19 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, passProfile, ct);
 
-                await ApplySingleLedIlluminationAsync(session, request, ledIndex, ct);
+                await _illumination.ApplySingleChannelAsync(session, BuildAcquisitionSettings(request), ledIndex, ct);
 
                 if (passMotorSteps > 0)
                 {
                     onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: preparing Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {passMotorSteps} step(s), waiting for EXPOSURE_SYNC...");
-                    await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, passMotorSteps, request.MotorIntervalUs, ct);
+                    await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = true;
                 }
 
                 onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Scanning"));
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: LED{ledIndex + 1} active, capturing {request.Rows} row(s)...");
 
-                var scanResult = await RunScanAsync(session, request.Rows, request.WarmUpEnabled, expectedLineTimeUs, ct, onStatus, onDiagnostic, onByteProgress);
+                var scanResult = await RunScanAsync(session, request.Rows, expectedLineTimeUs, ct, onStatus, onDiagnostic, onByteProgress);
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {passIndex + 1} failed: {scanResult.Message}");
 
@@ -79,16 +84,19 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 if (passMotorSteps > 0)
                 {
                     onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Waiting for motor"));
-                    await WaitForMotorIdleAsync(session, request.ScanMotorId, passMotorSteps, request.MotorIntervalUs, ct);
+                    await WaitForMotorIdleAsync(session, request.ScanMotorId, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = false;
                 }
 
-                if (!request.AlternateMotorDirection && passMotorSteps > 0 && passIndex < (TotalPasses - 1))
+                await _illumination.TurnOffAsync(session, ct);
+
+                if (!request.AlternateMotorDirection && passMotorSteps > 0)
                 {
+                    var returnReason = passIndex < (TotalPasses - 1) ? "before next channel scan" : "after final channel scan";
                     onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, !directionPositive, "Returning"));
-                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: returning Motor{request.ScanMotorId + 1} to start position before next channel scan...");
+                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: returning Motor{request.ScanMotorId + 1} to start position {returnReason}...");
                     motionStarted = true;
-                    await session.MoveMotorStepsAndWaitForCompletionAsync(request.ScanMotorId, !directionPositive, passMotorSteps, request.MotorIntervalUs, ct);
+                    await session.MoveMotorStepsAndWaitForCompletionAsync(request.ScanMotorId, !directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = false;
                 }
 
@@ -97,7 +105,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             }
 
             onStatus?.Invoke("Four-channel scan workflow completed.");
-            return new ScanWorkflowResult(request.Rows, captures, computedMotorSteps, request.MotorIntervalUs, request.ExposureTicks, request.SysClockKhz);
+            return new ScanWorkflowResult(request.Rows, captures, computedMotorSteps, request.MotorIntervalNs, request.ExposureTicks, request.SysClockKhz);
         }
         finally
         {
@@ -106,14 +114,20 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 try
                 {
                     await session.StopMotorAsync(request.ScanMotorId, CancellationToken.None);
-                    await WaitForMotorIdleAsync(session, request.ScanMotorId, computedMotorSteps, request.MotorIntervalUs, CancellationToken.None);
+                    await WaitForMotorIdleAsync(session, request.ScanMotorId, computedMotorSteps, request.MotorIntervalNs, CancellationToken.None);
                 }
                 catch
                 {
                 }
             }
 
-            await RestoreIlluminationAsync(session, originalIllumination);
+            try
+            {
+                await _illumination.RestoreStateAsync(session, originalIllumination, CancellationToken.None);
+            }
+            catch
+            {
+            }
 
             if (originalMotorState is not null && !originalMotorState.Enabled)
             {
@@ -128,19 +142,19 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         }
     }
 
-    private static async Task<ScanStartResult> RunScanAsync(
+    private async Task<ScanStartResult> RunScanAsync(
         IScanSessionService session,
         int rows,
-        bool warmUpEnabled,
         uint expectedLineTimeUs,
         CancellationToken ct,
         Action<string>? onStatus,
         Action<string>? onDiagnostic,
         Action<int, int>? onByteProgress)
     {
-        if (warmUpEnabled && rows > session.SingleTransferMaxRows)
+        var useExtendedSingleRead = await ShouldUseFullStartReadPathAsync();
+        if (rows > session.SingleTransferMaxRows && !useExtendedSingleRead)
         {
-            return await session.StartWarmUpSegmentedScanAsync(
+            return await session.StartSegmentedScanAsync(
                 rows,
                 ct,
                 onStatus,
@@ -158,32 +172,17 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             expectedLineTimeUs);
     }
 
-    private static async Task ApplySingleLedIlluminationAsync(IScanSessionService session, ScanWorkflowRequest request, byte ledIndex, CancellationToken ct)
+    private async Task<bool> ShouldUseFullStartReadPathAsync()
     {
-        var acquisitionSettings = request.AcquisitionSettings?.Normalize() ?? BuildDefaultAcquisitionSettings(request.LedLevels, request.MotorIntervalUs);
-        var levels = new ushort[ScanDebugConstants.IlluminationChannelCount];
-        levels[ledIndex] = ledIndex switch
-        {
-            0 => acquisitionSettings.Led1Level,
-            1 => acquisitionSettings.Led2Level,
-            2 => acquisitionSettings.Led3Level,
-            3 => acquisitionSettings.Led4Level,
-            _ => 0
-        };
-
-        var ledMask = (byte)(1 << ledIndex);
-        var syncMask = (byte)(acquisitionSettings.SyncMask & ledMask);
-        var steadyMask = (byte)(acquisitionSettings.SteadyMask & ledMask);
-        if (syncMask == 0 && steadyMask == 0)
-            steadyMask = ledMask;
-
-        await session.SetIlluminationLevelsAsync(levels[0], levels[1], levels[2], levels[3], ct);
-        await session.SetSyncPulseClocksAsync(acquisitionSettings.Led1PulseClock, acquisitionSettings.Led2PulseClock, acquisitionSettings.Led3PulseClock, acquisitionSettings.Led4PulseClock, ct);
-        await session.SetSteadyIlluminationAsync(steadyMask, ct);
-        await session.ConfigureExposureLightingAsync(syncMask, ct);
+        await _transferSettings.InitializeAsync();
+        var settings = _transferSettings.Settings;
+        return settings.ReadMode == ScanBulkInReadMode.MultiBuffered && settings.RawIoEnabled;
     }
 
-    private static ScanFilmAcquisitionSettings BuildDefaultAcquisitionSettings(ushort[] ledLevels, uint motorIntervalUs)
+    private static ScanFilmAcquisitionSettings BuildAcquisitionSettings(ScanWorkflowRequest request)
+        => request.AcquisitionSettings?.Normalize() ?? BuildDefaultAcquisitionSettings(request.LedLevels, request.MotorIntervalNs);
+
+    private static ScanFilmAcquisitionSettings BuildDefaultAcquisitionSettings(ushort[] ledLevels, uint motorIntervalNs)
     {
         var level1 = ledLevels.Length > 0 ? ledLevels[0] : (ushort)0;
         var level2 = ledLevels.Length > 1 ? ledLevels[1] : (ushort)0;
@@ -201,38 +200,12 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
-            motorIntervalUs).Normalize();
+            motorIntervalNs).Normalize();
     }
 
-    private static async Task RestoreIlluminationAsync(IScanSessionService session, ScanIlluminationState state)
+    private static async Task WaitForMotorIdleAsync(IScanSessionService session, byte motorId, uint steps, uint intervalNs, CancellationToken ct)
     {
-        try
-        {
-            await session.SetIlluminationLevelsAsync(state.Led1Level, state.Led2Level, state.Led3Level, state.Led4Level, CancellationToken.None);
-            await session.SetSteadyIlluminationAsync(state.SteadyMask, CancellationToken.None);
-            await session.ConfigureExposureLightingAsync(state.SyncMask, CancellationToken.None);
-            await session.SetSyncPulseClocksAsync(state.Led1PulseClock, state.Led2PulseClock, state.Led3PulseClock, state.Led4PulseClock, CancellationToken.None);
-        }
-        catch
-        {
-        }
-    }
-
-    private static async Task WaitForMotorIdleAsync(IScanSessionService session, byte motorId, uint steps, uint intervalUs, CancellationToken ct)
-    {
-        await session.WaitForMotorMotionCompleteAsync(motorId, steps, intervalUs, ct);
-    }
-
-    private static uint ComputeMotorStepsPerPass(int rows, ushort exposureTicks, uint sysClockKhz, uint motorIntervalUs)
-    {
-        var scanDurationUs = (double)rows * ComputeLineExposureUs(exposureTicks, sysClockKhz);
-        return (uint)Math.Max(1, (int)Math.Round(scanDurationUs / Math.Max(motorIntervalUs, 1u), MidpointRounding.AwayFromZero));
-    }
-
-    private static uint ComputeLineExposureUs(ushort exposureTicks, uint sysClockKhz)
-    {
-        var lineExposureNs = (45827.0 + (exposureTicks * 6.0)) * (1_000_000.0 / Math.Max(sysClockKhz, 1u));
-        return (uint)Math.Max(1, (int)Math.Ceiling(lineExposureNs / 1000.0));
+        await session.WaitForMotorMotionCompleteAsync(motorId, steps, intervalNs, ct);
     }
 
     private static bool GetDirectionForPass(ScanWorkflowRequest request, int passIndex)
@@ -263,8 +236,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         if (request.ScanMotorId >= ScanDebugConstants.MotionMotorCount)
             throw new ArgumentOutOfRangeException(nameof(request), $"Scan motor id must be in [0, {ScanDebugConstants.MotionMotorCount - 1}].");
 
-        if (request.MotorIntervalUs < ScanDebugConstants.MotionMinIntervalUs)
-            throw new ArgumentOutOfRangeException(nameof(request), $"Motor interval must be at least {ScanDebugConstants.MotionMinIntervalUs} us.");
+        if (request.MotorIntervalNs < ScanDebugConstants.MotionMinIntervalNs)
+            throw new ArgumentOutOfRangeException(nameof(request), $"Motor interval must be at least {ScanDebugConstants.MotionMinIntervalNs} ns.");
 
         if (request.SysClockKhz < ScanDebugConstants.MinSysClockKhz)
             throw new ArgumentOutOfRangeException(nameof(request), $"System clock must be at least {ScanDebugConstants.MinSysClockKhz} kHz.");

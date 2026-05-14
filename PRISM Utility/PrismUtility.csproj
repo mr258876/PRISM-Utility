@@ -28,12 +28,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.WinUI.Extensions" Version="8.2.251219" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
     <PackageReference Include="WinUIEx" Version="2.9.0" />
   </ItemGroup>
@@ -48,6 +48,48 @@
     </None>
   </ItemGroup>
 
+  <PropertyGroup>
+    <NativeDngSdkProjectPath>..\DngSdkWarpper\DngSdkWarpper.vcxproj</NativeDngSdkProjectPath>
+    <RequireNativeDngSdkBuild>true</RequireNativeDngSdkBuild>
+    <AutoBuildNativeDngSdk>false</AutoBuildNativeDngSdk>
+    <NativeDngSdkProjectPlatform Condition="'$(Platform)' == 'x64'">x64</NativeDngSdkProjectPlatform>
+    <NativeDngSdkProjectPlatform Condition="'$(Platform)' == 'x86'">Win32</NativeDngSdkProjectPlatform>
+    <NativeDngSdkProjectPlatform Condition="'$(Platform)' == 'arm64'">ARM64</NativeDngSdkProjectPlatform>
+    <NativeDngSdkDllPlatformDir Condition="'$(Platform)' == 'x64'">x64</NativeDngSdkDllPlatformDir>
+    <NativeDngSdkDllPlatformDir Condition="'$(Platform)' == 'x86'">Win32</NativeDngSdkDllPlatformDir>
+    <NativeDngSdkDllPlatformDir Condition="'$(Platform)' == 'arm64'">ARM64</NativeDngSdkDllPlatformDir>
+    <NativeDngSdkDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\DngSdkWarpper\$(NativeDngSdkDllPlatformDir)\$(Configuration)\DngSdkWarpper.dll</NativeDngSdkDllPath>
+    <NativeDngSdkFallbackDebugDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\DngSdkWarpper\$(NativeDngSdkDllPlatformDir)\Debug\DngSdkWarpper.dll</NativeDngSdkFallbackDebugDllPath>
+    <NativeDngSdkFallbackReleaseDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\DngSdkWarpper\$(NativeDngSdkDllPlatformDir)\Release\DngSdkWarpper.dll</NativeDngSdkFallbackReleaseDllPath>
+    <NativeDngSdkLegacyDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\$(NativeDngSdkDllPlatformDir)\$(Configuration)\DngSdkWarpper.dll</NativeDngSdkLegacyDllPath>
+    <NativeDngSdkLegacyFallbackDebugDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\$(NativeDngSdkDllPlatformDir)\Debug\DngSdkWarpper.dll</NativeDngSdkLegacyFallbackDebugDllPath>
+    <NativeDngSdkLegacyFallbackReleaseDllPath Condition="'$(NativeDngSdkDllPlatformDir)' != ''">..\$(NativeDngSdkDllPlatformDir)\Release\DngSdkWarpper.dll</NativeDngSdkLegacyFallbackReleaseDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkDllOverridePath)' != '' and Exists('$(NativeDngSdkDllOverridePath)')">$(NativeDngSdkDllOverridePath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkDllPath)' != '' and Exists('$(NativeDngSdkDllPath)')">$(NativeDngSdkDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkFallbackDebugDllPath)' != '' and Exists('$(NativeDngSdkFallbackDebugDllPath)')">$(NativeDngSdkFallbackDebugDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkFallbackReleaseDllPath)' != '' and Exists('$(NativeDngSdkFallbackReleaseDllPath)')">$(NativeDngSdkFallbackReleaseDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkLegacyDllPath)' != '' and Exists('$(NativeDngSdkLegacyDllPath)')">$(NativeDngSdkLegacyDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkLegacyFallbackDebugDllPath)' != '' and Exists('$(NativeDngSdkLegacyFallbackDebugDllPath)')">$(NativeDngSdkLegacyFallbackDebugDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkResolvedDllPath Condition="'$(NativeDngSdkResolvedDllPath)' == '' and '$(NativeDngSdkLegacyFallbackReleaseDllPath)' != '' and Exists('$(NativeDngSdkLegacyFallbackReleaseDllPath)')">$(NativeDngSdkLegacyFallbackReleaseDllPath)</NativeDngSdkResolvedDllPath>
+    <NativeDngSdkBuildSkippedMessage>Native DNG bridge auto-build is disabled. Build $(NativeDngSdkProjectPath) separately in Visual Studio or with MSBuild when the DLL is missing.</NativeDngSdkBuildSkippedMessage>
+  </PropertyGroup>
+
+  <Target Name="BuildNativeDngSdkWarpper" BeforeTargets="PrepareForBuild" Condition="'$(AutoBuildNativeDngSdk)' == 'true' and Exists('$(NativeDngSdkProjectPath)') and '$(NativeDngSdkProjectPlatform)' != ''">
+    <Message Importance="High" Text="$(NativeDngSdkBuildSkippedMessage)" Condition="'$(AutoBuildNativeDngSdk)' != 'true'" />
+  </Target>
+
+  <Target Name="ValidateNativeDngSdkBuild" BeforeTargets="PrepareForBuild" Condition="Exists('$(NativeDngSdkProjectPath)') and '$(NativeDngSdkProjectPlatform)' != '' and '$(RequireNativeDngSdkBuild)' == 'true'">
+    <Error Condition="'$(NativeDngSdkResolvedDllPath)' == ''" Text="Native DNG export requires a prebuilt DngSdkWarpper.dll. Looked for: $(NativeDngSdkDllPath); fallback Debug: $(NativeDngSdkFallbackDebugDllPath); fallback Release: $(NativeDngSdkFallbackReleaseDllPath); legacy current-config: $(NativeDngSdkLegacyDllPath); legacy Debug: $(NativeDngSdkLegacyFallbackDebugDllPath); legacy Release: $(NativeDngSdkLegacyFallbackReleaseDllPath); override: $(NativeDngSdkDllOverridePath). Build $(NativeDngSdkProjectPath) separately in Visual Studio first, or set RequireNativeDngSdkBuild=false only when you intentionally disable DNG export packaging." />
+  </Target>
+
+  <Target Name="EnsureNativeDngSdkDllExists" BeforeTargets="CopyNativeDngSdkDll" Condition="Exists('$(NativeDngSdkProjectPath)') and '$(NativeDngSdkResolvedDllPath)' != '' and '$(RequireNativeDngSdkBuild)' == 'true'">
+    <Error Condition="!Exists('$(NativeDngSdkResolvedDllPath)')" Text="Expected native DNG bridge output was not produced at $(NativeDngSdkResolvedDllPath)." />
+  </Target>
+
+  <Target Name="CopyNativeDngSdkDll" AfterTargets="Build" Condition="'$(NativeDngSdkResolvedDllPath)' != '' and Exists('$(NativeDngSdkResolvedDllPath)')">
+    <Copy SourceFiles="$(NativeDngSdkResolvedDllPath)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />
   </ItemGroup>
@@ -57,11 +99,7 @@
   </PropertyGroup>
 
   <Target Name="ResolveGitShortSha" BeforeTargets="GenerateAssemblyInfo">
-    <Exec Command="git rev-parse --short HEAD"
-          ConsoleToMsBuild="true"
-          IgnoreExitCode="true"
-          StandardOutputImportance="Low"
-          StandardErrorImportance="Low">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMsBuild="true" IgnoreExitCode="true" StandardOutputImportance="Low" StandardErrorImportance="Low">
       <Output TaskParameter="ConsoleOutput" ItemName="GitShortShaOutput" />
     </Exec>
 
@@ -79,10 +117,7 @@
       <BuildMetadataSourceLines Include="[assembly: System.Reflection.AssemblyMetadata(&quot;BuildLabel&quot;, &quot;$(BuildLabel)&quot;)]" />
     </ItemGroup>
 
-    <WriteLinesToFile
-      File="$(BuildMetadataFile)"
-      Overwrite="true"
-      Lines="@(BuildMetadataSourceLines)" />
+    <WriteLinesToFile File="$(BuildMetadataFile)" Overwrite="true" Lines="@(BuildMetadataSourceLines)" />
 
     <ItemGroup>
       <Compile Include="$(BuildMetadataFile)" Visible="false" />

@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrismUtility", "PRISM Utili
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrismUtility.Core", "PRISM Utility.Core\PrismUtility.Core.csproj", "{69D9A448-FECF-1930-B0CF-75542AF76B41}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrismUtility.Core.Tests", "PrismUtility.Core.Tests\PrismUtility.Core.Tests.csproj", "{C471A533-5480-4E00-B805-BB93B54B5A6A}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "DngSdkWarpper", "DngSdkWarpper\DngSdkWarpper.vcxproj", "{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|arm64 = Debug|arm64
@@ -47,6 +51,30 @@ Global
 		{69D9A448-FECF-1930-B0CF-75542AF76B41}.Release|x64.Build.0 = Release|x64
 		{69D9A448-FECF-1930-B0CF-75542AF76B41}.Release|x86.ActiveCfg = Release|x86
 		{69D9A448-FECF-1930-B0CF-75542AF76B41}.Release|x86.Build.0 = Release|x86
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|arm64.Build.0 = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|x64.Build.0 = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Debug|x86.Build.0 = Debug|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|arm64.ActiveCfg = Release|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|arm64.Build.0 = Release|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|x64.ActiveCfg = Release|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|x64.Build.0 = Release|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|x86.ActiveCfg = Release|Any CPU
+		{C471A533-5480-4E00-B805-BB93B54B5A6A}.Release|x86.Build.0 = Release|Any CPU
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|arm64.ActiveCfg = Debug|ARM64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|arm64.Build.0 = Debug|ARM64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|x64.ActiveCfg = Debug|x64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|x64.Build.0 = Debug|x64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|x86.ActiveCfg = Debug|Win32
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Debug|x86.Build.0 = Debug|Win32
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|arm64.ActiveCfg = Release|ARM64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|arm64.Build.0 = Release|ARM64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|x64.ActiveCfg = Release|x64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|x64.Build.0 = Release|x64
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|x86.ActiveCfg = Release|Win32
+		{E0BE00B1-B2A7-43C0-9A00-0BED698FBC99}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

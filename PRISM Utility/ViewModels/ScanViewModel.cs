@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
@@ -16,6 +17,10 @@ public partial class ScanViewModel : ObservableRecipient
 {
     private const string ForwardDirection = "Forward";
     private const string ReverseDirection = "Reverse";
+    private const string MotorDistanceUnitSteps = "steps";
+    private const string MotorDistanceUnitMicrometers = "um";
+    private const string MotorDistanceUnitMillimeters = "mm";
+    private static readonly string[] MotorDistanceUnitLabels = { MotorDistanceUnitSteps, MotorDistanceUnitMicrometers, MotorDistanceUnitMillimeters };
     private const double DefaultRedWavelengthNm = 680.0;
     private const double DefaultGreenWavelengthNm = 525.0;
     private const double DefaultBlueWavelengthNm = 450.0;
@@ -26,6 +31,7 @@ public partial class ScanViewModel : ObservableRecipient
     private readonly IScanWorkflowService _workflow;
     private readonly IDebugOutputMirrorService _debugOutputMirror;
     private readonly IScanChannelImageService _channelImages;
+    private readonly IScanDeviceSettingsService _deviceSettings;
     private readonly IScanColorManagementSettingsService _colorManagementSettings;
     private readonly IScanChannelParameterProfileService _channelProfiles;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
@@ -37,6 +43,10 @@ public partial class ScanViewModel : ObservableRecipient
     private ushort _loadedExposureTicks;
     private uint _loadedSysClockKhz;
     private ScanFilmAcquisitionSettings? _selectedConfigAcquisitionSettings;
+    private readonly Task _deviceSettingsInitializationTask;
+    private bool _isApplyingDerivedMotorDistance;
+    private bool _isMotorDistanceDerivedFromInterval = true;
+    private string _lastMotorDistancePerLineUnit = MotorDistanceUnitMillimeters;
     private bool _isDisposed;
     private bool _isLoadingColorManagementSettings;
 
@@ -45,6 +55,9 @@ public partial class ScanViewModel : ObservableRecipient
     public ObservableCollection<string> ChannelRoleOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR", "Unused" };
     public ObservableCollection<string> PreviewModes { get; } = new() { "RGB Composite", "Raw Channel 1", "Raw Channel 2", "Raw Channel 3", "Raw Channel 4" };
     public ObservableCollection<string> MotorOptions { get; } = new() { "Motor1", "Motor2", "Motor3" };
+    public ObservableCollection<string> MotorDistancePerLineUnitOptions { get; } = new(MotorDistanceUnitLabels);
+    public ObservableCollection<ScanDngExportMode> DngExportModeOptions { get; } = new() { ScanDngExportMode.LinearRaw4, ScanDngExportMode.LinearRgbIrw };
+    public ObservableCollection<ScanChannelAlignmentMode> AlignmentModeOptions { get; } = new() { ScanChannelAlignmentMode.Ecc, ScanChannelAlignmentMode.MutualInformation, ScanChannelAlignmentMode.EccThenMutualInformation };
 
     [ObservableProperty]
     public partial string SelectedRows { get; set; }
@@ -92,6 +105,18 @@ public partial class ScanViewModel : ObservableRecipient
     public partial string OutputGamma { get; set; }
 
     [ObservableProperty]
+    public partial ScanDngExportMode SelectedDngExportMode { get; set; }
+
+    [ObservableProperty]
+    public partial ScanChannelAlignmentMode SelectedAlignmentMode { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsDualFileDngExportAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSingleFileDngExportForced { get; set; }
+
+    [ObservableProperty]
     public partial bool IsChannel1Reversed { get; set; }
 
     [ObservableProperty]
@@ -108,6 +133,12 @@ public partial class ScanViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string SelectedConfigProfileName { get; set; }
+
+    [ObservableProperty]
+    public partial string MotorDistancePerLineValue { get; set; }
+
+    [ObservableProperty]
+    public partial string MotorDistancePerLineUnit { get; set; }
 
     [ObservableProperty]
     public partial string MotorIntervalUs { get; set; }
@@ -158,12 +189,12 @@ public partial class ScanViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopScanCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveRgbImageCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ExportRawChannelsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportDngChannelsCommand))]
     public partial bool IsRunning { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveRgbImageCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ExportRawChannelsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportDngChannelsCommand))]
     public partial bool IsOutputAvailable { get; set; }
 
     [ObservableProperty]
@@ -203,6 +234,7 @@ public partial class ScanViewModel : ObservableRecipient
         IScanWorkflowService workflow,
         IDebugOutputMirrorService debugOutputMirror,
         IScanChannelImageService channelImages,
+        IScanDeviceSettingsService deviceSettings,
         IScanColorManagementSettingsService colorManagementSettings,
         IScanChannelParameterProfileService channelProfiles,
         IUsbUsageCoordinator usbUsageCoordinator,
@@ -214,10 +246,12 @@ public partial class ScanViewModel : ObservableRecipient
         _workflow = workflow;
         _debugOutputMirror = debugOutputMirror;
         _channelImages = channelImages;
+        _deviceSettings = deviceSettings;
         _colorManagementSettings = colorManagementSettings;
         _channelProfiles = channelProfiles;
         _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = dispatcher;
+        _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
 
         SelectedRows = RowOptions[1];
         IsWarmUpEnabled = false;
@@ -234,12 +268,17 @@ public partial class ScanViewModel : ObservableRecipient
         GreenWavelengthNm = DefaultGreenWavelengthNm.ToString("0");
         BlueWavelengthNm = DefaultBlueWavelengthNm.ToString("0");
         OutputGamma = DefaultOutputGamma.ToString("0.0");
+        SelectedDngExportMode = DngExportModeOptions[0];
+        SelectedAlignmentMode = AlignmentModeOptions[0];
+        UpdateDngExportModeAvailability();
         IsChannel1Reversed = false;
         IsChannel2Reversed = false;
         IsChannel3Reversed = false;
         IsChannel4Reversed = false;
         SelectedScanMotor = MotorOptions[Math.Min(1, MotorOptions.Count - 1)];
         SelectedConfigProfileName = "Scan_Runtime_ConfigProfileNotSelected".GetLocalized();
+        MotorDistancePerLineValue = string.Empty;
+        MotorDistancePerLineUnit = MotorDistanceUnitMillimeters;
         MotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         Led1Level = "0";
         Led2Level = "0";
@@ -275,11 +314,62 @@ public partial class ScanViewModel : ObservableRecipient
     partial void OnSelectedRowsChanged(string value)
         => UpdateComputedMotorSummary();
 
+    partial void OnMotorDistancePerLineValueChanged(string value)
+    {
+        if (_isApplyingDerivedMotorDistance)
+        {
+            UpdateComputedMotorSummary();
+            return;
+        }
+
+        _isMotorDistanceDerivedFromInterval = false;
+        UpdateComputedMotorSummary();
+    }
+
+    partial void OnMotorDistancePerLineUnitChanged(string value)
+    {
+        var normalizedUnit = NormalizeMotorDistanceUnit(value);
+        var previousUnit = _lastMotorDistancePerLineUnit;
+        _lastMotorDistancePerLineUnit = normalizedUnit;
+
+        if (_isApplyingDerivedMotorDistance)
+        {
+            UpdateComputedMotorSummary();
+            return;
+        }
+
+        if (_isMotorDistanceDerivedFromInterval)
+        {
+            RefreshDerivedMotorDistanceFromCurrentInterval();
+            UpdateComputedMotorSummary();
+            return;
+        }
+
+        if (!string.Equals(previousUnit, normalizedUnit, StringComparison.Ordinal)
+            && TryParseDisplayedMotorDistanceMillimeters(MotorDistancePerLineValue, previousUnit, GetCurrentMotorSettings(), out var lineDistanceMm)
+            && TryFormatMotorDistanceDisplayValue(lineDistanceMm, normalizedUnit, GetCurrentMotorSettings(), out var convertedValue))
+        {
+            ApplyDerivedMotorDistance(convertedValue);
+        }
+
+        UpdateComputedMotorSummary();
+    }
+
     partial void OnMotorIntervalUsChanged(string value)
-        => UpdateComputedMotorSummary();
+    {
+        if (_isMotorDistanceDerivedFromInterval)
+            RefreshDerivedMotorDistanceFromCurrentInterval();
+
+        UpdateComputedMotorSummary();
+    }
 
     partial void OnSelectedScanMotorChanged(string value)
-        => UpdateComputedMotorSummary();
+    {
+        if (_isMotorDistanceDerivedFromInterval)
+            RefreshDerivedMotorDistanceFromCurrentInterval();
+
+        UpdateComputedMotorSummary();
+    }
 
     partial void OnIsPreviewEnabledChanged(bool value)
         => UpdatePreviewState();
@@ -305,6 +395,15 @@ public partial class ScanViewModel : ObservableRecipient
     partial void OnSelectedPreviewModeChanged(string value)
         => UpdatePreviewState();
 
+    partial void OnSelectedDngExportModeChanged(ScanDngExportMode value)
+    {
+        if (value == ScanDngExportMode.LinearRgbIrw && !IsDualFileDngExportAvailable)
+            SelectedDngExportMode = ScanDngExportMode.LinearRaw4;
+    }
+
+    partial void OnSelectedAlignmentModeChanged(ScanChannelAlignmentMode value)
+        => UpdatePreviewState();
+
     partial void OnSelectedChannel1RoleChanged(string value)
         => OnChannelRoleChanged();
 
@@ -319,7 +418,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnRedWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Scan_RedWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { RedWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -327,7 +426,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnGreenWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Scan_GreenWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { GreenWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -335,7 +434,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnBlueWavelengthNmChanged(string value)
     {
-        if (TryParseColorDouble(value, "Scan_BlueWavelengthTextBox/Header".GetLocalized(), out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { BlueWavelengthNm = parsed });
         else
             UpdatePreviewState();
@@ -343,7 +442,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     partial void OnOutputGammaChanged(string value)
     {
-        if (TryParseColorDouble(value, "Scan_OutputGammaTextBox/Header".GetLocalized(), out var parsed, out _))
+        if (TryParseColorDouble(value, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { OutputGamma = parsed });
         else
             UpdatePreviewState();
@@ -363,9 +462,29 @@ public partial class ScanViewModel : ObservableRecipient
 
     private void OnChannelRoleChanged()
     {
+        UpdateDngExportModeAvailability();
         UpdateChannelMappingSummary();
         UpdatePreviewState();
     }
+
+    private void UpdateDngExportModeAvailability()
+    {
+        var roles = new[] { SelectedChannel1Role, SelectedChannel2Role, SelectedChannel3Role, SelectedChannel4Role };
+        IsDualFileDngExportAvailable = CountRole(roles, "Red") == 1
+            && CountRole(roles, "Green") == 1
+            && CountRole(roles, "Blue") == 1
+            && CountIrOrWhiteRole(roles) == 1;
+        IsSingleFileDngExportForced = !IsDualFileDngExportAvailable;
+
+        if (!IsDualFileDngExportAvailable && SelectedDngExportMode == ScanDngExportMode.LinearRgbIrw)
+            SelectedDngExportMode = ScanDngExportMode.LinearRaw4;
+    }
+
+    private static int CountRole(IEnumerable<string> roles, string role)
+        => roles.Count(candidate => string.Equals(candidate, role, StringComparison.Ordinal));
+
+    private static int CountIrOrWhiteRole(IEnumerable<string> roles)
+        => roles.Count(candidate => string.Equals(candidate, "IR", StringComparison.Ordinal) || string.Equals(candidate, "White", StringComparison.Ordinal));
 
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
@@ -387,7 +506,7 @@ public partial class ScanViewModel : ObservableRecipient
     private bool CanStartScan() => IsConnected && !IsConnecting && !IsRunning;
     private bool CanStopScan() => IsRunning;
     private bool CanSaveRgbImage() => IsOutputAvailable && !IsRunning;
-    private bool CanExportRawChannels() => IsOutputAvailable && !IsRunning;
+    private bool CanExportDngChannels() => IsOutputAvailable && !IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
@@ -403,6 +522,7 @@ public partial class ScanViewModel : ObservableRecipient
         {
             await _transferSettings.InitializeAsync();
             await _channelProfiles.InitializeAsync();
+            await _deviceSettings.InitializeAsync();
 
             var result = await _session.ConnectAsync(CancellationToken.None);
             if (!result.Success)
@@ -423,6 +543,7 @@ public partial class ScanViewModel : ObservableRecipient
                 _loadedExposureTicks = snapshot.ExposureTicks;
                 _loadedSysClockKhz = snapshot.SysClockKhz;
                 _loadedSnapshot = snapshot;
+                RefreshDerivedMotorDistanceFromCurrentInterval();
                 statusNotes.Add("Scan_Runtime_StatusParametersLoaded".GetLocalizedFormat(snapshot.ExposureTicks, snapshot.SysClockKhz));
             }
             catch (Exception ex)
@@ -527,7 +648,7 @@ public partial class ScanViewModel : ObservableRecipient
 
             _lastResult = result;
             IsOutputAvailable = true;
-            OutputSummaryText = "Scan_Runtime_OutputSummaryCaptured".GetLocalizedFormat(result.Passes.Count, result.Rows, result.ComputedMotorStepsPerPass, result.MotorIntervalUs);
+            OutputSummaryText = "Scan_Runtime_OutputSummaryCaptured".GetLocalizedFormat(result.Passes.Count, result.Rows, result.ComputedMotorStepsPerPass);
             StatusText = "Scan_Runtime_StatusCompleted".GetLocalized();
             UpdatePreviewState();
         }
@@ -592,7 +713,7 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        if (!_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, null, out var frame, out var error) || frame is null)
+        if (!_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, null, out var frame, out var error) || frame is null)
         {
             StatusText = error;
             return;
@@ -616,30 +737,30 @@ public partial class ScanViewModel : ObservableRecipient
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanExportRawChannels))]
-    private async Task ExportRawChannels()
+    [RelayCommand(CanExecute = nameof(CanExportDngChannels))]
+    private async Task ExportDngChannels()
     {
         if (_lastResult is null)
         {
-            StatusText = "Scan_Runtime_StatusNoRawResult".GetLocalized();
+            StatusText = "Scan_Runtime_StatusNoDngResult".GetLocalized();
             return;
         }
 
         try
         {
-            var folder = await _channelImages.PickRawExportFolderAsync();
+            var folder = await _channelImages.PickDngExportFolderAsync();
             if (folder is null)
             {
-                StatusText = "Scan_Runtime_StatusRawExportCanceled".GetLocalized();
+                StatusText = "Scan_Runtime_StatusDngExportCanceled".GetLocalized();
                 return;
             }
 
-            await _channelImages.ExportRawChannelsAsync(folder, _lastResult, BuildChannelAssignment());
-            StatusText = "Scan_Runtime_StatusRawExported".GetLocalizedFormat(folder.Path);
+            await _channelImages.ExportDngChannelsAsync(folder, _lastResult, BuildChannelAssignment(), SelectedAlignmentMode, SelectedDngExportMode);
+            StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
         }
         catch (Exception ex)
         {
-            StatusText = "Scan_Runtime_StatusRawExportFailed".GetLocalizedFormat(ex.Message);
+            StatusText = "Scan_Runtime_StatusDngExportFailed".GetLocalizedFormat(ex.Message);
         }
     }
 
@@ -732,10 +853,10 @@ public partial class ScanViewModel : ObservableRecipient
                 return;
             }
 
-            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, PreviewImage, out var frame, out var error) && frame is not null)
+            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, PreviewImage, out var frame, out var error) && frame is not null)
             {
                 PreviewImage = frame.Bitmap;
-                PreviewDescriptionText = "Scan_Runtime_PreviewCompositeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), IsColorManagementEnabled ? "Scan_Runtime_PreviewCompositeModeSpectral".GetLocalized() : "Scan_Runtime_PreviewCompositeModeGamma".GetLocalized());
+                PreviewDescriptionText = "Scan_Runtime_PreviewCompositeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), GetAlignmentModeDisplayName(SelectedAlignmentMode), IsColorManagementEnabled ? "Scan_Runtime_PreviewCompositeModeSpectral".GetLocalized() : "Scan_Runtime_PreviewCompositeModeGamma".GetLocalized());
                 PreviewPlaceholderText = string.Empty;
             }
             else
@@ -757,12 +878,10 @@ public partial class ScanViewModel : ObservableRecipient
         }
 
         var assignment = BuildChannelAssignment();
-        var capture = _lastResult.Passes[channelIndex];
-        var manuallyReverse = channelIndex < assignment.ReversedFlags.Count && assignment.ReversedFlags[channelIndex];
-        if (_channelImages.TryBuildRawPreview(capture, manuallyReverse, PreviewImage, out var bitmap, out var rawError))
+        if (_channelImages.TryBuildRawPreview(_lastResult, assignment, SelectedAlignmentMode, channelIndex, PreviewImage, out var bitmap, out var rawError))
         {
             PreviewImage = bitmap;
-            PreviewDescriptionText = "Scan_Runtime_PreviewRawDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), capture.PassIndex);
+            PreviewDescriptionText = "Scan_Runtime_PreviewRawDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), GetAlignmentModeDisplayName(SelectedAlignmentMode), _lastResult.Passes[channelIndex].PassIndex);
             PreviewPlaceholderText = string.Empty;
         }
         else
@@ -786,22 +905,29 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        if (!uint.TryParse(MotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
-        {
-            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
-            return;
-        }
-
         if (_loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
         {
             ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
             return;
         }
 
-        var lineExposureNs = (45827.0 + (_loadedExposureTicks * 6.0)) * (1_000_000.0 / _loadedSysClockKhz);
-        var scanDurationUs = (rows * lineExposureNs) / 1000.0;
-        var computedSteps = (uint)Math.Max(1, (int)Math.Round(scanDurationUs / Math.Max(intervalUs, 1u), MidpointRounding.AwayFromZero));
-        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorSummary".GetLocalizedFormat(GetMotorDisplayIndex(), computedSteps, intervalUs, rows);
+        if (!TryParseSelectedMotor(out var motorId, out _))
+        {
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
+            return;
+        }
+
+        var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
+        if (!TryGetEffectiveMotorIntervalUs(motorSettings, out var intervalUs))
+        {
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
+            return;
+        }
+
+        var computedSteps = ScanTimingMath.ComputeMotorStepsPerPass(rows, _loadedExposureTicks, _loadedSysClockKhz, intervalUs);
+        var distanceMm = ScanTimingMath.ConvertMotorStepsToMillimeters(computedSteps, motorSettings);
+        var speedMmPerSecond = ScanTimingMath.ConvertMotorIntervalToMillimetersPerSecond(intervalUs, motorSettings);
+        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorSummary".GetLocalizedFormat(GetMotorDisplayIndex(), computedSteps, intervalUs, rows, distanceMm.ToString("0.###", CultureInfo.InvariantCulture), speedMmPerSecond.ToString("0.###", CultureInfo.InvariantCulture));
     }
 
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
@@ -817,16 +943,19 @@ public partial class ScanViewModel : ObservableRecipient
         if (!TryParseSelectedMotor(out var motorId, out error))
             return false;
 
-        if (!uint.TryParse(MotorIntervalUs, out var intervalUs) || intervalUs < ScanDebugConstants.MotionMinIntervalUs)
+        _deviceSettingsInitializationTask.GetAwaiter().GetResult();
+
+        var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
+        if (!TryGetEffectiveMotorIntervalUs(motorSettings, out var intervalUs))
         {
             error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
             return false;
         }
 
-        if (!TryParseLedLevel(Led1Level, "Scan_Led1LevelTextBox.Header".GetLocalized(), out var led1, out error)
-            || !TryParseLedLevel(Led2Level, "Scan_Led2LevelTextBox.Header".GetLocalized(), out var led2, out error)
-            || !TryParseLedLevel(Led3Level, "Scan_Led3LevelTextBox.Header".GetLocalized(), out var led3, out error)
-            || !TryParseLedLevel(Led4Level, "Scan_Led4LevelTextBox.Header".GetLocalized(), out var led4, out error))
+        if (!TryParseLedLevel(Led1Level, "Scan_Runtime_FieldLed1Level".GetLocalized(), out var led1, out error)
+            || !TryParseLedLevel(Led2Level, "Scan_Runtime_FieldLed2Level".GetLocalized(), out var led2, out error)
+            || !TryParseLedLevel(Led3Level, "Scan_Runtime_FieldLed3Level".GetLocalized(), out var led3, out error)
+            || !TryParseLedLevel(Led4Level, "Scan_Runtime_FieldLed4Level".GetLocalized(), out var led4, out error))
         {
             return false;
         }
@@ -885,10 +1014,121 @@ public partial class ScanViewModel : ObservableRecipient
     {
         var normalized = settings.Normalize();
         MotorIntervalUs = normalized.MotorIntervalUs.ToString(CultureInfo.InvariantCulture);
+        _isMotorDistanceDerivedFromInterval = true;
+        RefreshDerivedMotorDistanceFromCurrentInterval();
         Led1Level = normalized.Led1Level.ToString(CultureInfo.InvariantCulture);
         Led2Level = normalized.Led2Level.ToString(CultureInfo.InvariantCulture);
         Led3Level = normalized.Led3Level.ToString(CultureInfo.InvariantCulture);
         Led4Level = normalized.Led4Level.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private bool TryGetEffectiveMotorIntervalUs(ScanMotorMechanicalSettings motorSettings, out uint intervalUs)
+    {
+        intervalUs = 0;
+
+        if (_isMotorDistanceDerivedFromInterval)
+            return uint.TryParse(MotorIntervalUs, NumberStyles.Integer, CultureInfo.InvariantCulture, out intervalUs)
+                && intervalUs >= ScanDebugConstants.MotionMinIntervalUs;
+
+        if (_loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
+            return false;
+
+        if (!TryParseDisplayedMotorDistanceMillimeters(MotorDistancePerLineValue, MotorDistancePerLineUnit, motorSettings, out var lineDistanceMm))
+            return false;
+
+        if (!ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalUs(lineDistanceMm, _loadedExposureTicks, _loadedSysClockKhz, motorSettings, ScanDebugConstants.MotionMinIntervalUs, out intervalUs))
+            return false;
+
+        MotorIntervalUs = intervalUs.ToString(CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private void RefreshDerivedMotorDistanceFromCurrentInterval()
+    {
+        if (!_isMotorDistanceDerivedFromInterval)
+            return;
+
+        if (!uint.TryParse(MotorIntervalUs, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intervalUs)
+            || intervalUs < ScanDebugConstants.MotionMinIntervalUs
+            || _loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz
+            || !TryParseSelectedMotor(out var motorId, out _))
+        {
+            ApplyDerivedMotorDistance(string.Empty);
+            return;
+        }
+
+        var lineDistanceMm = ScanTimingMath.ConvertMotorIntervalToLineDistanceMillimeters(intervalUs, _loadedExposureTicks, _loadedSysClockKhz, _deviceSettings.Settings.GetMotorSettings(motorId));
+        if (!TryFormatMotorDistanceDisplayValue(lineDistanceMm, MotorDistancePerLineUnit, _deviceSettings.Settings.GetMotorSettings(motorId), out var displayValue))
+        {
+            ApplyDerivedMotorDistance(string.Empty);
+            return;
+        }
+
+        ApplyDerivedMotorDistance(displayValue);
+    }
+
+    private void ApplyDerivedMotorDistance(string value)
+    {
+        _isApplyingDerivedMotorDistance = true;
+        try
+        {
+            MotorDistancePerLineValue = value;
+        }
+        finally
+        {
+            _isApplyingDerivedMotorDistance = false;
+        }
+    }
+
+    private ScanMotorMechanicalSettings GetCurrentMotorSettings()
+        => TryParseSelectedMotor(out var motorId, out _) ? _deviceSettings.Settings.GetMotorSettings(motorId) : ScanMotorMechanicalSettings.CreateDefault();
+
+    private static string NormalizeMotorDistanceUnit(string? unit)
+        => unit?.Trim().ToLowerInvariant() switch
+        {
+            MotorDistanceUnitSteps => MotorDistanceUnitSteps,
+            MotorDistanceUnitMicrometers => MotorDistanceUnitMicrometers,
+            _ => MotorDistanceUnitMillimeters
+        };
+
+    private static bool TryParseDisplayedMotorDistanceMillimeters(string valueText, string unit, ScanMotorMechanicalSettings motorSettings, out double lineDistanceMm)
+    {
+        lineDistanceMm = 0.0;
+        if (!double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            || !double.IsFinite(parsed)
+            || parsed <= 0.0)
+        {
+            return false;
+        }
+
+        lineDistanceMm = NormalizeMotorDistanceUnit(unit) switch
+        {
+            MotorDistanceUnitSteps => parsed / Math.Max(ScanTimingMath.ComputeMotorStepsPerMillimeter(motorSettings), double.Epsilon),
+            MotorDistanceUnitMicrometers => parsed / 1000.0,
+            _ => parsed
+        };
+
+        return double.IsFinite(lineDistanceMm) && lineDistanceMm > 0.0;
+    }
+
+    private static bool TryFormatMotorDistanceDisplayValue(double lineDistanceMm, string unit, ScanMotorMechanicalSettings motorSettings, out string valueText)
+    {
+        valueText = string.Empty;
+        if (!double.IsFinite(lineDistanceMm) || lineDistanceMm <= 0.0)
+            return false;
+
+        var converted = NormalizeMotorDistanceUnit(unit) switch
+        {
+            MotorDistanceUnitSteps => lineDistanceMm * ScanTimingMath.ComputeMotorStepsPerMillimeter(motorSettings),
+            MotorDistanceUnitMicrometers => lineDistanceMm * 1000.0,
+            _ => lineDistanceMm
+        };
+
+        if (!double.IsFinite(converted) || converted <= 0.0)
+            return false;
+
+        valueText = converted.ToString("0.#########", CultureInfo.InvariantCulture);
+        return true;
     }
 
     private ScanFilmAcquisitionSettings BuildWorkflowAcquisitionSettings(uint motorIntervalUs, ushort led1, ushort led2, ushort led3, ushort led4)
@@ -970,10 +1210,10 @@ public partial class ScanViewModel : ObservableRecipient
     {
         options = ScanColorManagementOptions.CreateDefault();
 
-        if (!TryParseColorDouble(RedWavelengthNm, "Scan_RedWavelengthTextBox/Header".GetLocalized(), out var redWavelength, out error)
-            || !TryParseColorDouble(GreenWavelengthNm, "Scan_GreenWavelengthTextBox/Header".GetLocalized(), out var greenWavelength, out error)
-            || !TryParseColorDouble(BlueWavelengthNm, "Scan_BlueWavelengthTextBox/Header".GetLocalized(), out var blueWavelength, out error)
-            || !TryParseColorDouble(OutputGamma, "Scan_OutputGammaTextBox/Header".GetLocalized(), out var outputGamma, out error))
+        if (!TryParseColorDouble(RedWavelengthNm, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var redWavelength, out error)
+            || !TryParseColorDouble(GreenWavelengthNm, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var greenWavelength, out error)
+            || !TryParseColorDouble(BlueWavelengthNm, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var blueWavelength, out error)
+            || !TryParseColorDouble(OutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error))
         {
             return false;
         }
@@ -1012,6 +1252,15 @@ public partial class ScanViewModel : ObservableRecipient
             "Raw Channel 3" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(3),
             "Raw Channel 4" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(4),
             _ => mode
+        };
+
+    private static string GetAlignmentModeDisplayName(ScanChannelAlignmentMode mode)
+        => mode switch
+        {
+            ScanChannelAlignmentMode.Ecc => "Scan_Runtime_AlignmentModeEcc".GetLocalized(),
+            ScanChannelAlignmentMode.MutualInformation => "Scan_Runtime_AlignmentModeMutualInformation".GetLocalized(),
+            ScanChannelAlignmentMode.EccThenMutualInformation => "Scan_Runtime_AlignmentModeEccThenMutualInformation".GetLocalized(),
+            _ => mode.ToString()
         };
 
     private static string GetChannelRoleDisplayName(string role)

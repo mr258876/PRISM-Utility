@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Data;
+using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Helpers;
 
@@ -6,6 +7,12 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
+        if (parameter as string == "DngExportMode" && value is ScanDngExportMode exportMode)
+            return GetDngExportModeDisplayName(exportMode);
+
+        if (parameter as string == "AlignmentMode" && value is ScanChannelAlignmentMode alignmentMode)
+            return GetAlignmentModeDisplayName(alignmentMode);
+
         if (value is not string token || string.IsNullOrWhiteSpace(token))
             return value?.ToString() ?? string.Empty;
 
@@ -53,6 +60,23 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             "Raw Channel 3" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(3),
             "Raw Channel 4" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(4),
             _ => mode
+        };
+
+    private static string GetDngExportModeDisplayName(ScanDngExportMode mode)
+        => mode switch
+        {
+            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_DngExportModeLinearRaw4".GetLocalized(),
+            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_DngExportModeLinearRgbIrw".GetLocalized(),
+            _ => mode.ToString()
+        };
+
+    private static string GetAlignmentModeDisplayName(ScanChannelAlignmentMode mode)
+        => mode switch
+        {
+            ScanChannelAlignmentMode.Ecc => "Scan_Runtime_AlignmentModeEcc".GetLocalized(),
+            ScanChannelAlignmentMode.MutualInformation => "Scan_Runtime_AlignmentModeMutualInformation".GetLocalized(),
+            ScanChannelAlignmentMode.EccThenMutualInformation => "Scan_Runtime_AlignmentModeEccThenMutualInformation".GetLocalized(),
+            _ => mode.ToString()
         };
 
     private static string GetMotorDisplayName(string motor)

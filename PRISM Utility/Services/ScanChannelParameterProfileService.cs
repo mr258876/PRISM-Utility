@@ -136,7 +136,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
         return true;
     }
 
-    public async Task ExportProfilesAsync(ScanFilmParameterProfileSet profileSet)
+    public async Task<bool> ExportProfilesAsync(ScanFilmParameterProfileSet profileSet)
     {
         await InitializeAsync();
 
@@ -149,10 +149,11 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
         WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
         var file = await picker.PickSaveFileAsync();
         if (file is null)
-            return;
+            return false;
 
         var json = await PRISM_Utility.Core.Helpers.Json.StringifyAsync(normalized);
         await FileIO.WriteTextAsync(file, json);
+        return true;
     }
 
     public async Task<ScanFilmParameterProfileSet?> ImportProfilesAsync()

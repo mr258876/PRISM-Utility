@@ -423,21 +423,34 @@
                                     <TextBlock x:Uid="ScanDebug_Motor1Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                     <TextBlock Text="{x:Bind ViewModel.Motor1StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                     <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" x:Uid="ScanDebug_Motor1EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="1" />
-                                        <Button Grid.Column="1" x:Uid="ScanDebug_Motor1DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="1" />
-                                    </Grid>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor1MoveDirection, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor1MoveStepsTextBox" Text="{x:Bind ViewModel.Motor1MoveSteps, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor1IntervalUsTextBox" Text="{x:Bind ViewModel.Motor1IntervalUs, Mode=TwoWay}" />
+                                     <Grid.ColumnDefinitions>
+                                         <ColumnDefinition Width="*" />
+                                         <ColumnDefinition Width="*" />
+                                     </Grid.ColumnDefinitions>
+                                     <Button Grid.Column="0" x:Uid="ScanDebug_Motor1EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="1" />
+                                     <Button Grid.Column="1" x:Uid="ScanDebug_Motor1DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="1" />
+                                     </Grid>
+                                     <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor1MoveDirection, Mode=TwoWay}" />
                                     <Grid ColumnSpacing="8" RowSpacing="8">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBox Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_Motor1MoveValueTextBox" Text="{x:Bind ViewModel.Motor1MoveValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_Motor1MoveUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor1MoveUnit, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_Motor1SpeedValueTextBox" Text="{x:Bind ViewModel.Motor1SpeedValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_Motor1SpeedUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor1SpeedUnit, Mode=TwoWay}" />
+                                    </Grid>
+                                     <Grid ColumnSpacing="8" RowSpacing="8">
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="*" />
+                                             <ColumnDefinition Width="*" />
+                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
@@ -454,21 +467,34 @@
                                     <TextBlock x:Uid="ScanDebug_Motor2Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                     <TextBlock Text="{x:Bind ViewModel.Motor2StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                     <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" x:Uid="ScanDebug_Motor2EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="2" />
-                                        <Button Grid.Column="1" x:Uid="ScanDebug_Motor2DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="2" />
-                                    </Grid>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor2MoveDirection, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor2MoveStepsTextBox" Text="{x:Bind ViewModel.Motor2MoveSteps, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor2IntervalUsTextBox" Text="{x:Bind ViewModel.Motor2IntervalUs, Mode=TwoWay}" />
+                                     <Grid.ColumnDefinitions>
+                                         <ColumnDefinition Width="*" />
+                                         <ColumnDefinition Width="*" />
+                                     </Grid.ColumnDefinitions>
+                                     <Button Grid.Column="0" x:Uid="ScanDebug_Motor2EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="2" />
+                                     <Button Grid.Column="1" x:Uid="ScanDebug_Motor2DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="2" />
+                                     </Grid>
+                                     <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor2MoveDirection, Mode=TwoWay}" />
                                     <Grid ColumnSpacing="8" RowSpacing="8">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBox Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_Motor2MoveValueTextBox" Text="{x:Bind ViewModel.Motor2MoveValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_Motor2MoveUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor2MoveUnit, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_Motor2SpeedValueTextBox" Text="{x:Bind ViewModel.Motor2SpeedValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_Motor2SpeedUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor2SpeedUnit, Mode=TwoWay}" />
+                                    </Grid>
+                                     <Grid ColumnSpacing="8" RowSpacing="8">
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="*" />
+                                             <ColumnDefinition Width="*" />
+                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
@@ -485,21 +511,34 @@
                                     <TextBlock x:Uid="ScanDebug_Motor3Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                     <TextBlock Text="{x:Bind ViewModel.Motor3StatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                     <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" x:Uid="ScanDebug_Motor3EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="3" />
-                                        <Button Grid.Column="1" x:Uid="ScanDebug_Motor3DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="3" />
-                                    </Grid>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor3MoveDirection, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor3MoveStepsTextBox" Text="{x:Bind ViewModel.Motor3MoveSteps, Mode=TwoWay}" />
-                                    <TextBox x:Uid="ScanDebug_Motor3IntervalUsTextBox" Text="{x:Bind ViewModel.Motor3IntervalUs, Mode=TwoWay}" />
+                                     <Grid.ColumnDefinitions>
+                                         <ColumnDefinition Width="*" />
+                                         <ColumnDefinition Width="*" />
+                                     </Grid.ColumnDefinitions>
+                                     <Button Grid.Column="0" x:Uid="ScanDebug_Motor3EnableButton" Command="{x:Bind ViewModel.EnableMotorCommand}" CommandParameter="3" />
+                                     <Button Grid.Column="1" x:Uid="ScanDebug_Motor3DisableButton" Command="{x:Bind ViewModel.DisableMotorCommand}" CommandParameter="3" />
+                                     </Grid>
+                                     <ComboBox ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}" SelectedItem="{x:Bind ViewModel.Motor3MoveDirection, Mode=TwoWay}" />
                                     <Grid ColumnSpacing="8" RowSpacing="8">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBox Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_Motor3MoveValueTextBox" Text="{x:Bind ViewModel.Motor3MoveValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_Motor3MoveUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor3MoveUnit, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_Motor3SpeedValueTextBox" Text="{x:Bind ViewModel.Motor3SpeedValue, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_Motor3SpeedUnitComboBox" ItemsSource="{x:Bind ViewModel.MotorUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Motor3SpeedUnit, Mode=TwoWay}" />
+                                    </Grid>
+                                     <Grid ColumnSpacing="8" RowSpacing="8">
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="*" />
+                                             <ColumnDefinition Width="*" />
+                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />

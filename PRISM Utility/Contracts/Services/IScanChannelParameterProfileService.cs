@@ -15,7 +15,7 @@ public interface IScanChannelParameterProfileService
 
     Task<bool> ClearProfileAsync(string channelRole);
 
-    Task ExportProfilesAsync(ScanFilmParameterProfileSet profileSet);
+    Task<bool> ExportProfilesAsync(ScanFilmParameterProfileSet profileSet);
 
     Task<ScanFilmParameterProfileSet?> ImportProfilesAsync();
 

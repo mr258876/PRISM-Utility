@@ -86,7 +86,7 @@ public class ScanProtocolService : IScanProtocolService
         return frame;
     }
 
-    public byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalUs)
+    public byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalNs)
     {
         EnsureMotorId(motorId, nameof(motorId));
 
@@ -97,11 +97,11 @@ public class ScanProtocolService : IScanProtocolService
         frame[4] = motorId;
         frame[5] = direction ? (byte)1 : (byte)0;
         WriteUInt32(frame, 6, steps);
-        WriteUInt32(frame, 10, intervalUs);
+        WriteUInt32(frame, 10, intervalNs);
         return frame;
     }
 
-    public byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalUs)
+    public byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalNs)
     {
         EnsureMotorId(motorId, nameof(motorId));
 
@@ -112,7 +112,7 @@ public class ScanProtocolService : IScanProtocolService
         frame[4] = motorId;
         frame[5] = direction ? (byte)1 : (byte)0;
         WriteUInt32(frame, 6, steps);
-        WriteUInt32(frame, 10, intervalUs);
+        WriteUInt32(frame, 10, intervalNs);
         return frame;
     }
 
@@ -419,8 +419,8 @@ public class ScanProtocolService : IScanProtocolService
             payload[offset + 2] != 0,
             payload[offset + 3] != 0,
             payload[offset + 4],
-            BitConverter.ToUInt16(payload, offset + 6),
-            BitConverter.ToUInt32(payload, offset + 8));
+            BitConverter.ToUInt32(payload, offset + 6),
+            BitConverter.ToUInt32(payload, offset + 10));
     }
 
     private static void WriteUInt16(byte[] frame, int offset, ushort value)

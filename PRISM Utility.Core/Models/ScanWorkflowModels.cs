@@ -7,12 +7,15 @@ public sealed record ScanWorkflowRequest(
     string[] PassChannelRoles,
     ScanParameterSnapshot[] PassParameterProfiles,
     byte ScanMotorId,
-    uint MotorIntervalUs,
+    uint MotorIntervalNs,
     bool StartingDirectionPositive,
     bool AlternateMotorDirection,
     ushort ExposureTicks,
     uint SysClockKhz,
-    ScanFilmAcquisitionSettings? AcquisitionSettings = null);
+    ScanFilmAcquisitionSettings? AcquisitionSettings = null)
+{
+    public uint MotorIntervalUs => MotorIntervalNs;
+}
 
 public sealed record ScanPassCapture(
     int PassIndex,
@@ -26,9 +29,12 @@ public sealed record ScanWorkflowResult(
     int Rows,
     IReadOnlyList<ScanPassCapture> Passes,
     uint ComputedMotorStepsPerPass,
-    uint MotorIntervalUs,
+    uint MotorIntervalNs,
     ushort ExposureTicks,
-    uint SysClockKhz);
+    uint SysClockKhz)
+{
+    public uint MotorIntervalUs => MotorIntervalNs;
+}
 
 public sealed record ScanWorkflowProgress(
     int CurrentPass,
@@ -49,6 +55,13 @@ public sealed record ScanChannelAssignment(
 {
     public IReadOnlyList<string> Roles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
     public IReadOnlyList<bool> ReversedFlags => new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed };
+}
+
+public enum ScanChannelAlignmentMode
+{
+    Ecc = 0,
+    MutualInformation = 1,
+    EccThenMutualInformation = 2
 }
 
 public sealed record ScanColorManagementOptions(

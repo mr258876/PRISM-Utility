@@ -156,6 +156,78 @@
   <data name="Settings_Scanner.Text" xml:space="preserve">
     <value>Scanner</value>
   </data>
+  <data name="Settings_DeviceSettings.Text" xml:space="preserve">
+    <value>Device settings</value>
+  </data>
+  <data name="Settings_DeviceSettingsDescription.Text" xml:space="preserve">
+    <value>Configure each motor's mechanical values so host-side move and speed inputs can be interpreted in engineering units.</value>
+  </data>
+  <data name="Settings_DeviceSettingsMotor1.Text" xml:space="preserve">
+    <value>Motor1</value>
+  </data>
+  <data name="Settings_Motor1StepsPerRevolutionTextBox.Header" xml:space="preserve">
+    <value>Steps per revolution</value>
+  </data>
+  <data name="Settings_Motor1StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 200</value>
+  </data>
+  <data name="Settings_Motor1MicrostepsTextBox.Header" xml:space="preserve">
+    <value>Microsteps</value>
+  </data>
+  <data name="Settings_Motor1MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 16</value>
+  </data>
+  <data name="Settings_Motor1LeadLengthTextBox.Header" xml:space="preserve">
+    <value>Lead length (mm/rev)</value>
+  </data>
+  <data name="Settings_Motor1LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 2.0</value>
+  </data>
+  <data name="Settings_DeviceSettingsMotor2.Text" xml:space="preserve">
+    <value>Motor2</value>
+  </data>
+  <data name="Settings_Motor2StepsPerRevolutionTextBox.Header" xml:space="preserve">
+    <value>Steps per revolution</value>
+  </data>
+  <data name="Settings_Motor2StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 200</value>
+  </data>
+  <data name="Settings_Motor2MicrostepsTextBox.Header" xml:space="preserve">
+    <value>Microsteps</value>
+  </data>
+  <data name="Settings_Motor2MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 16</value>
+  </data>
+  <data name="Settings_Motor2LeadLengthTextBox.Header" xml:space="preserve">
+    <value>Lead length (mm/rev)</value>
+  </data>
+  <data name="Settings_Motor2LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 2.0</value>
+  </data>
+  <data name="Settings_DeviceSettingsMotor3.Text" xml:space="preserve">
+    <value>Motor3</value>
+  </data>
+  <data name="Settings_Motor3StepsPerRevolutionTextBox.Header" xml:space="preserve">
+    <value>Steps per revolution</value>
+  </data>
+  <data name="Settings_Motor3StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 200</value>
+  </data>
+  <data name="Settings_Motor3MicrostepsTextBox.Header" xml:space="preserve">
+    <value>Microsteps</value>
+  </data>
+  <data name="Settings_Motor3MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 16</value>
+  </data>
+  <data name="Settings_Motor3LeadLengthTextBox.Header" xml:space="preserve">
+    <value>Lead length (mm/rev)</value>
+  </data>
+  <data name="Settings_Motor3LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 2.0</value>
+  </data>
+  <data name="Settings_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve">
+    <value>Restore device defaults</value>
+  </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
     <value>Multi-buffer bulk IN</value>
   </data>
@@ -354,6 +426,9 @@
   <data name="Scan_PreviewToggleSwitch.OffContent" xml:space="preserve">
     <value>Off</value>
   </data>
+  <data name="Scan_AlignmentModeComboBox.Header" xml:space="preserve">
+    <value>Alignment mode</value>
+  </data>
   <data name="Scan_AlternateDirectionToggleSwitch.Header" xml:space="preserve">
     <value>Alternate motor direction each pass</value>
   </data>
@@ -516,8 +591,35 @@
   <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve">
     <value>Save RGB Image</value>
   </data>
-  <data name="Scan_ExportRawChannelsButton.Content" xml:space="preserve">
-    <value>Export Raw Channels</value>
+  <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve">
+    <value>Export DNG Channels</value>
+  </data>
+  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve">
+    <value>DNG export mode</value>
+  </data>
+  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve">
+    <value>Dual-file DNG export requires exactly one Red, one Green, one Blue, and one IR or White channel. This mapping will export as a single 4-channel raw DNG.</value>
+  </data>
+  <data name="Settings_DngGeometry.Text" xml:space="preserve">
+    <value>DNG geometry</value>
+  </data>
+  <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve">
+    <value>Active area start column</value>
+  </data>
+  <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve">
+    <value>Active area end column</value>
+  </data>
+  <data name="Settings_DngMaskedRangesTextBox.Header" xml:space="preserve">
+    <value>Masked black ranges</value>
+  </data>
+  <data name="Settings_DngMaskedRangesTextBox.PlaceholderText" xml:space="preserve">
+    <value>Example: 26-115, 7580-7591</value>
+  </data>
+  <data name="Settings_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve">
+    <value>Restore DNG Geometry Defaults</value>
+  </data>
+  <data name="Settings_DngGeometryDescription.Text" xml:space="preserve">
+    <value>DNG export keeps the full raw buffer, but these ranges define the active display area and up to four masked black-reference ranges. Use comma-separated start-end pairs.</value>
   </data>
   <data name="Scan_PreviewTitle.Text" xml:space="preserve">
     <value>Preview</value>
@@ -831,6 +933,24 @@
   <data name="ScanDebug_Motor1DisableButton.Content" xml:space="preserve">
     <value>Disable</value>
   </data>
+  <data name="ScanDebug_Motor1MoveValueTextBox.Header" xml:space="preserve">
+    <value>Move value</value>
+  </data>
+  <data name="ScanDebug_Motor1MoveValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 0.5</value>
+  </data>
+  <data name="ScanDebug_Motor1MoveUnitComboBox.Header" xml:space="preserve">
+    <value>Move unit</value>
+  </data>
+  <data name="ScanDebug_Motor1SpeedValueTextBox.Header" xml:space="preserve">
+    <value>Speed value</value>
+  </data>
+  <data name="ScanDebug_Motor1SpeedValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 5</value>
+  </data>
+  <data name="ScanDebug_Motor1SpeedUnitComboBox.Header" xml:space="preserve">
+    <value>Speed unit</value>
+  </data>
   <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
   </data>
@@ -855,6 +975,24 @@
   <data name="ScanDebug_Motor2DisableButton.Content" xml:space="preserve">
     <value>Disable</value>
   </data>
+  <data name="ScanDebug_Motor2MoveValueTextBox.Header" xml:space="preserve">
+    <value>Move value</value>
+  </data>
+  <data name="ScanDebug_Motor2MoveValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 0.5</value>
+  </data>
+  <data name="ScanDebug_Motor2MoveUnitComboBox.Header" xml:space="preserve">
+    <value>Move unit</value>
+  </data>
+  <data name="ScanDebug_Motor2SpeedValueTextBox.Header" xml:space="preserve">
+    <value>Speed value</value>
+  </data>
+  <data name="ScanDebug_Motor2SpeedValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 5</value>
+  </data>
+  <data name="ScanDebug_Motor2SpeedUnitComboBox.Header" xml:space="preserve">
+    <value>Speed unit</value>
+  </data>
   <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
   </data>
@@ -878,6 +1016,24 @@
   </data>
   <data name="ScanDebug_Motor3DisableButton.Content" xml:space="preserve">
     <value>Disable</value>
+  </data>
+  <data name="ScanDebug_Motor3MoveValueTextBox.Header" xml:space="preserve">
+    <value>Move value</value>
+  </data>
+  <data name="ScanDebug_Motor3MoveValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 0.5</value>
+  </data>
+  <data name="ScanDebug_Motor3MoveUnitComboBox.Header" xml:space="preserve">
+    <value>Move unit</value>
+  </data>
+  <data name="ScanDebug_Motor3SpeedValueTextBox.Header" xml:space="preserve">
+    <value>Speed value</value>
+  </data>
+  <data name="ScanDebug_Motor3SpeedValueTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 5</value>
+  </data>
+  <data name="ScanDebug_Motor3SpeedUnitComboBox.Header" xml:space="preserve">
+    <value>Speed unit</value>
   </data>
   <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
@@ -955,10 +1111,16 @@
     <value>Scan Motor</value>
   </data>
   <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve">
-    <value>Motor Interval (us)</value>
+    <value>Motor movement per line</value>
   </data>
   <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve">
-    <value>&gt;=10</value>
+    <value>Enter value</value>
+  </data>
+  <data name="Scan_MotorIntervalUnitComboBox.Header" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="Scan_MotorIntervalUnitComboBox.PlaceholderText" xml:space="preserve">
+    <value>Select unit</value>
   </data>
   <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve">
     <value>Config profile</value>
@@ -1198,7 +1360,7 @@
     <value>Scan in progress...</value>
   </data>
   <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve">
-    <value>Captured {0} pass(es), rows={1}, motor steps/pass={2}, interval={3} us.</value>
+    <value>Captured {0} pass(es), rows={1}, motor steps/pass={2}. Transport followed the configured per-line movement distance.</value>
   </data>
   <data name="Scan_Runtime_StatusCompleted" xml:space="preserve">
     <value>Scan completed.</value>
@@ -1227,17 +1389,41 @@
   <data name="Scan_Runtime_StatusRgbSaveFailed" xml:space="preserve">
     <value>RGB save failed: {0}</value>
   </data>
-  <data name="Scan_Runtime_StatusNoRawResult" xml:space="preserve">
-    <value>No scan result available for raw export.</value>
+  <data name="Scan_Runtime_StatusNoDngResult" xml:space="preserve">
+    <value>No scan result available for DNG export.</value>
   </data>
-  <data name="Scan_Runtime_StatusRawExportCanceled" xml:space="preserve">
-    <value>Raw export canceled.</value>
+  <data name="Scan_Runtime_StatusDngExportCanceled" xml:space="preserve">
+    <value>DNG export canceled.</value>
   </data>
-  <data name="Scan_Runtime_StatusRawExported" xml:space="preserve">
-    <value>Raw channel buffers exported to {0}</value>
+  <data name="Scan_Runtime_StatusDngExported" xml:space="preserve">
+    <value>DNG channel files exported to {0}</value>
   </data>
-  <data name="Scan_Runtime_StatusRawExportFailed" xml:space="preserve">
-    <value>Raw export failed: {0}</value>
+  <data name="Scan_Runtime_StatusDngExportFailed" xml:space="preserve">
+    <value>DNG export failed: {0}</value>
+  </data>
+  <data name="Scan_Runtime_FieldLed1Level" xml:space="preserve">
+    <value>LED1 level</value>
+  </data>
+  <data name="Scan_Runtime_FieldLed2Level" xml:space="preserve">
+    <value>LED2 level</value>
+  </data>
+  <data name="Scan_Runtime_FieldLed3Level" xml:space="preserve">
+    <value>LED3 level</value>
+  </data>
+  <data name="Scan_Runtime_FieldLed4Level" xml:space="preserve">
+    <value>LED4 level</value>
+  </data>
+  <data name="Scan_Runtime_FieldRedWavelengthNm" xml:space="preserve">
+    <value>Red wavelength (nm)</value>
+  </data>
+  <data name="Scan_Runtime_FieldGreenWavelengthNm" xml:space="preserve">
+    <value>Green wavelength (nm)</value>
+  </data>
+  <data name="Scan_Runtime_FieldBlueWavelengthNm" xml:space="preserve">
+    <value>Blue wavelength (nm)</value>
+  </data>
+  <data name="Scan_Runtime_FieldOutputGamma" xml:space="preserve">
+    <value>Output gamma</value>
   </data>
   <data name="Scan_Runtime_CurrentPassIdle" xml:space="preserve">
     <value>Pass - of 4</value>
@@ -1282,7 +1468,7 @@
     <value>Preview mode: {0}.</value>
   </data>
   <data name="Scan_Runtime_PreviewCompositeDescription" xml:space="preserve">
-    <value>Preview mode: {0}. Composite uses current channel-role mapping and {1}.</value>
+    <value>Preview mode: {0}. Alignment: {1}. Composite uses current channel-role mapping and {2}.</value>
   </data>
   <data name="Scan_Runtime_PreviewCompositeModeSpectral" xml:space="preserve">
     <value>spectral sRGB color management</value>
@@ -1294,7 +1480,7 @@
     <value>Selected raw preview channel is unavailable.</value>
   </data>
   <data name="Scan_Runtime_PreviewRawDescription" xml:space="preserve">
-    <value>Preview mode: {0}. Showing grayscale raw buffer from pass {1}.</value>
+    <value>Preview mode: {0}. Alignment: {1}. Showing grayscale raw buffer from pass {2}.</value>
   </data>
   <data name="Scan_Runtime_OutputSummaryEmpty" xml:space="preserve">
     <value>No scan outputs captured yet.</value>
@@ -1306,19 +1492,19 @@
     <value>Motor step estimate unavailable until rows are valid.</value>
   </data>
   <data name="Scan_Runtime_ComputedMotorIntervalMinimum" xml:space="preserve">
-    <value>Motor interval must be at least {0} us.</value>
+    <value>The requested per-line motor movement is too small for current timing limits. Increase it until the derived motor interval is at least {0} us.</value>
   </data>
   <data name="Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded" xml:space="preserve">
     <value>Motor step estimate unavailable until scanner parameters are loaded.</value>
   </data>
   <data name="Scan_Runtime_ComputedMotorSummary" xml:space="preserve">
-    <value>Motor{0} transport estimate: {1} step(s) per pass at {2} us interval, based on current exposure/system clock and {3} row(s).</value>
+    <value>Motor{0} transport estimate: {1} step(s) per pass (~{4} mm) at ~{5} mm/s, derived from the requested per-line motor movement and current exposure/system clock across {3} row(s).</value>
   </data>
   <data name="Scan_Runtime_ErrorRowsPositiveInteger" xml:space="preserve">
     <value>Rows must be a positive integer.</value>
   </data>
   <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve">
-    <value>Motor interval must be an integer &gt;= {0} us.</value>
+    <value>The requested per-line motor movement must resolve to a derived motor interval &gt;= {0} us.</value>
   </data>
   <data name="Scan_Runtime_ConfigProfileNotSelected" xml:space="preserve">
     <value>No config profile loaded</value>
@@ -1367,6 +1553,21 @@
   </data>
   <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve">
     <value>Raw Channel {0}</value>
+  </data>
+  <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve">
+    <value>Single file: 4-channel raw DNG</value>
+  </data>
+  <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve">
+    <value>Two files: RGB plus IR/W DNG</value>
+  </data>
+  <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve">
+    <value>ECC</value>
+  </data>
+  <data name="Scan_Runtime_AlignmentModeMutualInformation" xml:space="preserve">
+    <value>MI</value>
+  </data>
+  <data name="Scan_Runtime_AlignmentModeEccThenMutualInformation" xml:space="preserve">
+    <value>ECC + MI</value>
   </data>
   <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve">
     <value>Red</value>
@@ -1791,6 +1992,9 @@
   <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve">
     <value>Film profile '{0}' exported.</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve">
+    <value>Save film profile canceled.</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve">
     <value>Save film profile failed: {0}</value>
   </data>
@@ -1802,6 +2006,30 @@
   </data>
   <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve">
     <value>Load film profile failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed1Level" xml:space="preserve">
+    <value>LED1 level</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed2Level" xml:space="preserve">
+    <value>LED2 level</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed3Level" xml:space="preserve">
+    <value>LED3 level</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed4Level" xml:space="preserve">
+    <value>LED4 level</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed1PulseClock" xml:space="preserve">
+    <value>LED1 pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed2PulseClock" xml:space="preserve">
+    <value>LED2 pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed3PulseClock" xml:space="preserve">
+    <value>LED3 pulse clocks</value>
+  </data>
+  <data name="ScanDebug_Runtime_FieldLed4PulseClock" xml:space="preserve">
+    <value>LED4 pulse clocks</value>
   </data>
   <data name="ScanDebug_Runtime_StatusAutofocusStarted" xml:space="preserve">
     <value>Autofocus started...</value>
@@ -1950,8 +2178,20 @@
   <data name="ScanDebug_Runtime_ErrorMotorStepsPositive" xml:space="preserve">
     <value>Motor{0} Steps must be a positive integer.</value>
   </data>
+  <data name="ScanDebug_Runtime_ErrorMotorMoveValuePositive" xml:space="preserve">
+    <value>Motor{0} move value must be a valid positive {1} value.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorMoveDistanceTooSmall" xml:space="preserve">
+    <value>Motor{0} move value in {1} resolves to less than one step. Increase the input.</value>
+  </data>
   <data name="ScanDebug_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve">
     <value>Motor{0} Interval must be an integer &gt;= {1} us.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorSpeedValuePositive" xml:space="preserve">
+    <value>Motor{0} speed value must be a valid positive {1}/s value.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorSpeedTooHigh" xml:space="preserve">
+    <value>Motor{0} speed is too high and would resolve below the minimum motor interval of {1} us.</value>
   </data>
   <data name="ScanDebug_Runtime_ErrorAutofocusRowsRange" xml:space="preserve">
     <value>Autofocus rows must be an integer in [1, {0}].</value>
@@ -2021,5 +2261,11 @@
   </data>
   <data name="ScanDebug_Runtime_CursorIntensity" xml:space="preserve">
     <value>Intensity16: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_CursorPositionDefault" xml:space="preserve">
+    <value>Cursor: (-, -) px</value>
+  </data>
+  <data name="ScanDebug_Runtime_CursorIntensityDefault" xml:space="preserve">
+    <value>Intensity16: -</value>
   </data>
 </root>

@@ -20,10 +20,8 @@ internal sealed class ScanExecutionRunner
     public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
     {
         var targetBytes = rows * ScanDebugConstants.BytesPerLine;
-        var doneAckWaitTimeoutMs = ResolveStartScanDoneAckWaitMs(rows, expectedLineTimeUs);
         await _transferSettings.InitializeAsync();
         var transferSettings = _transferSettings.Settings;
-        var readMode = transferSettings.ReadMode;
         var runId = Guid.NewGuid().ToString("N")[..8];
         var scanWatch = Stopwatch.StartNew();
         void Mark(string phase) => onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {phase}");
@@ -35,44 +33,28 @@ internal sealed class ScanExecutionRunner
             await _ackChannel.EnsureControlChannelIdleAsync(ct, runId, scanWatch, onDiagnostic);
             Mark("Idle probe completed");
 
-            var setRowsFrame = await SendControlCommandAndWaitAckAsync(controlSession, _protocol.BuildSetScanLinesCommand(rows), ScanDebugConstants.UsbCmdSetScanLines, ScanDebugConstants.SetRowsAckTotalTimeoutMs, ct, true);
-            var setRowsAck = _protocol.ParseScanAck(setRowsFrame);
-            _protocol.EnsureAckOk(setRowsAck, rows, "SET_SCAN_LINES");
-            Mark("SET_SCAN_LINES ACK received");
-
-            onStatus?.Invoke("Scan lines configured. 619C IN opened. Starting scan...");
-
             var drainedBeforeStart = await DrainImageBeforeScanAsync(imageSession, ct);
             Mark($"619C pre-start drain bytes={drainedBeforeStart}");
 
             onProgress?.Invoke(0, targetBytes);
-            var imageReadTask = await ArmImageReadAsync(imageSession, targetBytes, transferSettings, ct, runId, scanWatch, onDiagnostic, onProgress);
-            Mark($"619C {(readMode == ScanBulkInReadMode.MultiBuffered ? "multi-buffer" : "single-request")} read armed");
-
-            onStatus?.Invoke("619C read started. Sending START_SCAN...");
-            await controlSession.WriteBulkOutAsync(_protocol.BuildStartScanCommand(), ScanDebugConstants.AckTimeoutMs, ct);
-            Mark("START_SCAN sent");
-
-            var ackTask = _ackChannel.MonitorStartScanAcksAsync(rows, doneAckWaitTimeoutMs, ct, runId, scanWatch, onStatus, onDiagnostic);
-            onStatus?.Invoke("Scan command sent, receiving image lines...");
-
-            var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, doneAckWaitTimeoutMs);
-            Mark(gotDoneAck ? "Done ACK observed" : "Done ACK wait timed out");
-            if (!gotDoneAck)
-            {
-                onStatus?.Invoke("START_SCAN done ACK not received in time.");
-                await FinalizeAfterFailedImageReadAsync(controlSession, ackTask, ct, runId, scanWatch, onDiagnostic);
-                return new ScanStartResult(false, "START_SCAN done ACK not received in time.", null);
-            }
-
-            var buffer = await imageReadTask;
-            Mark($"619C image bytes: {buffer.Length}/{targetBytes}");
-            if (buffer.Length != targetBytes)
-                throw new IOException($"619C transfer size mismatch: expected {targetBytes}, actual {buffer.Length}");
+            var segmentResult = await ExecuteScanSegmentAsync(
+                controlSession,
+                imageSession,
+                rows,
+                transferSettings,
+                ct,
+                runId,
+                scanWatch,
+                onStatus,
+                onDiagnostic,
+                onProgress,
+                targetBytes,
+                expectedLineTimeUs,
+                null);
 
             onStatus?.Invoke("Scan completed.");
             Mark("Scan completed");
-            return new ScanStartResult(true, "Scan completed.", buffer);
+            return new ScanStartResult(true, "Scan completed.", segmentResult.Buffer);
         }
         catch (OperationCanceledException)
         {
@@ -86,7 +68,7 @@ internal sealed class ScanExecutionRunner
         }
     }
 
-    public async Task<ScanStartResult> StartWarmUpSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public async Task<ScanStartResult> StartSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
     {
         if (totalRows <= singleTransferMaxRows)
             return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
@@ -122,61 +104,33 @@ internal sealed class ScanExecutionRunner
                 var segmentTargetBytes = checked(segmentRows * ScanDebugConstants.BytesPerLine);
                 var segmentBaseOffset = bufferOffset;
 
-                onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] Configuring {segmentRows} lines...");
-                var setRowsFrame = await SendControlCommandAndWaitAckAsync(controlSession, _protocol.BuildSetScanLinesCommand(segmentRows), ScanDebugConstants.UsbCmdSetScanLines, ScanDebugConstants.SetRowsAckTotalTimeoutMs, ct, true);
-                var setRowsAck = _protocol.ParseScanAck(setRowsFrame);
-                _protocol.EnsureAckOk(setRowsAck, segmentRows, "SET_SCAN_LINES");
-                Mark($"Segment {segmentIndex}/{segmentCount}: SET_SCAN_LINES ACK received for {segmentRows} rows at {segmentWatch.ElapsedMilliseconds} ms");
-
-                var imageReadTask = await ArmImageReadAsync(
+                var segmentResult = await ExecuteScanSegmentAsync(
+                    controlSession,
                     imageSession,
-                    segmentTargetBytes,
+                    segmentRows,
                     new ScanBulkInTransferOptions(ScanBulkInReadMode.SingleRequest, ScanDebugConstants.ImageMultiBufferRequestBytes, ScanDebugConstants.ImageMultiBufferOutstandingReads, ScanDebugConstants.ImageReadTimeoutMs, false),
                     ct,
                     runId,
                     scanWatch,
+                    status => onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] {status}"),
                     onDiagnostic,
-                    (segmentTransferred, _) => onProgress?.Invoke(segmentBaseOffset + segmentTransferred, totalTargetBytes));
-                Mark($"Segment {segmentIndex}/{segmentCount}: 619C read armed for {segmentTargetBytes} bytes at {segmentWatch.ElapsedMilliseconds} ms");
+                    (segmentTransferred, _) => onProgress?.Invoke(segmentBaseOffset + segmentTransferred, totalTargetBytes),
+                    segmentTargetBytes,
+                    expectedLineTimeUs,
+                    $"Segment {segmentIndex}/{segmentCount}");
 
-                onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] Sending START_SCAN...");
-                await controlSession.WriteBulkOutAsync(_protocol.BuildStartScanCommand(), ScanDebugConstants.AckTimeoutMs, ct);
-                Mark($"Segment {segmentIndex}/{segmentCount}: START_SCAN sent at {segmentWatch.ElapsedMilliseconds} ms");
-
-                var segmentDoneAckWaitTimeoutMs = ResolveStartScanDoneAckWaitMs(segmentRows, expectedLineTimeUs);
-                var ackTask = _ackChannel.MonitorStartScanAcksAsync(segmentRows, segmentDoneAckWaitTimeoutMs, ct, runId, scanWatch, status => onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] {status}"), onDiagnostic);
-
-                var transferWatch = Stopwatch.StartNew();
-                var imageChunk = await imageReadTask;
-                transferWatch.Stop();
-                totalTransferMs += transferWatch.ElapsedMilliseconds;
-                Mark($"Segment {segmentIndex}/{segmentCount}: 619C read bytes {imageChunk.Length}/{segmentTargetBytes} at {segmentWatch.ElapsedMilliseconds} ms (transfer={transferWatch.ElapsedMilliseconds} ms)");
-                if (imageChunk.Length != segmentTargetBytes)
-                    throw new IOException($"619C transfer size mismatch on segment {segmentIndex}/{segmentCount}: expected {segmentTargetBytes}, actual {imageChunk.Length}");
+                totalTransferMs += segmentResult.TransferMs;
+                totalAckWaitMs += segmentResult.AckWaitMs;
+                var imageChunk = segmentResult.Buffer;
 
                 Buffer.BlockCopy(imageChunk, 0, buffer, bufferOffset, segmentTargetBytes);
                 bufferOffset += segmentTargetBytes;
 
-                var ackWaitWatch = Stopwatch.StartNew();
-                var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, segmentDoneAckWaitTimeoutMs);
-                ackWaitWatch.Stop();
-                totalAckWaitMs += ackWaitWatch.ElapsedMilliseconds;
-                Mark(gotDoneAck
-                    ? $"Segment {segmentIndex}/{segmentCount}: done ACK observed at {segmentWatch.ElapsedMilliseconds} ms (ack-wait={ackWaitWatch.ElapsedMilliseconds} ms)"
-                    : $"Segment {segmentIndex}/{segmentCount}: done ACK wait timed out at {segmentWatch.ElapsedMilliseconds} ms (ack-wait={ackWaitWatch.ElapsedMilliseconds} ms)");
-
-                if (!gotDoneAck)
-                {
-                    onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] START_SCAN done ACK not received in time.");
-                    await FinalizeAfterFailedImageReadAsync(controlSession, ackTask, ct, runId, scanWatch, onDiagnostic);
-                    return new ScanStartResult(false, $"Segment {segmentIndex}/{segmentCount} done ACK not received in time.", null);
-                }
-
                 completedRows += segmentRows;
                 var segmentElapsedMs = Math.Max(1L, segmentWatch.ElapsedMilliseconds);
-                var transferPercent = (transferWatch.ElapsedMilliseconds * 100.0) / segmentElapsedMs;
-                var ackWaitPercent = (ackWaitWatch.ElapsedMilliseconds * 100.0) / segmentElapsedMs;
-                Mark($"Segment {segmentIndex}/{segmentCount}: completed rows={completedRows}/{totalRows}, bytes={bufferOffset}/{totalTargetBytes}, elapsed={segmentElapsedMs} ms, transfer={transferWatch.ElapsedMilliseconds} ms ({transferPercent:F1}%), ack-wait={ackWaitWatch.ElapsedMilliseconds} ms ({ackWaitPercent:F1}%)");
+                var transferPercent = (segmentResult.TransferMs * 100.0) / segmentElapsedMs;
+                var ackWaitPercent = (segmentResult.AckWaitMs * 100.0) / segmentElapsedMs;
+                Mark($"Segment {segmentIndex}/{segmentCount}: completed rows={completedRows}/{totalRows}, bytes={bufferOffset}/{totalTargetBytes}, elapsed={segmentElapsedMs} ms, transfer={segmentResult.TransferMs} ms ({transferPercent:F1}%), ack-wait={segmentResult.AckWaitMs} ms ({ackWaitPercent:F1}%)");
             }
 
             Mark($"Segmented scan image bytes={bufferOffset}/{totalTargetBytes}");
@@ -189,19 +143,77 @@ internal sealed class ScanExecutionRunner
             Mark($"Segmented scan totals: bytes={totalTargetBytes}, transfer={totalTransferMs} ms, ack-wait={totalAckWaitMs} ms, data-rate={totalDataRateMBps:F2} MiB/s");
 
             onStatus?.Invoke($"Scan completed in {segmentCount} segment(s).");
-            Mark("Segmented warm-up scan completed");
+            Mark("Segmented scan completed");
             return new ScanStartResult(true, $"Scan completed in {segmentCount} segment(s).", buffer);
         }
         catch (OperationCanceledException)
         {
-            Mark("Segmented warm-up scan canceled");
+            Mark("Segmented scan canceled");
             return new ScanStartResult(false, "Scan stopped.", null);
         }
         catch (Exception ex)
         {
-            Mark($"Segmented warm-up scan failed: {ex.Message}");
+            Mark($"Segmented scan failed: {ex.Message}");
             return new ScanStartResult(false, $"Scan failed after {scanWatch.ElapsedMilliseconds} ms: {ex.Message}", null);
         }
+    }
+
+    private async Task<ScanSegmentResult> ExecuteScanSegmentAsync(
+        IUsbBulkDuplexSession controlSession,
+        IUsbBulkDuplexSession imageSession,
+        int rows,
+        ScanBulkInTransferOptions transferSettings,
+        CancellationToken ct,
+        string runId,
+        Stopwatch scanWatch,
+        Action<string>? onStatus,
+        Action<string>? onDiagnostic,
+        Action<int, int>? onProgress,
+        int targetBytes,
+        uint? expectedLineTimeUs,
+        string? segmentLabel)
+    {
+        var doneAckWaitTimeoutMs = ResolveStartScanDoneAckWaitMs(rows, expectedLineTimeUs);
+        var segmentPrefix = string.IsNullOrWhiteSpace(segmentLabel) ? string.Empty : $"{segmentLabel}: ";
+
+        onStatus?.Invoke($"Configuring {rows} lines...");
+        var setRowsFrame = await SendControlCommandAndWaitAckAsync(controlSession, _protocol.BuildSetScanLinesCommand(rows), ScanDebugConstants.UsbCmdSetScanLines, ScanDebugConstants.SetRowsAckTotalTimeoutMs, ct, true);
+        var setRowsAck = _protocol.ParseScanAck(setRowsFrame);
+        _protocol.EnsureAckOk(setRowsAck, rows, "SET_SCAN_LINES");
+        onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}SET_SCAN_LINES ACK received for {rows} rows");
+
+        var readMode = transferSettings.ReadMode;
+        var imageReadTask = await ArmImageReadAsync(imageSession, targetBytes, transferSettings, ct, runId, scanWatch, onDiagnostic, onProgress);
+        onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}619C {(readMode == ScanBulkInReadMode.MultiBuffered ? "multi-buffer" : "single-request")} read armed for {targetBytes} bytes");
+
+        onStatus?.Invoke("Sending START_SCAN...");
+        await controlSession.WriteBulkOutAsync(_protocol.BuildStartScanCommand(), ScanDebugConstants.AckTimeoutMs, ct);
+        onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}START_SCAN sent");
+
+        var ackTask = _ackChannel.MonitorStartScanAcksAsync(rows, doneAckWaitTimeoutMs, ct, runId, scanWatch, onStatus, onDiagnostic);
+        onStatus?.Invoke("Scan command sent, receiving image lines...");
+
+        var transferWatch = Stopwatch.StartNew();
+        var buffer = await imageReadTask;
+        transferWatch.Stop();
+        onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}619C image bytes: {buffer.Length}/{targetBytes} (transfer={transferWatch.ElapsedMilliseconds} ms)");
+
+        var ackWaitWatch = Stopwatch.StartNew();
+        var gotDoneAck = await WaitForStartScanDoneAckAsync(ackTask, doneAckWaitTimeoutMs);
+        ackWaitWatch.Stop();
+        onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}{(gotDoneAck ? "Done ACK observed" : "Done ACK wait timed out")} (ack-wait={ackWaitWatch.ElapsedMilliseconds} ms)");
+
+        if (!gotDoneAck)
+        {
+            onStatus?.Invoke("START_SCAN done ACK not received in time.");
+            await FinalizeAfterFailedImageReadAsync(controlSession, ackTask, ct, runId, scanWatch, onDiagnostic);
+            throw new IOException($"{segmentPrefix}START_SCAN done ACK not received in time.");
+        }
+
+        if (buffer.Length != targetBytes)
+            throw new IOException($"{segmentPrefix}619C transfer size mismatch: expected {targetBytes}, actual {buffer.Length}");
+
+        return new ScanSegmentResult(buffer, transferWatch.ElapsedMilliseconds, ackWaitWatch.ElapsedMilliseconds);
     }
 
     public async Task<ScanStopResult> StopScanAsync(IUsbBulkDuplexSession controlSession, CancellationToken ct)
@@ -333,4 +345,6 @@ internal sealed class ScanExecutionRunner
         var timeoutMs = (expectedScanMs * ScanDebugConstants.StartScanDoneAckWaitMultiplier) + ScanDebugConstants.StartScanDoneAckWaitPaddingMs;
         return (int)Math.Min(int.MaxValue, Math.Max(ScanDebugConstants.StartScanDoneAckWaitAfterImageMs, timeoutMs));
     }
+
+    private sealed record ScanSegmentResult(byte[] Buffer, long TransferMs, long AckWaitMs);
 }

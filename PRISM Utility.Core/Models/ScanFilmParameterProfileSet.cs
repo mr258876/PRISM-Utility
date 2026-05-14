@@ -11,8 +11,10 @@ public sealed record ScanFilmAcquisitionSettings(
     uint Led2PulseClock,
     uint Led3PulseClock,
     uint Led4PulseClock,
-    uint MotorIntervalUs)
+    uint MotorIntervalNs)
 {
+    public uint MotorIntervalUs => MotorIntervalNs;
+
     public static ScanFilmAcquisitionSettings CreateDefault()
         => new(
             0,
@@ -25,7 +27,7 @@ public sealed record ScanFilmAcquisitionSettings(
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
-            ScanDebugConstants.MotionDefaultIntervalUs);
+            ScanDebugConstants.MotionDefaultIntervalNs);
 
     public ScanFilmAcquisitionSettings Normalize()
     {
@@ -44,7 +46,7 @@ public sealed record ScanFilmAcquisitionSettings(
             Math.Max(Led2PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(Led3PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(Led4PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
-            Math.Max(MotorIntervalUs, ScanDebugConstants.MotionMinIntervalUs));
+            Math.Max(MotorIntervalNs, ScanDebugConstants.MotionMinIntervalNs));
     }
 }
 

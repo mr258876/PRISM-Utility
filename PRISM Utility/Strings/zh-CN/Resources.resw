@@ -130,6 +130,30 @@
   <data name="Settings_Language_English" xml:space="preserve"><value>英语</value></data>
   <data name="Settings_Language_SimplifiedChinese" xml:space="preserve"><value>简体中文</value></data>
   <data name="Settings_Scanner.Text" xml:space="preserve"><value>扫描仪</value></data>
+  <data name="Settings_DeviceSettings.Text" xml:space="preserve"><value>设备设置</value></data>
+  <data name="Settings_DeviceSettingsDescription.Text" xml:space="preserve"><value>为每个电机配置机械参数，供主机端按工程单位解释移动量和速度。</value></data>
+  <data name="Settings_DeviceSettingsMotor1.Text" xml:space="preserve"><value>Motor1</value></data>
+  <data name="Settings_Motor1StepsPerRevolutionTextBox.Header" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_Motor1StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve"><value>例如 200</value></data>
+  <data name="Settings_Motor1MicrostepsTextBox.Header" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_Motor1MicrostepsTextBox.PlaceholderText" xml:space="preserve"><value>例如 16</value></data>
+  <data name="Settings_Motor1LeadLengthTextBox.Header" xml:space="preserve"><value>导程长度 (mm/rev)</value></data>
+  <data name="Settings_Motor1LeadLengthTextBox.PlaceholderText" xml:space="preserve"><value>例如 2.0</value></data>
+  <data name="Settings_DeviceSettingsMotor2.Text" xml:space="preserve"><value>Motor2</value></data>
+  <data name="Settings_Motor2StepsPerRevolutionTextBox.Header" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_Motor2StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve"><value>例如 200</value></data>
+  <data name="Settings_Motor2MicrostepsTextBox.Header" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_Motor2MicrostepsTextBox.PlaceholderText" xml:space="preserve"><value>例如 16</value></data>
+  <data name="Settings_Motor2LeadLengthTextBox.Header" xml:space="preserve"><value>导程长度 (mm/rev)</value></data>
+  <data name="Settings_Motor2LeadLengthTextBox.PlaceholderText" xml:space="preserve"><value>例如 2.0</value></data>
+  <data name="Settings_DeviceSettingsMotor3.Text" xml:space="preserve"><value>Motor3</value></data>
+  <data name="Settings_Motor3StepsPerRevolutionTextBox.Header" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_Motor3StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve"><value>例如 200</value></data>
+  <data name="Settings_Motor3MicrostepsTextBox.Header" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_Motor3MicrostepsTextBox.PlaceholderText" xml:space="preserve"><value>例如 16</value></data>
+  <data name="Settings_Motor3LeadLengthTextBox.Header" xml:space="preserve"><value>导程长度 (mm/rev)</value></data>
+  <data name="Settings_Motor3LeadLengthTextBox.PlaceholderText" xml:space="preserve"><value>例如 2.0</value></data>
+  <data name="Settings_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve"><value>恢复设备默认值</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve"><value>多缓冲 Bulk IN</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
@@ -196,6 +220,7 @@
   <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve"><value>预览</value></data>
   <data name="Scan_PreviewToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_PreviewToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="Scan_AlignmentModeComboBox.Header" xml:space="preserve"><value>对齐模式</value></data>
   <data name="Scan_AlternateDirectionToggleSwitch.Header" xml:space="preserve"><value>每轮交替电机方向</value></data>
   <data name="Scan_AlternateDirectionToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_AlternateDirectionToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
@@ -242,7 +267,7 @@
   <data name="Scan_Channel4ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_OutputTitle.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_ColorManagementSection.Text" xml:space="preserve"><value>色彩管理</value></data>
-  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve"><value>RGB 预览和 PNG 输出都会经过这个共享的 sRGB 色彩管理阶段编码。原始通道导出不变。</value></data>
+  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve"><value>RGB 预览和 PNG 输出都会经过这个共享的 sRGB 色彩管理阶段编码。DNG 导出保持为原始单通道数据。</value></data>
   <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>使用光谱波长映射</value></data>
   <data name="Scan_RedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
   <data name="Scan_GreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
@@ -250,7 +275,16 @@
   <data name="Scan_OutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
   <data name="Scan_OutputSection.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve"><value>保存 RGB 图像</value></data>
-  <data name="Scan_ExportRawChannelsButton.Content" xml:space="preserve"><value>导出原始通道</value></data>
+  <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve"><value>导出 DNG 通道</value></data>
+  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve"><value>DNG 导出模式</value></data>
+  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve"><value>双文件 DNG 导出需要且仅需要一个红、一个绿、一个蓝，以及一个 IR 或白色通道。当前映射将导出为单个 4 通道原始 DNG。</value></data>
+  <data name="Settings_DngGeometry.Text" xml:space="preserve"><value>DNG 几何设置</value></data>
+  <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve"><value>有效区域起始列</value></data>
+  <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve"><value>有效区域结束列</value></data>
+  <data name="Settings_DngMaskedRangesTextBox.Header" xml:space="preserve"><value>Masked 黑参考范围</value></data>
+  <data name="Settings_DngMaskedRangesTextBox.PlaceholderText" xml:space="preserve"><value>例如：26-115, 7580-7591</value></data>
+  <data name="Settings_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve"><value>恢复 DNG 几何默认值</value></data>
+  <data name="Settings_DngGeometryDescription.Text" xml:space="preserve"><value>DNG 导出会保留完整 raw 缓冲区，但这里定义默认显示的有效区域以及最多四个 masked 黑场参考范围。多个范围请用逗号分隔的 起始-结束 形式输入。</value></data>
   <data name="Scan_PreviewTitle.Text" xml:space="preserve"><value>预览</value></data>
   <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve"><value>预览模式</value></data>
   <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve"><value>预览区域</value></data>
@@ -355,6 +389,12 @@
   <data name="ScanDebug_Motor1Title.Text" xml:space="preserve"><value>Motor1</value></data>
   <data name="ScanDebug_Motor1EnableButton.Content" xml:space="preserve"><value>启用</value></data>
   <data name="ScanDebug_Motor1DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor1MoveValueTextBox.Header" xml:space="preserve"><value>移动值</value></data>
+  <data name="ScanDebug_Motor1MoveValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 0.5</value></data>
+  <data name="ScanDebug_Motor1MoveUnitComboBox.Header" xml:space="preserve"><value>移动单位</value></data>
+  <data name="ScanDebug_Motor1SpeedValueTextBox.Header" xml:space="preserve"><value>速度值</value></data>
+  <data name="ScanDebug_Motor1SpeedValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 5</value></data>
+  <data name="ScanDebug_Motor1SpeedUnitComboBox.Header" xml:space="preserve"><value>速度单位</value></data>
   <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
   <data name="ScanDebug_Motor1IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
   <data name="ScanDebug_Motor1MoveButton.Content" xml:space="preserve"><value>移动</value></data>
@@ -363,6 +403,12 @@
   <data name="ScanDebug_Motor2Title.Text" xml:space="preserve"><value>Motor2</value></data>
   <data name="ScanDebug_Motor2EnableButton.Content" xml:space="preserve"><value>启用</value></data>
   <data name="ScanDebug_Motor2DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor2MoveValueTextBox.Header" xml:space="preserve"><value>移动值</value></data>
+  <data name="ScanDebug_Motor2MoveValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 0.5</value></data>
+  <data name="ScanDebug_Motor2MoveUnitComboBox.Header" xml:space="preserve"><value>移动单位</value></data>
+  <data name="ScanDebug_Motor2SpeedValueTextBox.Header" xml:space="preserve"><value>速度值</value></data>
+  <data name="ScanDebug_Motor2SpeedValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 5</value></data>
+  <data name="ScanDebug_Motor2SpeedUnitComboBox.Header" xml:space="preserve"><value>速度单位</value></data>
   <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
   <data name="ScanDebug_Motor2IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
   <data name="ScanDebug_Motor2MoveButton.Content" xml:space="preserve"><value>移动</value></data>
@@ -371,6 +417,12 @@
   <data name="ScanDebug_Motor3Title.Text" xml:space="preserve"><value>Motor3</value></data>
   <data name="ScanDebug_Motor3EnableButton.Content" xml:space="preserve"><value>启用</value></data>
   <data name="ScanDebug_Motor3DisableButton.Content" xml:space="preserve"><value>禁用</value></data>
+  <data name="ScanDebug_Motor3MoveValueTextBox.Header" xml:space="preserve"><value>移动值</value></data>
+  <data name="ScanDebug_Motor3MoveValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 0.5</value></data>
+  <data name="ScanDebug_Motor3MoveUnitComboBox.Header" xml:space="preserve"><value>移动单位</value></data>
+  <data name="ScanDebug_Motor3SpeedValueTextBox.Header" xml:space="preserve"><value>速度值</value></data>
+  <data name="ScanDebug_Motor3SpeedValueTextBox.PlaceholderText" xml:space="preserve"><value>例如 5</value></data>
+  <data name="ScanDebug_Motor3SpeedUnitComboBox.Header" xml:space="preserve"><value>速度单位</value></data>
   <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve"><value>步数</value></data>
   <data name="ScanDebug_Motor3IntervalUsTextBox.Header" xml:space="preserve"><value>间隔 (us)</value></data>
   <data name="ScanDebug_Motor3MoveButton.Content" xml:space="preserve"><value>移动</value></data>
@@ -396,8 +448,10 @@
   <data name="Settings_VersionDescriptionFormat" xml:space="preserve"><value>{0} - {1}</value></data>
   <data name="Settings_BuildDescriptionFormat" xml:space="preserve"><value>构建 - {0}</value></data>
   <data name="Scan_ScanMotorComboBox.Header" xml:space="preserve"><value>扫描电机</value></data>
-  <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve"><value>电机间隔 (us)</value></data>
-  <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve"><value>&gt;=10</value></data>
+  <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve"><value>每行电机移动距离</value></data>
+  <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve"><value>输入数值</value></data>
+  <data name="Scan_MotorIntervalUnitComboBox.Header" xml:space="preserve"><value>单位</value></data>
+  <data name="Scan_MotorIntervalUnitComboBox.PlaceholderText" xml:space="preserve"><value>选择单位</value></data>
   <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve"><value>配置文件</value></data>
   <data name="Scan_LoadConfigButton.Content" xml:space="preserve"><value>加载配置</value></data>
   <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve"><value>LED1 电平</value></data>
@@ -477,7 +531,7 @@
   <data name="Scan_Runtime_WorkflowPassFailed" xml:space="preserve"><value>第 {0} 轮失败：{1}</value></data>
   <data name="Scan_Runtime_StatusRowsLimitExceeded" xml:space="preserve"><value>高于 {0} 的行数需要启用 Multi-buffer bulk IN 和 Raw I/O，或启用预热分段模式。</value></data>
   <data name="Scan_Runtime_OutputSummaryInProgress" xml:space="preserve"><value>扫描进行中...</value></data>
-  <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve"><value>已采集 {0} 轮，rows={1}，每轮电机步数={2}，间隔={3} us。</value></data>
+  <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve"><value>已采集 {0} 轮，rows={1}，每轮电机步数={2}。传送按已配置的每行移动距离执行。</value></data>
   <data name="Scan_Runtime_StatusCompleted" xml:space="preserve"><value>扫描已完成。</value></data>
   <data name="Scan_Runtime_StatusCanceled" xml:space="preserve"><value>扫描已取消。</value></data>
   <data name="Scan_Runtime_StatusFailed" xml:space="preserve"><value>扫描失败：{0}</value></data>
@@ -487,10 +541,18 @@
   <data name="Scan_Runtime_StatusRgbSaveCanceled" xml:space="preserve"><value>RGB 保存已取消。</value></data>
   <data name="Scan_Runtime_StatusRgbSaved" xml:space="preserve"><value>RGB 图像已保存：{0}</value></data>
   <data name="Scan_Runtime_StatusRgbSaveFailed" xml:space="preserve"><value>RGB 保存失败：{0}</value></data>
-  <data name="Scan_Runtime_StatusNoRawResult" xml:space="preserve"><value>没有可用于原始导出的扫描结果。</value></data>
-  <data name="Scan_Runtime_StatusRawExportCanceled" xml:space="preserve"><value>原始导出已取消。</value></data>
-  <data name="Scan_Runtime_StatusRawExported" xml:space="preserve"><value>原始通道缓冲区已导出到 {0}</value></data>
-  <data name="Scan_Runtime_StatusRawExportFailed" xml:space="preserve"><value>原始导出失败：{0}</value></data>
+  <data name="Scan_Runtime_StatusNoDngResult" xml:space="preserve"><value>没有可用于 DNG 导出的扫描结果。</value></data>
+  <data name="Scan_Runtime_StatusDngExportCanceled" xml:space="preserve"><value>DNG 导出已取消。</value></data>
+  <data name="Scan_Runtime_StatusDngExported" xml:space="preserve"><value>DNG 通道文件已导出到 {0}</value></data>
+  <data name="Scan_Runtime_StatusDngExportFailed" xml:space="preserve"><value>DNG 导出失败：{0}</value></data>
+  <data name="Scan_Runtime_FieldLed1Level" xml:space="preserve"><value>LED1 电平</value></data>
+  <data name="Scan_Runtime_FieldLed2Level" xml:space="preserve"><value>LED2 电平</value></data>
+  <data name="Scan_Runtime_FieldLed3Level" xml:space="preserve"><value>LED3 电平</value></data>
+  <data name="Scan_Runtime_FieldLed4Level" xml:space="preserve"><value>LED4 电平</value></data>
+  <data name="Scan_Runtime_FieldRedWavelengthNm" xml:space="preserve"><value>红色波长 (nm)</value></data>
+  <data name="Scan_Runtime_FieldGreenWavelengthNm" xml:space="preserve"><value>绿色波长 (nm)</value></data>
+  <data name="Scan_Runtime_FieldBlueWavelengthNm" xml:space="preserve"><value>蓝色波长 (nm)</value></data>
+  <data name="Scan_Runtime_FieldOutputGamma" xml:space="preserve"><value>输出伽马</value></data>
   <data name="Scan_Runtime_CurrentPassIdle" xml:space="preserve"><value>第 - / 4 轮</value></data>
   <data name="Scan_Runtime_CurrentPassCanceled" xml:space="preserve"><value>当前轮次已取消</value></data>
   <data name="Scan_Runtime_CurrentPassProgress" xml:space="preserve"><value>第 {0} / {1} 轮 - {2}</value></data>
@@ -505,19 +567,19 @@
   <data name="Scan_Runtime_PreviewDisabledDescription" xml:space="preserve"><value>预览已禁用。</value></data>
   <data name="Scan_Runtime_PreviewDisabledPlaceholder" xml:space="preserve"><value>预览已禁用。</value></data>
   <data name="Scan_Runtime_PreviewModeDescription" xml:space="preserve"><value>预览模式：{0}。</value></data>
-  <data name="Scan_Runtime_PreviewCompositeDescription" xml:space="preserve"><value>预览模式：{0}。合成预览使用当前通道角色映射和 {1}。</value></data>
+  <data name="Scan_Runtime_PreviewCompositeDescription" xml:space="preserve"><value>预览模式：{0}。对齐：{1}。合成预览使用当前通道角色映射和 {2}。</value></data>
   <data name="Scan_Runtime_PreviewCompositeModeSpectral" xml:space="preserve"><value>光谱 sRGB 色彩管理</value></data>
   <data name="Scan_Runtime_PreviewCompositeModeGamma" xml:space="preserve"><value>sRGB 伽马编码</value></data>
   <data name="Scan_Runtime_PreviewRawUnavailable" xml:space="preserve"><value>所选原始预览通道不可用。</value></data>
-  <data name="Scan_Runtime_PreviewRawDescription" xml:space="preserve"><value>预览模式：{0}。正在显示第 {1} 轮的灰度原始缓冲区。</value></data>
+  <data name="Scan_Runtime_PreviewRawDescription" xml:space="preserve"><value>预览模式：{0}。对齐：{1}。正在显示第 {2} 轮的灰度原始缓冲区。</value></data>
   <data name="Scan_Runtime_OutputSummaryEmpty" xml:space="preserve"><value>尚未采集任何扫描输出。</value></data>
   <data name="Scan_Runtime_ChannelMappingSummary" xml:space="preserve"><value>通道 1 → {0}，通道 2 → {1}，通道 3 → {2}，通道 4 → {3}。</value></data>
   <data name="Scan_Runtime_ComputedMotorUnavailableUntilRowsValid" xml:space="preserve"><value>在行数有效前，无法估算电机步数。</value></data>
-  <data name="Scan_Runtime_ComputedMotorIntervalMinimum" xml:space="preserve"><value>电机间隔至少必须为 {0} us。</value></data>
+  <data name="Scan_Runtime_ComputedMotorIntervalMinimum" xml:space="preserve"><value>请求的每行电机移动距离过小，不满足当前时序限制。请增大该值，使推导出的电机间隔至少为 {0} us。</value></data>
   <data name="Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded" xml:space="preserve"><value>在扫描仪参数加载前，无法估算电机步数。</value></data>
-  <data name="Scan_Runtime_ComputedMotorSummary" xml:space="preserve"><value>基于当前曝光/系统时钟和 {3} 行，估算 Motor{0} 传送为每轮 {1} 步，间隔 {2} us。</value></data>
+  <data name="Scan_Runtime_ComputedMotorSummary" xml:space="preserve"><value>基于请求的每行电机移动距离、当前曝光/系统时钟和 {3} 行，估算 Motor{0} 传送为每轮 {1} 步（约 {4} mm），线速度约 {5} mm/s。</value></data>
   <data name="Scan_Runtime_ErrorRowsPositiveInteger" xml:space="preserve"><value>行数必须是正整数。</value></data>
-  <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve"><value>电机间隔必须是整数且 &gt;= {0} us。</value></data>
+  <data name="Scan_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve"><value>请求的每行电机移动距离必须能推导出 &gt;= {0} us 的电机间隔。</value></data>
   <data name="Scan_Runtime_ConfigProfileNotSelected" xml:space="preserve"><value>未加载配置文件</value></data>
   <data name="Scan_Runtime_StatusLoadConfigProfileCanceled" xml:space="preserve"><value>加载配置文件已取消。</value></data>
   <data name="Scan_Runtime_StatusConfigProfileLoaded" xml:space="preserve"><value>已加载配置文件 &quot;{0}&quot;，并应用已保存的 LED 和电机设置。</value></data>
@@ -534,6 +596,11 @@
   <data name="Scan_Runtime_ProgressStageCompleted" xml:space="preserve"><value>已完成</value></data>
   <data name="Scan_Runtime_PreviewModeRgbComposite" xml:space="preserve"><value>RGB 合成</value></data>
   <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve"><value>原始通道 {0}</value></data>
+  <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve"><value>单文件：4 通道原始 DNG</value></data>
+  <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve"><value>双文件：RGB 加 IR/W DNG</value></data>
+  <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve"><value>ECC</value></data>
+  <data name="Scan_Runtime_AlignmentModeMutualInformation" xml:space="preserve"><value>MI</value></data>
+  <data name="Scan_Runtime_AlignmentModeEccThenMutualInformation" xml:space="preserve"><value>ECC + MI</value></data>
   <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve"><value>红</value></data>
   <data name="Scan_Runtime_ChannelRoleGreen" xml:space="preserve"><value>绿</value></data>
   <data name="Scan_Runtime_ChannelRoleBlue" xml:space="preserve"><value>蓝</value></data>
@@ -675,10 +742,19 @@
   <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve"><value>校准通道 '{0}' 没有已保存配置。</value></data>
   <data name="ScanDebug_Runtime_StatusClearChannelProfileFailed" xml:space="preserve"><value>清除通道配置失败：{0}</value></data>
   <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve"><value>胶片配置 '{0}' 已导出。</value></data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve"><value>保存胶片配置已取消。</value></data>
   <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve"><value>保存胶片配置失败：{0}</value></data>
   <data name="ScanDebug_Runtime_StatusLoadFilmProfileCanceled" xml:space="preserve"><value>加载胶片配置已取消。</value></data>
   <data name="ScanDebug_Runtime_StatusFilmProfileLoaded" xml:space="preserve"><value>胶片配置 '{0}' 已加载。</value></data>
   <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve"><value>加载胶片配置失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_FieldLed1Level" xml:space="preserve"><value>LED1 电平</value></data>
+  <data name="ScanDebug_Runtime_FieldLed2Level" xml:space="preserve"><value>LED2 电平</value></data>
+  <data name="ScanDebug_Runtime_FieldLed3Level" xml:space="preserve"><value>LED3 电平</value></data>
+  <data name="ScanDebug_Runtime_FieldLed4Level" xml:space="preserve"><value>LED4 电平</value></data>
+  <data name="ScanDebug_Runtime_FieldLed1PulseClock" xml:space="preserve"><value>LED1 脉冲时钟数</value></data>
+  <data name="ScanDebug_Runtime_FieldLed2PulseClock" xml:space="preserve"><value>LED2 脉冲时钟数</value></data>
+  <data name="ScanDebug_Runtime_FieldLed3PulseClock" xml:space="preserve"><value>LED3 脉冲时钟数</value></data>
+  <data name="ScanDebug_Runtime_FieldLed4PulseClock" xml:space="preserve"><value>LED4 脉冲时钟数</value></data>
   <data name="ScanDebug_Runtime_StatusAutofocusStarted" xml:space="preserve"><value>自动对焦已开始...</value></data>
   <data name="ScanDebug_Runtime_AutofocusSampling" xml:space="preserve"><value>自动对焦：正在采样 {0} 行，倾斜步长 {1}，Z 步长 {2}。</value></data>
   <data name="ScanDebug_Runtime_StatusAutofocusCompleted" xml:space="preserve"><value>自动对焦已完成。</value></data>
@@ -728,7 +804,11 @@
   <data name="ScanDebug_Runtime_ErrorSteadySyncOverlap" xml:space="preserve"><value>同一 LED 通道上的常亮和同步选择不能重叠。</value></data>
   <data name="ScanDebug_Runtime_ErrorMotorSelectionRange" xml:space="preserve"><value>电机选择必须在 [1, {0}] 范围内。</value></data>
   <data name="ScanDebug_Runtime_ErrorMotorStepsPositive" xml:space="preserve"><value>Motor{0} 步数必须是正整数。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorMoveValuePositive" xml:space="preserve"><value>Motor{0} 的移动值必须是有效的正 {1} 数值。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorMoveDistanceTooSmall" xml:space="preserve"><value>Motor{0} 的移动值按 {1} 换算后不足 1 步，请增大输入。</value></data>
   <data name="ScanDebug_Runtime_ErrorMotorIntervalMinimum" xml:space="preserve"><value>Motor{0} 间隔必须是整数且 &gt;= {1} us。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorSpeedValuePositive" xml:space="preserve"><value>Motor{0} 的速度值必须是有效的正 {1}/s 数值。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorSpeedTooHigh" xml:space="preserve"><value>Motor{0} 的速度过高，换算后会低于最小电机间隔 {1} us。</value></data>
   <data name="ScanDebug_Runtime_ErrorAutofocusRowsRange" xml:space="preserve"><value>自动对焦行数必须是 [1, {0}] 范围内的整数。</value></data>
   <data name="ScanDebug_Runtime_ErrorAutofocusTiltPositive" xml:space="preserve"><value>自动对焦倾斜步长必须是正整数。</value></data>
   <data name="ScanDebug_Runtime_ErrorAutofocusZPositive" xml:space="preserve"><value>自动对焦 Z 步长必须是正整数。</value></data>
@@ -752,4 +832,6 @@
   <data name="ScanDebug_Runtime_None" xml:space="preserve"><value>无</value></data>
   <data name="ScanDebug_Runtime_CursorPosition" xml:space="preserve"><value>光标：({0}, {1}) px</value></data>
   <data name="ScanDebug_Runtime_CursorIntensity" xml:space="preserve"><value>Intensity16: {0}</value></data>
+  <data name="ScanDebug_Runtime_CursorPositionDefault" xml:space="preserve"><value>光标：(-, -) px</value></data>
+  <data name="ScanDebug_Runtime_CursorIntensityDefault" xml:space="preserve"><value>Intensity16: -</value></data>
 </root>

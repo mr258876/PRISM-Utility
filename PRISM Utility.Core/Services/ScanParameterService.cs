@@ -1,4 +1,5 @@
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Services;
@@ -209,9 +210,9 @@ public class ScanParameterService : IScanParameterService
             || sysClockKhz == 0)
             return "Exposure time: -";
 
-        var exposureNs = (45827.0 + (ticks * 6.0)) * (1_000_000.0 / sysClockKhz);
-        var exposureUs = exposureNs / 1000.0;
-        var reciprocalSeconds = 1_000_000_000.0 / exposureNs;
+        var exposureNs = ScanTimingMath.ExposureTicksToNanoseconds(ticks, sysClockKhz);
+        var exposureUs = ScanTimingMath.ExposureTicksToMicroseconds(ticks, sysClockKhz);
+        var reciprocalSeconds = ScanTimingMath.ExposureNanosecondsToReciprocalSeconds(exposureNs);
         return $"Exposure time: {exposureNs:0.##} ns ({exposureUs:0.###} us, 1/{reciprocalSeconds:0.###} s)";
     }
 

@@ -441,7 +441,7 @@ public sealed partial class ScanDebugPage : Page
         if (ViewModel.TryGetPreviewSample16(x, y, out var sample16))
             CursorIntensityTextBlock.Text = "ScanDebug_Runtime_CursorIntensity".GetLocalizedFormat(sample16);
         else
-            CursorIntensityTextBlock.Text = "ScanDebug_CursorIntensityTextBlock/Text".GetLocalized();
+            CursorIntensityTextBlock.Text = "ScanDebug_Runtime_CursorIntensityDefault".GetLocalized();
 
         if (!_isRoiDragging)
             return;
@@ -571,8 +571,8 @@ public sealed partial class ScanDebugPage : Page
 
     private void SetDefaultCursorText()
     {
-        CursorPositionTextBlock.Text = "ScanDebug_CursorPositionTextBlock/Text".GetLocalized();
-        CursorIntensityTextBlock.Text = "ScanDebug_CursorIntensityTextBlock/Text".GetLocalized();
+        CursorPositionTextBlock.Text = "ScanDebug_Runtime_CursorPositionDefault".GetLocalized();
+        CursorIntensityTextBlock.Text = "ScanDebug_Runtime_CursorIntensityDefault".GetLocalized();
     }
 
     private void DrawAxes(int imageWidth, int imageHeight)

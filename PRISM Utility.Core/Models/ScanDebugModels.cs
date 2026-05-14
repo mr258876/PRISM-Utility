@@ -94,13 +94,15 @@ public static class ScanDebugConstants
     public const uint IlluminationMinSyncPulseClock = 2;
 
     public const int MotionMotorCount = 3;
-    public const int MotionMotorStatePayloadLength = 12;
+    public const int MotionMotorStatePayloadLength = 14;
     public const int MotionGetStatePayloadLength = MotionMotorCount * MotionMotorStatePayloadLength;
     public const int MotionSetEnablePayloadLength = 2;
     public const int MotionMoveStepsPayloadLength = 10;
     public const int MotionSingleMotorPayloadLength = 1;
-    public const uint MotionMinIntervalUs = 10;
-    public const uint MotionDefaultIntervalUs = 500;
+    public const uint MotionMinIntervalNs = 750;
+    public const uint MotionDefaultIntervalNs = 500_000;
+    public const uint MotionMinIntervalUs = MotionMinIntervalNs;
+    public const uint MotionDefaultIntervalUs = MotionDefaultIntervalNs;
 
     public static int DecodedPixelsPerLine
     {
@@ -151,8 +153,11 @@ public sealed record ScanMotorState(
     bool Running,
     bool Direction,
     byte Diag,
-    ushort IntervalUs,
-    uint RemainingSteps);
+    uint IntervalNs,
+    uint RemainingSteps)
+{
+    public uint IntervalUs => IntervalNs;
+}
 
 public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay, string SysClockMhzDisplay);
 
@@ -315,18 +320,96 @@ public sealed record ScanCalibrationRoiSettings(
     }
 }
 
+public sealed record ScanDngGeometrySettings(
+    ScanColumnRange ActiveRange,
+    ScanColumnRange[] MaskedBlackRanges)
+{
+    public const int MaxMaskedBlackRangeCount = 4;
+
+    public static ScanDngGeometrySettings CreateDefault()
+        => new(
+            new ScanColumnRange(ScanDebugConstants.EffectivePixelStart, ScanDebugConstants.EffectivePixelEnd),
+            [new ScanColumnRange(ScanDebugConstants.ShieldPixelStart, ScanDebugConstants.ShieldPixelEnd)]);
+
+    public ScanDngGeometrySettings Normalize()
+        => Clamp(ScanDebugConstants.DecodedPixelsPerLine);
+
+    public ScanDngGeometrySettings Clamp(int width)
+    {
+        var active = (ActiveRange ?? CreateDefault().ActiveRange).Clamp(width);
+        var normalizedMaskedRanges = NormalizeMaskedRanges(MaskedBlackRanges, active, width);
+        return new ScanDngGeometrySettings(active, normalizedMaskedRanges);
+    }
+
+    private static ScanColumnRange[] NormalizeMaskedRanges(ScanColumnRange[]? ranges, ScanColumnRange active, int width)
+    {
+        if (width <= 0 || ranges is null || ranges.Length == 0)
+            return [];
+
+        var normalized = new List<ScanColumnRange>(ranges.Length);
+        foreach (var range in ranges)
+        {
+            if (range is null)
+                continue;
+
+            var candidate = range.Clamp(width);
+            if (candidate.Width <= 0)
+                continue;
+
+            if (RangesOverlap(candidate, active))
+                continue;
+
+            normalized.Add(candidate.Normalize());
+        }
+
+        if (normalized.Count == 0)
+            return [];
+
+        normalized.Sort(static (left, right) => left.Start.CompareTo(right.Start));
+        var merged = new List<ScanColumnRange>(normalized.Count);
+        foreach (var range in normalized)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(range);
+                continue;
+            }
+
+            var previous = merged[^1];
+            if (range.Start <= previous.EndInclusive + 1)
+            {
+                merged[^1] = new ScanColumnRange(previous.Start, Math.Max(previous.EndInclusive, range.EndInclusive));
+                continue;
+            }
+
+            merged.Add(range);
+
+            if (merged.Count >= MaxMaskedBlackRangeCount)
+                break;
+        }
+
+        return merged.ToArray();
+    }
+
+    private static bool RangesOverlap(ScanColumnRange left, ScanColumnRange right)
+        => left.Start <= right.EndInclusive && right.Start <= left.EndInclusive;
+}
+
 public sealed record ScanChannelCalibrationProfile(ScanParameterSnapshot Parameters, ScanCalibrationRoiSettings RoiSettings);
 
 public sealed record ScanAutofocusRequest(
     int SampleRows,
     uint TiltProbeSteps,
     uint ZProbeSteps,
-    uint MotorIntervalUs,
+    uint MotorIntervalNs,
     bool ZPositiveDirection,
     bool TiltPositiveDirection,
     int MaxTiltIterations,
     int MaxZIterations,
-    ScanCalibrationRoiSettings RoiSettings);
+    ScanCalibrationRoiSettings RoiSettings)
+{
+    public uint MotorIntervalUs => MotorIntervalNs;
+}
 
 public sealed record ScanAutofocusResult(
     int SampleRows,

@@ -23,6 +23,12 @@
         <DataTemplate x:Key="ScanPreviewModeOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=PreviewMode}" />
         </DataTemplate>
+        <DataTemplate x:Key="ScanDngExportModeOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=DngExportMode}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ScanAlignmentModeOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=AlignmentMode}" />
+        </DataTemplate>
     </Page.Resources>
 
     <Grid
@@ -113,11 +119,25 @@
                                          ItemsSource="{x:Bind ViewModel.MotorOptions, Mode=OneWay}"
                                          ItemTemplate="{StaticResource ScanMotorOptionTemplate}"
                                          SelectedItem="{x:Bind ViewModel.SelectedScanMotor, Mode=TwoWay}" />
-                                    <TextBox
-                                        Grid.Row="1"
-                                        Grid.Column="0"
-                                        x:Uid="Scan_MotorIntervalTextBox"
-                                        Text="{x:Bind ViewModel.MotorIntervalUs, Mode=TwoWay}" />
+                                      <Grid
+                                          Grid.Row="1"
+                                          Grid.Column="0"
+                                          ColumnSpacing="8">
+                                          <Grid.ColumnDefinitions>
+                                              <ColumnDefinition Width="2*" />
+                                              <ColumnDefinition Width="*" />
+                                          </Grid.ColumnDefinitions>
+
+                                          <TextBox
+                                              Grid.Column="0"
+                                              x:Uid="Scan_MotorIntervalTextBox"
+                                              Text="{x:Bind ViewModel.MotorDistancePerLineValue, Mode=TwoWay}" />
+                                          <ComboBox
+                                              Grid.Column="1"
+                                              x:Uid="Scan_MotorIntervalUnitComboBox"
+                                              ItemsSource="{x:Bind ViewModel.MotorDistancePerLineUnitOptions, Mode=OneWay}"
+                                              SelectedItem="{x:Bind ViewModel.MotorDistancePerLineUnit, Mode=TwoWay}" />
+                                      </Grid>
                                     <ToggleSwitch
                                         Grid.Row="1"
                                         Grid.Column="1"
@@ -259,15 +279,27 @@
                              <Expander.Header>
                                  <TextBlock x:Uid="Scan_OutputSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                <Grid ColumnSpacing="8" RowSpacing="8">
+                             <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                                 <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                 <ComboBox
+                                     x:Uid="Scan_DngExportModeComboBox"
+                                     HorizontalAlignment="Stretch"
+                                     ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
+                                     ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
+                                     SelectedItem="{x:Bind ViewModel.SelectedDngExportMode, Mode=TwoWay}"
+                                     Visibility="{x:Bind ViewModel.IsDualFileDngExportAvailable, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                 <TextBlock
+                                     x:Uid="Scan_DngExportModeUnavailableText"
+                                     Opacity="0.8"
+                                     TextWrapping="WrapWholeWords"
+                                     Visibility="{x:Bind ViewModel.IsSingleFileDngExportForced, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                 <Grid ColumnSpacing="8" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Button Grid.Column="0" x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" />
-                                    <Button Grid.Column="1" x:Uid="Scan_ExportRawChannelsButton" Command="{x:Bind ViewModel.ExportRawChannelsCommand}" />
+                                     <Button Grid.Column="1" x:Uid="Scan_ExportDngChannelsButton" Command="{x:Bind ViewModel.ExportDngChannelsCommand}" />
                                 </Grid>
                                 <TextBlock Text="{x:Bind ViewModel.OutputSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
                             </StackPanel>
@@ -304,20 +336,28 @@
                         <TextBlock Text="{x:Bind ViewModel.CurrentDirectionText, Mode=OneWay}" />
                         <TextBlock Text="{x:Bind ViewModel.OutputSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
                     </StackPanel>
-                    <Grid Grid.Row="2" ColumnSpacing="12">
+                    <Grid Grid.Row="2" ColumnSpacing="12" RowSpacing="8">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                          <ComboBox
                              Grid.Column="0"
+                             x:Uid="Scan_AlignmentModeComboBox"
+                             Width="180"
+                             ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}"
+                             ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}"
+                             SelectedItem="{x:Bind ViewModel.SelectedAlignmentMode, Mode=TwoWay}" />
+                         <ComboBox
+                             Grid.Column="1"
                              x:Uid="Scan_PreviewModeComboBox"
                              Width="220"
                              ItemsSource="{x:Bind ViewModel.PreviewModes, Mode=OneWay}"
                              ItemTemplate="{StaticResource ScanPreviewModeOptionTemplate}"
                              SelectedItem="{x:Bind ViewModel.SelectedPreviewMode, Mode=TwoWay}" />
                         <TextBlock
-                            Grid.Column="1"
+                            Grid.Column="2"
                             Text="{x:Bind ViewModel.ChannelMappingSummaryText, Mode=OneWay}"
                             VerticalAlignment="Center"
                             TextWrapping="WrapWholeWords" />

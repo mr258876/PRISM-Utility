@@ -1,4 +1,5 @@
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Services;
@@ -302,7 +303,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     {
         var exposure = (ushort)Math.Max(snapshot.ExposureTicks, ScanDebugConstants.MinExposureTicks);
         var lastExposure = exposure;
-        var exposureNs = ExposureTicksToNanoseconds(exposure, snapshot.SysClockKhz);
+        var exposureNs = ScanTimingMath.ExposureTicksToNanoseconds(exposure, snapshot.SysClockKhz);
 
         for (var step = 1; step <= 6; step++)
         {
@@ -323,7 +324,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                 break;
 
             exposureNs *= 2.0;
-            exposure = NanosecondsToExposureTicks(exposureNs, snapshot.SysClockKhz);
+            exposure = ScanTimingMath.NanosecondsToExposureTicks(exposureNs, snapshot.SysClockKhz);
         }
 
         return lastExposure;
@@ -469,7 +470,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         onStatus?.Invoke($"{phase}: capturing {rows} rows...");
         var useExtendedSingleRead = await ShouldUseFullStartReadPathAsync();
         var result = rows > session.SingleTransferMaxRows && !useExtendedSingleRead
-            ? await session.StartWarmUpSegmentedScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"))
+            ? await session.StartSegmentedScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"))
             : await session.StartScanAsync(rows, ct, status => onStatus?.Invoke($"{phase}: {status}"));
         if (!result.Success || result.ImageBytes is null)
             throw new IOException($"{phase} failed: {result.Message}");
@@ -940,8 +941,8 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
     private static ushort SelectGainFromExposureRatio(ushort currentExposureTicks, ushort saturationExposureTicks, uint sysClockKhz, double safetyFactor)
     {
-        var currentExposureNs = ExposureTicksToNanoseconds(currentExposureTicks, sysClockKhz);
-        var saturationExposureNs = ExposureTicksToNanoseconds(saturationExposureTicks, sysClockKhz);
+        var currentExposureNs = ScanTimingMath.ExposureTicksToNanoseconds(currentExposureTicks, sysClockKhz);
+        var saturationExposureNs = ScanTimingMath.ExposureTicksToNanoseconds(saturationExposureTicks, sysClockKhz);
         if (currentExposureNs <= 0 || saturationExposureNs <= 0)
             return 0;
 
@@ -966,27 +967,17 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
     private static double ComputeGainScale(ushort gain)
         => 6.0 / (1.0 + 5.0 * ((63.0 - gain) / 63.0));
 
-    private static double ExposureTicksToNanoseconds(ushort ticks, uint sysClockKhz)
-        => (45827.0 + (ticks * 6.0)) * (1_000_000.0 / Math.Max(sysClockKhz, 1u));
-
-    private static ushort NanosecondsToExposureTicks(double nanoseconds, uint sysClockKhz)
-    {
-        var ticks = ((nanoseconds * Math.Max(sysClockKhz, 1u)) / 1_000_000.0 - 45827.0) / 6.0;
-        var rounded = (int)Math.Round(ticks, MidpointRounding.AwayFromZero);
-        return (ushort)Math.Clamp(rounded, ScanDebugConstants.MinExposureTicks, ushort.MaxValue);
-    }
-
     private static string FormatExposureTime(ushort ticks, uint sysClockKhz)
     {
-        var exposureNs = ExposureTicksToNanoseconds(ticks, sysClockKhz);
-        var exposureUs = exposureNs / 1000.0;
+        var exposureNs = ScanTimingMath.ExposureTicksToNanoseconds(ticks, sysClockKhz);
+        var exposureUs = ScanTimingMath.ExposureTicksToMicroseconds(ticks, sysClockKhz);
         return $"{exposureNs:0.##} ns / {exposureUs:0.###} us";
     }
 
     private static async Task WaitForWarmUpSettlingAsync(ushort exposureTicks, uint sysClockKhz, Action<string>? onStatus, CancellationToken ct)
     {
         var clampedTicks = (ushort)Math.Max(exposureTicks, ScanDebugConstants.MinExposureTicks);
-        var settleMs = Math.Max(1, (int)Math.Ceiling((ExposureTicksToNanoseconds(clampedTicks, sysClockKhz) * 64.0) / 1_000_000.0));
+        var settleMs = ScanTimingMath.ComputeSettlingMillisecondsForLines(clampedTicks, sysClockKhz, 64);
         onStatus?.Invoke($"Warm-up settling: wait {settleMs} ms (64 lines at {FormatExposureTime(clampedTicks, sysClockKhz)})...");
         await Task.Delay(settleMs, ct);
     }

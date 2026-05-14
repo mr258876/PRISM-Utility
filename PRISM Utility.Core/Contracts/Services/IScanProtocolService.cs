@@ -15,8 +15,8 @@ public interface IScanProtocolService
     byte[] BuildSetSyncPulseClocksCommand(uint led1PulseClock, uint led2PulseClock, uint led3PulseClock, uint led4PulseClock);
     byte[] BuildGetMotionStateCommand();
     byte[] BuildSetMotorEnableCommand(byte motorId, bool enabled);
-    byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalUs);
-    byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalUs);
+    byte[] BuildMoveMotorStepsCommand(byte motorId, bool direction, uint steps, uint intervalNs);
+    byte[] BuildPrepareMotorOnSyncCommand(byte motorId, bool direction, uint steps, uint intervalNs);
     byte[] BuildStopMotorCommand(byte motorId);
     byte[] BuildApplyMotorConfigCommand(byte motorId);
     byte[] BuildGetParamByHashCommand(uint keyHash);

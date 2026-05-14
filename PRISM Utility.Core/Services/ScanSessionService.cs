@@ -195,11 +195,11 @@ public class ScanSessionService : IScanSessionService
         EnsurePayloadLength(response, ScanDebugConstants.MotionSetEnablePayloadLength, "SET_MOTOR_ENABLE");
     }
 
-    public async Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    public async Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
     {
         _ackChannel.ClearMotionEvent(motorId);
         var response = await SendControlCommandAndEnsureOkAsync(
-            _protocol.BuildMoveMotorStepsCommand(motorId, direction, steps, intervalUs),
+            _protocol.BuildMoveMotorStepsCommand(motorId, direction, steps, intervalNs),
             ScanDebugConstants.UsbCmdMotionMoveSteps,
             "MOVE_MOTOR_STEPS",
             ct);
@@ -207,11 +207,11 @@ public class ScanSessionService : IScanSessionService
         EnsurePayloadLength(response, ScanDebugConstants.MotionMoveStepsPayloadLength, "MOVE_MOTOR_STEPS");
     }
 
-    public async Task PrepareMotorOnExposureSyncAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    public async Task PrepareMotorOnExposureSyncAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
     {
         _ackChannel.ClearMotionEvent(motorId);
         var response = await SendControlCommandAndEnsureOkAsync(
-            _protocol.BuildPrepareMotorOnSyncCommand(motorId, direction, steps, intervalUs),
+            _protocol.BuildPrepareMotorOnSyncCommand(motorId, direction, steps, intervalNs),
             ScanDebugConstants.UsbCmdMotionPrepareOnSync,
             "PREPARE_MOTOR_ON_SYNC",
             ct);
@@ -219,9 +219,9 @@ public class ScanSessionService : IScanSessionService
         EnsurePayloadLength(response, ScanDebugConstants.MotionMoveStepsPayloadLength, "PREPARE_MOTOR_ON_SYNC");
     }
 
-    public async Task<ScanMotorState> WaitForMotorMotionCompleteAsync(byte motorId, uint steps, uint intervalUs, CancellationToken ct)
+    public async Task<ScanMotorState> WaitForMotorMotionCompleteAsync(byte motorId, uint steps, uint intervalNs, CancellationToken ct)
     {
-        var expectedTravelMs = Math.Ceiling((double)steps * intervalUs / 1000.0);
+        var expectedTravelMs = Math.Ceiling((double)steps * intervalNs / 1000000.0);
         var totalTimeoutMs = Math.Min(
             uint.MaxValue,
             Math.Max(ScanDebugConstants.AckTimeoutMs, (expectedTravelMs * MotionCompletionTimeoutMultiplier) + MotionCompletionPaddingMs));
@@ -250,17 +250,17 @@ public class ScanSessionService : IScanSessionService
 
         var lastObservedStateText = lastObservedMotorState is null
             ? "last_state=<unavailable>"
-            : $"last_state={{motor={lastObservedMotorState.MotorId}, enabled={lastObservedMotorState.Enabled}, running={lastObservedMotorState.Running}, direction={lastObservedMotorState.Direction}, diag=0x{lastObservedMotorState.Diag:X2}, interval_us={lastObservedMotorState.IntervalUs}, remaining_steps={lastObservedMotorState.RemainingSteps}}}";
-        throw new IOException($"Timed out waiting motion complete event for motor {motorId}. steps={steps}, interval_us={intervalUs}, expected_travel_ms={expectedTravelMs:0}, timeout_ms={totalTimeoutMs:0}, {lastObservedStateText}");
+            : $"last_state={{motor={lastObservedMotorState.MotorId}, enabled={lastObservedMotorState.Enabled}, running={lastObservedMotorState.Running}, direction={lastObservedMotorState.Direction}, diag=0x{lastObservedMotorState.Diag:X2}, interval_ns={lastObservedMotorState.IntervalNs}, remaining_steps={lastObservedMotorState.RemainingSteps}}}";
+        throw new IOException($"Timed out waiting motion complete event for motor {motorId}. steps={steps}, interval_ns={intervalNs}, expected_travel_ms={expectedTravelMs:0}, timeout_ms={totalTimeoutMs:0}, {lastObservedStateText}");
     }
 
     private static bool IsMotionEventWaitTimeout(IOException ex)
         => ex.Message.Contains("Timed out waiting motion complete event", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalUs, CancellationToken ct)
+    public async Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
     {
-        await MoveMotorStepsAsync(motorId, direction, steps, intervalUs, ct);
-        return await WaitForMotorMotionCompleteAsync(motorId, steps, intervalUs, ct);
+        await MoveMotorStepsAsync(motorId, direction, steps, intervalNs, ct);
+        return await WaitForMotorMotionCompleteAsync(motorId, steps, intervalNs, ct);
     }
 
     public async Task StopMotorAsync(byte motorId, CancellationToken ct)
@@ -323,12 +323,12 @@ public class ScanSessionService : IScanSessionService
         return _executionRunner.StartScanAsync(_controlSession, _imageSession, rows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
     }
 
-    public Task<ScanStartResult> StartWarmUpSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
     {
         if (!IsConnected || _controlSession is null || _imageSession is null)
             return Task.FromResult(new ScanStartResult(false, "Scanner not connected. Click Connect Devices first.", null));
 
-        return _executionRunner.StartWarmUpSegmentedScanAsync(_controlSession, _imageSession, totalRows, SingleTransferMaxRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
+        return _executionRunner.StartSegmentedScanAsync(_controlSession, _imageSession, totalRows, SingleTransferMaxRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
     }
 
     public Task<ScanStopResult> StopScanAsync(CancellationToken ct)

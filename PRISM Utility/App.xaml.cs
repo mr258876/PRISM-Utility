@@ -63,7 +63,9 @@ public partial class App : Application
             services.AddSingleton<IDebugOutputSettingsService, DebugOutputSettingsService>();
             services.AddSingleton<IDebugOutputMirrorService, DebugOutputMirrorService>();
             services.AddSingleton<IScanTransferSettingsService, ScanTransferSettingsService>();
+            services.AddSingleton<IScanDeviceSettingsService, ScanDeviceSettingsService>();
             services.AddSingleton<IScanColorManagementSettingsService, ScanColorManagementSettingsService>();
+            services.AddSingleton<IScanDngGeometrySettingsService, ScanDngGeometrySettingsService>();
             services.AddSingleton<IScanChannelParameterProfileService, ScanChannelParameterProfileService>();
             services.AddSingleton<ILanguageSelectorService, LanguageSelectorService>();
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
@@ -79,14 +81,17 @@ public partial class App : Application
             services.AddTransient<IScanImageDecoder, ScanImageDecoder>();
             services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
             services.AddTransient<IScanCompositeImageProcessor, ScanCompositeImageProcessor>();
+            services.AddTransient<IScanChannelAlignmentService, ScanChannelAlignmentService>();
             services.AddTransient<IScanBufferExportService, ScanBufferExportService>();
             services.AddTransient<IScanWorkflowService, ScanWorkflowService>();
+            services.AddTransient<IScanIlluminationService, ScanIlluminationService>();
             services.AddTransient<IScanChannelImageService, ScanChannelImageService>();
             services.AddTransient<IScanParameterService, ScanParameterService>();
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();
             services.AddTransient<IScanDebugSessionCoordinator, ScanDebugSessionCoordinator>();
+            services.AddTransient<IDngWriterService, DngWriterService>();
 
             // Core Services
             services.AddSingleton<IFileService, FileService>();
