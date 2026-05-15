@@ -11,7 +11,11 @@ public sealed record ScanFilmAcquisitionSettings(
     uint Led2PulseClock,
     uint Led3PulseClock,
     uint Led4PulseClock,
-    uint MotorIntervalNs)
+    uint MotorIntervalNs,
+    string Led1ChannelColor = "Blue",
+    string Led2ChannelColor = "White",
+    string Led3ChannelColor = "Red",
+    string Led4ChannelColor = "Green")
 {
     public uint MotorIntervalUs => MotorIntervalNs;
 
@@ -27,7 +31,11 @@ public sealed record ScanFilmAcquisitionSettings(
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
             ScanDebugConstants.IlluminationMinSyncPulseClock,
-            ScanDebugConstants.MotionDefaultIntervalNs);
+            ScanDebugConstants.MotionDefaultIntervalNs,
+            "Blue",
+            "White",
+            "Red",
+            "Green");
 
     public ScanFilmAcquisitionSettings Normalize()
     {
@@ -46,8 +54,15 @@ public sealed record ScanFilmAcquisitionSettings(
             Math.Max(Led2PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(Led3PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(Led4PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
-            Math.Max(MotorIntervalNs, ScanDebugConstants.MotionMinIntervalNs));
+            Math.Max(MotorIntervalNs, ScanDebugConstants.MotionMinIntervalNs),
+            NormalizeChannelColor(Led1ChannelColor, "Blue"),
+            NormalizeChannelColor(Led2ChannelColor, "White"),
+            NormalizeChannelColor(Led3ChannelColor, "Red"),
+            NormalizeChannelColor(Led4ChannelColor, "Green"));
     }
+
+    private static string NormalizeChannelColor(string? channelColor, string fallback)
+        => string.IsNullOrWhiteSpace(channelColor) ? fallback : channelColor.Trim();
 }
 
 public sealed record ScanFilmParameterProfileSet(

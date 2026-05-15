@@ -12,7 +12,9 @@ public sealed record ScanWorkflowRequest(
     bool AlternateMotorDirection,
     ushort ExposureTicks,
     uint SysClockKhz,
-    ScanFilmAcquisitionSettings? AcquisitionSettings = null)
+    ScanFilmAcquisitionSettings? AcquisitionSettings = null,
+    bool EnableMotorTransport = true,
+    bool EnableLedAutoControl = true)
 {
     public uint MotorIntervalUs => MotorIntervalNs;
 }

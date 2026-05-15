@@ -684,6 +684,33 @@
   <data name="ScanDebug_ContinuousToggleSwitch.OffContent" xml:space="preserve">
     <value>Off</value>
   </data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.Header" xml:space="preserve">
+    <value>Multi-channel workflow</value>
+  </data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.Header" xml:space="preserve">
+    <value>Move motor during scan</value>
+  </data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.Header" xml:space="preserve">
+    <value>Auto LED channeling</value>
+  </data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
   <data name="ScanDebug_WaterfallToggleSwitch.Header" xml:space="preserve">
     <value>Waterfall</value>
   </data>
@@ -2078,6 +2105,27 @@
   </data>
   <data name="ScanDebug_Runtime_StatusStartingScan" xml:space="preserve">
     <value>Starting scan...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusStartingMultiChannelScan" xml:space="preserve">
+    <value>Starting multi-channel scan workflow...</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported" xml:space="preserve">
+    <value>Multi-channel debug scan cannot run while Continuous is enabled. Disable Continuous before starting.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelProgress" xml:space="preserve">
+    <value>Multi-channel pass {0}/{1}: {2} LED{3}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanCompleted" xml:space="preserve">
+    <value>Multi-channel scan completed ({0} passes); showing pass {1}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelNoPassData" xml:space="preserve">
+    <value>Multi-channel workflow completed without captured pass data.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanCanceled" xml:space="preserve">
+    <value>Multi-channel scan canceled.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanFailed" xml:space="preserve">
+    <value>Multi-channel scan failed: {0}</value>
   </data>
   <data name="ScanDebug_Runtime_StatusStopRequested" xml:space="preserve">
     <value>Stop requested.</value>

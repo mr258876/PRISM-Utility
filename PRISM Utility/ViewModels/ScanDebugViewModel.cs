@@ -60,7 +60,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
     private const double DefaultPreviewGamma = 2.2;
     private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
+    private static readonly string[] DebugWorkflowChannelRoles = { "Blue", "White", "Red", "Green" };
     private static readonly string[] MotorDirectionLabels = { "Dir0", "Dir1" };
+    private const byte DebugWorkflowScanMotorId = 1;
     private const string MotorUnitSteps = "steps";
     private const string MotorUnitMicrometers = "um";
     private const string MotorUnitMillimeters = "mm";
@@ -85,10 +87,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IScanImageDecoder _imageDecoder;
     private readonly IScanPreviewPresenter _previewPresenter;
     private readonly IScanBufferExportService _bufferExportService;
+    private readonly IScanChannelImageService _channelImages;
     private readonly IScanAutoCalibrationService _autoCalibration;
     private readonly IScanAutoFocusService _autoFocus;
     private readonly IScanIlluminationService _illumination;
     private readonly IScanTransferSettingsService _transferSettings;
+    private readonly IScanWorkflowService _workflow;
     private readonly IScanDeviceSettingsService _deviceSettings;
     private readonly IScanChannelParameterProfileService _channelProfiles;
     private readonly IDebugOutputMirrorService _debugOutputMirror;
@@ -98,6 +102,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private CancellationTokenSource? _scanCts;
     private byte[] _lineBuffer = Array.Empty<byte>();
+    private ScanWorkflowResult? _lastWorkflowResult;
     private bool _hasValidScanBuffer;
     private DateTime _lastApplyParametersAtUtc = DateTime.MinValue;
     private bool _isDisposed;
@@ -123,6 +128,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public ObservableCollection<string> CalibrationChannelOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR" };
 
+    public ObservableCollection<string> ChannelColorOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR", "Unused" };
+
     public ObservableCollection<string> RoiSelectionOptions { get; } = new(RoiSelectionLabels);
 
     [ObservableProperty]
@@ -140,6 +147,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial bool IsContinuousScanEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsMultiChannelScanEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsScanMotorTransportEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsScanLedAutoControlEnabled { get; set; }
+
+    [ObservableProperty]
     public partial bool IsWaterfallEnabled { get; set; }
 
     [ObservableProperty]
@@ -153,6 +169,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string SelectedCalibrationChannel { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedLed1ChannelColor { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedLed2ChannelColor { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedLed3ChannelColor { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedLed4ChannelColor { get; set; }
 
     [ObservableProperty]
     public partial string CalibrationChannelStatusText { get; set; }
@@ -612,17 +640,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
 
-    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanIlluminationService illumination, IScanTransferSettingsService transferSettings, IScanDeviceSettingsService deviceSettings, IScanChannelParameterProfileService channelProfiles, IDebugOutputMirrorService debugOutputMirror, IUsbUsageCoordinator usbUsageCoordinator, IScanDebugSessionCoordinator sessionCoordinator, IUiDispatcher dispatcher)
+    public ScanDebugViewModel(IScanSessionService session, IScanParameterService parameters, IScanImageDecoder imageDecoder, IScanPreviewPresenter previewPresenter, IScanBufferExportService bufferExportService, IScanChannelImageService channelImages, IScanAutoCalibrationService autoCalibration, IScanAutoFocusService autoFocus, IScanIlluminationService illumination, IScanTransferSettingsService transferSettings, IScanWorkflowService workflow, IScanDeviceSettingsService deviceSettings, IScanChannelParameterProfileService channelProfiles, IDebugOutputMirrorService debugOutputMirror, IUsbUsageCoordinator usbUsageCoordinator, IScanDebugSessionCoordinator sessionCoordinator, IUiDispatcher dispatcher)
     {
         _session = session;
         _parameters = parameters;
         _imageDecoder = imageDecoder;
         _previewPresenter = previewPresenter;
         _bufferExportService = bufferExportService;
+        _channelImages = channelImages;
         _autoCalibration = autoCalibration;
         _autoFocus = autoFocus;
         _illumination = illumination;
         _transferSettings = transferSettings;
+        _workflow = workflow;
         _deviceSettings = deviceSettings;
         _channelProfiles = channelProfiles;
         _debugOutputMirror = debugOutputMirror;
@@ -632,10 +662,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
         SelectedRows = "128";
         IsPreviewEnabled = true;
+        IsScanMotorTransportEnabled = true;
+        IsScanLedAutoControlEnabled = true;
         IsWaterfallCompressedEnabled = true;
         IsGammaCorrectionEnabled = true;
         PreviewGamma = DefaultPreviewGamma.ToString("0.0");
         SelectedCalibrationChannel = CalibrationChannelOptions[0];
+        SelectedLed1ChannelColor = "Blue";
+        SelectedLed2ChannelColor = "White";
+        SelectedLed3ChannelColor = "Red";
+        SelectedLed4ChannelColor = "Green";
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet".GetLocalizedFormat(GetCalibrationChannelDisplayName(CalibrationChannelOptions[0]));
         FilmProfileName = "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized();
         SelectedRoiSelection = RoiSelectionOptions[0];
@@ -847,6 +883,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
     partial void OnIsRunningChanged(bool value)
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
 
+    partial void OnIsConnectingChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
+    partial void OnIsApplyingParametersChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
+    partial void OnIsAutoCalibratingChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
+    partial void OnIsAutoFocusingChanged(bool value)
+        => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+
     partial void OnIsApplyingIlluminationChanged(bool value)
         => OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
 
@@ -1015,6 +1063,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         try
         {
+            if (_lastWorkflowResult is not null)
+            {
+                var folder = await _channelImages.PickDngExportFolderAsync();
+                if (folder is null)
+                {
+                    StatusText = "ScanDebug_Runtime_StatusExportCanceled".GetLocalized();
+                    return;
+                }
+
+                await _channelImages.ExportDngChannelsAsync(folder, _lastWorkflowResult, BuildDebugChannelAssignment(), ScanChannelAlignmentMode.Ecc);
+                StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
+                return;
+            }
+
             var file = await _bufferExportService.PickExportFileAsync(BuildExportBufferFileName());
             if (file is null)
             {
@@ -1764,16 +1826,40 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         }
 
+        if (IsMultiChannelScanEnabled && IsContinuousScanEnabled)
+        {
+            StatusText = "ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported".GetLocalized();
+            return;
+        }
+
+        var multiChannelProgressMaxRows = int.MaxValue / ScanDebugConstants.BytesPerLine / ScanDebugConstants.IlluminationChannelCount;
+        if (IsMultiChannelScanEnabled && rows > multiChannelProgressMaxRows)
+        {
+            StatusText = "ScanDebug_Runtime_ErrorRowsRange".GetLocalizedFormat(multiChannelProgressMaxRows);
+            return;
+        }
+
+        ScanWorkflowRequest? workflowRequest = null;
+        if (IsMultiChannelScanEnabled && !TryBuildDebugWorkflowRequest(rows, out workflowRequest, out var workflowError))
+        {
+            StatusText = workflowError;
+            return;
+        }
+
         _scanCts = new CancellationTokenSource();
         IsRunning = true;
         IsScanReadProgressVisible = true;
         ScanReadProgressValue = 0;
-        ScanReadProgressMaximum = Math.Max(1, rows * ScanDebugConstants.BytesPerLine);
-        StatusText = IsContinuousScanEnabled ? "ScanDebug_Runtime_StatusStartingContinuousScan".GetLocalized() : "ScanDebug_Runtime_StatusStartingScan".GetLocalized();
+        ScanReadProgressMaximum = Math.Max(1, (double)rows * ScanDebugConstants.BytesPerLine * (IsMultiChannelScanEnabled ? ScanDebugConstants.IlluminationChannelCount : 1));
+        StatusText = IsMultiChannelScanEnabled
+            ? "ScanDebug_Runtime_StatusStartingMultiChannelScan".GetLocalized()
+            : IsContinuousScanEnabled ? "ScanDebug_Runtime_StatusStartingContinuousScan".GetLocalized() : "ScanDebug_Runtime_StatusStartingScan".GetLocalized();
 
         try
         {
-            if (IsContinuousScanEnabled)
+            if (IsMultiChannelScanEnabled)
+                await RunWorkflowScanAsync(workflowRequest!, _scanCts.Token);
+            else if (IsContinuousScanEnabled)
                 await RunContinuousScanLoopAsync(rows, _scanCts.Token);
             else
                 await RunSingleScanAsync(rows, _scanCts.Token);
@@ -1848,6 +1934,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!result.Success || result.ImageBytes is null)
             return;
 
+        _lastWorkflowResult = null;
         ApplyScanFrame(result.ImageBytes, rows, ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message));
     }
 
@@ -1870,8 +1957,123 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
 
             frameCount++;
+            _lastWorkflowResult = null;
             ApplyScanFrame(result.ImageBytes, rows, "ScanDebug_Runtime_StatusContinuousPreviewUpdated".GetLocalizedFormat(frameCount));
         }
+    }
+
+    private async Task RunWorkflowScanAsync(ScanWorkflowRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _workflow.ExecuteAsync(
+                _session,
+                request,
+                ct,
+                progress => _dispatcher.TryEnqueue(() => StatusText = "ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage), progress.LedChannelIndex + 1)),
+                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
+                diagnostic => _debugOutputMirror.Mirror("ScanDebug.WorkflowDiagnostic", diagnostic),
+                ReportScanReadProgress);
+
+            var previewPass = result.Passes.FirstOrDefault();
+            if (previewPass is null || previewPass.ImageBytes.Length == 0)
+            {
+                StatusText = "ScanDebug_Runtime_StatusMultiChannelNoPassData".GetLocalized();
+                return;
+            }
+
+            _lastWorkflowResult = result;
+            ApplyScanFrame(
+                previewPass.ImageBytes,
+                previewPass.Rows,
+                "ScanDebug_Runtime_StatusMultiChannelScanCompleted".GetLocalizedFormat(result.Passes.Count, previewPass.PassIndex));
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "ScanDebug_Runtime_StatusMultiChannelScanCanceled".GetLocalized();
+        }
+        catch (Exception ex)
+        {
+            StatusText = "ScanDebug_Runtime_StatusMultiChannelScanFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(ex.Message));
+        }
+    }
+
+    private bool TryBuildDebugWorkflowRequest(int rows, out ScanWorkflowRequest request, out string error)
+    {
+        request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), Array.Empty<string>(), Array.Empty<ScanParameterSnapshot>(), 0, 0, false, false, 0, 0);
+
+        var led1 = (ushort)0;
+        var led2 = (ushort)0;
+        var led3 = (ushort)0;
+        var led4 = (ushort)0;
+        if (IsScanLedAutoControlEnabled
+            && (!TryParseLedLevel(Led1Level, "ScanDebug_Runtime_FieldLed1Level".GetLocalized(), out led1, out error)
+                || !TryParseLedLevel(Led2Level, "ScanDebug_Runtime_FieldLed2Level".GetLocalized(), out led2, out error)
+                || !TryParseLedLevel(Led3Level, "ScanDebug_Runtime_FieldLed3Level".GetLocalized(), out led3, out error)
+                || !TryParseLedLevel(Led4Level, "ScanDebug_Runtime_FieldLed4Level".GetLocalized(), out led4, out error)))
+        {
+            return false;
+        }
+
+        if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var fallbackSnapshot, out error))
+            return false;
+
+        var motorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs;
+        if (IsScanMotorTransportEnabled && !TryBuildMotorIntervalFromInputs(DebugWorkflowScanMotorId, Motor2SpeedValue, Motor2SpeedUnit, out motorIntervalUs, out error))
+            return false;
+
+        ScanFilmAcquisitionSettings? acquisitionSettings = null;
+        if (IsScanLedAutoControlEnabled)
+        {
+            if (!TryBuildIlluminationRequest(out var illuminationRequest, out error))
+                return false;
+
+            acquisitionSettings = new ScanFilmAcquisitionSettings(
+                illuminationRequest.Led1Level,
+                illuminationRequest.Led2Level,
+                illuminationRequest.Led3Level,
+                illuminationRequest.Led4Level,
+                illuminationRequest.SteadyMask,
+                illuminationRequest.SyncMask,
+                illuminationRequest.Led1PulseClock,
+                illuminationRequest.Led2PulseClock,
+                illuminationRequest.Led3PulseClock,
+                illuminationRequest.Led4PulseClock,
+                motorIntervalUs).Normalize();
+        }
+
+        var channelRoles = BuildDebugChannelAssignment().Roles.ToArray();
+        var passProfiles = channelRoles
+            .Select(role => _channelProfiles.TryGetProfile(role, out var profile) ? profile.Parameters : fallbackSnapshot)
+            .ToArray();
+
+        request = new ScanWorkflowRequest(
+            rows,
+            IsWarmUpEnabled,
+            new[] { led1, led2, led3, led4 },
+            channelRoles,
+            passProfiles,
+            DebugWorkflowScanMotorId,
+            motorIntervalUs,
+            string.Equals(Motor2MoveDirection, MotorDirectionLabels[1], StringComparison.Ordinal),
+            true,
+            fallbackSnapshot.ExposureTicks,
+            fallbackSnapshot.SysClockKhz,
+            acquisitionSettings,
+            IsScanMotorTransportEnabled,
+            IsScanLedAutoControlEnabled);
+
+        error = string.Empty;
+        return true;
+    }
+
+    private ScanChannelAssignment BuildDebugChannelAssignment()
+        => new(SelectedLed1ChannelColor, SelectedLed2ChannelColor, SelectedLed3ChannelColor, SelectedLed4ChannelColor, false, false, false, false);
+
+    private ScanColorManagementOptions BuildDebugColorManagementOptions()
+    {
+        var defaults = ScanColorManagementOptions.CreateDefault();
+        return new ScanColorManagementOptions(IsGammaCorrectionEnabled, defaults.RedWavelengthNm, defaults.GreenWavelengthNm, defaults.BlueWavelengthNm, TryParsePreviewGamma(out var gamma) ? gamma : defaults.OutputGamma);
     }
 
     private void ApplyScanFrame(byte[] imageBytes, int rows, string successStatus)
@@ -2058,7 +2260,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
             illuminationRequest.Led2PulseClock,
             illuminationRequest.Led3PulseClock,
             illuminationRequest.Led4PulseClock,
-            motorIntervalUs).Normalize();
+            motorIntervalUs,
+            SelectedLed1ChannelColor,
+            SelectedLed2ChannelColor,
+            SelectedLed3ChannelColor,
+            SelectedLed4ChannelColor).Normalize();
         error = string.Empty;
         return true;
     }
@@ -2460,8 +2666,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
             normalized.Led2PulseClock,
             normalized.Led3PulseClock,
             normalized.Led4PulseClock));
+        SelectedLed1ChannelColor = NormalizeChannelColorSelection(normalized.Led1ChannelColor, "Blue");
+        SelectedLed2ChannelColor = NormalizeChannelColorSelection(normalized.Led2ChannelColor, "White");
+        SelectedLed3ChannelColor = NormalizeChannelColorSelection(normalized.Led3ChannelColor, "Red");
+        SelectedLed4ChannelColor = NormalizeChannelColorSelection(normalized.Led4ChannelColor, "Green");
         ApplyMotorSpeedFromInterval(1, normalized.MotorIntervalUs);
     }
+
+    private string NormalizeChannelColorSelection(string? channelColor, string fallback)
+        => ChannelColorOptions.FirstOrDefault(option => string.Equals(option, channelColor, StringComparison.OrdinalIgnoreCase)) ?? fallback;
 
     private void ResetIlluminationInputs()
     {
@@ -2706,7 +2919,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         if (unit == MotorUnitSteps)
         {
-            var computed = Math.Ceiling(1_000_000.0 / speedValue);
+            var computed = Math.Ceiling(1_000_000_000.0 / speedValue);
             if (!double.IsFinite(computed) || computed < ScanDebugConstants.MotionMinIntervalUs || computed > uint.MaxValue)
             {
                 error = "ScanDebug_Runtime_ErrorMotorSpeedTooHigh".GetLocalizedFormat(displayMotorId, ScanDebugConstants.MotionMinIntervalUs);
@@ -3016,8 +3229,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private bool RenderPreview(int rows)
     {
+        if (_lastWorkflowResult is not null)
+        {
+            if (!_channelImages.TryBuildRgbComposite(_lastWorkflowResult, BuildDebugChannelAssignment(), BuildDebugColorManagementOptions(), ScanChannelAlignmentMode.Ecc, PreviewImage, out var frame, out var compositeError) || frame is null)
+            {
+                StatusText = compositeError;
+                return false;
+            }
+
+            PreviewImage = frame.Bitmap;
+            OnPropertyChanged(nameof(CanEditRoiSelection));
+            RefreshRoiStatus();
+            return true;
+        }
+
         var gamma = 1.0;
-        if (IsGammaCorrectionEnabled && !double.TryParse(PreviewGamma, out gamma))
+        if (IsGammaCorrectionEnabled && !TryParsePreviewGamma(out gamma))
             gamma = double.NaN;
 
         if (!_previewPresenter.TryRender(
@@ -3037,6 +3264,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RefreshRoiStatus();
         return true;
     }
+
+    private bool TryParsePreviewGamma(out double gamma)
+        => double.TryParse(PreviewGamma, NumberStyles.Float, CultureInfo.InvariantCulture, out gamma);
 
     private void ClearPreview()
     {

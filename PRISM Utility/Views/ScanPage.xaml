@@ -131,7 +131,7 @@
                                           <TextBox
                                               Grid.Column="0"
                                               x:Uid="Scan_MotorIntervalTextBox"
-                                              Text="{x:Bind ViewModel.MotorDistancePerLineValue, Mode=TwoWay}" />
+                                              Text="{x:Bind ViewModel.MotorDistancePerLineValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                           <ComboBox
                                               Grid.Column="1"
                                               x:Uid="Scan_MotorIntervalUnitComboBox"

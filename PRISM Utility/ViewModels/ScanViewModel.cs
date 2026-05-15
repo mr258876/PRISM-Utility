@@ -1020,7 +1020,14 @@ public partial class ScanViewModel : ObservableRecipient
         Led2Level = normalized.Led2Level.ToString(CultureInfo.InvariantCulture);
         Led3Level = normalized.Led3Level.ToString(CultureInfo.InvariantCulture);
         Led4Level = normalized.Led4Level.ToString(CultureInfo.InvariantCulture);
+        SelectedChannel1Role = NormalizeChannelRoleFromProfile(normalized.Led1ChannelColor, "Blue");
+        SelectedChannel2Role = NormalizeChannelRoleFromProfile(normalized.Led2ChannelColor, "White");
+        SelectedChannel3Role = NormalizeChannelRoleFromProfile(normalized.Led3ChannelColor, "Red");
+        SelectedChannel4Role = NormalizeChannelRoleFromProfile(normalized.Led4ChannelColor, "Green");
     }
+
+    private string NormalizeChannelRoleFromProfile(string? channelColor, string fallback)
+        => ChannelRoleOptions.FirstOrDefault(option => string.Equals(option, channelColor, StringComparison.OrdinalIgnoreCase)) ?? fallback;
 
     private bool TryGetEffectiveMotorIntervalUs(ScanMotorMechanicalSettings motorSettings, out uint intervalUs)
     {

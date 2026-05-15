@@ -30,20 +30,23 @@ public sealed class ScanWorkflowService : IScanWorkflowService
     {
         ValidateRequest(session, request);
 
-        var originalIllumination = await _illumination.GetStateAsync(session, ct);
-        var originalMotion = await session.GetMotionStateAsync(ct);
-        var originalMotorState = originalMotion.FirstOrDefault(state => state.MotorId == request.ScanMotorId);
+        var originalIllumination = request.EnableLedAutoControl ? await _illumination.GetStateAsync(session, ct) : null;
+        var originalMotorState = request.EnableMotorTransport
+            ? (await session.GetMotionStateAsync(ct)).FirstOrDefault(state => state.MotorId == request.ScanMotorId)
+            : null;
 
         var computedMotorSteps = 0u;
         var captures = new List<ScanPassCapture>(TotalPasses);
         var motionStarted = false;
+        var enabledMotorForWorkflow = false;
 
         try
         {
-            if (originalMotorState is null || !originalMotorState.Enabled)
+            if (request.EnableMotorTransport && (originalMotorState is null || !originalMotorState.Enabled))
             {
                 onStatus?.Invoke($"Enabling Motor{request.ScanMotorId + 1} for scan transport...");
                 await session.SetMotorEnabledAsync(request.ScanMotorId, true, ct);
+                enabledMotorForWorkflow = true;
             }
 
             for (var passIndex = 0; passIndex < TotalPasses; passIndex++)
@@ -55,7 +58,9 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var passProfile = request.PassParameterProfiles[passIndex];
                 var passRole = request.PassChannelRoles[passIndex];
                 var expectedLineTimeUs = ScanTimingMath.ExposureTicksToMicrosecondsCeil(passProfile.ExposureTicks, passProfile.SysClockKhz);
-                var passMotorSteps = ScanTimingMath.ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalNs);
+                var passMotorSteps = request.EnableMotorTransport
+                    ? ScanTimingMath.ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalNs)
+                    : 0u;
                 if (passIndex == 0)
                     computedMotorSteps = passMotorSteps;
 
@@ -63,19 +68,34 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, passProfile, ct);
 
-                await _illumination.ApplySingleChannelAsync(session, BuildAcquisitionSettings(request), ledIndex, ct);
+                if (request.EnableLedAutoControl)
+                    await _illumination.ApplySingleChannelAsync(session, BuildAcquisitionSettings(request), ledIndex, ct);
 
                 if (passMotorSteps > 0)
                 {
                     onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: preparing Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {passMotorSteps} step(s), waiting for EXPOSURE_SYNC...");
-                    await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = true;
+                    await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                 }
 
                 onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Scanning"));
                 onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: LED{ledIndex + 1} active, capturing {request.Rows} row(s)...");
 
-                var scanResult = await RunScanAsync(session, request.Rows, expectedLineTimeUs, ct, onStatus, onDiagnostic, onByteProgress);
+                var scanResult = await RunScanAsync(
+                    session,
+                    request.Rows,
+                    expectedLineTimeUs,
+                    ct,
+                    onStatus,
+                    onDiagnostic,
+                    onByteProgress is null
+                        ? null
+                        : (transferredBytes, totalBytes) =>
+                        {
+                            var workflowTotalBytes = Math.Min(int.MaxValue, Math.Max(1L, (long)totalBytes * TotalPasses));
+                            var workflowTransferredBytes = Math.Min(workflowTotalBytes, Math.Max(0L, ((long)passIndex * totalBytes) + transferredBytes));
+                            onByteProgress((int)workflowTransferredBytes, (int)workflowTotalBytes);
+                        });
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {passIndex + 1} failed: {scanResult.Message}");
 
@@ -88,7 +108,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                     motionStarted = false;
                 }
 
-                await _illumination.TurnOffAsync(session, ct);
+                if (request.EnableLedAutoControl)
+                    await _illumination.TurnOffAsync(session, ct);
 
                 if (!request.AlternateMotorDirection && passMotorSteps > 0)
                 {
@@ -116,27 +137,33 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                     await session.StopMotorAsync(request.ScanMotorId, CancellationToken.None);
                     await WaitForMotorIdleAsync(session, request.ScanMotorId, computedMotorSteps, request.MotorIntervalNs, CancellationToken.None);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    onDiagnostic?.Invoke($"Scan workflow motor cleanup failed: {ex.Message}");
                 }
             }
 
-            try
+            if (originalIllumination is not null)
             {
-                await _illumination.RestoreStateAsync(session, originalIllumination, CancellationToken.None);
-            }
-            catch
-            {
+                try
+                {
+                    await _illumination.RestoreStateAsync(session, originalIllumination, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    onDiagnostic?.Invoke($"Scan workflow illumination cleanup failed: {ex.Message}");
+                }
             }
 
-            if (originalMotorState is not null && !originalMotorState.Enabled)
+            if (enabledMotorForWorkflow)
             {
                 try
                 {
                     await session.SetMotorEnabledAsync(request.ScanMotorId, false, CancellationToken.None);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    onDiagnostic?.Invoke($"Scan workflow motor restore failed: {ex.Message}");
                 }
             }
         }
@@ -233,10 +260,10 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         if (request.PassParameterProfiles.Length != ScanDebugConstants.IlluminationChannelCount)
             throw new ArgumentException($"Pass parameter profile count must be {ScanDebugConstants.IlluminationChannelCount}.", nameof(request));
 
-        if (request.ScanMotorId >= ScanDebugConstants.MotionMotorCount)
+        if (request.EnableMotorTransport && request.ScanMotorId >= ScanDebugConstants.MotionMotorCount)
             throw new ArgumentOutOfRangeException(nameof(request), $"Scan motor id must be in [0, {ScanDebugConstants.MotionMotorCount - 1}].");
 
-        if (request.MotorIntervalNs < ScanDebugConstants.MotionMinIntervalNs)
+        if (request.EnableMotorTransport && request.MotorIntervalNs < ScanDebugConstants.MotionMinIntervalNs)
             throw new ArgumentOutOfRangeException(nameof(request), $"Motor interval must be at least {ScanDebugConstants.MotionMinIntervalNs} ns.");
 
         if (request.SysClockKhz < ScanDebugConstants.MinSysClockKhz)

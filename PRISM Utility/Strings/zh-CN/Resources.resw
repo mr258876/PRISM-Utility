@@ -306,6 +306,15 @@
   <data name="ScanDebug_ContinuousToggleSwitch.Header" xml:space="preserve"><value>连续</value></data>
   <data name="ScanDebug_ContinuousToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="ScanDebug_ContinuousToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.Header" xml:space="preserve"><value>多通道流程</value></data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_MultiChannelToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.Header" xml:space="preserve"><value>扫描时移动电机</value></data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_ScanMotorTransportToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.Header" xml:space="preserve"><value>自动 LED 通道切换</value></data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_ScanLedAutoControlToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="ScanDebug_WaterfallToggleSwitch.Header" xml:space="preserve"><value>瀑布流</value></data>
   <data name="ScanDebug_WaterfallToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="ScanDebug_WaterfallToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
@@ -771,6 +780,13 @@
   <data name="ScanDebug_Runtime_ErrorRowsRange" xml:space="preserve"><value>行数必须是 [1, {0}] 范围内的数字。</value></data>
   <data name="ScanDebug_Runtime_StatusStartingContinuousScan" xml:space="preserve"><value>正在开始连续扫描...</value></data>
   <data name="ScanDebug_Runtime_StatusStartingScan" xml:space="preserve"><value>正在开始扫描...</value></data>
+  <data name="ScanDebug_Runtime_StatusStartingMultiChannelScan" xml:space="preserve"><value>正在开始多通道扫描流程...</value></data>
+  <data name="ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported" xml:space="preserve"><value>多通道调试扫描不能在“连续”启用时运行。请先关闭“连续”。</value></data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelProgress" xml:space="preserve"><value>多通道第 {0}/{1} 轮：{2} LED{3}。</value></data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanCompleted" xml:space="preserve"><value>多通道扫描完成（{0} 轮）；正在显示第 {1} 轮。</value></data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelNoPassData" xml:space="preserve"><value>多通道流程已完成，但没有采集到轮次数据。</value></data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanCanceled" xml:space="preserve"><value>多通道扫描已取消。</value></data>
+  <data name="ScanDebug_Runtime_StatusMultiChannelScanFailed" xml:space="preserve"><value>多通道扫描失败：{0}</value></data>
   <data name="ScanDebug_Runtime_StatusStopRequested" xml:space="preserve"><value>已请求停止。</value></data>
   <data name="ScanDebug_Runtime_StatusContinuousScanNoImageData" xml:space="preserve"><value>连续扫描已完成，但没有图像数据。</value></data>
   <data name="ScanDebug_Runtime_StatusContinuousPreviewUpdated" xml:space="preserve"><value>连续预览已更新（{0}）。</value></data>

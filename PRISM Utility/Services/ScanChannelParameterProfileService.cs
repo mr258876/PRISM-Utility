@@ -11,7 +11,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
 {
     private const string ProfilesKey = "ScanChannelParameterProfiles";
     private const string SelectedCalibrationChannelKey = "ScanCalibrationSelectedChannel";
-    private const int ExchangeSchemaVersion = 2;
+    private const int ExchangeSchemaVersion = 3;
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);

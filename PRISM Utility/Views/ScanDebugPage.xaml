@@ -18,6 +18,9 @@
         <DataTemplate x:Key="ScanRoiSelectionOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=RoiSelection}" />
         </DataTemplate>
+        <DataTemplate x:Key="ScanChannelRoleOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
+        </DataTemplate>
     </Page.Resources>
     <Grid
         Margin="{StaticResource SmallLeftRightMargin}"
@@ -73,6 +76,8 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_ConnectButton" Command="{x:Bind ViewModel.ConnectDevicesCommand}" />
@@ -113,6 +118,25 @@
                                     x:Uid="ScanDebug_WaterfallToggleSwitch"
                                     IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch
+                                    Grid.Row="6"
+                                    Grid.Column="0"
+                                    x:Uid="ScanDebug_MultiChannelToggleSwitch"
+                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.IsMultiChannelScanEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch
+                                    Grid.Row="6"
+                                    Grid.Column="1"
+                                    x:Uid="ScanDebug_ScanMotorTransportToggleSwitch"
+                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.IsScanMotorTransportEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch
+                                    Grid.Row="7"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    x:Uid="ScanDebug_ScanLedAutoControlToggleSwitch"
+                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.IsScanLedAutoControlEnabled, Mode=TwoWay}" />
                             </Grid>
                         </StackPanel>
 
@@ -365,6 +389,7 @@
                                 <Border Grid.Row="0" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                                     <StackPanel Spacing="6">
                                         <TextBlock x:Uid="ScanDebug_Led1Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed1ChannelColor, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led1LevelTextBox" Text="{x:Bind ViewModel.Led1Level, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led1PulseTextBox" Text="{x:Bind ViewModel.Led1PulseClock, Mode=TwoWay}" />
                                         <CheckBox x:Uid="ScanDebug_Led1SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed1SteadyEnabled, Mode=TwoWay}" />
@@ -375,6 +400,7 @@
                                 <Border Grid.Row="0" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                                     <StackPanel Spacing="6">
                                         <TextBlock x:Uid="ScanDebug_Led2Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed2ChannelColor, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led2LevelTextBox" Text="{x:Bind ViewModel.Led2Level, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led2PulseTextBox" Text="{x:Bind ViewModel.Led2PulseClock, Mode=TwoWay}" />
                                         <CheckBox x:Uid="ScanDebug_Led2SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed2SteadyEnabled, Mode=TwoWay}" />
@@ -385,6 +411,7 @@
                                 <Border Grid.Row="1" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                                     <StackPanel Spacing="6">
                                         <TextBlock x:Uid="ScanDebug_Led3Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed3ChannelColor, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led3LevelTextBox" Text="{x:Bind ViewModel.Led3Level, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led3PulseTextBox" Text="{x:Bind ViewModel.Led3PulseClock, Mode=TwoWay}" />
                                         <CheckBox x:Uid="ScanDebug_Led3SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed3SteadyEnabled, Mode=TwoWay}" />
@@ -395,6 +422,7 @@
                                 <Border Grid.Row="1" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
                                     <StackPanel Spacing="6">
                                         <TextBlock x:Uid="ScanDebug_Led4Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed4ChannelColor, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led4LevelTextBox" Text="{x:Bind ViewModel.Led4Level, Mode=TwoWay}" />
                                         <TextBox x:Uid="ScanDebug_Led4PulseTextBox" Text="{x:Bind ViewModel.Led4PulseClock, Mode=TwoWay}" />
                                         <CheckBox x:Uid="ScanDebug_Led4SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed4SteadyEnabled, Mode=TwoWay}" />

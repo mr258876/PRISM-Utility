@@ -34,7 +34,40 @@ public sealed class ScanWorkflowServiceTests
         }
     }
 
-    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection)
+    [Fact]
+    public async Task ExecuteAsync_MotorTransportDisabled_ScansWithoutMotorMotion()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var result = await service.ExecuteAsync(session, BuildRequest(alternateMotorDirection: true, enableMotorTransport: false), CancellationToken.None);
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.All(result.Passes, pass => Assert.Equal(0u, pass.MotorSteps));
+        Assert.DoesNotContain(log, entry => entry.StartsWith("Prepare:", StringComparison.Ordinal));
+        Assert.DoesNotContain(log, entry => entry.StartsWith("Wait:", StringComparison.Ordinal));
+        Assert.DoesNotContain(log, entry => entry.StartsWith("Return:", StringComparison.Ordinal));
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, log.Count(entry => entry.StartsWith("Scan:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LedAutoControlDisabled_ScansWithoutIlluminationChanges()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var result = await service.ExecuteAsync(session, BuildRequest(alternateMotorDirection: true, enableLedAutoControl: false), CancellationToken.None);
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("IlluminationOn:", StringComparison.Ordinal));
+        Assert.DoesNotContain("IlluminationOff", log);
+        Assert.DoesNotContain("RestoreIllumination", log);
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, log.Count(entry => entry.StartsWith("Scan:", StringComparison.Ordinal)));
+    }
+
+    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true)
     {
         var profiles = Enumerable.Range(0, ScanDebugConstants.IlluminationChannelCount)
             .Select(_ => new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz))
@@ -51,7 +84,9 @@ public sealed class ScanWorkflowServiceTests
             true,
             alternateMotorDirection,
             0,
-            ScanDebugConstants.MinSysClockKhz);
+            ScanDebugConstants.MinSysClockKhz,
+            EnableMotorTransport: enableMotorTransport,
+            EnableLedAutoControl: enableLedAutoControl);
     }
 
     private static int FindNthIndex(IReadOnlyList<string> values, string value, int occurrence)
