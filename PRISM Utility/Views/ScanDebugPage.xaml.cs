@@ -1,4 +1,7 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
+using Microsoft.Graphics.Canvas;
+using Microsoft.Graphics.Canvas.UI;
+using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -9,6 +12,7 @@ using PRISM_Utility.Core.Models;
 using PRISM_Utility.ViewModels;
 using Windows.UI;
 using Windows.Foundation;
+using Windows.Graphics.DirectX;
 
 namespace PRISM_Utility.Views;
 
@@ -28,12 +32,17 @@ public sealed partial class ScanDebugPage : Page
     private bool _pendingInitialFitZoom;
     private int _lastPreviewImageWidth = -1;
     private int _lastPreviewImageHeight = -1;
+    private CanvasBitmap? _previewBitmap;
+    private int _previewBitmapVersion = -1;
+    private int _previewBitmapWidth = -1;
+    private int _previewBitmapHeight = -1;
     private bool _isPanning;
     private uint _activePanPointerId;
     private Point _panStartPoint;
     private double _panStartHorizontalOffset;
     private double _panStartVerticalOffset;
     private bool _isRoiDragging;
+    private bool _isColumnSampleDrag;
     private bool _isRoiMoveMode;
     private uint _activeRoiPointerId;
     private int _roiDragStartX;
@@ -66,7 +75,66 @@ public sealed partial class ScanDebugPage : Page
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;
         ViewModel.NoticeRequested -= OnNoticeRequested;
+        DisposePreviewBitmap();
         await ViewModel.CleanupAsync();
+    }
+
+    private void PreviewCanvasControl_CreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
+    {
+        sender.Invalidate();
+    }
+
+    private void PreviewCanvasControl_Draw(CanvasControl sender, CanvasDrawEventArgs args)
+    {
+        var frame = ViewModel.PreviewFrame;
+        if (frame is null || !EnsurePreviewBitmap(sender, frame))
+            return;
+
+        args.DrawingSession.DrawImage(_previewBitmap);
+    }
+
+    private bool EnsurePreviewBitmap(CanvasControl resourceCreator, ScanPreviewFrame frame)
+    {
+        if (frame.PixelFormat != ScanPreviewPixelFormat.Bgra8 || frame.Width <= 0 || frame.Height <= 0)
+            return false;
+
+        if (_previewBitmap is not null
+            && _previewBitmapVersion == frame.Version
+            && _previewBitmapWidth == frame.Width
+            && _previewBitmapHeight == frame.Height)
+        {
+            return true;
+        }
+
+        DisposePreviewBitmap();
+        var pixels = GetCanvasPixels(frame);
+        _previewBitmap = CanvasBitmap.CreateFromBytes(resourceCreator, pixels, frame.Width, frame.Height, DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Ignore);
+        _previewBitmapVersion = frame.Version;
+        _previewBitmapWidth = frame.Width;
+        _previewBitmapHeight = frame.Height;
+        return true;
+    }
+
+    private static byte[] GetCanvasPixels(ScanPreviewFrame frame)
+    {
+        var rowBytes = frame.Width * 4;
+        if (frame.StrideBytes == rowBytes)
+            return frame.Pixels;
+
+        var pixels = new byte[rowBytes * frame.Height];
+        for (var y = 0; y < frame.Height; y++)
+            Buffer.BlockCopy(frame.Pixels, y * frame.StrideBytes, pixels, y * rowBytes, rowBytes);
+
+        return pixels;
+    }
+
+    private void DisposePreviewBitmap()
+    {
+        _previewBitmap?.Dispose();
+        _previewBitmap = null;
+        _previewBitmapVersion = -1;
+        _previewBitmapWidth = -1;
+        _previewBitmapHeight = -1;
     }
 
     private async void OnCalibrationPromptRequested(object? sender, ScanCalibrationPromptRequest e)
@@ -116,12 +184,18 @@ public sealed partial class ScanDebugPage : Page
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ScanDebugViewModel.PreviewImage))
-            _ = DispatcherQueue.TryEnqueue(RefreshPreviewLayout);
+        if (e.PropertyName == nameof(ScanDebugViewModel.PreviewFrame))
+            _ = DispatcherQueue.TryEnqueue(() =>
+            {
+                RefreshPreviewLayout();
+                PreviewCanvasControl.Invalidate();
+            });
 
         if (e.PropertyName == nameof(ScanDebugViewModel.RoiOverlayVersion)
             || e.PropertyName == nameof(ScanDebugViewModel.SelectedRoiSelection)
-            || e.PropertyName == nameof(ScanDebugViewModel.IsRoiEditModeEnabled))
+            || e.PropertyName == nameof(ScanDebugViewModel.IsRoiEditModeEnabled)
+            || e.PropertyName == nameof(ScanDebugViewModel.ColumnSampleOverlayVersion)
+            || e.PropertyName == nameof(ScanDebugViewModel.IsColumnSampleEditModeEnabled))
         {
             _ = DispatcherQueue.TryEnqueue(DrawRoiOverlays);
         }
@@ -129,16 +203,17 @@ public sealed partial class ScanDebugPage : Page
 
     private void RefreshPreviewLayout()
     {
-        var bitmap = ViewModel.PreviewImage;
-        if (bitmap is null || bitmap.PixelWidth <= 0 || bitmap.PixelHeight <= 0)
+        var frame = ViewModel.PreviewFrame;
+        if (frame is null || frame.Width <= 0 || frame.Height <= 0)
         {
-            PreviewImageElement.Width = 0;
-            PreviewImageElement.Height = 0;
+            PreviewCanvasControl.Width = 0;
+            PreviewCanvasControl.Height = 0;
             PreviewCanvas.Width = 0;
             PreviewCanvas.Height = 0;
             RoiCanvas.Children.Clear();
             AxisCanvas.Children.Clear();
             SetDefaultCursorText();
+            DisposePreviewBitmap();
             _pendingInitialFitZoom = false;
             _lastPreviewImageWidth = -1;
             _lastPreviewImageHeight = -1;
@@ -146,8 +221,8 @@ public sealed partial class ScanDebugPage : Page
             return;
         }
 
-        var imageWidth = bitmap.PixelWidth;
-        var imageHeight = bitmap.PixelHeight;
+        var imageWidth = frame.Width;
+        var imageHeight = frame.Height;
         var imageChanged = imageWidth != _lastPreviewImageWidth || imageHeight != _lastPreviewImageHeight;
         if (imageChanged)
         {
@@ -156,10 +231,10 @@ public sealed partial class ScanDebugPage : Page
             _pendingInitialFitZoom = true;
         }
 
-        PreviewImageElement.Width = imageWidth;
-        PreviewImageElement.Height = imageHeight;
-        Canvas.SetLeft(PreviewImageElement, AxisMarginLeft);
-        Canvas.SetTop(PreviewImageElement, AxisMarginTop);
+        PreviewCanvasControl.Width = imageWidth;
+        PreviewCanvasControl.Height = imageHeight;
+        Canvas.SetLeft(PreviewCanvasControl, AxisMarginLeft);
+        Canvas.SetTop(PreviewCanvasControl, AxisMarginTop);
 
         PreviewCanvas.Width = AxisMarginLeft + imageWidth + AxisMarginRight;
         PreviewCanvas.Height = AxisMarginTop + imageHeight + AxisMarginBottom;
@@ -207,7 +282,7 @@ public sealed partial class ScanDebugPage : Page
 
     private void PreviewScrollViewer_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
-        if (ViewModel.PreviewImage is null)
+        if (ViewModel.PreviewFrame is null)
             return;
 
         var wheelDelta = e.GetCurrentPoint(PreviewScrollViewer).Properties.MouseWheelDelta;
@@ -221,7 +296,7 @@ public sealed partial class ScanDebugPage : Page
 
     private void PreviewScrollViewer_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (ViewModel.PreviewImage is null)
+        if (ViewModel.PreviewFrame is null)
             return;
 
         var point = e.GetCurrentPoint(PreviewScrollViewer);
@@ -401,37 +476,39 @@ public sealed partial class ScanDebugPage : Page
         PreviewScrollViewer.ReleasePointerCaptures();
     }
 
-    private void PreviewImageElement_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private void PreviewCanvasControl_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (!ViewModel.CanMutateRoiFromPreview || ViewModel.PreviewImage is null)
+        if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview) || ViewModel.PreviewFrame is null)
             return;
 
-        var point = e.GetCurrentPoint(PreviewImageElement);
+        var point = e.GetCurrentPoint(PreviewCanvasControl);
         if (!point.Properties.IsLeftButtonPressed)
             return;
 
-        var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewImage.PixelWidth - 1, 0));
+        var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewFrame.Width - 1, 0));
         _isRoiDragging = true;
+        _isColumnSampleDrag = ViewModel.CanMutateColumnSampleFromPreview;
         _activeRoiPointerId = point.PointerId;
         _roiDragStartX = x;
-        _isRoiMoveMode = ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewImage.PixelWidth, out _roiOriginalRange)
-            && x >= _roiOriginalRange.Start
-            && x <= _roiOriginalRange.EndInclusive;
-        PreviewImageElement.CapturePointer(e.Pointer);
+        var hasRange = _isColumnSampleDrag
+            ? ViewModel.TryGetColumnSampleRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)
+            : ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange);
+        _isRoiMoveMode = hasRange && x >= _roiOriginalRange.Start && x <= _roiOriginalRange.EndInclusive;
+        PreviewCanvasControl.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
-    private void PreviewImageElement_PointerMoved(object sender, PointerRoutedEventArgs e)
+    private void PreviewCanvasControl_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        var bitmap = ViewModel.PreviewImage;
+        var bitmap = ViewModel.PreviewFrame;
         if (bitmap is null)
             return;
 
-        var point = e.GetCurrentPoint(PreviewImageElement).Position;
+        var point = e.GetCurrentPoint(PreviewCanvasControl).Position;
         var x = (int)Math.Floor(point.X);
         var y = (int)Math.Floor(point.Y);
 
-        if (x < 0 || y < 0 || x >= bitmap.PixelWidth || y >= bitmap.PixelHeight)
+        if (x < 0 || y < 0 || x >= bitmap.Width || y >= bitmap.Height)
         {
             SetDefaultCursorText();
             return;
@@ -446,34 +523,40 @@ public sealed partial class ScanDebugPage : Page
         if (!_isRoiDragging)
             return;
 
-        if (!ViewModel.CanMutateRoiFromPreview)
+        if (_isColumnSampleDrag ? !ViewModel.CanMutateColumnSampleFromPreview : !ViewModel.CanMutateRoiFromPreview)
         {
             EndRoiDrag();
             return;
         }
 
-        var currentPoint = e.GetCurrentPoint(PreviewImageElement);
+        var currentPoint = e.GetCurrentPoint(PreviewCanvasControl);
         if (currentPoint.PointerId != _activeRoiPointerId)
             return;
 
         if (_isRoiMoveMode)
         {
-            ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.PixelWidth);
+            if (_isColumnSampleDrag)
+                ViewModel.ShiftColumnSampleRange(x - _roiDragStartX, bitmap.Width);
+            else
+                ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.Width);
         }
         else
         {
-            ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.PixelWidth);
+            if (_isColumnSampleDrag)
+                ViewModel.UpdateColumnSampleRange(_roiDragStartX, x, bitmap.Width);
+            else
+                ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.Width);
         }
 
         e.Handled = true;
     }
 
-    private void PreviewImageElement_PointerReleased(object sender, PointerRoutedEventArgs e)
+    private void PreviewCanvasControl_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
         if (!_isRoiDragging)
             return;
 
-        var point = e.GetCurrentPoint(PreviewImageElement);
+        var point = e.GetCurrentPoint(PreviewCanvasControl);
         if (point.PointerId != _activeRoiPointerId)
             return;
 
@@ -481,12 +564,12 @@ public sealed partial class ScanDebugPage : Page
         e.Handled = true;
     }
 
-    private void PreviewImageElement_PointerCanceled(object sender, PointerRoutedEventArgs e)
+    private void PreviewCanvasControl_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
         if (!_isRoiDragging)
             return;
 
-        var point = e.GetCurrentPoint(PreviewImageElement);
+        var point = e.GetCurrentPoint(PreviewCanvasControl);
         if (point.PointerId != _activeRoiPointerId)
             return;
 
@@ -494,7 +577,7 @@ public sealed partial class ScanDebugPage : Page
         e.Handled = true;
     }
 
-    private void PreviewImageElement_PointerExited(object sender, PointerRoutedEventArgs e)
+    private void PreviewCanvasControl_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         SetDefaultCursorText();
     }
@@ -502,27 +585,28 @@ public sealed partial class ScanDebugPage : Page
     private void EndRoiDrag()
     {
         _isRoiDragging = false;
+        _isColumnSampleDrag = false;
         _isRoiMoveMode = false;
         _activeRoiPointerId = 0;
-        PreviewImageElement.ReleasePointerCaptures();
+        PreviewCanvasControl.ReleasePointerCaptures();
     }
 
     private void DrawRoiOverlays()
     {
         RoiCanvas.Children.Clear();
 
-        var bitmap = ViewModel.PreviewImage;
-        if (bitmap is null || bitmap.PixelWidth <= 0 || bitmap.PixelHeight <= 0)
+        var bitmap = ViewModel.PreviewFrame;
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
             return;
 
-        foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.PixelWidth))
+        foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.Width))
         {
             var stroke = new SolidColorBrush(GetRoiColor(overlay.Key, overlay.IsSelected));
             var fill = new SolidColorBrush(GetRoiFillColor(overlay.Key, overlay.IsSelected));
             var rectangle = new Rectangle
             {
                 Width = overlay.Range.Width,
-                Height = bitmap.PixelHeight,
+                Height = bitmap.Height,
                 Stroke = stroke,
                 Fill = fill,
                 StrokeThickness = overlay.IsSelected ? 2.5 : 1.5,
@@ -544,6 +628,38 @@ public sealed partial class ScanDebugPage : Page
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             Canvas.SetLeft(label, AxisMarginLeft + overlay.Range.Start + 4);
             Canvas.SetTop(label, Math.Max(0, AxisMarginTop + 4));
+            RoiCanvas.Children.Add(label);
+        }
+
+        if (ViewModel.TryGetColumnSampleRange(bitmap.Width, out var sampleRange))
+        {
+            var strokeColor = ViewModel.IsColumnSampleEditModeEnabled ? Colors.Gold : Colors.Khaki;
+            var rectangle = new Rectangle
+            {
+                Width = sampleRange.Width,
+                Height = bitmap.Height,
+                Stroke = new SolidColorBrush(strokeColor),
+                Fill = new SolidColorBrush(Color.FromArgb(ViewModel.IsColumnSampleEditModeEnabled ? (byte)44 : (byte)24, strokeColor.R, strokeColor.G, strokeColor.B)),
+                StrokeThickness = ViewModel.IsColumnSampleEditModeEnabled ? 2.5 : 1.5,
+                StrokeDashArray = new DoubleCollection { 4, 3 },
+                RadiusX = 2,
+                RadiusY = 2
+            };
+
+            Canvas.SetLeft(rectangle, AxisMarginLeft + sampleRange.Start);
+            Canvas.SetTop(rectangle, AxisMarginTop);
+            RoiCanvas.Children.Add(rectangle);
+
+            var label = new TextBlock
+            {
+                Text = "Sample",
+                Foreground = new SolidColorBrush(strokeColor),
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(label, AxisMarginLeft + sampleRange.Start + 4);
+            Canvas.SetTop(label, Math.Max(0, AxisMarginTop + bitmap.Height - label.DesiredSize.Height - 4));
             RoiCanvas.Children.Add(label);
         }
     }
@@ -669,3 +785,4 @@ public sealed partial class ScanDebugPage : Page
         return (int)(nice * magnitude);
     }
 }
+

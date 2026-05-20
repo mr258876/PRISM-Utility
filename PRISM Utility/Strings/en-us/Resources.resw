@@ -645,8 +645,8 @@
   <data name="ScanDebug_StopButton.Content" xml:space="preserve">
     <value>Stop</value>
   </data>
-  <data name="ScanDebug_ExportBufferButton.Content" xml:space="preserve">
-    <value>Export Buffer</value>
+  <data name="ScanDebug_ExportDngButton.Content" xml:space="preserve">
+    <value>Export DNG</value>
   </data>
   <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve">
     <value>Acquisition</value>
@@ -1371,13 +1371,49 @@
   <data name="Scan_Runtime_WorkflowReturnMotor" xml:space="preserve">
     <value>Pass {0}/{1}: returning Motor{2} to start position before the next channel scan...</value>
   </data>
+  <data name="Scan_Runtime_WorkflowReturnMotorToStartPosition" xml:space="preserve">
+    <value>Pass {0}/{1}: returning Motor{2} to start position...</value>
+  </data>
   <data name="Scan_Runtime_WorkflowPassComplete" xml:space="preserve">
     <value>Pass {0}/{1} complete.</value>
   </data>
   <data name="Scan_Runtime_WorkflowCompleted" xml:space="preserve">
     <value>Four-channel scan workflow completed.</value>
   </data>
+  <data name="Scan_Runtime_WorkflowCompletedWithPassCount" xml:space="preserve">
+    <value>Scan workflow completed with {0} pass(es).</value>
+  </data>
   <data name="Scan_Runtime_WorkflowPassFailed" xml:space="preserve">
+    <value>Pass {0} failed: {1}</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowEnableMotor" xml:space="preserve">
+    <value>Enabling Motor{0} for scan transport...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowApplyCcdProfile" xml:space="preserve">
+    <value>Pass {0}/{1}: applying CCD profile for {2} channel...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowPrepareMotorOnExposureSync" xml:space="preserve">
+    <value>Pass {0}/{1}: preparing Motor{2} {3} for {4} step(s), waiting for EXPOSURE_SYNC...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowCaptureRows" xml:space="preserve">
+    <value>Pass {0}/{1}: LED{2} active, capturing {3} row(s)...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowReturnMotor" xml:space="preserve">
+    <value>Pass {0}/{1}: returning Motor{2} to start position before the next channel scan...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowReturnMotorToStartPosition" xml:space="preserve">
+    <value>Pass {0}/{1}: returning Motor{2} to start position...</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowPassComplete" xml:space="preserve">
+    <value>Pass {0}/{1} complete.</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowCompleted" xml:space="preserve">
+    <value>Four-channel scan workflow completed.</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowCompletedWithPassCount" xml:space="preserve">
+    <value>Scan workflow completed with {0} pass(es).</value>
+  </data>
+  <data name="ScanDebug_Runtime_WorkflowPassFailed" xml:space="preserve">
     <value>Pass {0} failed: {1}</value>
   </data>
   <data name="Scan_Runtime_StatusRowsLimitExceeded" xml:space="preserve">
@@ -1410,6 +1446,9 @@
   <data name="Scan_Runtime_StatusRgbSaveCanceled" xml:space="preserve">
     <value>RGB save canceled.</value>
   </data>
+  <data name="Scan_Runtime_StatusRgbSaving" xml:space="preserve">
+    <value>Generating and saving RGB image...</value>
+  </data>
   <data name="Scan_Runtime_StatusRgbSaved" xml:space="preserve">
     <value>RGB image saved: {0}</value>
   </data>
@@ -1424,6 +1463,9 @@
   </data>
   <data name="Scan_Runtime_StatusDngExported" xml:space="preserve">
     <value>DNG channel files exported to {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusMonochromeDngExported" xml:space="preserve">
+    <value>Monochrome DNG exported to {0}</value>
   </data>
   <data name="Scan_Runtime_StatusDngExportFailed" xml:space="preserve">
     <value>DNG export failed: {0}</value>
@@ -1728,11 +1770,11 @@
   <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve">
     <value>Export canceled.</value>
   </data>
-  <data name="ScanDebug_Runtime_StatusBufferExported" xml:space="preserve">
-    <value>Buffer exported: {0} bytes -&gt; {1}</value>
-  </data>
   <data name="ScanDebug_Runtime_StatusExportFailed" xml:space="preserve">
     <value>Export failed: {0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusExportRequiresFourChannelWorkflow" xml:space="preserve">
+    <value>DNG export currently requires a full {1}-channel workflow result, but this scan captured {0} pass(es).</value>
   </data>
   <data name="ScanDebug_Runtime_StatusUsbDebugActive" xml:space="preserve">
     <value>USB Debugging is active. Stop it before connecting Scan Debug.</value>
@@ -2111,6 +2153,15 @@
   </data>
   <data name="ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported" xml:space="preserve">
     <value>Multi-channel debug scan cannot run while Continuous is enabled. Disable Continuous before starting.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorMotorTransportContinuousUnsupported" xml:space="preserve">
+    <value>Continuous scan cannot run while scan motor transport is enabled. Disable Continuous before starting.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorNoActiveScanChannels" xml:space="preserve">
+    <value>Select at least one active scan channel before starting a workflow scan.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorSingleChannelRequiresExactlyOnePass" xml:space="preserve">
+    <value>Single-channel scan requires exactly one active scan channel. Set the others to Unused or enable multi-channel scan.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusMultiChannelProgress" xml:space="preserve">
     <value>Multi-channel pass {0}/{1}: {2} LED{3}.</value>

@@ -198,6 +198,13 @@ public partial class ScanViewModel : ObservableRecipient
     public partial bool IsOutputAvailable { get; set; }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DisconnectDevicesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StartScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveRgbImageCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportDngChannelsCommand))]
+    public partial bool IsOutputOperationRunning { get; set; }
+
+    [ObservableProperty]
     public partial WriteableBitmap? PreviewImage { get; set; }
 
     [ObservableProperty]
@@ -502,11 +509,11 @@ public partial class ScanViewModel : ObservableRecipient
     }
 
     private bool CanConnectDevices() => IsDevicesPresent && !IsConnected && !IsConnecting && !IsRunning;
-    private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsRunning;
-    private bool CanStartScan() => IsConnected && !IsConnecting && !IsRunning;
+    private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
+    private bool CanStartScan() => IsConnected && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
     private bool CanStopScan() => IsRunning;
-    private bool CanSaveRgbImage() => IsOutputAvailable && !IsRunning;
-    private bool CanExportDngChannels() => IsOutputAvailable && !IsRunning;
+    private bool CanSaveRgbImage() => IsOutputAvailable && !IsRunning && !IsOutputOperationRunning;
+    private bool CanExportDngChannels() => IsOutputAvailable && !IsRunning && !IsOutputOperationRunning;
 
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
@@ -713,12 +720,6 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        if (!_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, null, out var frame, out var error) || frame is null)
-        {
-            StatusText = error;
-            return;
-        }
-
         try
         {
             var file = await _channelImages.PickRgbImageFileAsync($"scan_rgb_{DateTimeOffset.Now:yyyyMMdd_HHmmss}");
@@ -728,12 +729,19 @@ public partial class ScanViewModel : ObservableRecipient
                 return;
             }
 
-            await _channelImages.SaveRgbImageAsync(file, frame);
+            IsOutputOperationRunning = true;
+            StatusText = "Scan_Runtime_StatusRgbSaving".GetLocalized();
+            var buffer = await _channelImages.BuildRgbCompositeBufferAsync(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, _channelProfiles.Profiles, true);
+            await _channelImages.SaveRgbImageAsync(file, buffer);
             StatusText = "Scan_Runtime_StatusRgbSaved".GetLocalizedFormat(file.Path);
         }
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusRgbSaveFailed".GetLocalizedFormat(ex.Message);
+        }
+        finally
+        {
+            IsOutputOperationRunning = false;
         }
     }
 
@@ -755,12 +763,17 @@ public partial class ScanViewModel : ObservableRecipient
                 return;
             }
 
+            IsOutputOperationRunning = true;
             await _channelImages.ExportDngChannelsAsync(folder, _lastResult, BuildChannelAssignment(), SelectedAlignmentMode, SelectedDngExportMode);
             StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
         }
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusDngExportFailed".GetLocalizedFormat(ex.Message);
+        }
+        finally
+        {
+            IsOutputOperationRunning = false;
         }
     }
 
@@ -853,7 +866,7 @@ public partial class ScanViewModel : ObservableRecipient
                 return;
             }
 
-            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, PreviewImage, out var frame, out var error) && frame is not null)
+            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, PreviewImage, out var frame, out var error, _channelProfiles.Profiles, true) && frame is not null)
             {
                 PreviewImage = frame.Bitmap;
                 PreviewDescriptionText = "Scan_Runtime_PreviewCompositeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), GetAlignmentModeDisplayName(SelectedAlignmentMode), IsColorManagementEnabled ? "Scan_Runtime_PreviewCompositeModeSpectral".GetLocalized() : "Scan_Runtime_PreviewCompositeModeGamma".GetLocalized());

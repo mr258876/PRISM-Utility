@@ -134,7 +134,7 @@ internal static partial class ScanRuntimeMessageLocalizer
         var workflowReturnMotorMatch = WorkflowReturnMotorRegex().Match(text);
         if (workflowReturnMotorMatch.Success)
         {
-            return Key(prefix, "WorkflowReturnMotor").GetLocalizedFormat(
+            return Key(prefix, "WorkflowReturnMotorToStartPosition").GetLocalizedFormat(
                 workflowReturnMotorMatch.Groups["pass"].Value,
                 workflowReturnMotorMatch.Groups["total"].Value,
                 workflowReturnMotorMatch.Groups["motor"].Value);
@@ -147,6 +147,10 @@ internal static partial class ScanRuntimeMessageLocalizer
                 workflowPassCompleteMatch.Groups["pass"].Value,
                 workflowPassCompleteMatch.Groups["total"].Value);
         }
+
+        var workflowCompletedWithPassCountMatch = WorkflowCompletedWithPassCountRegex().Match(text);
+        if (workflowCompletedWithPassCountMatch.Success)
+            return Key(prefix, "WorkflowCompletedWithPassCount").GetLocalizedFormat(workflowCompletedWithPassCountMatch.Groups["total"].Value);
 
         var deviceBusyMatch = DeviceBusyRegex().Match(text);
         if (deviceBusyMatch.Success)
@@ -282,11 +286,14 @@ internal static partial class ScanRuntimeMessageLocalizer
     [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): LED(?<led>\d+) active, capturing (?<rows>\d+) row\(s\)\.\.\.$", RegexOptions.CultureInvariant)]
     private static partial Regex WorkflowCaptureRowsRegex();
 
-    [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): returning Motor(?<motor>\d+) to start position before next channel scan\.\.\.$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): returning Motor(?<motor>\d+) to start position\.\.\.$", RegexOptions.CultureInvariant)]
     private static partial Regex WorkflowReturnMotorRegex();
 
     [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+) complete\.$", RegexOptions.CultureInvariant)]
     private static partial Regex WorkflowPassCompleteRegex();
+
+    [GeneratedRegex(@"^Scan workflow completed with (?<total>\d+) pass\(es\)\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex WorkflowCompletedWithPassCountRegex();
 
     [GeneratedRegex(@"^Device busy \(cmd=0x(?<command>[0-9A-F]+)\)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DeviceBusyRegex();

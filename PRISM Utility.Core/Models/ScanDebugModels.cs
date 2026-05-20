@@ -395,7 +395,11 @@ public sealed record ScanDngGeometrySettings(
         => left.Start <= right.EndInclusive && right.Start <= left.EndInclusive;
 }
 
-public sealed record ScanChannelCalibrationProfile(ScanParameterSnapshot Parameters, ScanCalibrationRoiSettings RoiSettings);
+public sealed record ScanChannelCalibrationProfile(
+    ScanParameterSnapshot Parameters,
+    ScanCalibrationRoiSettings RoiSettings,
+    ushort? BlackLevel = null,
+    ushort? WhiteLevel = null);
 
 public sealed record ScanAutofocusRequest(
     int SampleRows,

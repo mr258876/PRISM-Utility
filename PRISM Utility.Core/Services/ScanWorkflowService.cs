@@ -6,7 +6,7 @@ namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanWorkflowService : IScanWorkflowService
 {
-    private const int TotalPasses = ScanDebugConstants.IlluminationChannelCount;
+    private const string UnusedChannelRole = "Unused";
 
     private readonly IScanParameterService _parameters;
     private readonly IScanIlluminationService _illumination;
@@ -35,8 +35,10 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             ? (await session.GetMotionStateAsync(ct)).FirstOrDefault(state => state.MotorId == request.ScanMotorId)
             : null;
 
+        var activePassIndices = GetActivePassIndices(request.PassChannelRoles);
+        var totalPasses = activePassIndices.Count;
         var computedMotorSteps = 0u;
-        var captures = new List<ScanPassCapture>(TotalPasses);
+        var captures = new List<ScanPassCapture>(totalPasses);
         var motionStarted = false;
         var enabledMotorForWorkflow = false;
 
@@ -49,9 +51,11 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 enabledMotorForWorkflow = true;
             }
 
-            for (var passIndex = 0; passIndex < TotalPasses; passIndex++)
+            for (var activePassIndex = 0; activePassIndex < totalPasses; activePassIndex++)
             {
                 ct.ThrowIfCancellationRequested();
+
+                var passIndex = activePassIndices[activePassIndex];
 
                 var ledIndex = (byte)passIndex;
                 var directionPositive = GetDirectionForPass(request, passIndex);
@@ -61,11 +65,11 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var passMotorSteps = request.EnableMotorTransport
                     ? ScanTimingMath.ComputeMotorStepsPerPass(request.Rows, passProfile.ExposureTicks, passProfile.SysClockKhz, request.MotorIntervalNs)
                     : 0u;
-                if (passIndex == 0)
+                if (activePassIndex == 0)
                     computedMotorSteps = passMotorSteps;
 
-                onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Preparing"));
-                onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: applying CCD profile for {passRole} channel...");
+                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Preparing"));
+                onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, passProfile, ct);
 
                 if (request.EnableLedAutoControl)
@@ -73,13 +77,13 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
                 if (passMotorSteps > 0)
                 {
-                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: preparing Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {passMotorSteps} step(s), waiting for EXPOSURE_SYNC...");
+                    onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: preparing Motor{request.ScanMotorId + 1} {(directionPositive ? "forward" : "reverse")} for {passMotorSteps} step(s), waiting for EXPOSURE_SYNC...");
                     motionStarted = true;
                     await session.PrepareMotorOnExposureSyncAsync(request.ScanMotorId, directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                 }
 
-                onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Scanning"));
-                onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: LED{ledIndex + 1} active, capturing {request.Rows} row(s)...");
+                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Scanning"));
+                onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: LED{ledIndex + 1} active, capturing {request.Rows} row(s)...");
 
                 var scanResult = await RunScanAsync(
                     session,
@@ -92,18 +96,18 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                         ? null
                         : (transferredBytes, totalBytes) =>
                         {
-                            var workflowTotalBytes = Math.Min(int.MaxValue, Math.Max(1L, (long)totalBytes * TotalPasses));
-                            var workflowTransferredBytes = Math.Min(workflowTotalBytes, Math.Max(0L, ((long)passIndex * totalBytes) + transferredBytes));
+                            var workflowTotalBytes = Math.Min(int.MaxValue, Math.Max(1L, (long)totalBytes * totalPasses));
+                            var workflowTransferredBytes = Math.Min(workflowTotalBytes, Math.Max(0L, ((long)activePassIndex * totalBytes) + transferredBytes));
                             onByteProgress((int)workflowTransferredBytes, (int)workflowTotalBytes);
                         });
                 if (!scanResult.Success || scanResult.ImageBytes is null)
-                    throw new IOException($"Pass {passIndex + 1} failed: {scanResult.Message}");
+                    throw new IOException($"Pass {activePassIndex + 1} failed: {scanResult.Message}");
 
-                captures.Add(new ScanPassCapture(passIndex + 1, ledIndex, directionPositive, request.Rows, passMotorSteps, scanResult.ImageBytes));
+                captures.Add(new ScanPassCapture(activePassIndex + 1, ledIndex, directionPositive, request.Rows, passMotorSteps, scanResult.ImageBytes));
 
                 if (passMotorSteps > 0)
                 {
-                    onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Waiting for motor"));
+                    onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Waiting for motor"));
                     await WaitForMotorIdleAsync(session, request.ScanMotorId, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = false;
                 }
@@ -113,19 +117,18 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
                 if (!request.AlternateMotorDirection && passMotorSteps > 0)
                 {
-                    var returnReason = passIndex < (TotalPasses - 1) ? "before next channel scan" : "after final channel scan";
-                    onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, !directionPositive, "Returning"));
-                    onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses}: returning Motor{request.ScanMotorId + 1} to start position {returnReason}...");
+                    onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, !directionPositive, "Returning"));
+                    onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: returning Motor{request.ScanMotorId + 1} to start position...");
                     motionStarted = true;
                     await session.MoveMotorStepsAndWaitForCompletionAsync(request.ScanMotorId, !directionPositive, passMotorSteps, request.MotorIntervalNs, ct);
                     motionStarted = false;
                 }
 
-                onProgress?.Invoke(new ScanWorkflowProgress(passIndex + 1, TotalPasses, ledIndex, directionPositive, "Completed"));
-                onStatus?.Invoke($"Pass {passIndex + 1}/{TotalPasses} complete.");
+                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Completed"));
+                onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses} complete.");
             }
 
-            onStatus?.Invoke("Four-channel scan workflow completed.");
+            onStatus?.Invoke($"Scan workflow completed with {totalPasses} pass(es).");
             return new ScanWorkflowResult(request.Rows, captures, computedMotorSteps, request.MotorIntervalNs, request.ExposureTicks, request.SysClockKhz);
         }
         finally
@@ -260,6 +263,9 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         if (request.PassParameterProfiles.Length != ScanDebugConstants.IlluminationChannelCount)
             throw new ArgumentException($"Pass parameter profile count must be {ScanDebugConstants.IlluminationChannelCount}.", nameof(request));
 
+        if (GetActivePassIndices(request.PassChannelRoles).Count == 0)
+            throw new ArgumentException("At least one active scan channel is required.", nameof(request));
+
         if (request.EnableMotorTransport && request.ScanMotorId >= ScanDebugConstants.MotionMotorCount)
             throw new ArgumentOutOfRangeException(nameof(request), $"Scan motor id must be in [0, {ScanDebugConstants.MotionMotorCount - 1}].");
 
@@ -268,5 +274,17 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
         if (request.SysClockKhz < ScanDebugConstants.MinSysClockKhz)
             throw new ArgumentOutOfRangeException(nameof(request), $"System clock must be at least {ScanDebugConstants.MinSysClockKhz} kHz.");
+    }
+
+    private static List<int> GetActivePassIndices(IReadOnlyList<string> passChannelRoles)
+    {
+        var activePassIndices = new List<int>(passChannelRoles.Count);
+        for (var index = 0; index < passChannelRoles.Count; index++)
+        {
+            if (!string.Equals(passChannelRoles[index], UnusedChannelRole, StringComparison.OrdinalIgnoreCase))
+                activePassIndices.Add(index);
+        }
+
+        return activePassIndices;
     }
 }

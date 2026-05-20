@@ -11,7 +11,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
 {
     private const string ProfilesKey = "ScanChannelParameterProfiles";
     private const string SelectedCalibrationChannelKey = "ScanCalibrationSelectedChannel";
-    private const int ExchangeSchemaVersion = 3;
+    private const int ExchangeSchemaVersion = 4;
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
@@ -264,7 +264,18 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
             isRoiValid = true;
         }
 
-        normalized = new ScanChannelCalibrationProfile(normalizedSnapshot, roiSettings.Normalize());
+        ushort? blackLevel = null;
+        if (profile.BlackLevel is ushort black)
+            blackLevel = black;
+
+        ushort? whiteLevel = null;
+        if (profile.WhiteLevel is ushort white && white > 0)
+            whiteLevel = white;
+
+        if (blackLevel is not null && whiteLevel is not null && blackLevel.Value >= whiteLevel.Value)
+            blackLevel = Math.Min(blackLevel.Value, (ushort)(whiteLevel.Value - 1));
+
+        normalized = new ScanChannelCalibrationProfile(normalizedSnapshot, roiSettings.Normalize(), blackLevel, whiteLevel);
         return isSnapshotValid && isRoiValid;
     }
 

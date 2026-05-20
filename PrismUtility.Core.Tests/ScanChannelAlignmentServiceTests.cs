@@ -186,10 +186,13 @@ public sealed class ScanChannelAlignmentServiceTests
         public (int Start, int EndInclusive) GetEffectivePixelRange()
             => (effectiveStart, effectiveEndInclusive);
 
-        public void DecodeToBgra(byte[] lineBuffer, int rows, Stream destination, bool applyGammaCorrection, double gamma)
+        public void DecodeToBgra(byte[] lineBuffer, int rows, Stream destination, bool applyGammaCorrection, double gamma, bool applyWhiteLevel, ushort whiteLevel)
             => throw new NotSupportedException();
 
-        public void DecodeWaterfallStripToBgra(byte[] lineBuffer, int rows, byte[] destination, bool applyGammaCorrection, double gamma)
+        public void DecodeToBgra(byte[] lineBuffer, int rows, Span<byte> destination, bool applyGammaCorrection, double gamma, bool applyWhiteLevel, ushort whiteLevel)
+            => throw new NotSupportedException();
+
+        public void DecodeWaterfallStripToBgra(byte[] lineBuffer, int rows, byte[] destination, bool applyGammaCorrection, double gamma, bool applyWhiteLevel, ushort whiteLevel)
             => throw new NotSupportedException();
 
         public bool TryGetSample16(byte[] lineBuffer, int rows, int x, int y, out ushort sample)

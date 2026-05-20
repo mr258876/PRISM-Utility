@@ -6,7 +6,7 @@ This project contains the WinUI 3 desktop application for PRISM Utility.
 
 - shell, navigation, and startup flow
 - USB debugging UI for bulk IN / bulk OUT workflows
-- scanner debugging UI for device connection, parameter tuning, preview, calibration, and buffer export
+- scanner debugging UI for device connection, parameter tuning, preview, calibration, and DNG export
 - application resources, localization strings, packaging files, and local settings integration
 
 ## Main Areas

@@ -293,7 +293,7 @@
   <data name="ScanDebug_ConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
   <data name="ScanDebug_DisconnectButton.Content" xml:space="preserve"><value>断开连接</value></data>
   <data name="ScanDebug_StopButton.Content" xml:space="preserve"><value>停止</value></data>
-  <data name="ScanDebug_ExportBufferButton.Content" xml:space="preserve"><value>导出缓冲区</value></data>
+  <data name="ScanDebug_ExportDngButton.Content" xml:space="preserve"><value>导出 DNG</value></data>
   <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve"><value>采集</value></data>
   <data name="ScanDebug_RowsComboBox.Header" xml:space="preserve"><value>行数</value></data>
   <data name="ScanDebug_RowsComboBox.PlaceholderText" xml:space="preserve"><value>输入行数</value></data>
@@ -535,9 +535,21 @@
   <data name="Scan_Runtime_WorkflowPrepareMotorOnExposureSync" xml:space="preserve"><value>第 {0}/{1} 轮：正在准备 Motor{2} {3} {4} 步，等待 EXPOSURE_SYNC...</value></data>
   <data name="Scan_Runtime_WorkflowCaptureRows" xml:space="preserve"><value>第 {0}/{1} 轮：LED{2} 已激活，正在采集 {3} 行...</value></data>
   <data name="Scan_Runtime_WorkflowReturnMotor" xml:space="preserve"><value>第 {0}/{1} 轮：正在将 Motor{2} 返回起始位置，以便进行下一通道扫描...</value></data>
+  <data name="Scan_Runtime_WorkflowReturnMotorToStartPosition" xml:space="preserve"><value>第 {0}/{1} 轮：正在将 Motor{2} 返回起始位置...</value></data>
   <data name="Scan_Runtime_WorkflowPassComplete" xml:space="preserve"><value>第 {0}/{1} 轮完成。</value></data>
   <data name="Scan_Runtime_WorkflowCompleted" xml:space="preserve"><value>四通道扫描流程已完成。</value></data>
+  <data name="Scan_Runtime_WorkflowCompletedWithPassCount" xml:space="preserve"><value>扫描流程已完成，共 {0} 轮。</value></data>
   <data name="Scan_Runtime_WorkflowPassFailed" xml:space="preserve"><value>第 {0} 轮失败：{1}</value></data>
+  <data name="ScanDebug_Runtime_WorkflowEnableMotor" xml:space="preserve"><value>正在为扫描传送启用 Motor{0}...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowApplyCcdProfile" xml:space="preserve"><value>第 {0}/{1} 轮：正在为 {2} 通道应用 CCD 配置...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowPrepareMotorOnExposureSync" xml:space="preserve"><value>第 {0}/{1} 轮：正在准备 Motor{2} {3} {4} 步，等待 EXPOSURE_SYNC...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowCaptureRows" xml:space="preserve"><value>第 {0}/{1} 轮：LED{2} 已激活，正在采集 {3} 行...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowReturnMotor" xml:space="preserve"><value>第 {0}/{1} 轮：正在将 Motor{2} 返回起始位置，以便进行下一通道扫描...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowReturnMotorToStartPosition" xml:space="preserve"><value>第 {0}/{1} 轮：正在将 Motor{2} 返回起始位置...</value></data>
+  <data name="ScanDebug_Runtime_WorkflowPassComplete" xml:space="preserve"><value>第 {0}/{1} 轮完成。</value></data>
+  <data name="ScanDebug_Runtime_WorkflowCompleted" xml:space="preserve"><value>四通道扫描流程已完成。</value></data>
+  <data name="ScanDebug_Runtime_WorkflowCompletedWithPassCount" xml:space="preserve"><value>扫描流程已完成，共 {0} 轮。</value></data>
+  <data name="ScanDebug_Runtime_WorkflowPassFailed" xml:space="preserve"><value>第 {0} 轮失败：{1}</value></data>
   <data name="Scan_Runtime_StatusRowsLimitExceeded" xml:space="preserve"><value>高于 {0} 的行数需要启用 Multi-buffer bulk IN 和 Raw I/O，或启用预热分段模式。</value></data>
   <data name="Scan_Runtime_OutputSummaryInProgress" xml:space="preserve"><value>扫描进行中...</value></data>
   <data name="Scan_Runtime_OutputSummaryCaptured" xml:space="preserve"><value>已采集 {0} 轮，rows={1}，每轮电机步数={2}。传送按已配置的每行移动距离执行。</value></data>
@@ -548,11 +560,13 @@
   <data name="Scan_Runtime_StatusStopRequested" xml:space="preserve"><value>已请求停止。</value></data>
   <data name="Scan_Runtime_StatusNoRgbResult" xml:space="preserve"><value>没有可用于保存 RGB 的扫描结果。</value></data>
   <data name="Scan_Runtime_StatusRgbSaveCanceled" xml:space="preserve"><value>RGB 保存已取消。</value></data>
+  <data name="Scan_Runtime_StatusRgbSaving" xml:space="preserve"><value>正在生成并保存 RGB 图像...</value></data>
   <data name="Scan_Runtime_StatusRgbSaved" xml:space="preserve"><value>RGB 图像已保存：{0}</value></data>
   <data name="Scan_Runtime_StatusRgbSaveFailed" xml:space="preserve"><value>RGB 保存失败：{0}</value></data>
   <data name="Scan_Runtime_StatusNoDngResult" xml:space="preserve"><value>没有可用于 DNG 导出的扫描结果。</value></data>
   <data name="Scan_Runtime_StatusDngExportCanceled" xml:space="preserve"><value>DNG 导出已取消。</value></data>
   <data name="Scan_Runtime_StatusDngExported" xml:space="preserve"><value>DNG 通道文件已导出到 {0}</value></data>
+  <data name="ScanDebug_Runtime_StatusMonochromeDngExported" xml:space="preserve"><value>单色 DNG 已导出到 {0}</value></data>
   <data name="Scan_Runtime_StatusDngExportFailed" xml:space="preserve"><value>DNG 导出失败：{0}</value></data>
   <data name="Scan_Runtime_FieldLed1Level" xml:space="preserve"><value>LED1 电平</value></data>
   <data name="Scan_Runtime_FieldLed2Level" xml:space="preserve"><value>LED2 电平</value></data>
@@ -654,8 +668,8 @@
   <data name="ScanDebug_Runtime_MotorStatusIdle" xml:space="preserve"><value>状态：-</value></data>
   <data name="ScanDebug_Runtime_AutofocusIdle" xml:space="preserve"><value>自动对焦：空闲。</value></data>
   <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve"><value>导出已取消。</value></data>
-  <data name="ScanDebug_Runtime_StatusBufferExported" xml:space="preserve"><value>缓冲区已导出：{0} 字节 -&gt; {1}</value></data>
   <data name="ScanDebug_Runtime_StatusExportFailed" xml:space="preserve"><value>导出失败：{0}</value></data>
+  <data name="ScanDebug_Runtime_StatusExportRequiresFourChannelWorkflow" xml:space="preserve"><value>当前 DNG 导出要求完整的 {1} 通道 workflow 结果，而这次扫描只采集了 {0} 轮。</value></data>
   <data name="ScanDebug_Runtime_StatusUsbDebugActive" xml:space="preserve"><value>USB 调试处于活动状态。连接扫描调试前请先停止它。</value></data>
   <data name="ScanDebug_Runtime_StatusLoadingParameters" xml:space="preserve"><value>扫描仪会话已连接。正在加载参数...</value></data>
   <data name="ScanDebug_Runtime_StatusParametersLoaded" xml:space="preserve"><value>参数已加载</value></data>
@@ -782,6 +796,9 @@
   <data name="ScanDebug_Runtime_StatusStartingScan" xml:space="preserve"><value>正在开始扫描...</value></data>
   <data name="ScanDebug_Runtime_StatusStartingMultiChannelScan" xml:space="preserve"><value>正在开始多通道扫描流程...</value></data>
   <data name="ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported" xml:space="preserve"><value>多通道调试扫描不能在“连续”启用时运行。请先关闭“连续”。</value></data>
+  <data name="ScanDebug_Runtime_ErrorMotorTransportContinuousUnsupported" xml:space="preserve"><value>启用扫描电机传送时不能运行连续扫描。请先关闭“连续”。</value></data>
+  <data name="ScanDebug_Runtime_ErrorNoActiveScanChannels" xml:space="preserve"><value>启动扫描流程前，至少选择一个有效扫描通道。</value></data>
+  <data name="ScanDebug_Runtime_ErrorSingleChannelRequiresExactlyOnePass" xml:space="preserve"><value>单通道扫描要求恰好一个有效扫描通道。请将其他通道设为 Unused，或启用多通道扫描。</value></data>
   <data name="ScanDebug_Runtime_StatusMultiChannelProgress" xml:space="preserve"><value>多通道第 {0}/{1} 轮：{2} LED{3}。</value></data>
   <data name="ScanDebug_Runtime_StatusMultiChannelScanCompleted" xml:space="preserve"><value>多通道扫描完成（{0} 轮）；正在显示第 {1} 轮。</value></data>
   <data name="ScanDebug_Runtime_StatusMultiChannelNoPassData" xml:space="preserve"><value>多通道流程已完成，但没有采集到轮次数据。</value></data>

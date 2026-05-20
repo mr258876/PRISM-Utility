@@ -82,7 +82,6 @@ public partial class App : Application
             services.AddTransient<IScanPreviewPresenter, ScanPreviewPresenter>();
             services.AddTransient<IScanCompositeImageProcessor, ScanCompositeImageProcessor>();
             services.AddTransient<IScanChannelAlignmentService, ScanChannelAlignmentService>();
-            services.AddTransient<IScanBufferExportService, ScanBufferExportService>();
             services.AddTransient<IScanWorkflowService, ScanWorkflowService>();
             services.AddTransient<IScanIlluminationService, ScanIlluminationService>();
             services.AddTransient<IScanChannelImageService, ScanChannelImageService>();
