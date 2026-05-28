@@ -54,6 +54,105 @@ public sealed class ScanNoticeRequest
     public TaskCompletionSource CompletionSource { get; }
 }
 
+public sealed class ScanDebugIlluminationChannelViewModel : ObservableObject
+{
+    private readonly ScanDebugViewModel _owner;
+    private string _role;
+
+    public ScanDebugIlluminationChannelViewModel(ScanDebugViewModel owner, int ledIndex, string role)
+    {
+        _owner = owner;
+        LedIndex = ledIndex;
+        _role = role;
+    }
+
+    public int LedIndex { get; }
+
+    public int LedNumber => LedIndex + 1;
+
+    public string DisplayName => $"{GetChannelRoleDisplayName(_role)} (LED{LedNumber})";
+
+    public string LevelHeader => "ScanDebug_IlluminationLevelHeader".GetLocalized();
+
+    public string LevelPlaceholder => "ScanDebug_IlluminationLevelPlaceholder".GetLocalized();
+
+    public string PulseClockHeader => "ScanDebug_IlluminationPulseClockHeader".GetLocalized();
+
+    public string PulseClockPlaceholder => "ScanDebug_IlluminationPulseClockPlaceholder".GetLocalized();
+
+    public string SteadyLabel => "ScanDebug_IlluminationSteadyLabel".GetLocalized();
+
+    public string SyncLabel => "ScanDebug_IlluminationSyncLabel".GetLocalized();
+
+    public string Level
+    {
+        get => _owner.GetIlluminationLevelInput(LedIndex);
+        set
+        {
+            if (_owner.SetIlluminationLevelInput(LedIndex, value))
+                OnPropertyChanged();
+        }
+    }
+
+    public string PulseClock
+    {
+        get => _owner.GetIlluminationPulseClockInput(LedIndex);
+        set
+        {
+            if (_owner.SetIlluminationPulseClockInput(LedIndex, value))
+                OnPropertyChanged();
+        }
+    }
+
+    public bool IsSteadyEnabled
+    {
+        get => _owner.GetIlluminationSteadyInput(LedIndex);
+        set
+        {
+            if (_owner.SetIlluminationSteadyInput(LedIndex, value))
+                OnPropertyChanged();
+        }
+    }
+
+    public bool IsSyncEnabled
+    {
+        get => _owner.GetIlluminationSyncInput(LedIndex);
+        set
+        {
+            if (_owner.SetIlluminationSyncInput(LedIndex, value))
+                OnPropertyChanged();
+        }
+    }
+
+    public void UpdateRole(string role)
+    {
+        if (string.Equals(_role, role, StringComparison.Ordinal))
+            return;
+
+        _role = role;
+        OnPropertyChanged(nameof(DisplayName));
+    }
+
+    public void RefreshInputBindings()
+    {
+        OnPropertyChanged(nameof(Level));
+        OnPropertyChanged(nameof(PulseClock));
+        OnPropertyChanged(nameof(IsSteadyEnabled));
+        OnPropertyChanged(nameof(IsSyncEnabled));
+    }
+
+    private static string GetChannelRoleDisplayName(string role)
+        => role switch
+        {
+            "Red" => "Scan_Runtime_ChannelRoleRed".GetLocalized(),
+            "Green" => "Scan_Runtime_ChannelRoleGreen".GetLocalized(),
+            "Blue" => "Scan_Runtime_ChannelRoleBlue".GetLocalized(),
+            "White" => "Scan_Runtime_ChannelRoleWhite".GetLocalized(),
+            "IR" => "Scan_Runtime_ChannelRoleIr".GetLocalized(),
+            _ => role
+        };
+}
+
 public partial class ScanDebugViewModel : ObservableRecipient
 {
     private static readonly TimeSpan ParameterApplyDebounceWindow = TimeSpan.FromSeconds(1);
@@ -61,12 +160,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private const string ForwardDirection = "Forward";
     private const string ReverseDirection = "Reverse";
     private static readonly string[] IlluminationChannelLabels = { "LED1", "LED2", "LED3", "LED4" };
-    private static readonly string[] DebugWorkflowChannelRoles = { "Blue", "White", "Red", "Green" };
     private static readonly string[] DirectionLabels = { ForwardDirection, ReverseDirection };
     private static readonly string[] MotorDirectionLabels = { "Dir0", "Dir1" };
-    private const string MotorUnitSteps = "steps";
-    private const string MotorUnitMicrometers = "um";
-    private const string MotorUnitMillimeters = "mm";
+    private const string MotorUnitSteps = ScanMotorDistanceText.StepsUnit;
+    private const string MotorUnitMicrometers = ScanMotorDistanceText.MicrometersUnit;
+    private const string MotorUnitMillimeters = ScanMotorDistanceText.MillimetersUnit;
     private static readonly string[] MotorUnitLabels = { MotorUnitSteps, MotorUnitMicrometers, MotorUnitMillimeters };
     private static readonly string[] ScanMotorLabels = { "Motor1", "Motor2", "Motor3" };
     private static readonly string[] RoiSelectionLabels = { "BW Active", "BW Shield", "Focus Overall", "Focus Left", "Focus Right" };
@@ -80,7 +178,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private const int CalibrationGainMin = 0;
     private const int CalibrationGainMax = 63;
     private const int AutofocusRowsMin = 1;
-    private const uint AutofocusStepsMin = 1;
+    private const double AutofocusDistanceMinMm = 0.001;
+    private const double DefaultAutofocusTiltProbeMm = 0.5;
+    private const double DefaultAutofocusZProbeMm = 1.0;
     private static readonly Brush LimitBlockNormalBrush = new SolidColorBrush(Colors.DarkSeaGreen);
     private static readonly Brush LimitBlockAlertBrush = new SolidColorBrush(Colors.IndianRed);
 
@@ -129,6 +229,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096" };
 
+    public ObservableCollection<ScanDebugIlluminationChannelViewModel> ActiveIlluminationChannels { get; } = new();
+
     public ObservableCollection<string> DirectionOptions { get; } = new(DirectionLabels);
 
     public ObservableCollection<string> MotorDirectionOptions { get; } = new(MotorDirectionLabels);
@@ -141,7 +243,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public ObservableCollection<string> CalibrationChannelOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR" };
 
-    public ObservableCollection<string> ChannelColorOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR", "Unused" };
+    public ObservableCollection<ScanDngExportMode> DngExportModeOptions { get; } = new() { ScanDngExportMode.LinearRaw4, ScanDngExportMode.LinearRgbIrw };
+
+    public ObservableCollection<ScanChannelAlignmentMode> AlignmentModeOptions { get; } = new() { ScanChannelAlignmentMode.Ecc, ScanChannelAlignmentMode.MutualInformation, ScanChannelAlignmentMode.EccThenMutualInformation };
 
     public ObservableCollection<string> RoiSelectionOptions { get; } = new(RoiSelectionLabels);
 
@@ -217,16 +321,37 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial string SelectedCalibrationChannel { get; set; }
 
     [ObservableProperty]
-    public partial string SelectedLed1ChannelColor { get; set; }
+    public partial bool IsChannel1Reversed { get; set; }
 
     [ObservableProperty]
-    public partial string SelectedLed2ChannelColor { get; set; }
+    public partial bool IsChannel2Reversed { get; set; }
 
     [ObservableProperty]
-    public partial string SelectedLed3ChannelColor { get; set; }
+    public partial bool IsChannel3Reversed { get; set; }
 
     [ObservableProperty]
-    public partial string SelectedLed4ChannelColor { get; set; }
+    public partial bool IsChannel4Reversed { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsScanRecipeColorManagementEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanRecipeRedWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanRecipeGreenWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanRecipeBlueWavelengthNm { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanRecipeOutputGamma { get; set; }
+
+    [ObservableProperty]
+    public partial ScanChannelAlignmentMode SelectedProfileAlignmentMode { get; set; }
+
+    [ObservableProperty]
+    public partial ScanDngExportMode SelectedProfileDngExportMode { get; set; }
 
     [ObservableProperty]
     public partial string CalibrationChannelStatusText { get; set; }
@@ -679,9 +804,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string AutofocusSampleRowsLimitText => BuildBoundedLimitText(AutofocusSampleRows, AutofocusRowsMin, _session.SingleTransferMaxRows, "Sample rows");
 
-    public string AutofocusTiltProbeStepsLimitText => BuildLowerBoundLimitText(AutofocusTiltProbeSteps, AutofocusStepsMin, "Tilt probe steps");
+    public string AutofocusTiltProbeStepsLimitText => BuildPositiveDistanceLimitText(AutofocusTiltProbeSteps, "Tilt probe distance");
 
-    public string AutofocusZProbeStepsLimitText => BuildLowerBoundLimitText(AutofocusZProbeSteps, AutofocusStepsMin, "Z probe steps");
+    public string AutofocusZProbeStepsLimitText => BuildPositiveDistanceLimitText(AutofocusZProbeSteps, "Z probe distance");
 
     public string AutofocusMotorIntervalLimitText => BuildLowerBoundLimitText(AutofocusMotorIntervalUs, ScanDebugConstants.MotionMinIntervalUs, "Motor interval");
 
@@ -695,9 +820,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public Brush AutofocusSampleRowsLimitBrush => BuildBoundedLimitBrush(AutofocusSampleRows, AutofocusRowsMin, _session.SingleTransferMaxRows);
 
-    public Brush AutofocusTiltProbeStepsLimitBrush => BuildLowerBoundLimitBrush(AutofocusTiltProbeSteps, AutofocusStepsMin);
+    public Brush AutofocusTiltProbeStepsLimitBrush => BuildPositiveDistanceLimitBrush(AutofocusTiltProbeSteps);
 
-    public Brush AutofocusZProbeStepsLimitBrush => BuildLowerBoundLimitBrush(AutofocusZProbeSteps, AutofocusStepsMin);
+    public Brush AutofocusZProbeStepsLimitBrush => BuildPositiveDistanceLimitBrush(AutofocusZProbeSteps);
 
     public Brush AutofocusMotorIntervalLimitBrush => BuildLowerBoundLimitBrush(AutofocusMotorIntervalUs, ScanDebugConstants.MotionMinIntervalUs);
 
@@ -740,10 +865,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         MotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString(CultureInfo.InvariantCulture);
         ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
         SelectedCalibrationChannel = CalibrationChannelOptions[0];
-        SelectedLed1ChannelColor = "Blue";
-        SelectedLed2ChannelColor = "White";
-        SelectedLed3ChannelColor = "Red";
-        SelectedLed4ChannelColor = "Green";
+        IsScanRecipeColorManagementEnabled = true;
+        ScanRecipeRedWavelengthNm = "680";
+        ScanRecipeGreenWavelengthNm = "525";
+        ScanRecipeBlueWavelengthNm = "450";
+        ScanRecipeOutputGamma = "2.2";
+        SelectedProfileAlignmentMode = AlignmentModeOptions[0];
+        SelectedProfileDngExportMode = DngExportModeOptions[0];
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet".GetLocalizedFormat(GetCalibrationChannelDisplayName(CalibrationChannelOptions[0]));
         FilmProfileName = "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized();
         SelectedRoiSelection = RoiSelectionOptions[0];
@@ -778,6 +906,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         Led2PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         Led3PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
         Led4PulseClock = ScanDebugConstants.IlluminationMinSyncPulseClock.ToString();
+        RefreshActiveIlluminationChannels();
         IlluminationSummaryText = "ScanDebug_Runtime_IlluminationSummaryIdle".GetLocalized();
         MotionSummaryText = "ScanDebug_Runtime_MotionSummaryIdle".GetLocalized();
         Motor1StatusText = "ScanDebug_Runtime_MotorStatusIdle".GetLocalized();
@@ -799,8 +928,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ApplyMotorSpeedFromInterval(1, ScanDebugConstants.MotionDefaultIntervalUs);
         ApplyMotorSpeedFromInterval(2, ScanDebugConstants.MotionDefaultIntervalUs);
         AutofocusSampleRows = "128";
-        AutofocusTiltProbeSteps = "40";
-        AutofocusZProbeSteps = "20";
+        AutofocusTiltProbeSteps = DefaultAutofocusTiltProbeMm.ToString("0.###", CultureInfo.InvariantCulture);
+        AutofocusZProbeSteps = DefaultAutofocusZProbeMm.ToString("0.###", CultureInfo.InvariantCulture);
         AutofocusMotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
         AutofocusZDirection = MotorDirectionLabels[0];
         AutofocusTiltDirection = MotorDirectionLabels[0];
@@ -885,13 +1014,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnAutofocusTiltProbeStepsChanged(string value)
     {
-        NormalizeLowerBoundUIntInput(value, AutofocusStepsMin, v => AutofocusTiltProbeSteps = v);
         RefreshLimitBlockBindings();
     }
 
     partial void OnAutofocusZProbeStepsChanged(string value)
     {
-        NormalizeLowerBoundUIntInput(value, AutofocusStepsMin, v => AutofocusZProbeSteps = v);
         RefreshLimitBlockBindings();
     }
 
@@ -929,7 +1056,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnMotorDistancePerLineUnitChanged(string value)
     {
-        var normalizedUnit = NormalizeMotorDistanceUnit(value);
+        var normalizedUnit = ScanMotorDistanceText.NormalizeUnit(value);
         var previousUnit = _lastMotorDistancePerLineUnit;
         _lastMotorDistancePerLineUnit = normalizedUnit;
 
@@ -947,8 +1074,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         if (!string.Equals(previousUnit, normalizedUnit, StringComparison.Ordinal)
-            && TryParseDisplayedMotorDistanceMillimeters(MotorDistancePerLineValue, previousUnit, GetCurrentScanMotorSettings(), out var lineDistanceMm)
-            && TryFormatMotorDistanceDisplayValue(lineDistanceMm, normalizedUnit, GetCurrentScanMotorSettings(), out var convertedValue))
+            && ScanMotorDistanceText.TryParseMillimeters(MotorDistancePerLineValue, previousUnit, GetCurrentScanMotorSettings(), out var lineDistanceMm)
+            && ScanMotorDistanceText.TryFormatDisplayValue(lineDistanceMm, normalizedUnit, GetCurrentScanMotorSettings(), out var convertedValue))
         {
             ApplyDerivedMotorDistance(convertedValue);
         }
@@ -1316,6 +1443,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             var statusNotes = new List<string>();
 
+            await EnsureDeviceSettingsInitializedAsync();
             await _channelProfiles.InitializeAsync();
             var selectedCalibrationChannel = await _channelProfiles.GetSelectedCalibrationChannelAsync();
             if (!string.IsNullOrWhiteSpace(selectedCalibrationChannel)
@@ -1516,6 +1644,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             StatusText = "ScanDebug_Runtime_StatusScannerNotConnected".GetLocalized();
             return;
         }
+
+        await EnsureDeviceSettingsInitializedAsync();
 
         if (!TryBuildIlluminationRequest(out var request, out var error))
         {
@@ -1804,14 +1934,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalizedOrFallback("Untitled Film Profile")
                 : FilmProfileName.Trim();
 
+            stage = "scan recipe settings validation";
+            if (!TryBuildScanRecipeSettings(out var scanRecipeSettings, out error))
+            {
+                StatusText = error;
+                MirrorOutput("ScanDebug.SaveFilmProfileJson", $"Scan recipe settings validation failed: {error}");
+                return;
+            }
+
             stage = "JSON export";
             var exported = await _channelProfiles.ExportProfilesAsync(new ScanFilmParameterProfileSet(
-                2,
+                5,
                 profileName,
                 DateTimeOffset.Now,
                 _channelProfiles.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
                 SelectedCalibrationChannel,
-                acquisitionSettings));
+                acquisitionSettings,
+                scanRecipeSettings));
 
             if (!exported)
             {
@@ -1848,6 +1987,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             if (_selectedFilmAcquisitionSettings is not null)
                 ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);
+
+            ApplyScanRecipeSettings(imported.ScanRecipeSettings);
 
             var channelToLoad = ResolveProfileChannelToLoad(imported);
             if (!string.IsNullOrWhiteSpace(channelToLoad))
@@ -1917,6 +2058,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         }
 
+        await EnsureDeviceSettingsInitializedAsync();
+
         if (!TryBuildAutofocusRequest(out var request, out var error))
         {
             StatusText = error;
@@ -1946,7 +2089,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
 
             StatusText = "ScanDebug_Runtime_StatusAutofocusStarted".GetLocalized();
-            AutofocusSummaryText = "ScanDebug_Runtime_AutofocusSampling".GetLocalizedFormat(request.SampleRows, request.TiltProbeSteps, request.ZProbeSteps);
+            AutofocusSummaryText = $"Autofocus: sampling {request.SampleRows} rows, tilt {AutofocusTiltProbeSteps} mm ({request.TiltProbeSteps} steps), Z {AutofocusZProbeSteps} mm ({request.ZProbeSteps} steps).";
 
             var result = await _autoFocus.AutoFocusAsync(
                 _session,
@@ -2040,6 +2183,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         ScanWorkflowRequest? workflowRequest = null;
+        if (shouldUseWorkflowScan)
+            await EnsureDeviceSettingsInitializedAsync();
+
         if (shouldUseWorkflowScan && !TryBuildDebugWorkflowRequest(rows, out workflowRequest, out var workflowError))
         {
             StatusText = workflowError;
@@ -2337,10 +2483,88 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private ScanChannelAssignment BuildDebugChannelAssignment()
-        => new(SelectedLed1ChannelColor, SelectedLed2ChannelColor, SelectedLed3ChannelColor, SelectedLed4ChannelColor, false, false, false, false);
+    {
+        var roles = GetEffectiveDeviceChannelRoles();
+        return new(roles[0], roles[1], roles[2], roles[3], false, false, false, false);
+    }
+
+    private ScanChannelAssignment BuildAuthoredChannelAssignment()
+    {
+        var roles = GetEffectiveDeviceChannelRoles();
+        return new(
+            roles[0],
+            roles[1],
+            roles[2],
+            roles[3],
+            IsChannel1Reversed,
+            IsChannel2Reversed,
+            IsChannel3Reversed,
+            IsChannel4Reversed);
+    }
+
+    private bool TryBuildScanRecipeSettings(out ScanFilmScanRecipeSettings settings, out string error)
+    {
+        settings = new ScanFilmScanRecipeSettings();
+        if (!TryParseColorDouble(ScanRecipeRedWavelengthNm, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var redWavelength, out error)
+            || !TryParseColorDouble(ScanRecipeGreenWavelengthNm, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var greenWavelength, out error)
+            || !TryParseColorDouble(ScanRecipeBlueWavelengthNm, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var blueWavelength, out error)
+            || !TryParseColorDouble(ScanRecipeOutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error))
+        {
+            return false;
+        }
+
+        settings = new ScanFilmScanRecipeSettings(
+            BuildAuthoredChannelAssignment(),
+            new ScanColorManagementOptions(IsScanRecipeColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma),
+            SelectedProfileAlignmentMode,
+            SelectedProfileDngExportMode);
+        error = string.Empty;
+        return true;
+    }
+
+    private void ApplyScanRecipeSettings(ScanFilmScanRecipeSettings? settings)
+    {
+        if (settings?.ChannelAssignment is { } assignment)
+        {
+            IsChannel1Reversed = assignment.Channel1Reversed;
+            IsChannel2Reversed = assignment.Channel2Reversed;
+            IsChannel3Reversed = assignment.Channel3Reversed;
+            IsChannel4Reversed = assignment.Channel4Reversed;
+        }
+
+        if (settings?.ColorManagement is { } colorManagement)
+        {
+            IsScanRecipeColorManagementEnabled = colorManagement.IsEnabled;
+            ScanRecipeRedWavelengthNm = FormatColorDouble(colorManagement.RedWavelengthNm);
+            ScanRecipeGreenWavelengthNm = FormatColorDouble(colorManagement.GreenWavelengthNm);
+            ScanRecipeBlueWavelengthNm = FormatColorDouble(colorManagement.BlueWavelengthNm);
+            ScanRecipeOutputGamma = FormatColorDouble(colorManagement.OutputGamma);
+        }
+
+        if (settings?.AlignmentMode is { } alignmentMode && AlignmentModeOptions.Contains(alignmentMode))
+            SelectedProfileAlignmentMode = alignmentMode;
+
+        if (settings?.DngExportMode is { } dngExportMode && DngExportModeOptions.Contains(dngExportMode))
+            SelectedProfileDngExportMode = dngExportMode;
+    }
+
+    private static bool TryParseColorDouble(string text, string fieldName, out double value, out string error)
+    {
+        if (!InvariantNumericText.TryParseDouble(text, out value))
+        {
+            error = "Shared_Runtime_ErrorNumber".GetLocalizedFormat(fieldName);
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static string FormatColorDouble(double value)
+        => InvariantNumericText.FormatCompactDouble(value);
 
     private static int CountActiveWorkflowPasses(ScanWorkflowRequest request)
-        => request.PassChannelRoles.Count(role => !string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase));
+        => ScanChannelRoleHelper.CountActiveRoles(request.PassChannelRoles);
 
     private void UpdateComputedMotorSummary()
     {
@@ -2411,7 +2635,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return false;
         }
 
-        if (!TryParseDisplayedMotorDistanceMillimeters(MotorDistancePerLineValue, MotorDistancePerLineUnit, GetCurrentScanMotorSettings(), out var lineDistanceMm)
+        if (!ScanMotorDistanceText.TryParseMillimeters(MotorDistancePerLineValue, MotorDistancePerLineUnit, GetCurrentScanMotorSettings(), out var lineDistanceMm)
             || !ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalUs(lineDistanceMm, exposureTicks, sysClockKhz, GetCurrentScanMotorSettings(), ScanDebugConstants.MotionMinIntervalUs, out intervalUs))
         {
             error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
@@ -2438,7 +2662,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         var lineDistanceMm = ScanTimingMath.ConvertMotorIntervalToLineDistanceMillimeters(intervalUs, snapshot.ExposureTicks, snapshot.SysClockKhz, GetCurrentScanMotorSettings());
-        if (!TryFormatMotorDistanceDisplayValue(lineDistanceMm, MotorDistancePerLineUnit, GetCurrentScanMotorSettings(), out var displayValue))
+        if (!ScanMotorDistanceText.TryFormatDisplayValue(lineDistanceMm, MotorDistancePerLineUnit, GetCurrentScanMotorSettings(), out var displayValue))
         {
             ApplyDerivedMotorDistance(string.Empty);
             return;
@@ -2462,54 +2686,6 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private ScanMotorMechanicalSettings GetCurrentScanMotorSettings()
         => TryParseSelectedScanMotor(out var motorId, out _) ? _deviceSettings.Settings.GetMotorSettings(motorId) : ScanMotorMechanicalSettings.CreateDefault();
-
-    private static string NormalizeMotorDistanceUnit(string? unit)
-        => unit?.Trim().ToLowerInvariant() switch
-        {
-            MotorUnitSteps => MotorUnitSteps,
-            MotorUnitMicrometers => MotorUnitMicrometers,
-            _ => MotorUnitMillimeters
-        };
-
-    private static bool TryParseDisplayedMotorDistanceMillimeters(string valueText, string unit, ScanMotorMechanicalSettings motorSettings, out double lineDistanceMm)
-    {
-        lineDistanceMm = 0.0;
-        if (!double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            || !double.IsFinite(parsed)
-            || parsed <= 0.0)
-        {
-            return false;
-        }
-
-        lineDistanceMm = NormalizeMotorDistanceUnit(unit) switch
-        {
-            MotorUnitSteps => parsed / Math.Max(ScanTimingMath.ComputeMotorStepsPerMillimeter(motorSettings), double.Epsilon),
-            MotorUnitMicrometers => parsed / 1000.0,
-            _ => parsed
-        };
-
-        return double.IsFinite(lineDistanceMm) && lineDistanceMm > 0.0;
-    }
-
-    private static bool TryFormatMotorDistanceDisplayValue(double lineDistanceMm, string unit, ScanMotorMechanicalSettings motorSettings, out string valueText)
-    {
-        valueText = string.Empty;
-        if (!double.IsFinite(lineDistanceMm) || lineDistanceMm <= 0.0)
-            return false;
-
-        var converted = NormalizeMotorDistanceUnit(unit) switch
-        {
-            MotorUnitSteps => lineDistanceMm * ScanTimingMath.ComputeMotorStepsPerMillimeter(motorSettings),
-            MotorUnitMicrometers => lineDistanceMm * 1000.0,
-            _ => lineDistanceMm
-        };
-
-        if (!double.IsFinite(converted) || converted <= 0.0)
-            return false;
-
-        valueText = converted.ToString("0.#########", CultureInfo.InvariantCulture);
-        return true;
-    }
 
     private ScanColorManagementOptions BuildDebugColorManagementOptions()
     {
@@ -2744,11 +2920,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             illuminationRequest.Led2PulseClock,
             illuminationRequest.Led3PulseClock,
             illuminationRequest.Led4PulseClock,
-            motorIntervalUs,
-            SelectedLed1ChannelColor,
-            SelectedLed2ChannelColor,
-            SelectedLed3ChannelColor,
-            SelectedLed4ChannelColor).Normalize();
+            motorIntervalUs).Normalize();
         error = string.Empty;
         return true;
     }
@@ -3176,6 +3348,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
             : "ScanDebug_Runtime_LimitLowerBoundCurrent".GetLocalizedFormat(GetLimitLabelDisplayName(label), min, value);
     }
 
+    private static string BuildPositiveDistanceLimitText(string text, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return $"{GetLimitLabelDisplayName(label)} must be at least {AutofocusDistanceMinMm:0.###} mm.";
+
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            return $"{GetLimitLabelDisplayName(label)} must be a number in millimeters.";
+
+        return value < AutofocusDistanceMinMm
+            ? $"{GetLimitLabelDisplayName(label)} must be at least {AutofocusDistanceMinMm:0.###} mm; current {value:0.###} mm."
+            : $"{GetLimitLabelDisplayName(label)}: {value:0.###} mm.";
+    }
+
     private static Brush BuildBoundedLimitBrush(string text, int min, int max)
         => int.TryParse(text, out var value) && value >= min && value <= max
             ? LimitBlockNormalBrush
@@ -3183,6 +3368,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private static Brush BuildLowerBoundLimitBrush(string text, uint min)
         => uint.TryParse(text, out var value) && value >= min
+            ? LimitBlockNormalBrush
+            : LimitBlockAlertBrush;
+
+    private static Brush BuildPositiveDistanceLimitBrush(string text)
+        => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= AutofocusDistanceMinMm
             ? LimitBlockNormalBrush
             : LimitBlockAlertBrush;
 
@@ -3250,6 +3440,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsLed2SyncEnabled = (state.SyncMask & 0x02) != 0;
         IsLed3SyncEnabled = (state.SyncMask & 0x04) != 0;
         IsLed4SyncEnabled = (state.SyncMask & 0x08) != 0;
+        RefreshActiveIlluminationChannels();
         IlluminationSummaryText = BuildIlluminationSummary(state);
     }
 
@@ -3268,19 +3459,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
             normalized.Led2PulseClock,
             normalized.Led3PulseClock,
             normalized.Led4PulseClock));
-        SelectedLed1ChannelColor = NormalizeChannelColorSelection(normalized.Led1ChannelColor, "Blue");
-        SelectedLed2ChannelColor = NormalizeChannelColorSelection(normalized.Led2ChannelColor, "White");
-        SelectedLed3ChannelColor = NormalizeChannelColorSelection(normalized.Led3ChannelColor, "Red");
-        SelectedLed4ChannelColor = NormalizeChannelColorSelection(normalized.Led4ChannelColor, "Green");
         MotorIntervalUs = normalized.MotorIntervalUs.ToString(CultureInfo.InvariantCulture);
         _isMotorDistanceDerivedFromInterval = true;
         RefreshDerivedMotorDistanceFromCurrentInterval();
         ApplyMotorSpeedFromInterval(1, normalized.MotorIntervalUs);
         UpdateComputedMotorSummary();
     }
-
-    private string NormalizeChannelColorSelection(string? channelColor, string fallback)
-        => ChannelColorOptions.FirstOrDefault(option => string.Equals(option, channelColor, StringComparison.OrdinalIgnoreCase)) ?? fallback;
 
     private void ResetIlluminationInputs()
     {
@@ -3300,6 +3484,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsLed2SyncEnabled = false;
         IsLed3SyncEnabled = false;
         IsLed4SyncEnabled = false;
+        RefreshActiveIlluminationChannels();
         IlluminationSummaryText = "ScanDebug_Runtime_IlluminationSummaryIdle".GetLocalized();
     }
 
@@ -3348,6 +3533,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool TryBuildIlluminationRequest(out IlluminationRequest request, out string error)
     {
         request = new IlluminationRequest(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        ClearUnusedIlluminationInputs(GetEffectiveDeviceChannelRoles());
 
         if (!TryParseLedLevel(Led1Level, "ScanDebug_Runtime_FieldLed1Level".GetLocalized(), out var led1Level, out error)
             || !TryParseLedLevel(Led2Level, "ScanDebug_Runtime_FieldLed2Level".GetLocalized(), out var led2Level, out error)
@@ -3564,7 +3750,221 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => ScanTimingMath.ConvertMotorIntervalToStepsPerSecond(intervalUs).ToString("0.###", CultureInfo.InvariantCulture);
 
     private async Task EnsureDeviceSettingsInitializedAsync()
-        => await _deviceSettingsInitializationTask;
+    {
+        await _deviceSettingsInitializationTask;
+        RefreshActiveIlluminationChannels();
+    }
+
+    private string[] GetEffectiveDeviceChannelRoles()
+        => _deviceSettings.Settings.Normalize().ChannelRoles.ToArray();
+
+    internal string GetIlluminationLevelInput(int ledIndex)
+        => ledIndex switch
+        {
+            0 => Led1Level,
+            1 => Led2Level,
+            2 => Led3Level,
+            3 => Led4Level,
+            _ => throw new ArgumentOutOfRangeException(nameof(ledIndex))
+        };
+
+    internal bool SetIlluminationLevelInput(int ledIndex, string value)
+    {
+        if (string.Equals(GetIlluminationLevelInput(ledIndex), value, StringComparison.Ordinal))
+            return false;
+
+        switch (ledIndex)
+        {
+            case 0:
+                Led1Level = value;
+                break;
+            case 1:
+                Led2Level = value;
+                break;
+            case 2:
+                Led3Level = value;
+                break;
+            case 3:
+                Led4Level = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ledIndex));
+        }
+
+        return true;
+    }
+
+    internal string GetIlluminationPulseClockInput(int ledIndex)
+        => ledIndex switch
+        {
+            0 => Led1PulseClock,
+            1 => Led2PulseClock,
+            2 => Led3PulseClock,
+            3 => Led4PulseClock,
+            _ => throw new ArgumentOutOfRangeException(nameof(ledIndex))
+        };
+
+    internal bool SetIlluminationPulseClockInput(int ledIndex, string value)
+    {
+        if (string.Equals(GetIlluminationPulseClockInput(ledIndex), value, StringComparison.Ordinal))
+            return false;
+
+        switch (ledIndex)
+        {
+            case 0:
+                Led1PulseClock = value;
+                break;
+            case 1:
+                Led2PulseClock = value;
+                break;
+            case 2:
+                Led3PulseClock = value;
+                break;
+            case 3:
+                Led4PulseClock = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ledIndex));
+        }
+
+        return true;
+    }
+
+    internal bool GetIlluminationSteadyInput(int ledIndex)
+        => ledIndex switch
+        {
+            0 => IsLed1SteadyEnabled,
+            1 => IsLed2SteadyEnabled,
+            2 => IsLed3SteadyEnabled,
+            3 => IsLed4SteadyEnabled,
+            _ => throw new ArgumentOutOfRangeException(nameof(ledIndex))
+        };
+
+    internal bool SetIlluminationSteadyInput(int ledIndex, bool value)
+    {
+        if (GetIlluminationSteadyInput(ledIndex) == value)
+            return false;
+
+        switch (ledIndex)
+        {
+            case 0:
+                IsLed1SteadyEnabled = value;
+                break;
+            case 1:
+                IsLed2SteadyEnabled = value;
+                break;
+            case 2:
+                IsLed3SteadyEnabled = value;
+                break;
+            case 3:
+                IsLed4SteadyEnabled = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ledIndex));
+        }
+
+        return true;
+    }
+
+    internal bool GetIlluminationSyncInput(int ledIndex)
+        => ledIndex switch
+        {
+            0 => IsLed1SyncEnabled,
+            1 => IsLed2SyncEnabled,
+            2 => IsLed3SyncEnabled,
+            3 => IsLed4SyncEnabled,
+            _ => throw new ArgumentOutOfRangeException(nameof(ledIndex))
+        };
+
+    internal bool SetIlluminationSyncInput(int ledIndex, bool value)
+    {
+        if (GetIlluminationSyncInput(ledIndex) == value)
+            return false;
+
+        switch (ledIndex)
+        {
+            case 0:
+                IsLed1SyncEnabled = value;
+                break;
+            case 1:
+                IsLed2SyncEnabled = value;
+                break;
+            case 2:
+                IsLed3SyncEnabled = value;
+                break;
+            case 3:
+                IsLed4SyncEnabled = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ledIndex));
+        }
+
+        return true;
+    }
+
+    private void RefreshActiveIlluminationChannels()
+    {
+        var roles = GetEffectiveDeviceChannelRoles();
+        ClearUnusedIlluminationInputs(roles);
+
+        for (var index = ActiveIlluminationChannels.Count - 1; index >= 0; index--)
+        {
+            if (IsActiveIlluminationRole(roles[ActiveIlluminationChannels[index].LedIndex]))
+                continue;
+
+            ActiveIlluminationChannels.RemoveAt(index);
+        }
+
+        for (var index = 0; index < ScanDebugConstants.IlluminationChannelCount; index++)
+        {
+            var role = roles[index];
+            if (!IsActiveIlluminationRole(role))
+                continue;
+
+            var existing = ActiveIlluminationChannels.FirstOrDefault(channel => channel.LedIndex == index);
+            if (existing is null)
+            {
+                ActiveIlluminationChannels.Add(new ScanDebugIlluminationChannelViewModel(this, index, role));
+                continue;
+            }
+
+            existing.UpdateRole(role);
+        }
+
+        var orderedChannels = ActiveIlluminationChannels.OrderBy(channel => channel.LedIndex).ToArray();
+        for (var index = 0; index < orderedChannels.Length; index++)
+        {
+            if (!ReferenceEquals(ActiveIlluminationChannels[index], orderedChannels[index]))
+                ActiveIlluminationChannels.Move(ActiveIlluminationChannels.IndexOf(orderedChannels[index]), index);
+        }
+
+        RefreshActiveIlluminationChannelBindings();
+    }
+
+    private void RefreshActiveIlluminationChannelBindings()
+    {
+        foreach (var channel in ActiveIlluminationChannels)
+        {
+            channel.RefreshInputBindings();
+        }
+    }
+
+    private void ClearUnusedIlluminationInputs(IReadOnlyList<string> roles)
+    {
+        for (var index = 0; index < ScanDebugConstants.IlluminationChannelCount; index++)
+        {
+            if (IsActiveIlluminationRole(roles[index]))
+                continue;
+
+            SetIlluminationLevelInput(index, "0");
+            SetIlluminationPulseClockInput(index, ScanDebugConstants.IlluminationMinSyncPulseClock.ToString(CultureInfo.InvariantCulture));
+            SetIlluminationSteadyInput(index, false);
+            SetIlluminationSyncInput(index, false);
+        }
+    }
+
+    private static bool IsActiveIlluminationRole(string role)
+        => !string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase);
 
     private void OnMotorSpeedInputChanged(byte motorId)
     {
@@ -3664,13 +4064,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return false;
         }
 
-        if (!uint.TryParse(AutofocusTiltProbeSteps, out var tiltSteps) || tiltSteps == 0)
+        if (!double.TryParse(AutofocusTiltProbeSteps, NumberStyles.Float, CultureInfo.InvariantCulture, out var tiltProbeMm)
+            || !ScanTimingMath.TryConvertMillimetersToMotorSteps(tiltProbeMm, _deviceSettings.Settings.GetMotorSettings(0), out var tiltSteps))
         {
             error = "ScanDebug_Runtime_ErrorAutofocusTiltPositive".GetLocalized();
             return false;
         }
 
-        if (!uint.TryParse(AutofocusZProbeSteps, out var zSteps) || zSteps == 0)
+        if (!double.TryParse(AutofocusZProbeSteps, NumberStyles.Float, CultureInfo.InvariantCulture, out var zProbeMm)
+            || !ScanTimingMath.TryConvertMillimetersToMotorSteps(zProbeMm, _deviceSettings.Settings.GetMotorSettings(2), out var zSteps))
         {
             error = "ScanDebug_Runtime_ErrorAutofocusZPositive".GetLocalized();
             return false;
@@ -3926,6 +4328,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private static bool IsPreviewForcedOffForRows(int rows)
         => rows > ScanDebugConstants.MaxPreviewRows;
+
+    public async Task RefreshDeviceSettingsBindingsAsync()
+        => await EnsureDeviceSettingsInitializedAsync();
 
     public async Task CleanupAsync()
     {

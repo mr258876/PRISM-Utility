@@ -25,8 +25,11 @@
         <DataTemplate x:Key="ScanRoiSelectionOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=RoiSelection}" />
         </DataTemplate>
-        <DataTemplate x:Key="ScanChannelRoleOptionTemplate">
-            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
+        <DataTemplate x:Key="ScanDngExportModeOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=DngExportMode}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ScanAlignmentModeOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=AlignmentMode}" />
         </DataTemplate>
     </Page.Resources>
     <Grid
@@ -256,6 +259,49 @@
                                 </Grid>
                             </Grid>
 
+                            <StackPanel Spacing="8">
+                                <TextBlock x:Uid="ScanDebug_ProfileRecipeTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Uid="ScanDebug_ProfileRecipeHelpText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                <Grid ColumnSpacing="8" RowSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <TextBlock x:Uid="Scan_Channel1Label" Opacity="0.8" />
+                                        <ToggleSwitch x:Uid="Scan_Channel1ReverseToggleSwitch" IsOn="{x:Bind ViewModel.IsChannel1Reversed, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                                        <TextBlock x:Uid="Scan_Channel2Label" Opacity="0.8" />
+                                        <ToggleSwitch x:Uid="Scan_Channel2ReverseToggleSwitch" IsOn="{x:Bind ViewModel.IsChannel2Reversed, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+                                        <TextBlock x:Uid="Scan_Channel3Label" Opacity="0.8" />
+                                        <ToggleSwitch x:Uid="Scan_Channel3ReverseToggleSwitch" IsOn="{x:Bind ViewModel.IsChannel3Reversed, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                                        <TextBlock x:Uid="Scan_Channel4Label" Opacity="0.8" />
+                                        <ToggleSwitch x:Uid="Scan_Channel4ReverseToggleSwitch" IsOn="{x:Bind ViewModel.IsChannel4Reversed, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Row="2" Grid.Column="0" x:Uid="Scan_AlignmentModeComboBox" ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedProfileAlignmentMode, Mode=TwoWay}" />
+                                    <ComboBox Grid.Row="2" Grid.Column="1" x:Uid="Scan_DngExportModeComboBox" ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedProfileDngExportMode, Mode=TwoWay}" />
+                                    <ToggleSwitch Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" x:Uid="Scan_ColorManagementToggleSwitch" IsOn="{x:Bind ViewModel.IsScanRecipeColorManagementEnabled, Mode=TwoWay}" />
+                                    <TextBox Grid.Row="4" Grid.Column="0" x:Uid="Scan_RedWavelengthTextBox" Text="{x:Bind ViewModel.ScanRecipeRedWavelengthNm, Mode=TwoWay}" />
+                                    <TextBox Grid.Row="4" Grid.Column="1" x:Uid="Scan_GreenWavelengthTextBox" Text="{x:Bind ViewModel.ScanRecipeGreenWavelengthNm, Mode=TwoWay}" />
+                                    <TextBox Grid.Row="5" Grid.Column="0" x:Uid="Scan_BlueWavelengthTextBox" Text="{x:Bind ViewModel.ScanRecipeBlueWavelengthNm, Mode=TwoWay}" />
+                                    <TextBox Grid.Row="5" Grid.Column="1" x:Uid="Scan_OutputGammaTextBox" Text="{x:Bind ViewModel.ScanRecipeOutputGamma, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+
                             <Grid ColumnSpacing="8" RowSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -449,60 +495,21 @@
                             <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                 <TextBlock x:Uid="ScanDebug_IlluminationNote" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <TextBlock Text="{x:Bind ViewModel.IlluminationSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                <Grid ColumnSpacing="8" RowSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                    <StackPanel Spacing="6">
-                                        <TextBlock x:Uid="ScanDebug_Led1Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed1ChannelColor, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led1LevelTextBox" Text="{x:Bind ViewModel.Led1Level, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led1PulseTextBox" Text="{x:Bind ViewModel.Led1PulseClock, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led1SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed1SteadyEnabled, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led1SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed1SyncEnabled, Mode=TwoWay}" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="0" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                    <StackPanel Spacing="6">
-                                        <TextBlock x:Uid="ScanDebug_Led2Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed2ChannelColor, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led2LevelTextBox" Text="{x:Bind ViewModel.Led2Level, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led2PulseTextBox" Text="{x:Bind ViewModel.Led2PulseClock, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led2SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed2SteadyEnabled, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led2SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed2SyncEnabled, Mode=TwoWay}" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="1" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                    <StackPanel Spacing="6">
-                                        <TextBlock x:Uid="ScanDebug_Led3Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed3ChannelColor, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led3LevelTextBox" Text="{x:Bind ViewModel.Led3Level, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led3PulseTextBox" Text="{x:Bind ViewModel.Led3PulseClock, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led3SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed3SteadyEnabled, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led3SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed3SyncEnabled, Mode=TwoWay}" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="1" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                    <StackPanel Spacing="6">
-                                        <TextBlock x:Uid="ScanDebug_Led4Channel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                        <ComboBox ItemsSource="{x:Bind ViewModel.ChannelColorOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedLed4ChannelColor, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led4LevelTextBox" Text="{x:Bind ViewModel.Led4Level, Mode=TwoWay}" />
-                                        <TextBox x:Uid="ScanDebug_Led4PulseTextBox" Text="{x:Bind ViewModel.Led4PulseClock, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led4SteadyCheckBox" IsChecked="{x:Bind ViewModel.IsLed4SteadyEnabled, Mode=TwoWay}" />
-                                        <CheckBox x:Uid="ScanDebug_Led4SyncCheckBox" IsChecked="{x:Bind ViewModel.IsLed4SyncEnabled, Mode=TwoWay}" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveIlluminationChannels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8" Margin="0,0,0,8">
+                                                <StackPanel Spacing="6">
+                                                    <TextBlock Text="{Binding DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                                    <TextBox Header="{Binding LevelHeader}" PlaceholderText="{Binding LevelPlaceholder}" Text="{Binding Level, Mode=TwoWay}" />
+                                                    <TextBox Header="{Binding PulseClockHeader}" PlaceholderText="{Binding PulseClockPlaceholder}" Text="{Binding PulseClock, Mode=TwoWay}" />
+                                                    <CheckBox Content="{Binding SteadyLabel}" IsChecked="{Binding IsSteadyEnabled, Mode=TwoWay}" />
+                                                    <CheckBox Content="{Binding SyncLabel}" IsChecked="{Binding IsSyncEnabled, Mode=TwoWay}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />

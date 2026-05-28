@@ -228,6 +228,24 @@
   <data name="Settings_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve">
     <value>Restore device defaults</value>
   </data>
+  <data name="Settings_DeviceSettingsChannels.Text" xml:space="preserve">
+    <value>Illumination channel roles</value>
+  </data>
+  <data name="Settings_DeviceSettingsChannelsDescription.Text" xml:space="preserve">
+    <value>Describe the hardware color wired to each LED channel. NA/Unused channels are skipped by multi-channel scans.</value>
+  </data>
+  <data name="Settings_Channel1RoleComboBox.Header" xml:space="preserve">
+    <value>Channel 1</value>
+  </data>
+  <data name="Settings_Channel2RoleComboBox.Header" xml:space="preserve">
+    <value>Channel 2</value>
+  </data>
+  <data name="Settings_Channel3RoleComboBox.Header" xml:space="preserve">
+    <value>Channel 3</value>
+  </data>
+  <data name="Settings_Channel4RoleComboBox.Header" xml:space="preserve">
+    <value>Channel 4</value>
+  </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
     <value>Multi-buffer bulk IN</value>
   </data>
@@ -511,7 +529,7 @@
     <value>Channel Mapping</value>
   </data>
   <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve">
-    <value>Assign each captured channel to its final output role before saving RGB or raw results.</value>
+    <value>Channel roles come from device settings; LED levels come from the loaded config profile or scan defaults.</value>
   </data>
   <data name="Scan_Channel1Label.Text" xml:space="preserve">
     <value>Captured Channel 1</value>
@@ -829,10 +847,10 @@
     <value>Sample rows</value>
   </data>
   <data name="ScanDebug_AutofocusTiltProbeStepsTextBox.Header" xml:space="preserve">
-    <value>Tilt probe steps</value>
+    <value>Tilt probe distance (mm)</value>
   </data>
   <data name="ScanDebug_AutofocusZProbeStepsTextBox.Header" xml:space="preserve">
-    <value>Z probe steps</value>
+    <value>Z probe distance (mm)</value>
   </data>
   <data name="ScanDebug_AutofocusMotorIntervalUsTextBox.Header" xml:space="preserve">
     <value>Motor interval (us)</value>
@@ -851,6 +869,24 @@
   </data>
   <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve">
     <value>LED2 maps to White on RGBW backlights and IR on RGBIR backlights. Steady and sync cannot be enabled on the same channel at the same time.</value>
+  </data>
+  <data name="ScanDebug_IlluminationLevelHeader" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_IlluminationLevelPlaceholder" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_IlluminationPulseClockHeader" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_IlluminationPulseClockPlaceholder" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_IlluminationSteadyLabel" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_IlluminationSyncLabel" xml:space="preserve">
+    <value>Sync</value>
   </data>
   <data name="ScanDebug_Led1Channel.Text" xml:space="preserve">
     <value>LED1 (Blue)</value>
@@ -2366,5 +2402,26 @@
   </data>
   <data name="ScanDebug_Runtime_CursorIntensityDefault" xml:space="preserve">
     <value>Intensity16: -</value>
+  </data>
+  <data name="Scan_AdvancedRecipeOverridesSection.Text" xml:space="preserve">
+    <value>Advanced recipe overrides</value>
+  </data>
+  <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve">
+    <value>Advanced color management</value>
+  </data>
+  <data name="ScanDebug_ProfileRecipeTitle.Text" xml:space="preserve">
+    <value>Scan recipe authored by this profile</value>
+  </data>
+  <data name="ScanDebug_ProfileRecipeHelpText.Text" xml:space="preserve">
+    <value>These settings travel with the exported film profile and are applied on the Scan page as the loaded scan recipe.</value>
+  </data>
+  <data name="Scan_Runtime_RecipeSummary" xml:space="preserve">
+    <value>Recipe: {0}. Reversed channels: {1}. Alignment: {2}. DNG: {3}. Color: {4}.</value>
+  </data>
+  <data name="Scan_Runtime_RecipeSummaryColorManaged" xml:space="preserve">
+    <value>spectral sRGB ({0}/{1}/{2} nm, gamma {3})</value>
+  </data>
+  <data name="Scan_Runtime_RecipeSummaryGammaOnly" xml:space="preserve">
+    <value>gamma-only sRGB (gamma {0})</value>
   </data>
 </root>

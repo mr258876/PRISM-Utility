@@ -9,16 +9,12 @@
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-        <helpers:DirectionTextToBooleanConverter x:Key="DirectionTextToBooleanConverter" />
         <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
         <DataTemplate x:Key="ScanMotorOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Motor}" />
         </DataTemplate>
         <DataTemplate x:Key="ScanDirectionOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Direction}" />
-        </DataTemplate>
-        <DataTemplate x:Key="ScanChannelRoleOptionTemplate">
-            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
         </DataTemplate>
         <DataTemplate x:Key="ScanPreviewModeOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=PreviewMode}" />
@@ -104,6 +100,7 @@
                                          <RowDefinition Height="Auto" />
                                          <RowDefinition Height="Auto" />
                                          <RowDefinition Height="Auto" />
+                                         <RowDefinition Height="Auto" />
                                      </Grid.RowDefinitions>
 
                                     <ComboBox
@@ -164,8 +161,15 @@
                                           Grid.Column="1"
                                           x:Uid="Scan_LoadConfigButton"
                                           Command="{x:Bind ViewModel.LoadConfigProfileCommand}" />
-                                      <ComboBox
+                                      <TextBlock
                                           Grid.Row="4"
+                                          Grid.Column="0"
+                                          Grid.ColumnSpan="2"
+                                          Text="{x:Bind ViewModel.LoadedScanRecipeSummaryText, Mode=OneWay}"
+                                          Opacity="0.8"
+                                          TextWrapping="WrapWholeWords" />
+                                      <ComboBox
+                                          Grid.Row="5"
                                           Grid.Column="0"
                                           Grid.ColumnSpan="2"
                                           x:Uid="Scan_StartingDirectionComboBox"
@@ -173,14 +177,14 @@
                                           ItemTemplate="{StaticResource ScanDirectionOptionTemplate}"
                                           SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
                                      <TextBlock
-                                         Grid.Row="5"
+                                         Grid.Row="6"
                                          Grid.Column="0"
                                          Grid.ColumnSpan="2"
                                          x:Uid="Scan_DirectionHelpText"
                                          Opacity="0.8"
                                          TextWrapping="WrapWholeWords" />
                                      <TextBlock
-                                         Grid.Row="6"
+                                         Grid.Row="7"
                                          Grid.Column="0"
                                          Grid.ColumnSpan="2"
                                          Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}"
@@ -190,69 +194,9 @@
                             </StackPanel>
                         </Expander>
 
-                        <Expander HorizontalAlignment="Stretch" IsExpanded="False">
-                            <Expander.Header>
-                                <TextBlock x:Uid="Scan_PassPlanSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                            </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                <TextBlock x:Uid="Scan_PassPlanTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                <TextBlock x:Uid="Scan_ChannelMappingHelpText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                <Grid ColumnSpacing="8" RowSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                    <Border Grid.Row="0" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock x:Uid="Scan_Pass1Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <ToggleSwitch x:Uid="Scan_Pass1DirectionToggleSwitch" IsEnabled="False" IsOn="{x:Bind ViewModel.Pass1DirectionText, Mode=OneWay, Converter={StaticResource DirectionTextToBooleanConverter}}" />
-                                            <TextBlock x:Uid="Scan_Channel1Label" Opacity="0.8" />
-                                            <ComboBox ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedChannel1Role, Mode=TwoWay}" />
-                                            <TextBox x:Uid="Scan_Led1LevelTextBox" Text="{x:Bind ViewModel.Led1Level, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Row="0" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock x:Uid="Scan_Pass2Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <ToggleSwitch x:Uid="Scan_Pass2DirectionToggleSwitch" IsEnabled="False" IsOn="{x:Bind ViewModel.Pass2DirectionText, Mode=OneWay, Converter={StaticResource DirectionTextToBooleanConverter}}" />
-                                            <TextBlock x:Uid="Scan_Channel2Label" Opacity="0.8" />
-                                            <ComboBox ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedChannel2Role, Mode=TwoWay}" />
-                                            <TextBox x:Uid="Scan_Led2LevelTextBox" Text="{x:Bind ViewModel.Led2Level, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Row="1" Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock x:Uid="Scan_Pass3Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <ToggleSwitch x:Uid="Scan_Pass3DirectionToggleSwitch" IsEnabled="False" IsOn="{x:Bind ViewModel.Pass3DirectionText, Mode=OneWay, Converter={StaticResource DirectionTextToBooleanConverter}}" />
-                                            <TextBlock x:Uid="Scan_Channel3Label" Opacity="0.8" />
-                                            <ComboBox ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedChannel3Role, Mode=TwoWay}" />
-                                            <TextBox x:Uid="Scan_Led3LevelTextBox" Text="{x:Bind ViewModel.Led3Level, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock x:Uid="Scan_Pass4Title" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <ToggleSwitch x:Uid="Scan_Pass4DirectionToggleSwitch" IsEnabled="False" IsOn="{x:Bind ViewModel.Pass4DirectionText, Mode=OneWay, Converter={StaticResource DirectionTextToBooleanConverter}}" />
-                                            <TextBlock x:Uid="Scan_Channel4Label" Opacity="0.8" />
-                                            <ComboBox ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.SelectedChannel4Role, Mode=TwoWay}" />
-                                            <TextBox x:Uid="Scan_Led4LevelTextBox" Text="{x:Bind ViewModel.Led4Level, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                             </StackPanel>
-                         </Expander>
-
                          <Expander HorizontalAlignment="Stretch" IsExpanded="False">
                              <Expander.Header>
-                                  <TextBlock x:Uid="Scan_ColorManagementSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                  <TextBlock x:Uid="Scan_AdvancedColorManagementSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
                              <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                  <TextBlock x:Uid="Scan_ColorManagementDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />

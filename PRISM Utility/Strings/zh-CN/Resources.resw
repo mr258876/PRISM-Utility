@@ -154,6 +154,12 @@
   <data name="Settings_Motor3LeadLengthTextBox.Header" xml:space="preserve"><value>导程长度 (mm/rev)</value></data>
   <data name="Settings_Motor3LeadLengthTextBox.PlaceholderText" xml:space="preserve"><value>例如 2.0</value></data>
   <data name="Settings_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve"><value>恢复设备默认值</value></data>
+  <data name="Settings_DeviceSettingsChannels.Text" xml:space="preserve"><value>照明通道角色</value></data>
+  <data name="Settings_DeviceSettingsChannelsDescription.Text" xml:space="preserve"><value>描述每个 LED 通道实际接线的硬件颜色。NA/Unused 通道会在多通道扫描中跳过。</value></data>
+  <data name="Settings_Channel1RoleComboBox.Header" xml:space="preserve"><value>Channel 1</value></data>
+  <data name="Settings_Channel2RoleComboBox.Header" xml:space="preserve"><value>Channel 2</value></data>
+  <data name="Settings_Channel3RoleComboBox.Header" xml:space="preserve"><value>Channel 3</value></data>
+  <data name="Settings_Channel4RoleComboBox.Header" xml:space="preserve"><value>Channel 4</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve"><value>多缓冲 Bulk IN</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
@@ -248,7 +254,7 @@
   <data name="Scan_LedHeader.Text" xml:space="preserve"><value>LED</value></data>
   <data name="Scan_DirectionHeader.Text" xml:space="preserve"><value>方向</value></data>
   <data name="Scan_ChannelMappingTitle.Text" xml:space="preserve"><value>通道映射</value></data>
-  <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve"><value>在保存 RGB 或原始结果前，为每个采集通道指定最终输出角色。</value></data>
+  <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve"><value>通道角色来自设备设置；LED 电平来自已加载的配置文件或扫描默认值。</value></data>
   <data name="Scan_Channel1Label.Text" xml:space="preserve"><value>采集通道 1</value></data>
   <data name="Scan_Channel1ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
   <data name="Scan_Channel1ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
@@ -354,14 +360,20 @@
   <data name="ScanDebug_AutofocusTitle.Text" xml:space="preserve"><value>自动对焦</value></data>
   <data name="ScanDebug_AutofocusNote.Text" xml:space="preserve"><value>主机端扫描调试自动对焦。先在新的原始扫描缓冲区上优化整体清晰度，再根据左右相对清晰度平衡倾斜。</value></data>
   <data name="ScanDebug_AutofocusSampleRowsTextBox.Header" xml:space="preserve"><value>采样行数</value></data>
-  <data name="ScanDebug_AutofocusTiltProbeStepsTextBox.Header" xml:space="preserve"><value>倾斜探测步数</value></data>
-  <data name="ScanDebug_AutofocusZProbeStepsTextBox.Header" xml:space="preserve"><value>Z 探测步数</value></data>
+  <data name="ScanDebug_AutofocusTiltProbeStepsTextBox.Header" xml:space="preserve"><value>倾斜探测距离 (mm)</value></data>
+  <data name="ScanDebug_AutofocusZProbeStepsTextBox.Header" xml:space="preserve"><value>Z 探测距离 (mm)</value></data>
   <data name="ScanDebug_AutofocusMotorIntervalUsTextBox.Header" xml:space="preserve"><value>电机间隔 (us)</value></data>
   <data name="ScanDebug_AutofocusZDirectionComboBox.Header" xml:space="preserve"><value>逻辑 Z+ 方向</value></data>
   <data name="ScanDebug_AutofocusTiltDirectionComboBox.Header" xml:space="preserve"><value>Motor1 上的逻辑 Tilt+ 方向</value></data>
   <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve"><value>运行自动对焦</value></data>
   <data name="ScanDebug_IlluminationTitle.Text" xml:space="preserve"><value>照明控制</value></data>
   <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve"><value>LED2 在 RGBW 背光中对应 White，在 RGBIR 背光中对应 IR。同一通道不能同时启用常亮和同步。</value></data>
+  <data name="ScanDebug_IlluminationLevelHeader" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_IlluminationLevelPlaceholder" xml:space="preserve"><value>0-65535</value></data>
+  <data name="ScanDebug_IlluminationPulseClockHeader" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_IlluminationPulseClockPlaceholder" xml:space="preserve"><value>&gt;=2 用于同步</value></data>
+  <data name="ScanDebug_IlluminationSteadyLabel" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_IlluminationSyncLabel" xml:space="preserve"><value>同步</value></data>
   <data name="ScanDebug_Led1Channel.Text" xml:space="preserve"><value>LED1（蓝）</value></data>
   <data name="ScanDebug_Led2Channel.Text" xml:space="preserve"><value>LED2（白 / IR）</value></data>
   <data name="ScanDebug_Led3Channel.Text" xml:space="preserve"><value>LED3（红）</value></data>
@@ -867,4 +879,11 @@
   <data name="ScanDebug_Runtime_CursorIntensity" xml:space="preserve"><value>Intensity16: {0}</value></data>
   <data name="ScanDebug_Runtime_CursorPositionDefault" xml:space="preserve"><value>光标：(-, -) px</value></data>
   <data name="ScanDebug_Runtime_CursorIntensityDefault" xml:space="preserve"><value>Intensity16: -</value></data>
+  <data name="Scan_AdvancedRecipeOverridesSection.Text" xml:space="preserve"><value>高级配方覆盖</value></data>
+  <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve"><value>高级色彩管理</value></data>
+  <data name="ScanDebug_ProfileRecipeTitle.Text" xml:space="preserve"><value>此配置编写的扫描配方</value></data>
+  <data name="ScanDebug_ProfileRecipeHelpText.Text" xml:space="preserve"><value>这些设置会随导出的胶片配置保存，并在扫描页面作为已加载的扫描配方应用。</value></data>
+  <data name="Scan_Runtime_RecipeSummary" xml:space="preserve"><value>配方：{0}。反转通道：{1}。对齐：{2}。DNG：{3}。色彩：{4}。</value></data>
+  <data name="Scan_Runtime_RecipeSummaryColorManaged" xml:space="preserve"><value>光谱 sRGB（{0}/{1}/{2} nm，伽马 {3}）</value></data>
+  <data name="Scan_Runtime_RecipeSummaryGammaOnly" xml:space="preserve"><value>仅伽马 sRGB（伽马 {0}）</value></data>
 </root>

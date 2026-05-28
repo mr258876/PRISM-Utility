@@ -61,11 +61,12 @@ public sealed partial class ScanDebugPage : Page
         Unloaded += OnUnloaded;
     }
 
-    private void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
         ViewModel.NoticeRequested += OnNoticeRequested;
+        await ViewModel.RefreshDeviceSettingsBindingsAsync();
         InitializeZoomScaleComboBox();
         RefreshPreviewLayout();
     }

@@ -11,7 +11,7 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
 {
     private const string ProfilesKey = "ScanChannelParameterProfiles";
     private const string SelectedCalibrationChannelKey = "ScanCalibrationSelectedChannel";
-    private const int ExchangeSchemaVersion = 4;
+    private const int ExchangeSchemaVersion = 5;
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
@@ -239,11 +239,42 @@ public sealed class ScanChannelParameterProfileService : IScanChannelParameterPr
             profileSet.SavedAtUtc == default ? DateTimeOffset.Now : profileSet.SavedAtUtc,
             normalizedProfiles,
             NormalizeRole(profileSet.SelectedCalibrationChannel),
-            NormalizeImportedAcquisitionSettings(profileSet.AcquisitionSettings));
+            NormalizeImportedAcquisitionSettings(profileSet.AcquisitionSettings),
+            NormalizeImportedScanRecipeSettings(profileSet.ScanRecipeSettings));
     }
 
     private static ScanFilmAcquisitionSettings? NormalizeImportedAcquisitionSettings(ScanFilmAcquisitionSettings? acquisitionSettings)
         => acquisitionSettings?.Normalize();
+
+    private static ScanFilmScanRecipeSettings? NormalizeImportedScanRecipeSettings(ScanFilmScanRecipeSettings? recipeSettings)
+    {
+        if (recipeSettings is null)
+            return null;
+
+        var channelAssignment = recipeSettings.ChannelAssignment is null
+            ? null
+            : new ScanChannelAssignment(
+                NormalizeRecipeChannelRole(recipeSettings.ChannelAssignment.Channel1Role, "Blue"),
+                NormalizeRecipeChannelRole(recipeSettings.ChannelAssignment.Channel2Role, "White"),
+                NormalizeRecipeChannelRole(recipeSettings.ChannelAssignment.Channel3Role, "Red"),
+                NormalizeRecipeChannelRole(recipeSettings.ChannelAssignment.Channel4Role, "Green"),
+                recipeSettings.ChannelAssignment.Channel1Reversed,
+                recipeSettings.ChannelAssignment.Channel2Reversed,
+                recipeSettings.ChannelAssignment.Channel3Reversed,
+                recipeSettings.ChannelAssignment.Channel4Reversed);
+
+        return new ScanFilmScanRecipeSettings(
+            channelAssignment,
+            recipeSettings.ColorManagement,
+            recipeSettings.AlignmentMode,
+            recipeSettings.DngExportMode);
+    }
+
+    private static string NormalizeRecipeChannelRole(string? channelRole, string fallback)
+    {
+        var role = NormalizeRole(channelRole);
+        return string.IsNullOrWhiteSpace(role) ? fallback : role;
+    }
 
     private static bool TryNormalizeProfile(ScanChannelCalibrationProfile? profile, out ScanChannelCalibrationProfile normalized)
     {

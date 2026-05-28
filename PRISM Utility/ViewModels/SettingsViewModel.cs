@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
 
@@ -97,6 +98,18 @@ public partial class SettingsViewModel : ObservableRecipient
     public partial string Motor3LeadLengthMm { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string DeviceChannel1Role { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string DeviceChannel2Role { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string DeviceChannel3Role { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string DeviceChannel4Role { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial bool IsColorManagementEnabled { get; set; }
 
     [ObservableProperty]
@@ -126,6 +139,8 @@ public partial class SettingsViewModel : ObservableRecipient
         new("en-US", "Settings_Language_English".GetLocalized()),
         new("zh-CN", "Settings_Language_SimplifiedChinese".GetLocalized())
     ];
+
+    public ObservableCollection<string> ChannelRoleOptions { get; } = new() { "Red", "Green", "Blue", "White", "IR", "Unused" };
 
     public ICommand SwitchThemeCommand
     {
@@ -269,6 +284,18 @@ public partial class SettingsViewModel : ObservableRecipient
         => OnDeviceSettingsInputChanged();
 
     partial void OnMotor3LeadLengthMmChanged(string value)
+        => OnDeviceSettingsInputChanged();
+
+    partial void OnDeviceChannel1RoleChanged(string value)
+        => OnDeviceSettingsInputChanged();
+
+    partial void OnDeviceChannel2RoleChanged(string value)
+        => OnDeviceSettingsInputChanged();
+
+    partial void OnDeviceChannel3RoleChanged(string value)
+        => OnDeviceSettingsInputChanged();
+
+    partial void OnDeviceChannel4RoleChanged(string value)
         => OnDeviceSettingsInputChanged();
 
     partial void OnIsColorManagementEnabledChanged(bool value)
@@ -455,7 +482,14 @@ public partial class SettingsViewModel : ObservableRecipient
             value => Motor3StepsPerRevolution = value,
             value => Motor3Microsteps = value,
             value => Motor3LeadLengthMm = value);
+        DeviceChannel1Role = NormalizeChannelRoleSelection(normalized.Channel1Role, "Blue");
+        DeviceChannel2Role = NormalizeChannelRoleSelection(normalized.Channel2Role, "White");
+        DeviceChannel3Role = NormalizeChannelRoleSelection(normalized.Channel3Role, "Red");
+        DeviceChannel4Role = NormalizeChannelRoleSelection(normalized.Channel4Role, "Green");
     }
+
+    private string NormalizeChannelRoleSelection(string? role, string fallback)
+        => ChannelRoleOptions.FirstOrDefault(option => string.Equals(option, role, StringComparison.OrdinalIgnoreCase)) ?? fallback;
 
     private static void ApplyMotorSettings(ScanMotorMechanicalSettings settings, Action<string> setStepsPerRevolution, Action<string> setMicrosteps, Action<string> setLeadLengthMm)
     {
@@ -517,7 +551,14 @@ public partial class SettingsViewModel : ObservableRecipient
             return false;
         }
 
-        settings = new ScanDeviceSettings(motor1, motor2, motor3).Normalize();
+        settings = new ScanDeviceSettings(
+            motor1,
+            motor2,
+            motor3,
+            DeviceChannel1Role,
+            DeviceChannel2Role,
+            DeviceChannel3Role,
+            DeviceChannel4Role).Normalize();
         return true;
     }
 

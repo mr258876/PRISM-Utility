@@ -79,21 +79,19 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
             onStatus?.Invoke($"Auto black: detected mapping adc1={(channelMapping.IsAdc1Even ? "even" : "odd")}, adc2={(channelMapping.IsAdc1Even ? "odd" : "even")}.");
 
+            var coarseConverged = false;
             for (var iteration = 1; iteration <= MaxBlackIterations; iteration++)
             {
-                onStatus?.Invoke($"Auto black: iteration {iteration}/{MaxBlackIterations} sampling...");
+                onStatus?.Invoke($"Auto black coarse: iteration {iteration}/{MaxBlackIterations} sampling...");
                 await session.SetWarmUpEnabledAsync(true, ct);
                 await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
 
-                var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, roiSettings, $"Auto black iteration {iteration}", onStatus, onFrameCaptured, ct);
+                var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, roiSettings, $"Auto black coarse iteration {iteration}", onStatus, onFrameCaptured, ct);
                 await session.SetWarmUpEnabledAsync(false, ct);
 
-                var adc1Mean = channelMapping.IsAdc1Even ? stats.EvenMean : stats.OddMean;
-                var adc2Mean = channelMapping.IsAdc1Even ? stats.OddMean : stats.EvenMean;
-                var adc1ShieldMean = channelMapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean;
-                var adc2ShieldMean = channelMapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean;
+                var (adc1Mean, adc2Mean, adc1ShieldMean, adc2ShieldMean) = GetMappedBlackMeans(stats, channelMapping);
 
-                onStatus?.Invoke($"Auto black: mean={stats.EffectiveMean:0.0}, adc1={adc1Mean:0.0}, adc2={adc2Mean:0.0}, shield-delta={Math.Abs(adc1ShieldMean - adc2ShieldMean):0.0}, min={stats.MinColumnMean:0.0}, dark-ratio={stats.DarkPixelRatio:P3}");
+                onStatus?.Invoke($"Auto black coarse: adc1={adc1Mean:0.0}, adc2={adc2Mean:0.0}, shield1={adc1ShieldMean:0.0}, shield2={adc2ShieldMean:0.0}, offsets=({working.Adc1Offset},{working.Adc2Offset}), gains=({working.Adc1Gain},{working.Adc2Gain}), best={bestScore:0.0}");
 
                 var score = ComputeBlackScore(stats, channelMapping);
                 RecordAttempt(history, working, score);
@@ -110,10 +108,11 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                     return bestSnapshot;
                 }
 
-                if (IsBlackValid(stats, channelMapping))
+                if (IsBlackLevelValid(stats, channelMapping))
                 {
-                    onStatus?.Invoke($"Auto black: passed with offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}.");
-                    return working;
+                    onStatus?.Invoke($"Auto black coarse: black level reached with offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}; matching output signal gains...");
+                    coarseConverged = true;
+                    break;
                 }
 
                 var (nextAdc1Offset, nextAdc2Offset) = ComputeNextBlackOffsets(
@@ -144,9 +143,12 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
                 adc2State = adc2State.Remember(working.Adc2Offset, (adc2Mean * (1.0 - BlackShieldWeight)) + (adc2ShieldMean * BlackShieldWeight), nextAdc2Offset - working.Adc2Offset);
                 working = working with { Adc1Offset = nextAdc1Offset, Adc2Offset = nextAdc2Offset };
 
-                onStatus?.Invoke($"Auto black: applying offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}...");
+                onStatus?.Invoke($"Auto black coarse: applying offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}...");
                 await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
             }
+
+            if (coarseConverged)
+                return await MatchBlackOutputSignalGainsAsync(session, working, channelMapping, roiSettings, onStatus, onSnapshotApplied, onFrameCaptured, ct);
         }
         finally
         {
@@ -161,6 +163,70 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         }
 
         throw new IOException("Auto black failed to converge.");
+    }
+
+    private async Task<ScanParameterSnapshot> MatchBlackOutputSignalGainsAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanChannelMapping channelMapping, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var working = currentSnapshot with { Adc1Gain = 0, Adc2Gain = 0 };
+        await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
+
+        ScanParameterSnapshot? bestSnapshot = null;
+        var bestScore = double.MaxValue;
+        bool? referenceIsAdc1 = null;
+
+        for (var iteration = 1; iteration <= MaxChannelBalanceIterations; iteration++)
+        {
+            onStatus?.Invoke($"Auto black gain match: iteration {iteration}/{MaxChannelBalanceIterations} sampling...");
+            await session.SetWarmUpEnabledAsync(true, ct);
+            await WaitForWarmUpSettlingAsync(working.ExposureTicks, working.SysClockKhz, onStatus, ct);
+
+            var stats = await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, roiSettings, $"Auto black gain match iteration {iteration}", onStatus, onFrameCaptured, ct);
+            await session.SetWarmUpEnabledAsync(false, ct);
+
+            var (adc1Mean, adc2Mean, adc1ShieldMean, adc2ShieldMean) = GetMappedBlackMeans(stats, channelMapping);
+            var adc1DarkMean = ComputeWeightedBlackMean(adc1Mean, adc1ShieldMean);
+            var adc2DarkMean = ComputeWeightedBlackMean(adc2Mean, adc2ShieldMean);
+            referenceIsAdc1 ??= adc1DarkMean >= adc2DarkMean;
+            var isAdc1Reference = referenceIsAdc1.Value;
+            var referenceMean = isAdc1Reference ? adc1DarkMean : adc2DarkMean;
+            var adjustedMean = isAdc1Reference ? adc2DarkMean : adc1DarkMean;
+            var score = ComputeBlackGainMatchScore(stats, channelMapping);
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestSnapshot = working;
+            }
+
+            onStatus?.Invoke($"Auto black gain match: fixed reference={(isAdc1Reference ? "adc1" : "adc2")}, adjusted={(isAdc1Reference ? "adc2" : "adc1")}, adc1={adc1Mean:0.0}, adc2={adc2Mean:0.0}, shield1={adc1ShieldMean:0.0}, shield2={adc2ShieldMean:0.0}, gains=({working.Adc1Gain},{working.Adc2Gain}), delta={Math.Abs(adc1DarkMean - adc2DarkMean):0.0}, best={bestScore:0.0}.");
+
+            if (IsBlackValid(stats, channelMapping))
+            {
+                onStatus?.Invoke($"Auto black: passed with offsets adc1={working.Adc1Offset}, adc2={working.Adc2Offset}, gains adc1={working.Adc1Gain}, adc2={working.Adc2Gain}.");
+                return working;
+            }
+
+            var nextAdjustedGain = SelectNextBlackMatchGain(adjustedMean, referenceMean, isAdc1Reference ? working.Adc2Gain : working.Adc1Gain);
+            var next = isAdc1Reference
+                ? working with { Adc1Gain = 0, Adc2Gain = nextAdjustedGain }
+                : working with { Adc1Gain = nextAdjustedGain, Adc2Gain = 0 };
+
+            if (next.Adc1Gain == working.Adc1Gain && next.Adc2Gain == working.Adc2Gain)
+                break;
+
+            working = next;
+            onStatus?.Invoke($"Auto black gain match: applying gains adc1={working.Adc1Gain}, adc2={working.Adc2Gain}...");
+            await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
+        }
+
+        if (bestSnapshot is not null)
+        {
+            onStatus?.Invoke($"Auto black gain match: keeping best sampled gains adc1={bestSnapshot.Adc1Gain}, adc2={bestSnapshot.Adc2Gain}.");
+            await ApplyParametersForCalibrationAsync(session, bestSnapshot, onSnapshotApplied, ct);
+            return bestSnapshot;
+        }
+
+        throw new IOException("Auto black failed to match output signal gains.");
     }
 
     public async Task<ScanParameterSnapshot> AutoWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
@@ -583,14 +649,20 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
     private static bool IsBlackValid(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
     {
-        var adc1Mean = mapping.IsAdc1Even ? stats.EvenMean : stats.OddMean;
-        var adc2Mean = mapping.IsAdc1Even ? stats.OddMean : stats.EvenMean;
-        var adc1ShieldMean = mapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean;
-        var adc2ShieldMean = mapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean;
+        var (adc1Mean, adc2Mean, adc1ShieldMean, adc2ShieldMean) = GetMappedBlackMeans(stats, mapping);
         return Math.Abs(adc1Mean - TargetBlackLevel) <= BlackTolerance
            && Math.Abs(adc2Mean - TargetBlackLevel) <= BlackTolerance
            && Math.Abs(adc1Mean - adc2Mean) <= BlackChannelMatchTolerance
            && Math.Abs(adc1ShieldMean - adc2ShieldMean) <= BlackChannelMatchTolerance
+           && stats.MinColumnMean > DeadBlackThreshold
+           && stats.DarkPixelRatio < 0.01;
+    }
+
+    private static bool IsBlackLevelValid(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
+    {
+        var (adc1Mean, adc2Mean, _, _) = GetMappedBlackMeans(stats, mapping);
+        return Math.Abs(adc1Mean - TargetBlackLevel) <= BlackTolerance
+           && Math.Abs(adc2Mean - TargetBlackLevel) <= BlackTolerance
            && stats.MinColumnMean > DeadBlackThreshold
            && stats.DarkPixelRatio < 0.01;
     }
@@ -612,10 +684,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
     private static double ComputeBlackScore(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
     {
-        var adc1Mean = mapping.IsAdc1Even ? stats.EvenMean : stats.OddMean;
-        var adc2Mean = mapping.IsAdc1Even ? stats.OddMean : stats.EvenMean;
-        var adc1ShieldMean = mapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean;
-        var adc2ShieldMean = mapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean;
+        var (adc1Mean, adc2Mean, adc1ShieldMean, adc2ShieldMean) = GetMappedBlackMeans(stats, mapping);
         var score = Math.Abs(adc1Mean - TargetBlackLevel)
             + Math.Abs(adc2Mean - TargetBlackLevel)
             + (Math.Abs(adc1Mean - adc2Mean) * 2.0)
@@ -627,6 +696,17 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
             score += (stats.DarkPixelRatio - 0.01) * 200_000.0;
 
         return score;
+    }
+
+    private static double ComputeBlackGainMatchScore(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
+    {
+        var (adc1Mean, adc2Mean, adc1ShieldMean, adc2ShieldMean) = GetMappedBlackMeans(stats, mapping);
+        var adc1DarkMean = ComputeWeightedBlackMean(adc1Mean, adc1ShieldMean);
+        var adc2DarkMean = ComputeWeightedBlackMean(adc2Mean, adc2ShieldMean);
+        return Math.Abs(adc1DarkMean - adc2DarkMean) * 4.0
+            + Math.Abs(adc1Mean - TargetBlackLevel)
+            + Math.Abs(adc2Mean - TargetBlackLevel)
+            + Math.Abs(adc1ShieldMean - adc2ShieldMean) * 2.0;
     }
 
     private static double ComputeWhiteScore(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
@@ -647,6 +727,16 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         return score;
     }
+
+    private static (double adc1Mean, double adc2Mean, double adc1ShieldMean, double adc2ShieldMean) GetMappedBlackMeans(ScanCalibrationStatistics stats, ScanChannelMapping mapping)
+        => (
+            mapping.IsAdc1Even ? stats.EvenMean : stats.OddMean,
+            mapping.IsAdc1Even ? stats.OddMean : stats.EvenMean,
+            mapping.IsAdc1Even ? stats.ShieldEvenMean : stats.ShieldOddMean,
+            mapping.IsAdc1Even ? stats.ShieldOddMean : stats.ShieldEvenMean);
+
+    private static double ComputeWeightedBlackMean(double activeMean, double shieldMean)
+        => (activeMean * (1.0 - BlackShieldWeight)) + (shieldMean * BlackShieldWeight);
 
     private static int ComputeNextOffset(int currentOffset, double currentMean, ChannelOffsetState state)
     {
@@ -774,6 +864,28 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         bestGain = (ushort)Math.Clamp(currentGain + limitedDelta, 0, 63);
 
         return bestGain;
+    }
+
+    private static ushort SelectNextBlackMatchGain(double currentMean, double targetMean, ushort currentGain)
+    {
+        var currentScale = ComputeGainScale(currentGain);
+        var bestGain = currentGain;
+        var bestError = double.MaxValue;
+
+        for (ushort candidate = 0; candidate <= 63; candidate++)
+        {
+            var candidateScale = ComputeGainScale(candidate);
+            var predicted = currentMean * (candidateScale / currentScale);
+            var error = Math.Abs(predicted - targetMean);
+            if (error < bestError)
+            {
+                bestError = error;
+                bestGain = candidate;
+            }
+        }
+
+        var limitedDelta = LimitSignedStep(bestGain - currentGain, SelectGainStepLimit(targetMean - currentMean, 0.0));
+        return (ushort)Math.Clamp(currentGain + limitedDelta, 0, 63);
     }
 
     private static (ushort adc1Gain, ushort adc2Gain) SelectNextWhiteGains(

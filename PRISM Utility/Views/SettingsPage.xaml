@@ -9,6 +9,10 @@
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
+        <DataTemplate x:Key="ScanChannelRoleOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
+        </DataTemplate>
     </Page.Resources>
     <ScrollViewer
         VerticalScrollBarVisibility="Auto"
@@ -160,6 +164,31 @@
                     <TextBox Grid.Column="0" x:Uid="Settings_Motor3StepsPerRevolutionTextBox" Text="{x:Bind ViewModel.Motor3StepsPerRevolution, Mode=TwoWay}" />
                     <TextBox Grid.Column="1" x:Uid="Settings_Motor3MicrostepsTextBox" Text="{x:Bind ViewModel.Motor3Microsteps, Mode=TwoWay}" />
                     <TextBox Grid.Column="2" x:Uid="Settings_Motor3LeadLengthTextBox" Text="{x:Bind ViewModel.Motor3LeadLengthMm, Mode=TwoWay}" />
+                </Grid>
+
+                <TextBlock
+                    x:Uid="Settings_DeviceSettingsChannels"
+                    Margin="{StaticResource SmallTopMargin}"
+                    Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                <TextBlock
+                    x:Uid="Settings_DeviceSettingsChannelsDescription"
+                    Margin="{StaticResource XSmallTopMargin}"
+                    Opacity="0.8"
+                    TextWrapping="WrapWholeWords" />
+                <Grid Margin="{StaticResource XSmallTopMargin}" ColumnSpacing="8" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <ComboBox Grid.Row="0" Grid.Column="0" x:Uid="Settings_Channel1RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel1Role, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="Settings_Channel2RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel2Role, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="1" Grid.Column="0" x:Uid="Settings_Channel3RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel3Role, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="Settings_Channel4RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel4Role, Mode=TwoWay}" />
                 </Grid>
                 <Button
                     x:Uid="Settings_RestoreDeviceSettingsDefaultsButton"

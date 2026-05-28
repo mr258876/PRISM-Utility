@@ -65,10 +65,17 @@ public sealed record ScanFilmAcquisitionSettings(
         => string.IsNullOrWhiteSpace(channelColor) ? fallback : channelColor.Trim();
 }
 
+public sealed record ScanFilmScanRecipeSettings(
+    ScanChannelAssignment? ChannelAssignment = null,
+    ScanColorManagementOptions? ColorManagement = null,
+    ScanChannelAlignmentMode? AlignmentMode = null,
+    ScanDngExportMode? DngExportMode = null);
+
 public sealed record ScanFilmParameterProfileSet(
     int SchemaVersion,
     string ProfileName,
     DateTimeOffset SavedAtUtc,
     Dictionary<string, ScanChannelCalibrationProfile> ChannelProfiles,
     string? SelectedCalibrationChannel,
-    ScanFilmAcquisitionSettings? AcquisitionSettings = null);
+    ScanFilmAcquisitionSettings? AcquisitionSettings = null,
+    ScanFilmScanRecipeSettings? ScanRecipeSettings = null);
