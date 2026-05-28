@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:xaml="using:Microsoft.UI.Xaml"
     xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:helpers="using:PRISM_Utility.Helpers"
     mc:Ignorable="d">
     <Page.Resources>
@@ -31,6 +32,17 @@
         <DataTemplate x:Key="ScanAlignmentModeOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=AlignmentMode}" />
         </DataTemplate>
+        <Style x:Key="ScanDebugSectionCardStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style x:Key="ScanDebugQuietTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.68" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
     </Page.Resources>
     <Grid
         Margin="{StaticResource SmallLeftRightMargin}"
@@ -43,20 +55,79 @@
         <Border
             Grid.Row="0"
             Margin="{StaticResource SmallTopBottomMargin}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            Padding="12">
-            <StackPanel Spacing="8">
-                <TextBlock
-                    Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                    Style="{ThemeResource BodyStrongTextBlockStyle}"
-                    TextWrapping="WrapWholeWords" />
-                <ProgressBar
-                    IsIndeterminate="False"
-                    Maximum="{x:Bind ViewModel.ScanReadProgressMaximum, Mode=OneWay}"
-                    Value="{x:Bind ViewModel.ScanReadProgressValue, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.ScanReadProgressVisibility, Mode=OneWay}" />
-            </StackPanel>
+            Style="{StaticResource ScanDebugSectionCardStyle}">
+            <Grid ColumnSpacing="16" RowSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Spacing="6">
+                    <TextBlock x:Uid="ScanDebug_WorkstationTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" x:Uid="ScanDebug_DeviceStatusLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                        <Button
+                            Grid.Column="2"
+                            x:Uid="ScanDebug_WorkstationDetailsIconButton"
+                            MinWidth="32"
+                            MinHeight="32"
+                            Padding="6">
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="16" Glyph="&#xE946;" />
+                            <Button.Flyout>
+                                <Flyout>
+                                    <StackPanel MaxWidth="520" Spacing="8">
+                                        <TextBlock x:Uid="ScanDebug_PageRoleDescription" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                        <TextBlock x:Uid="ScanDebug_UsbConflictGuidance" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+
+                <Grid Grid.Column="1" HorizontalAlignment="Stretch" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <controls:WrapPanel
+                        Grid.Row="0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        HorizontalSpacing="8"
+                        VerticalSpacing="8">
+                        <Button MinWidth="104" x:Uid="ScanDebug_ConnectButton" Command="{x:Bind ViewModel.ConnectDevicesCommand}" />
+                        <Button MinWidth="104" x:Uid="ScanDebug_DisconnectButton" Command="{x:Bind ViewModel.DisconnectDevicesCommand}" />
+                    </controls:WrapPanel>
+                    <controls:WrapPanel
+                        Grid.Row="1"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        HorizontalSpacing="8"
+                        VerticalSpacing="8">
+                        <Button MinWidth="104" x:Uid="ScanDebug_StartButton" Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.StartScanCommand}" />
+                        <Button MinWidth="88" x:Uid="ScanDebug_StopButton" Command="{x:Bind ViewModel.StopScanCommand}" />
+                        <Button MinWidth="104" x:Uid="ScanDebug_ExportDngButton" Command="{x:Bind ViewModel.ExportDngCommand}" />
+                    </controls:WrapPanel>
+                    <ProgressBar
+                        Grid.Row="2"
+                        HorizontalAlignment="Stretch"
+                        IsIndeterminate="False"
+                        Maximum="{x:Bind ViewModel.ScanReadProgressMaximum, Mode=OneWay}"
+                        Value="{x:Bind ViewModel.ScanReadProgressValue, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.ScanReadProgressVisibility, Mode=OneWay}" />
+                </Grid>
+            </Grid>
         </Border>
 
         <Grid
@@ -70,17 +141,18 @@
 
             <Border
                 Grid.Column="0"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Padding="12">
+                Style="{StaticResource ScanDebugSectionCardStyle}">
                 <ScrollViewer
                     VerticalScrollBarVisibility="Auto"
                     VerticalScrollMode="Auto"
                     HorizontalScrollBarVisibility="Disabled"
                     HorizontalScrollMode="Disabled">
-                    <StackPanel Spacing="16">
+                    <StackPanel Spacing="12">
+                        <Border Style="{StaticResource ScanDebugSectionCardStyle}">
                         <StackPanel Spacing="8">
                             <TextBlock x:Uid="ScanDebug_AcquisitionTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Uid="ScanDebug_BasicAcquisitionTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Uid="ScanDebug_BasicAcquisitionScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                             <Grid ColumnSpacing="8" RowSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -100,13 +172,8 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_ConnectButton" Command="{x:Bind ViewModel.ConnectDevicesCommand}" />
-                                <Button Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_DisconnectButton" Command="{x:Bind ViewModel.DisconnectDevicesCommand}" />
-                                <Button Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_StartButton" Command="{x:Bind ViewModel.StartScanCommand}" />
-                                <Button Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_StopButton" Command="{x:Bind ViewModel.StopScanCommand}" />
-                                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" x:Uid="ScanDebug_ExportDngButton" Command="{x:Bind ViewModel.ExportDngCommand}" />
                                 <ComboBox
-                                    Grid.Row="3"
+                                    Grid.Row="0"
                                     Grid.Column="0"
                                     x:Uid="ScanDebug_RowsComboBox"
                                     IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
@@ -114,7 +181,7 @@
                                     ItemsSource="{x:Bind ViewModel.RowOptions, Mode=OneWay}"
                                     SelectedItem="{x:Bind ViewModel.SelectedRows, Mode=TwoWay}" />
                                 <ComboBox
-                                    Grid.Row="3"
+                                    Grid.Row="0"
                                     Grid.Column="1"
                                     x:Uid="Scan_ScanMotorComboBox"
                                     IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
@@ -122,7 +189,7 @@
                                     ItemTemplate="{StaticResource ScanMotorOptionTemplate}"
                                     SelectedItem="{x:Bind ViewModel.SelectedScanMotor, Mode=TwoWay}" />
                                 <Grid
-                                    Grid.Row="4"
+                                    Grid.Row="1"
                                     Grid.Column="0"
                                     ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
@@ -142,25 +209,25 @@
                                         SelectedItem="{x:Bind ViewModel.MotorDistancePerLineUnit, Mode=TwoWay}" />
                                 </Grid>
                                 <ToggleSwitch
-                                    Grid.Row="4"
+                                    Grid.Row="1"
                                     Grid.Column="1"
                                     x:Uid="ScanDebug_WarmUpToggleSwitch"
                                     IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsWarmUpEnabled, Mode=TwoWay}" />
                                 <ToggleSwitch
-                                    Grid.Row="5"
+                                    Grid.Row="2"
                                     Grid.Column="0"
                                     x:Uid="ScanDebug_PreviewToggleSwitch"
                                     IsEnabled="{x:Bind ViewModel.IsPreviewToggleEnabled, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}" />
                                 <ToggleSwitch
-                                    Grid.Row="5"
+                                    Grid.Row="2"
                                     Grid.Column="1"
                                     x:Uid="Scan_AlternateDirectionToggleSwitch"
                                     IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsAlternateMotorDirectionEnabled, Mode=TwoWay}" />
                                 <ComboBox
-                                    Grid.Row="6"
+                                    Grid.Row="3"
                                     Grid.Column="0"
                                     Grid.ColumnSpan="2"
                                     x:Uid="Scan_StartingDirectionComboBox"
@@ -169,46 +236,69 @@
                                     ItemTemplate="{StaticResource ScanDirectionOptionTemplate}"
                                     SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
                                 <TextBlock
-                                    Grid.Row="7"
+                                    Grid.Row="4"
                                     Grid.Column="0"
                                     Grid.ColumnSpan="2"
                                     Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}"
                                     Opacity="0.8"
                                     TextWrapping="WrapWholeWords" />
-                                <ToggleSwitch
-                                    Grid.Row="8"
-                                    Grid.Column="0"
-                                    x:Uid="ScanDebug_ContinuousToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsContinuousScanEnabled, Mode=TwoWay}" />
-                                <ToggleSwitch
-                                    Grid.Row="8"
-                                    Grid.Column="1"
-                                    x:Uid="ScanDebug_WaterfallToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}" />
-                                <ToggleSwitch
-                                    Grid.Row="9"
-                                    Grid.Column="0"
-                                    x:Uid="ScanDebug_MultiChannelToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsMultiChannelScanEnabled, Mode=TwoWay}" />
-                                <ToggleSwitch
-                                    Grid.Row="9"
-                                    Grid.Column="1"
-                                    x:Uid="ScanDebug_ScanMotorTransportToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsScanMotorTransportEnabled, Mode=TwoWay}" />
-                                <ToggleSwitch
-                                    Grid.Row="10"
-                                    Grid.Column="0"
-                                    Grid.ColumnSpan="2"
-                                    x:Uid="ScanDebug_ScanLedAutoControlToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsScanLedAutoControlEnabled, Mode=TwoWay}" />
                             </Grid>
-                        </StackPanel>
 
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Uid="ScanDebug_AdvancedDebugSwitchesTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Uid="ScanDebug_AdvancedDebugSwitchesScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                <Grid ColumnSpacing="8" RowSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ToggleSwitch
+                                        Grid.Row="0"
+                                        Grid.Column="0"
+                                        x:Uid="ScanDebug_ContinuousToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsContinuousScanEnabled, Mode=TwoWay}" />
+                                    <ToggleSwitch
+                                        Grid.Row="0"
+                                        Grid.Column="1"
+                                        x:Uid="ScanDebug_WaterfallToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}" />
+                                    <ToggleSwitch
+                                        Grid.Row="1"
+                                        Grid.Column="0"
+                                        x:Uid="ScanDebug_MultiChannelToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsMultiChannelScanEnabled, Mode=TwoWay}" />
+                                    <ToggleSwitch
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        x:Uid="ScanDebug_ScanMotorTransportToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsScanMotorTransportEnabled, Mode=TwoWay}" />
+                                    <ToggleSwitch
+                                        Grid.Row="2"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="2"
+                                        x:Uid="ScanDebug_ScanLedAutoControlToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsScanLedAutoControlEnabled, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Uid="ScanDebug_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Uid="ScanDebug_OutputScopeText" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                            </StackPanel>
+                        </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource ScanDebugSectionCardStyle}">
                         <StackPanel Spacing="8">
                             <TextBlock x:Uid="ScanDebug_ParamsTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
                             <TextBlock x:Uid="ScanDebug_ExposureFormulaNote" Opacity="0.8" TextWrapping="WrapWholeWords" />
@@ -262,6 +352,7 @@
                             <StackPanel Spacing="8">
                                 <TextBlock x:Uid="ScanDebug_ProfileRecipeTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                 <TextBlock x:Uid="ScanDebug_ProfileRecipeHelpText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                <TextBlock x:Uid="ScanDebug_ProfileConfigScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <Grid ColumnSpacing="8" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -405,12 +496,41 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_ApplyParamsButton" Command="{x:Bind ViewModel.ApplyParametersCommand}" />
-                                <Button Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_AutoBlackButton" Command="{x:Bind ViewModel.AutoBlackAdjustCommand}" />
-                                <Button Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_AutoWhiteButton" Command="{x:Bind ViewModel.AutoWhiteAdjustCommand}" />
-                                <Button Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_AutoCalibrateButton" Command="{x:Bind ViewModel.AutoCalibrateCommand}" />
+                                <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" x:Uid="ScanDebug_ApplyParamsButton" Command="{x:Bind ViewModel.ApplyParametersCommand}" />
                             </Grid>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Uid="ScanDebug_CalibrationTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Uid="ScanDebug_CalibrationDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                <Grid ColumnSpacing="8" RowSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_AutoBlackButton" Command="{x:Bind ViewModel.AutoBlackAdjustCommand}" />
+                                    <Button Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_AutoWhiteButton" Command="{x:Bind ViewModel.AutoWhiteAdjustCommand}" />
+                                    <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Uid="ScanDebug_AutoCalibrateButton" Command="{x:Bind ViewModel.AutoCalibrateCommand}" />
+                                </Grid>
+                                <ToggleSwitch
+                                    x:Uid="ScanDebug_ColumnSampleEditToggleSwitch"
+                                    IsEnabled="{x:Bind ViewModel.CanEditColumnSampleSelection, Mode=OneWay}"
+                                    IsOn="{x:Bind ViewModel.IsColumnSampleEditModeEnabled, Mode=TwoWay}" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" x:Uid="ScanDebug_SaveColumnBlackLevelButton" Command="{x:Bind ViewModel.SaveColumnSampleAsBlackLevelCommand}" />
+                                    <Button Grid.Column="1" x:Uid="ScanDebug_SaveColumnWhiteLevelButton" Command="{x:Bind ViewModel.SaveColumnSampleAsWhiteLevelCommand}" />
+                                </Grid>
+                                <TextBlock Text="{x:Bind ViewModel.ColumnSampleStatusText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                            </StackPanel>
                         </StackPanel>
+                        </Border>
 
                         <Expander IsExpanded="False">
                             <Expander.Header>
@@ -669,164 +789,192 @@
 
             <Border
                 Grid.Column="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Padding="12">
+                Style="{StaticResource ScanDebugSectionCardStyle}">
                 <Grid RowSpacing="12">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-                    <Expander Grid.Row="1" IsExpanded="True">
-                        <Expander.Header>
-                            <TextBlock x:Uid="ScanDebug_OverlayToolsHeader" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        </Expander.Header>
-                        <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <ToggleSwitch
-                                    Grid.Column="0"
-                                    x:Uid="ScanDebug_RoiEditToggleSwitch"
-                                    IsEnabled="{x:Bind ViewModel.CanEditRoiSelection, Mode=OneWay}"
-                                    IsOn="{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}" />
-                                <ComboBox
-                                    Grid.Column="1"
-                                    x:Uid="ScanDebug_RoiTargetComboBox"
-                                    ItemsSource="{x:Bind ViewModel.RoiSelectionOptions, Mode=OneWay}"
-                                    ItemTemplate="{StaticResource ScanRoiSelectionOptionTemplate}"
-                                    SelectedItem="{x:Bind ViewModel.SelectedRoiSelection, Mode=TwoWay}" />
-                            </Grid>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" x:Uid="ScanDebug_ResetSelectedRoiButton" Command="{x:Bind ViewModel.ResetSelectedRoiCommand}" />
-                                <Button Grid.Column="1" x:Uid="ScanDebug_ResetAllRoisButton" Command="{x:Bind ViewModel.ResetAllRoisCommand}" />
-                            </Grid>
-                            <TextBlock x:Uid="ScanDebug_VisibleOverlaysText" Opacity="0.8" />
-                            <Grid ColumnSpacing="12" RowSpacing="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <CheckBox Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_BwActiveOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsBwActiveRoiOverlayVisible, Mode=TwoWay}" />
-                                <CheckBox Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_BwShieldOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsBwShieldRoiOverlayVisible, Mode=TwoWay}" />
-                                <CheckBox Grid.Row="0" Grid.Column="2" x:Uid="ScanDebug_FocusOverallOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusOverallRoiOverlayVisible, Mode=TwoWay}" />
-                                <CheckBox Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_FocusLeftOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusLeftRoiOverlayVisible, Mode=TwoWay}" />
-                                <CheckBox Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_FocusRightOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusRightRoiOverlayVisible, Mode=TwoWay}" />
-                            </Grid>
-                            <TextBlock Text="{x:Bind ViewModel.RoiStatusText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                            <Grid ColumnSpacing="8" RowSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120" />
-                                    <ColumnDefinition Width="120" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" x:Uid="ScanDebug_RoiStartTextBox" Text="{x:Bind ViewModel.RoiStartInput, Mode=TwoWay}" />
-                                <TextBox Grid.Column="1" x:Uid="ScanDebug_RoiEndTextBox" Text="{x:Bind ViewModel.RoiEndInput, Mode=TwoWay}" />
-                                <Button Grid.Column="2" x:Uid="ScanDebug_ApplyRoiButton" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.ApplySelectedRoiInputsCommand}" />
-                            </Grid>
-                            <TextBlock Text="{x:Bind ViewModel.RoiInputStatusText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                    <Grid Grid.Row="0" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock x:Uid="ScanDebug_Preview" Style="{ThemeResource SubtitleTextBlockStyle}" />
                         </StackPanel>
-                    </Expander>
-
-                    <StackPanel Grid.Row="2" Spacing="8">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ToggleSwitch
-                                Grid.Column="0"
-                                x:Uid="ScanDebug_GammaCorrectionToggleSwitch"
-                                IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}" />
-                            <ToggleSwitch
-                                Grid.Column="1"
-                                x:Uid="ScanDebug_WaterfallCompressionToggleSwitch"
-                                IsEnabled="{x:Bind ViewModel.IsWaterfallEnabled, Mode=OneWay}"
-                                IsOn="{x:Bind ViewModel.IsWaterfallCompressedEnabled, Mode=TwoWay}" />
-                            <TextBox
-                                Grid.Column="2"
-                                x:Uid="ScanDebug_GammaTextBox"
+                        <controls:WrapPanel
+                            Grid.Column="1"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            HorizontalSpacing="8"
+                            VerticalSpacing="8">
+                            <Button Content="-" Click="ZoomOutButton_Click" />
+                            <Button Content="+" Click="ZoomInButton_Click" />
+                            <ComboBox
+                                x:Name="ZoomScaleComboBox"
                                 Width="120"
-                                IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
-                                Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}" />
-                        </Grid>
-                        <ToggleSwitch
-                            Header="Use saved white level in preview"
-                            IsOn="{x:Bind ViewModel.IsWhiteLevelPreviewEnabled, Mode=TwoWay}" />
-                        <ToggleSwitch
-                            Header="Edit column sample selection"
-                            IsEnabled="{x:Bind ViewModel.CanEditColumnSampleSelection, Mode=OneWay}"
-                            IsOn="{x:Bind ViewModel.IsColumnSampleEditModeEnabled, Mode=TwoWay}" />
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Content="Save columns as black level" Command="{x:Bind ViewModel.SaveColumnSampleAsBlackLevelCommand}" />
-                            <Button Grid.Column="1" Content="Save columns as white level" Command="{x:Bind ViewModel.SaveColumnSampleAsWhiteLevelCommand}" />
-                        </Grid>
-                        <TextBlock Text="{x:Bind ViewModel.ColumnSampleStatusText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                    </StackPanel>
+                                SelectionChanged="ZoomScaleComboBox_SelectionChanged" />
+                            <Button x:Uid="ScanDebug_PreviewDisplayToolsButton">
+                                <Button.Flyout>
+                                    <Flyout>
+                                        <ScrollViewer MaxHeight="520" MinWidth="760" MaxWidth="1040">
+                                            <StackPanel MinWidth="760" Spacing="8">
+                                                <TextBlock x:Uid="ScanDebug_PreviewDisplayToolsDescription" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                                <Grid ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ToggleSwitch
+                                                        Grid.Column="0"
+                                                        x:Uid="ScanDebug_GammaCorrectionToggleSwitch"
+                                                        IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}" />
+                                                    <ToggleSwitch
+                                                        Grid.Column="1"
+                                                        x:Uid="ScanDebug_WaterfallCompressionToggleSwitch"
+                                                        IsEnabled="{x:Bind ViewModel.IsWaterfallEnabled, Mode=OneWay}"
+                                                        IsOn="{x:Bind ViewModel.IsWaterfallCompressedEnabled, Mode=TwoWay}" />
+                                                    <TextBox
+                                                        Grid.Column="2"
+                                                        x:Uid="ScanDebug_GammaTextBox"
+                                                        Width="120"
+                                                        IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
+                                                        Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}" />
+                                                </Grid>
+                                                <ToggleSwitch
+                                                    x:Uid="ScanDebug_WhiteLevelPreviewToggleSwitch"
+                                                    IsOn="{x:Bind ViewModel.IsWhiteLevelPreviewEnabled, Mode=TwoWay}" />
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button x:Uid="ScanDebug_OverlayToolsButton">
+                                <Button.Flyout>
+                                    <Flyout>
+                                        <ScrollViewer MaxHeight="620" MinWidth="860" MaxWidth="1120">
+                                            <StackPanel MinWidth="860" Spacing="8">
+                                                <TextBlock x:Uid="ScanDebug_RoiScopeDescription" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                                <Grid ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="3*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ToggleSwitch
+                                                        Grid.Column="0"
+                                                        x:Uid="ScanDebug_RoiEditToggleSwitch"
+                                                        IsEnabled="{x:Bind ViewModel.CanEditRoiSelection, Mode=OneWay}"
+                                                        IsOn="{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}" />
+                                                    <ComboBox
+                                                        Grid.Column="1"
+                                                        x:Uid="ScanDebug_RoiTargetComboBox"
+                                                        MinWidth="220"
+                                                        ItemsSource="{x:Bind ViewModel.RoiSelectionOptions, Mode=OneWay}"
+                                                        ItemTemplate="{StaticResource ScanRoiSelectionOptionTemplate}"
+                                                        SelectedItem="{x:Bind ViewModel.SelectedRoiSelection, Mode=TwoWay}" />
+                                                </Grid>
+                                                <Grid ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button Grid.Column="0" x:Uid="ScanDebug_ResetSelectedRoiButton" Command="{x:Bind ViewModel.ResetSelectedRoiCommand}" />
+                                                    <Button Grid.Column="1" x:Uid="ScanDebug_ResetAllRoisButton" Command="{x:Bind ViewModel.ResetAllRoisCommand}" />
+                                                </Grid>
+                                                <TextBlock x:Uid="ScanDebug_RoiActionScopeText" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                                <TextBlock x:Uid="ScanDebug_VisibleOverlaysText" Opacity="0.8" />
+                                                <Grid ColumnSpacing="12" RowSpacing="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_BwActiveOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsBwActiveRoiOverlayVisible, Mode=TwoWay}" />
+                                                    <CheckBox Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_BwShieldOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsBwShieldRoiOverlayVisible, Mode=TwoWay}" />
+                                                    <CheckBox Grid.Row="0" Grid.Column="2" x:Uid="ScanDebug_FocusOverallOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusOverallRoiOverlayVisible, Mode=TwoWay}" />
+                                                    <CheckBox Grid.Row="0" Grid.Column="3" x:Uid="ScanDebug_FocusLeftOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusLeftRoiOverlayVisible, Mode=TwoWay}" />
+                                                    <CheckBox Grid.Row="0" Grid.Column="4" x:Uid="ScanDebug_FocusRightOverlayCheckBox" IsChecked="{x:Bind ViewModel.IsFocusRightRoiOverlayVisible, Mode=TwoWay}" />
+                                                </Grid>
+                                                <TextBlock Text="{x:Bind ViewModel.RoiStatusText, Mode=OneWay}" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                                <Grid ColumnSpacing="8" RowSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0" x:Uid="ScanDebug_RoiStartTextBox" Text="{x:Bind ViewModel.RoiStartInput, Mode=TwoWay}" />
+                                                    <TextBox Grid.Column="1" x:Uid="ScanDebug_RoiEndTextBox" Text="{x:Bind ViewModel.RoiEndInput, Mode=TwoWay}" />
+                                                    <Button Grid.Column="2" x:Uid="ScanDebug_ApplyRoiButton" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.ApplySelectedRoiInputsCommand}" />
+                                                </Grid>
+                                                <TextBlock Text="{x:Bind ViewModel.RoiInputStatusText, Mode=OneWay}" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </controls:WrapPanel>
+                    </Grid>
 
                     <Border
-                        Grid.Row="3"
+                        Grid.Row="1"
                         MinHeight="360"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         Padding="8">
-                        <ScrollViewer
-                            x:Name="PreviewScrollViewer"
-                            HorizontalScrollBarVisibility="Auto"
-                            VerticalScrollBarVisibility="Auto"
-                            HorizontalScrollMode="Enabled"
-                            VerticalScrollMode="Enabled"
-                            ZoomMode="Enabled"
-                            MinZoomFactor="0.1"
-                            MaxZoomFactor="20"
-                            SizeChanged="PreviewScrollViewer_SizeChanged"
-                            ViewChanged="PreviewScrollViewer_ViewChanged"
-                            PointerPressed="PreviewScrollViewer_PointerPressed"
-                            PointerMoved="PreviewScrollViewer_PointerMoved"
-                            PointerReleased="PreviewScrollViewer_PointerReleased"
-                            PointerCanceled="PreviewScrollViewer_PointerCanceled"
-                            PointerWheelChanged="PreviewScrollViewer_PointerWheelChanged">
-                            <Canvas x:Name="PreviewCanvas">
-                                <canvas:CanvasControl
-                                    x:Name="PreviewCanvasControl"
-                                    ClearColor="Transparent"
-                                    CreateResources="PreviewCanvasControl_CreateResources"
-                                    Draw="PreviewCanvasControl_Draw"
-                                    PointerPressed="PreviewCanvasControl_PointerPressed"
-                                    PointerMoved="PreviewCanvasControl_PointerMoved"
-                                    PointerReleased="PreviewCanvasControl_PointerReleased"
-                                    PointerCanceled="PreviewCanvasControl_PointerCanceled"
-                                    PointerExited="PreviewCanvasControl_PointerExited" />
-                                <Canvas x:Name="RoiCanvas" IsHitTestVisible="False" />
-                                <Canvas x:Name="AxisCanvas" IsHitTestVisible="False" />
-                            </Canvas>
-                        </ScrollViewer>
+                        <Grid>
+                            <ScrollViewer
+                                x:Name="PreviewScrollViewer"
+                                HorizontalScrollBarVisibility="Auto"
+                                VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollMode="Enabled"
+                                VerticalScrollMode="Enabled"
+                                ZoomMode="Enabled"
+                                MinZoomFactor="0.1"
+                                MaxZoomFactor="20"
+                                SizeChanged="PreviewScrollViewer_SizeChanged"
+                                ViewChanged="PreviewScrollViewer_ViewChanged"
+                                PointerPressed="PreviewScrollViewer_PointerPressed"
+                                PointerMoved="PreviewScrollViewer_PointerMoved"
+                                PointerReleased="PreviewScrollViewer_PointerReleased"
+                                PointerCanceled="PreviewScrollViewer_PointerCanceled"
+                                PointerWheelChanged="PreviewScrollViewer_PointerWheelChanged">
+                                <Canvas x:Name="PreviewCanvas">
+                                    <canvas:CanvasControl
+                                        x:Name="PreviewCanvasControl"
+                                        ClearColor="Transparent"
+                                        CreateResources="PreviewCanvasControl_CreateResources"
+                                        Draw="PreviewCanvasControl_Draw"
+                                        PointerPressed="PreviewCanvasControl_PointerPressed"
+                                        PointerMoved="PreviewCanvasControl_PointerMoved"
+                                        PointerReleased="PreviewCanvasControl_PointerReleased"
+                                        PointerCanceled="PreviewCanvasControl_PointerCanceled"
+                                        PointerExited="PreviewCanvasControl_PointerExited" />
+                                    <Canvas x:Name="RoiCanvas" IsHitTestVisible="False" />
+                                    <Canvas x:Name="AxisCanvas" IsHitTestVisible="False" />
+                                </Canvas>
+                            </ScrollViewer>
+                            <Grid
+                                x:Name="PreviewEmptyStateGrid"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                IsHitTestVisible="False">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                    <TextBlock x:Uid="ScanDebug_PreviewEmptyTitle" HorizontalAlignment="Center" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock x:Uid="ScanDebug_PreviewEmptyDescription" HorizontalAlignment="Center" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
                     </Border>
 
-                    <Grid Grid.Row="4" ColumnSpacing="12">
+                    <Grid Grid.Row="2" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -834,14 +982,6 @@
                         <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock x:Name="CursorPositionTextBlock" />
                                     <TextBlock x:Name="CursorIntensityTextBlock" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <Button Content="-" Click="ZoomOutButton_Click" />
-                            <Button Content="+" Click="ZoomInButton_Click" />
-                            <ComboBox
-                                x:Name="ZoomScaleComboBox"
-                                Width="120"
-                                SelectionChanged="ZoomScaleComboBox_SelectionChanged" />
                         </StackPanel>
                     </Grid>
                 </Grid>

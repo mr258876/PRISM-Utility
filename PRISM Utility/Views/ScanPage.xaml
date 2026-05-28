@@ -50,6 +50,8 @@
         </controls:WrapPanel>
 
         <StackPanel Grid.Row="1" Spacing="6">
+            <TextBlock x:Uid="Scan_PageRoleDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
+            <TextBlock x:Uid="Scan_UsbConflictGuidance" Opacity="0.8" TextWrapping="WrapWholeWords" />
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
             <ProgressBar
                 IsIndeterminate="True"
@@ -87,6 +89,7 @@
                             </Expander.Header>
                             <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                 <TextBlock x:Uid="Scan_SetupTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Uid="Scan_SetupScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <Grid ColumnSpacing="8" RowSpacing="8">
                                      <Grid.ColumnDefinitions>
                                          <ColumnDefinition Width="*" />
@@ -199,7 +202,8 @@
                                   <TextBlock x:Uid="Scan_AdvancedColorManagementSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
                              <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                 <TextBlock x:Uid="Scan_ColorManagementDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                  <TextBlock x:Uid="Scan_ColorSourceText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                                  <TextBlock x:Uid="Scan_ColorManagementDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <ToggleSwitch x:Uid="Scan_ColorManagementToggleSwitch" IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
                                 <Grid ColumnSpacing="8" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
@@ -224,7 +228,8 @@
                                  <TextBlock x:Uid="Scan_OutputSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
                              <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                 <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                  <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                  <TextBlock x:Uid="Scan_OutputScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <ComboBox
                                      x:Uid="Scan_DngExportModeComboBox"
                                      HorizontalAlignment="Stretch"
@@ -236,7 +241,8 @@
                                      x:Uid="Scan_DngExportModeUnavailableText"
                                      Opacity="0.8"
                                      TextWrapping="WrapWholeWords"
-                                     Visibility="{x:Bind ViewModel.IsSingleFileDngExportForced, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                      Visibility="{x:Bind ViewModel.IsSingleFileDngExportForced, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                  <TextBlock x:Uid="Scan_DngGeometryRelationText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <Grid ColumnSpacing="8" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />

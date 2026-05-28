@@ -204,6 +204,7 @@ public sealed partial class ScanDebugPage : Page
 
     private void RefreshPreviewLayout()
     {
+        UpdatePreviewEmptyStateVisibility();
         var frame = ViewModel.PreviewFrame;
         if (frame is null || frame.Width <= 0 || frame.Height <= 0)
         {
@@ -250,6 +251,14 @@ public sealed partial class ScanDebugPage : Page
 
         if (_pendingInitialFitZoom)
             _ = DispatcherQueue.TryEnqueue(ApplyInitialFitZoom);
+    }
+
+    private void UpdatePreviewEmptyStateVisibility()
+    {
+        var hasPreviewFrame = ViewModel.PreviewFrame is { Width: > 0, Height: > 0 };
+        PreviewEmptyStateGrid.Visibility = hasPreviewFrame
+            ? Microsoft.UI.Xaml.Visibility.Collapsed
+            : Microsoft.UI.Xaml.Visibility.Visible;
     }
 
     private void PreviewScrollViewer_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)

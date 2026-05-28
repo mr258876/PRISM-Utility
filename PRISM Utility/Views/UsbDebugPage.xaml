@@ -19,6 +19,11 @@
         <StackPanel
             x:Name="ContentArea"
             Margin="{StaticResource SmallLeftRightMargin}">
+            <TextBlock
+                x:Uid="UsbDebug_UsageConflictGuidance"
+                Margin="{StaticResource SmallTopBottomMargin}"
+                Opacity="0.8"
+                TextWrapping="WrapWholeWords" />
             <controls:WrapPanel
                 x:Name="TransferFlowPanel"
                 Orientation="Horizontal"

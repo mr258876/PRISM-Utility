@@ -175,14 +175,14 @@
   <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve"><value>在扫描图像端点上排队多个并发读取，以减少主机端 Bulk IN 完成之间的间隙，并支持超过单次请求 2 MiB 限制的大尺寸扫描。</value></data>
   <data name="Settings_DebugConsoleMirrorToggleSwitch.Header" xml:space="preserve"><value>将程序输出镜像到调试控制台</value></data>
   <data name="Settings_DebugFileLogToggleSwitch.Header" xml:space="preserve"><value>将程序输出镜像到本地日志文件</value></data>
-  <data name="Settings_ColorManagement.Text" xml:space="preserve"><value>色彩管理</value></data>
-  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>对 RGB 预览和 PNG 输出使用光谱波长映射</value></data>
+  <data name="Settings_ColorManagement.Text" xml:space="preserve"><value>默认色彩管理</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>将光谱波长映射作为 RGB 预览和 PNG 输出的全局默认值</value></data>
   <data name="Settings_RedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
   <data name="Settings_GreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
   <data name="Settings_BlueWavelengthTextBox.Header" xml:space="preserve"><value>蓝色波长 (nm)</value></data>
   <data name="Settings_OutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
-  <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve"><value>恢复颜色默认值</value></data>
-  <data name="Settings_ColorManagementDescription.Text" xml:space="preserve"><value>这些设置由 RGB 合成预览和保存的 PNG 输出共用。原始通道导出不受影响。</value></data>
+  <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve"><value>恢复全局颜色默认值</value></data>
+  <data name="Settings_ColorManagementDescription.Text" xml:space="preserve"><value>这些是新建或重置扫描配置时使用的全局默认值。已加载扫描配置拥有当前扫描实际使用的色彩参数；当前配置值优先于这些默认值。</value></data>
   <data name="Settings_About.Text" xml:space="preserve"><value>关于本应用</value></data>
   <data name="Settings_AboutDescription.Text" xml:space="preserve"><value>github.com/mr258876/PRISM-Utility</value></data>
   <data name="SettingsPage_PrivacyTermsLink.Content" xml:space="preserve"><value>隐私声明</value></data>
@@ -256,24 +256,24 @@
   <data name="Scan_ChannelMappingTitle.Text" xml:space="preserve"><value>通道映射</value></data>
   <data name="Scan_ChannelMappingHelpText.Text" xml:space="preserve"><value>通道角色来自设备设置；LED 电平来自已加载的配置文件或扫描默认值。</value></data>
   <data name="Scan_Channel1Label.Text" xml:space="preserve"><value>采集通道 1</value></data>
-  <data name="Scan_Channel1ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel1ReverseToggleSwitch.Header" xml:space="preserve"><value>行方向反转</value></data>
   <data name="Scan_Channel1ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_Channel1ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_Channel2Label.Text" xml:space="preserve"><value>采集通道 2</value></data>
-  <data name="Scan_Channel2ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel2ReverseToggleSwitch.Header" xml:space="preserve"><value>行方向反转</value></data>
   <data name="Scan_Channel2ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_Channel2ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_Channel3Label.Text" xml:space="preserve"><value>采集通道 3</value></data>
-  <data name="Scan_Channel3ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel3ReverseToggleSwitch.Header" xml:space="preserve"><value>行方向反转</value></data>
   <data name="Scan_Channel3ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_Channel3ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_Channel4Label.Text" xml:space="preserve"><value>采集通道 4</value></data>
-  <data name="Scan_Channel4ReverseToggleSwitch.Header" xml:space="preserve"><value>反转</value></data>
+  <data name="Scan_Channel4ReverseToggleSwitch.Header" xml:space="preserve"><value>行方向反转</value></data>
   <data name="Scan_Channel4ReverseToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_Channel4ReverseToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_OutputTitle.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_ColorManagementSection.Text" xml:space="preserve"><value>色彩管理</value></data>
-  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve"><value>RGB 预览和 PNG 输出都会经过这个共享的 sRGB 色彩管理阶段编码。DNG 导出保持为原始单通道数据。</value></data>
+  <data name="Scan_ColorManagementDescription.Text" xml:space="preserve"><value>此处修改的是当前扫描配置用于 RGB 预览和 PNG 输出的色彩参数，不会修改全局默认值。原始通道导出不受影响。</value></data>
   <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve"><value>使用光谱波长映射</value></data>
   <data name="Scan_RedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
   <data name="Scan_GreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
@@ -281,16 +281,16 @@
   <data name="Scan_OutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
   <data name="Scan_OutputSection.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve"><value>保存 RGB 图像</value></data>
-  <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve"><value>导出 DNG 通道</value></data>
-  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve"><value>DNG 导出模式</value></data>
-  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve"><value>双文件 DNG 导出需要且仅需要一个红、一个绿、一个蓝，以及一个 IR 或白色通道。当前映射将导出为单个 4 通道原始 DNG。</value></data>
-  <data name="Settings_DngGeometry.Text" xml:space="preserve"><value>DNG 几何设置</value></data>
-  <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve"><value>有效区域起始列</value></data>
-  <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve"><value>有效区域结束列</value></data>
-  <data name="Settings_DngMaskedRangesTextBox.Header" xml:space="preserve"><value>Masked 黑参考范围</value></data>
+  <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve"><value>导出 DNG</value></data>
+  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve"><value>DNG 导出模式（当前配置）</value></data>
+  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve"><value>双文件 DNG 导出需要且仅需要一个红、一个绿、一个蓝，以及一个 IR 或白色通道。当前配置将导出为单个 4 通道原始 DNG。</value></data>
+  <data name="Settings_DngGeometry.Text" xml:space="preserve"><value>DNG 几何默认值</value></data>
+  <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve"><value>默认有效区域起始列</value></data>
+  <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve"><value>默认有效区域结束列</value></data>
+  <data name="Settings_DngMaskedRangesTextBox.Header" xml:space="preserve"><value>默认 masked 黑参考范围</value></data>
   <data name="Settings_DngMaskedRangesTextBox.PlaceholderText" xml:space="preserve"><value>例如：26-115, 7580-7591</value></data>
   <data name="Settings_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve"><value>恢复 DNG 几何默认值</value></data>
-  <data name="Settings_DngGeometryDescription.Text" xml:space="preserve"><value>DNG 导出会保留完整 raw 缓冲区，但这里定义默认显示的有效区域以及最多四个 masked 黑场参考范围。多个范围请用逗号分隔的 起始-结束 形式输入。</value></data>
+  <data name="Settings_DngGeometryDescription.Text" xml:space="preserve"><value>DNG 导出会保留完整 raw 缓冲区。这里的默认值用于新配置或默认导出元数据，描述有效区域和 masked 黑参考范围；扫描调试中的 ROI 编辑是可视化/调试选择，除非明确应用到所选 ROI 目标。</value></data>
   <data name="Scan_PreviewTitle.Text" xml:space="preserve"><value>预览</value></data>
   <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve"><value>预览模式</value></data>
   <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve"><value>预览区域</value></data>
@@ -300,7 +300,7 @@
   <data name="ScanDebug_DisconnectButton.Content" xml:space="preserve"><value>断开连接</value></data>
   <data name="ScanDebug_StopButton.Content" xml:space="preserve"><value>停止</value></data>
   <data name="ScanDebug_ExportDngButton.Content" xml:space="preserve"><value>导出 DNG</value></data>
-  <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve"><value>采集</value></data>
+  <data name="ScanDebug_AcquisitionTitle.Text" xml:space="preserve"><value>调试采集</value></data>
   <data name="ScanDebug_RowsComboBox.Header" xml:space="preserve"><value>行数</value></data>
   <data name="ScanDebug_RowsComboBox.PlaceholderText" xml:space="preserve"><value>输入行数</value></data>
   <data name="ScanDebug_WarmUpToggleSwitch.Header" xml:space="preserve"><value>预热</value></data>
@@ -880,10 +880,70 @@
   <data name="ScanDebug_Runtime_CursorPositionDefault" xml:space="preserve"><value>光标：(-, -) px</value></data>
   <data name="ScanDebug_Runtime_CursorIntensityDefault" xml:space="preserve"><value>Intensity16: -</value></data>
   <data name="Scan_AdvancedRecipeOverridesSection.Text" xml:space="preserve"><value>高级配方覆盖</value></data>
-  <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve"><value>高级色彩管理</value></data>
+  <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve"><value>当前配置色彩管理</value></data>
   <data name="ScanDebug_ProfileRecipeTitle.Text" xml:space="preserve"><value>此配置编写的扫描配方</value></data>
   <data name="ScanDebug_ProfileRecipeHelpText.Text" xml:space="preserve"><value>这些设置会随导出的胶片配置保存，并在扫描页面作为已加载的扫描配方应用。</value></data>
-  <data name="Scan_Runtime_RecipeSummary" xml:space="preserve"><value>配方：{0}。反转通道：{1}。对齐：{2}。DNG：{3}。色彩：{4}。</value></data>
+  <data name="Scan_Runtime_RecipeSummary" xml:space="preserve"><value>配方：{0}。行方向反转通道：{1}。对齐：{2}。DNG：{3}。色彩：{4}。</value></data>
   <data name="Scan_Runtime_RecipeSummaryColorManaged" xml:space="preserve"><value>光谱 sRGB（{0}/{1}/{2} nm，伽马 {3}）</value></data>
   <data name="Scan_Runtime_RecipeSummaryGammaOnly" xml:space="preserve"><value>仅伽马 sRGB（伽马 {0}）</value></data>
+  <data name="Settings_ColorManagementScopeText.Text" xml:space="preserve"><value>仅全局默认值。单次扫描的色彩行为请在已加载扫描配置中修改。</value></data>
+  <data name="Settings_DngGeometryScopeText.Text" xml:space="preserve"><value>仅默认几何。有效区表示 DNG 图像可用列；屏蔽区表示黑参考列。对焦 ROI 与 DNG 导出几何相互独立。</value></data>
+  <data name="Scan_PageRoleDescription.Text" xml:space="preserve"><value>正式扫描工作区：加载配置、确认当前生效配方、执行扫描，然后保存 RGB 或导出 DNG。</value></data>
+  <data name="Scan_UsbConflictGuidance.Text" xml:space="preserve"><value>此页面连接或扫描时会占用 USB 设备。若要在同一硬件上使用 USB 调试，请先在此断开连接。</value></data>
+  <data name="Scan_SetupScopeText.Text" xml:space="preserve"><value>这些控件定义正式扫描流程。已加载配置是配方、色彩和 DNG 模式的来源；全局设置只为新建或重置配置提供默认值。</value></data>
+  <data name="Scan_ColorSourceText.Text" xml:space="preserve"><value>生效来源：已加载扫描配置。若未加载配置，当前值来自全局默认值初始化。</value></data>
+  <data name="Scan_OutputScopeText.Text" xml:space="preserve"><value>输出操作使用当前扫描结果和已加载配置中的 DNG 模式。DNG 模式随扫描配置保存，不属于全局设置。</value></data>
+  <data name="Scan_DngGeometryRelationText.Text" xml:space="preserve"><value>DNG 几何默认值描述导出元数据中的有效列和 masked 列；扫描调试中的预览 ROI 工具与其分离，除非在那里明确应用所选 ROI 目标。</value></data>
+  <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve"><value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。</value></data>
+  <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve"><value>扫描调试工作台</value></data>
+  <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve"><value>状态</value></data>
+  <data name="ScanDebug_WorkstationDetailsButton.Content" xml:space="preserve"><value>详情</value></data>
+  <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>扫描调试详情</value></data>
+  <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>扫描调试详情</value></data>
+  <data name="ScanDebug_UsbConflictGuidance.Text" xml:space="preserve"><value>已连接的调试会话会占用 USB 设备。若要打开 USB 调试或在同一硬件上执行正式扫描，请先在此断开连接。</value></data>
+  <data name="ScanDebug_BasicAcquisitionTitle.Text" xml:space="preserve"><value>基础调试采集参数</value></data>
+  <data name="ScanDebug_BasicAcquisitionScopeText.Text" xml:space="preserve"><value>仅本次调试会话的临时采集覆盖参数。正式扫描请使用扫描页。</value></data>
+  <data name="ScanDebug_AdvancedDebugSwitchesTitle.Text" xml:space="preserve"><value>高级调试开关</value></data>
+  <data name="ScanDebug_AdvancedDebugSwitchesScopeText.Text" xml:space="preserve"><value>用于硬件验证的实验流程控制，普通正式扫描不需要启用。</value></data>
+  <data name="ScanDebug_OutputTitle.Text" xml:space="preserve"><value>输出</value></data>
+  <data name="ScanDebug_OutputScopeText.Text" xml:space="preserve"><value>导出 DNG 使用最近一次调试采集结果，以及写入所编写扫描配置中的 DNG 模式。</value></data>
+  <data name="ScanDebug_ProfileConfigScopeText.Text" xml:space="preserve"><value>此处的色彩管理和 DNG 导出模式是配置文件范围内的值，不是全局默认值。</value></data>
+  <data name="ScanDebug_CalibrationTitle.Text" xml:space="preserve"><value>校准列采样</value></data>
+  <data name="ScanDebug_CalibrationDescription.Text" xml:space="preserve"><value>先在预览画布选择列采样区间，再将其保存为所选通道/配置的黑电平或白电平校准数据。</value></data>
+  <data name="ScanDebug_ColumnSampleEditToggleSwitch.Header" xml:space="preserve"><value>编辑列采样区间</value></data>
+  <data name="ScanDebug_ColumnSampleEditToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_ColumnSampleEditToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_SaveColumnBlackLevelButton.Content" xml:space="preserve"><value>将列采样保存为黑电平</value></data>
+  <data name="ScanDebug_SaveColumnWhiteLevelButton.Content" xml:space="preserve"><value>将列采样保存为白电平</value></data>
+  <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.Header" xml:space="preserve"><value>预览使用已保存白电平</value></data>
+  <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_PreviewDisplayToolsHeader.Text" xml:space="preserve"><value>预览显示工具</value></data>
+  <data name="ScanDebug_PreviewDisplayToolsDescription.Text" xml:space="preserve"><value>仅影响显示的控制项：伽马、瀑布流压缩和已保存白电平预览。校准保存操作位于校准区域。</value></data>
+  <data name="ScanDebug_PreviewDisplayToolsButton.Content" xml:space="preserve"><value>预览配置</value></data>
+  <data name="ScanDebug_OverlayToolsButton.Content" xml:space="preserve"><value>ROI配置</value></data>
+  <data name="ScanDebug_PreviewToolbarLabel.Text" xml:space="preserve"><value>缩放和预览工具保持在图像画布附近。</value></data>
+  <data name="ScanDebug_PreviewEmptyTitle.Text" xml:space="preserve"><value>暂无预览图像</value></data>
+  <data name="ScanDebug_PreviewEmptyDescription.Text" xml:space="preserve"><value>连接扫描仪并开始采集后将在此显示实时预览。</value></data>
+  <data name="ScanDebug_RoiScopeDescription.Text" xml:space="preserve"><value>ROI 目标是带范围的选择：BW 有效区用于预览/校准的可用区域，BW 屏蔽区用于参考屏蔽区域，对焦 ROI 用于自动对焦检查。它们不会修改全局 DNG 几何默认值。</value></data>
+  <data name="ScanDebug_RoiActionScopeText.Text" xml:space="preserve"><value>应用和重置只影响上方选择的 ROI 目标。DNG 有效区/屏蔽区默认值仍在设置页维护，除非配置流程明确保存对应几何。</value></data>
+  <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve"><value>USB 调试需要独占访问所选设备。如果扫描或扫描调试已连接，请先在那里断开连接，再回到此页占用端点。</value></data>
+  <data name="Main_PageTitle.Text" xml:space="preserve"><value>PRISM Utility 工作区</value></data>
+  <data name="Main_PageDescription.Text" xml:space="preserve"><value>使用此概览选择正确页面。连接、配置和导出详情接入实时会话前，这些状态卡片仅作为占位提示。</value></data>
+  <data name="Main_StatusConnectionTitle.Text" xml:space="preserve"><value>连接状态</value></data>
+  <data name="Main_StatusConnectionText.Text" xml:space="preserve"><value>此处尚未显示共享连接状态。请在扫描、扫描调试或 USB 调试页有意识地连接和释放硬件。</value></data>
+  <data name="Main_StatusConfigTitle.Text" xml:space="preserve"><value>配置归属</value></data>
+  <data name="Main_StatusConfigText.Text" xml:space="preserve"><value>设置页保存全局默认值。已加载扫描配置拥有当前色彩、通道、DNG 模式和 ROI 相关配方值。</value></data>
+  <data name="Main_StatusExportTitle.Text" xml:space="preserve"><value>导出状态</value></data>
+  <data name="Main_StatusExportText.Text" xml:space="preserve"><value>RGB 与 DNG 输出来自扫描或扫描调试结果；主页不编辑输出设置。</value></data>
+  <data name="Main_WorkflowsTitle.Text" xml:space="preserve"><value>选择工作流</value></data>
+  <data name="Main_ScanCardTitle.Text" xml:space="preserve"><value>正式扫描</value></data>
+  <data name="Main_ScanCardText.Text" xml:space="preserve"><value>从已加载配置执行正式扫描，并导出 RGB 或 DNG 输出。</value></data>
+  <data name="Main_OpenScanButton.Content" xml:space="preserve"><value>进入扫描</value></data>
+  <data name="Main_ScanDebugCardTitle.Text" xml:space="preserve"><value>扫描调试</value></data>
+  <data name="Main_ScanDebugCardText.Text" xml:space="preserve"><value>验证硬件、执行临时采集、调整校准并编写扫描配置。</value></data>
+  <data name="Main_OpenScanDebugButton.Content" xml:space="preserve"><value>进入扫描调试</value></data>
+  <data name="Main_SettingsCardTitle.Text" xml:space="preserve"><value>设置</value></data>
+  <data name="Main_SettingsCardText.Text" xml:space="preserve"><value>维护新配置的全局默认值、DNG 几何默认值、设备设置和应用偏好。</value></data>
+  <data name="Main_OpenSettingsButton.Content" xml:space="preserve"><value>打开设置</value></data>
 </root>

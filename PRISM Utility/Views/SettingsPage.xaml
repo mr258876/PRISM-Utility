@@ -23,7 +23,7 @@
             <StackPanel
                 x:Name="ContentArea">
             <TextBlock x:Uid="Settings_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+              <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
                 <TextBlock x:Uid="Settings_Theme" />
 
                 <StackPanel Margin="{StaticResource XSmallTopMargin}">
@@ -197,7 +197,8 @@
             </StackPanel>
 
              <TextBlock x:Uid="Settings_ColorManagement" Style="{ThemeResource SubtitleTextBlockStyle}" />
-             <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+              <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                  <TextBlock x:Uid="Settings_ColorManagementScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                  <ToggleSwitch
                      x:Uid="Settings_ColorManagementToggleSwitch"
                     IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
@@ -229,6 +230,7 @@
 
             <TextBlock x:Uid="Settings_DngGeometry" Style="{ThemeResource SubtitleTextBlockStyle}" />
             <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                <TextBlock x:Uid="Settings_DngGeometryScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                 <Grid ColumnSpacing="8" RowSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
