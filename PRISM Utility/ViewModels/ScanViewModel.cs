@@ -1,9 +1,12 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
@@ -11,10 +14,20 @@ using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.Models;
+using Windows.UI;
 
 namespace PRISM_Utility.ViewModels;
 
 public sealed record ScanPreviewModeOption(string Key, string DisplayName);
+
+public static class ScanWorkflowBlockerIds
+{
+    public const string None = nameof(None);
+    public const string Device = nameof(Device);
+    public const string Configuration = nameof(Configuration);
+    public const string Execution = nameof(Execution);
+    public const string Output = nameof(Output);
+}
 
 public partial class ScanViewModel : ObservableRecipient
 {
@@ -28,6 +41,11 @@ public partial class ScanViewModel : ObservableRecipient
     private const double DefaultGreenWavelengthNm = 525.0;
     private const double DefaultBlueWavelengthNm = 450.0;
     private const double DefaultOutputGamma = 2.2;
+    private static readonly Brush ScanCardNormalBorderBrush = GetThemeBrush("CardStrokeColorDefaultBrush", Colors.Gray);
+    private static readonly Brush ScanCardBlockerBorderBrush = GetThemeBrush("SystemFillColorCautionBrush", Colors.Goldenrod);
+
+    private sealed record ScanStartBlocker(string CardId, string Message);
+
     private readonly IScannerDeviceSessionManager _sessionManager;
     private readonly IScanParameterService _parameters;
     private readonly IScanTransferSettingsService _transferSettings;
@@ -253,6 +271,66 @@ public partial class ScanViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string ComputedMotorSummaryText { get; set; }
 
+    [ObservableProperty]
+    public partial string TopRiskBannerTitle { get; set; }
+
+    [ObservableProperty]
+    public partial string TopRiskBannerText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsTopRiskBannerVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string StartValidationPromptText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsStartValidationPromptVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string DeviceCardBlockerText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsDeviceCardBlocked { get; set; }
+
+    [ObservableProperty]
+    public partial Brush DeviceCardBorderBrush { get; set; }
+
+    [ObservableProperty]
+    public partial string ConfigurationCardBlockerText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsConfigurationCardBlocked { get; set; }
+
+    [ObservableProperty]
+    public partial Brush ConfigurationCardBorderBrush { get; set; }
+
+    [ObservableProperty]
+    public partial string ExecutionCardBlockerText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsExecutionCardBlocked { get; set; }
+
+    [ObservableProperty]
+    public partial Brush ExecutionCardBorderBrush { get; set; }
+
+    [ObservableProperty]
+    public partial string OutputCardBlockerText { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsOutputCardBlocked { get; set; }
+
+    [ObservableProperty]
+    public partial Brush OutputCardBorderBrush { get; set; }
+
+    [ObservableProperty]
+    public partial string FirstBlockingCardId { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSetupEditingEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsOutputSettingsEnabled { get; set; }
+
     public ScanViewModel(
         IScannerDeviceSessionManager sessionManager,
         IScanParameterService parameters,
@@ -336,6 +414,20 @@ public partial class ScanViewModel : ObservableRecipient
         OutputStatusSummaryText = string.Empty;
         ReadinessReasonText = string.Empty;
         OutputActionReasonText = string.Empty;
+        TopRiskBannerTitle = string.Empty;
+        TopRiskBannerText = string.Empty;
+        StartValidationPromptText = string.Empty;
+        DeviceCardBlockerText = string.Empty;
+        ConfigurationCardBlockerText = string.Empty;
+        ExecutionCardBlockerText = string.Empty;
+        OutputCardBlockerText = string.Empty;
+        FirstBlockingCardId = ScanWorkflowBlockerIds.None;
+        DeviceCardBorderBrush = ScanCardNormalBorderBrush;
+        ConfigurationCardBorderBrush = ScanCardNormalBorderBrush;
+        ExecutionCardBorderBrush = ScanCardNormalBorderBrush;
+        OutputCardBorderBrush = ScanCardNormalBorderBrush;
+        IsSetupEditingEnabled = true;
+        IsOutputSettingsEnabled = true;
         NavigationTimingLogger.Write($"ScanViewModel.ctor defaultProperties={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         stepStopwatch.Restart();
@@ -653,7 +745,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     private bool CanConnectDevices() => IsDevicesPresent && !IsConnected && !IsConnecting && !IsRunning;
     private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
-    private bool CanStartScan() => IsConnected && _isConfigProfileLoaded && HasLoadedScannerParameters() && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
+    private bool CanStartScan() => !IsConnecting && !IsRunning && !IsOutputOperationRunning;
     private bool CanStopScan() => IsRunning;
     private bool HasLoadedScannerParameters() => _loadedSnapshot is not null && _loadedSysClockKhz >= ScanDebugConstants.MinSysClockKhz;
     private bool CanSaveRgbImage() => IsOutputAvailable && !IsRunning && !IsOutputOperationRunning;
@@ -667,6 +759,7 @@ public partial class ScanViewModel : ObservableRecipient
         OutputStatusSummaryText = "Scan_Runtime_OutputStatusSummary".GetLocalizedFormatOrFallback("{0}", OutputSummaryText ?? string.Empty);
         ReadinessReasonText = BuildReadinessReason();
         OutputActionReasonText = BuildOutputActionReason();
+        RefreshInteractionState();
 
         if (PreviewImage is null && IsPreviewEnabled && _lastResult is null)
             PreviewPlaceholderText = BuildPreviewPlaceholderText();
@@ -765,12 +858,182 @@ public partial class ScanViewModel : ObservableRecipient
             : "Scan_Runtime_OutputActionNoResult".GetLocalizedOrFallback("No scan result is available yet.");
     }
 
+    private void RefreshInteractionState()
+    {
+        var canEdit = !IsConnecting && !IsRunning && !IsOutputOperationRunning;
+        IsSetupEditingEnabled = canEdit;
+        IsOutputSettingsEnabled = canEdit;
+    }
+
+    private async Task<ScanWorkflowRequest?> ValidateStartScanAsync()
+    {
+        ClearStartValidationState();
+
+        var blockers = new List<ScanStartBlocker>();
+        if (_usbUsageCoordinator.IsUsbDebugInUse)
+        {
+            var message = "Scan_Runtime_UsbDebugActive".GetLocalized();
+            blockers.Add(new(ScanWorkflowBlockerIds.Device, message));
+            ShowTopRiskBanner("Scan_Runtime_TopRiskUsbDebugTitle".GetLocalizedOrFallback("USB debug owns the scanner"), message);
+        }
+        else
+        {
+            ClearTopRiskBanner();
+        }
+
+        if (IsConnecting)
+            blockers.Add(new(ScanWorkflowBlockerIds.Device, "Scan_Runtime_ReadinessConnecting".GetLocalizedOrFallback("Connecting to scanner hardware...")));
+
+        if (IsRunning)
+            blockers.Add(new(ScanWorkflowBlockerIds.Execution, "Scan_Runtime_ReadinessStopAvailable".GetLocalizedOrFallback("Scan is running. Stop the current scan before changing setup.")));
+
+        if (IsOutputOperationRunning)
+            blockers.Add(new(ScanWorkflowBlockerIds.Output, "Scan_Runtime_ReadinessOutputBusy".GetLocalizedOrFallback("An output operation is still running. Wait for it to finish before starting another scan.")));
+
+        if (!IsDevicesPresent)
+            blockers.Add(new(ScanWorkflowBlockerIds.Device, "Scan_Runtime_ReadinessNoDevices".GetLocalizedOrFallback("Connect a PRISM scanner before starting a scan.")));
+        else if (!IsConnected)
+            blockers.Add(new(ScanWorkflowBlockerIds.Device, "Scan_Runtime_ReadinessConnectFirst".GetLocalizedOrFallback("Connect to the scanner before starting a scan.")));
+
+        if (!_isConfigProfileLoaded)
+            blockers.Add(new(ScanWorkflowBlockerIds.Configuration, "Scan_Runtime_ReadinessConfigRequired".GetLocalizedOrFallback("Load a scan configuration before starting.")));
+
+        if (!HasLoadedScannerParameters())
+            blockers.Add(new(ScanWorkflowBlockerIds.Device, "Scan_Runtime_ReadinessParametersMissing".GetLocalizedOrFallback("Scanner parameters are still missing. Reconnect before starting.")));
+
+        if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
+            blockers.Add(new(ScanWorkflowBlockerIds.Execution, "Scan_Runtime_ErrorRowsPositiveInteger".GetLocalized()));
+
+        if (!TryParseSelectedMotor(out var motorId, out var motorError))
+        {
+            blockers.Add(new(ScanWorkflowBlockerIds.Execution, motorError));
+        }
+        else if (HasLoadedScannerParameters())
+        {
+            await _deviceSettingsInitializationTask;
+            var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
+            if (!TryGetEffectiveMotorIntervalUs(motorSettings, out _))
+                blockers.Add(new(ScanWorkflowBlockerIds.Execution, "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs)));
+        }
+
+        if (blockers.Count > 0)
+        {
+            ApplyStartValidationBlockers(blockers);
+            StatusText = _usbUsageCoordinator.IsUsbDebugInUse
+                ? "Scan_Runtime_UsbDebugActive".GetLocalized()
+                : "Scan_Runtime_StartValidationFailed".GetLocalizedOrFallback("Scan prerequisites need attention before the workflow can start.");
+            return null;
+        }
+
+        if (!TryBuildWorkflowRequest(out var request, out var error))
+        {
+            ApplyStartValidationBlockers(new[] { new ScanStartBlocker(ScanWorkflowBlockerIds.Execution, error) });
+            StatusText = "Scan_Runtime_StartValidationFailed".GetLocalizedOrFallback("Scan prerequisites need attention before the workflow can start.");
+            return null;
+        }
+
+        var singleTransferMaxRows = await _sessionManager.UseSessionAsync(
+            _sessionOwner.LeaseId,
+            session => Task.FromResult(session.SingleTransferMaxRows),
+            CancellationToken.None);
+
+        if (request.Rows > singleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
+        {
+            var message = "Scan_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(singleTransferMaxRows);
+            ApplyStartValidationBlockers(new[] { new ScanStartBlocker(ScanWorkflowBlockerIds.Execution, message) });
+            StatusText = message;
+            return null;
+        }
+
+        return request;
+    }
+
+    private void ApplyStartValidationBlockers(IEnumerable<ScanStartBlocker> blockers)
+    {
+        var blockerList = blockers.ToList();
+        ResetCardBlockers();
+        IsStartValidationPromptVisible = true;
+        StartValidationPromptText = "Scan_Runtime_StartValidationPrompt".GetLocalizedOrFallback("Review the highlighted preparation cards, correct the blockers, then start the scan again.");
+        FirstBlockingCardId = blockerList.FirstOrDefault()?.CardId ?? ScanWorkflowBlockerIds.None;
+
+        foreach (var blocker in blockerList)
+            AppendCardBlocker(blocker.CardId, blocker.Message);
+    }
+
+    private void ClearStartValidationState()
+    {
+        IsStartValidationPromptVisible = false;
+        StartValidationPromptText = string.Empty;
+        FirstBlockingCardId = ScanWorkflowBlockerIds.None;
+        ResetCardBlockers();
+    }
+
+    private void ResetCardBlockers()
+    {
+        DeviceCardBlockerText = string.Empty;
+        ConfigurationCardBlockerText = string.Empty;
+        ExecutionCardBlockerText = string.Empty;
+        OutputCardBlockerText = string.Empty;
+        IsDeviceCardBlocked = false;
+        IsConfigurationCardBlocked = false;
+        IsExecutionCardBlocked = false;
+        IsOutputCardBlocked = false;
+        DeviceCardBorderBrush = ScanCardNormalBorderBrush;
+        ConfigurationCardBorderBrush = ScanCardNormalBorderBrush;
+        ExecutionCardBorderBrush = ScanCardNormalBorderBrush;
+        OutputCardBorderBrush = ScanCardNormalBorderBrush;
+    }
+
+    private void AppendCardBlocker(string cardId, string message)
+    {
+        switch (cardId)
+        {
+            case ScanWorkflowBlockerIds.Device:
+                DeviceCardBlockerText = AppendBlockerText(DeviceCardBlockerText, message);
+                IsDeviceCardBlocked = true;
+                DeviceCardBorderBrush = ScanCardBlockerBorderBrush;
+                break;
+            case ScanWorkflowBlockerIds.Configuration:
+                ConfigurationCardBlockerText = AppendBlockerText(ConfigurationCardBlockerText, message);
+                IsConfigurationCardBlocked = true;
+                ConfigurationCardBorderBrush = ScanCardBlockerBorderBrush;
+                break;
+            case ScanWorkflowBlockerIds.Output:
+                OutputCardBlockerText = AppendBlockerText(OutputCardBlockerText, message);
+                IsOutputCardBlocked = true;
+                OutputCardBorderBrush = ScanCardBlockerBorderBrush;
+                break;
+            default:
+                ExecutionCardBlockerText = AppendBlockerText(ExecutionCardBlockerText, message);
+                IsExecutionCardBlocked = true;
+                ExecutionCardBorderBrush = ScanCardBlockerBorderBrush;
+                break;
+        }
+    }
+
+    private static string AppendBlockerText(string current, string message)
+        => string.IsNullOrWhiteSpace(current) ? message : $"{current}\n{message}";
+
+    private void ShowTopRiskBanner(string title, string message)
+    {
+        TopRiskBannerTitle = title;
+        TopRiskBannerText = message;
+        IsTopRiskBannerVisible = true;
+    }
+
+    private void ClearTopRiskBanner()
+    {
+        TopRiskBannerTitle = string.Empty;
+        TopRiskBannerText = string.Empty;
+        IsTopRiskBannerVisible = false;
+    }
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
     {
         if (_usbUsageCoordinator.IsUsbDebugInUse)
         {
             StatusText = "Scan_Runtime_UsbDebugActive".GetLocalized();
+            ShowTopRiskBanner("Scan_Runtime_TopRiskUsbDebugTitle".GetLocalizedOrFallback("USB debug owns the scanner"), StatusText);
             return;
         }
 
@@ -795,6 +1058,7 @@ public partial class ScanViewModel : ObservableRecipient
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
+                ShowTopRiskBanner("Scan_Runtime_TopRiskConnectFailedTitle".GetLocalizedOrFallback("Scanner connection needs attention"), StatusText);
                 return;
             }
 
@@ -832,12 +1096,14 @@ public partial class ScanViewModel : ObservableRecipient
             StatusText = statusNotes.Count > 0
                 ? "Scan_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
                 : "Scan_Runtime_StatusConnected".GetLocalized();
+            ClearTopRiskBanner();
         }
         catch (Exception ex)
         {
             await _sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None);
             IsConnected = false;
             StatusText = "Scan_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskConnectFailedTitle".GetLocalizedOrFallback("Scanner connection needs attention"), StatusText);
         }
         finally
         {
@@ -876,28 +1142,12 @@ public partial class ScanViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task StartScan()
     {
-        if (!_isConfigProfileLoaded)
-        {
-            StatusText = "Scan_Runtime_ErrorConfigProfileRequired".GetLocalizedOrFallback("Load a scan configuration before starting.");
+        var request = await ValidateStartScanAsync();
+        if (request is null)
             return;
-        }
 
-        if (!TryBuildWorkflowRequest(out var request, out var error))
-        {
-            StatusText = error;
-            return;
-        }
-
-        var singleTransferMaxRows = await _sessionManager.UseSessionAsync(
-            _sessionOwner.LeaseId,
-            session => Task.FromResult(session.SingleTransferMaxRows),
-            CancellationToken.None);
-
-        if (request.Rows > singleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
-        {
-            StatusText = "Scan_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(singleTransferMaxRows);
-            return;
-        }
+        ClearStartValidationState();
+        ClearTopRiskBanner();
 
         _scanCts = new CancellationTokenSource();
         var uiToken = _uiLifetimeCts.Token;
@@ -941,6 +1191,7 @@ public partial class ScanViewModel : ObservableRecipient
             IsScanProgressIndeterminate = false;
             OutputSummaryText = "Scan_Runtime_OutputSummaryCaptured".GetLocalizedFormat(result.Passes.Count, result.Rows, result.ComputedMotorStepsPerPass);
             StatusText = "Scan_Runtime_StatusCompleted".GetLocalized();
+            ClearTopRiskBanner();
             UpdatePreviewState();
         }
         catch (OperationCanceledException)
@@ -952,6 +1203,7 @@ public partial class ScanViewModel : ObservableRecipient
             CurrentPassText = "Scan_Runtime_CurrentPassCanceled".GetLocalized();
             CurrentLedText = "Scan_Runtime_CurrentLedStopped".GetLocalized();
             CurrentDirectionText = "Scan_Runtime_CurrentDirectionStopped".GetLocalized();
+            ShowTopRiskBanner("Scan_Runtime_TopRiskInterruptedTitle".GetLocalizedOrFallback("Scan interrupted"), "Scan_Runtime_TopRiskInterruptedText".GetLocalizedOrFallback("The workflow was interrupted. Confirm film transport and scanner state before restarting."));
         }
         catch (Exception ex)
         {
@@ -960,6 +1212,7 @@ public partial class ScanViewModel : ObservableRecipient
 
             StatusText = "Scan_Runtime_StatusFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(ex.Message));
             OutputSummaryText = "Scan_Runtime_OutputSummaryFailed".GetLocalized();
+            ShowTopRiskBanner("Scan_Runtime_TopRiskScanFailedTitle".GetLocalizedOrFallback("Scan failed"), StatusText);
         }
         finally
         {
@@ -992,13 +1245,16 @@ public partial class ScanViewModel : ObservableRecipient
                     },
                     CancellationToken.None);
             }
-            catch
+            catch (Exception ex)
             {
+                MirrorOutput("Scan.StopMotor", $"Stop motor command failed: {ex.Message}");
             }
         }
 
         var result = await _sessionManager.StopAsync(_sessionOwner.LeaseId, CancellationToken.None);
         StatusText = result.Success ? "Scan_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
+        if (result.Success)
+            ShowTopRiskBanner("Scan_Runtime_TopRiskInterruptedTitle".GetLocalizedOrFallback("Scan interrupted"), "Scan_Runtime_TopRiskInterruptedText".GetLocalizedOrFallback("The workflow was interrupted. Confirm film transport and scanner state before restarting."));
     }
 
     private void MirrorOutput(string source, string message)
@@ -1033,10 +1289,12 @@ public partial class ScanViewModel : ObservableRecipient
             var buffer = await _channelImages.BuildRgbCompositeBufferAsync(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, _channelProfiles.Profiles, true);
             await _channelImages.SaveRgbImageAsync(file, buffer);
             StatusText = "Scan_Runtime_StatusRgbSaved".GetLocalizedFormat(file.Path);
+            ClearTopRiskBanner();
         }
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusRgbSaveFailed".GetLocalizedFormat(ex.Message);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText);
         }
         finally
         {
@@ -1065,10 +1323,12 @@ public partial class ScanViewModel : ObservableRecipient
             IsOutputOperationRunning = true;
             await _channelImages.ExportDngChannelsAsync(folder, _lastResult, BuildChannelAssignment(), SelectedAlignmentMode, SelectedDngExportMode);
             StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
+            ClearTopRiskBanner();
         }
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusDngExportFailed".GetLocalizedFormat(ex.Message);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText);
         }
         finally
         {
@@ -1103,6 +1363,7 @@ public partial class ScanViewModel : ObservableRecipient
             RefreshLoadedScanRecipeSummary();
             UpdateExecutionConfigSummary();
             UpdateReadinessSummaries();
+            ClearStartValidationState();
 
             StatusText = (_selectedConfigAcquisitionSettings is null
                     ? "Scan_Runtime_StatusConfigProfileLoadedLegacy"
@@ -1509,6 +1770,11 @@ public partial class ScanViewModel : ObservableRecipient
 
     private bool CanRunExtendedScan()
         => _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered && _transferSettings.Settings.RawIoEnabled;
+
+    private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
+        => Application.Current?.Resources.TryGetValue(resourceKey, out var resource) == true && resource is Brush brush
+            ? brush
+            : new SolidColorBrush(fallbackColor);
 
     private ScanChannelAssignment BuildChannelAssignment()
     {

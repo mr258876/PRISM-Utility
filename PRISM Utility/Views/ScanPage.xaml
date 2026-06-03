@@ -1,16 +1,28 @@
-<Page
+﻿<Page
     x:Class="PRISM_Utility.Views.ScanPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:behaviors="using:PRISM_Utility.Behaviors"
     xmlns:helpers="using:PRISM_Utility.Helpers"
+    behaviors:NavigationViewHeaderBehavior.HeaderMode="Never"
     NavigationCacheMode="Enabled"
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
+        <Thickness x:Key="ScanPagePadding">12,12,12,24</Thickness>
+        <Thickness x:Key="ScanCardPadding">12</Thickness>
+        <Thickness x:Key="ScanHeaderMargin">0,0,0,12</Thickness>
+        <Thickness x:Key="ScanSectionMargin">0,12,0,0</Thickness>
+        <Thickness x:Key="ScanInlineGapMargin">8,0,0,0</Thickness>
+        <Thickness x:Key="ScanPanelGapMargin">12,0,0,0</Thickness>
+        <Thickness x:Key="ScanPreviewPadding">24</Thickness>
+        <Thickness x:Key="ScanCardBorderThickness">1</Thickness>
+        <CornerRadius x:Key="ScanCardCornerRadius">8</CornerRadius>
+        <x:Double x:Key="ScanPreparationPanelWidth">400</x:Double>
+        <x:Double x:Key="ScanPreviewMinimumHeight">360</x:Double>
         <DataTemplate x:Key="ScanMotorOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Motor}" />
         </DataTemplate>
@@ -26,313 +38,288 @@
         <DataTemplate x:Key="ScanAlignmentModeOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=AlignmentMode}" />
         </DataTemplate>
+        <Style x:Key="ScanWorkflowCardStyle" TargetType="Border">
+            <Setter Property="BorderThickness" Value="{StaticResource ScanCardBorderThickness}" />
+            <Setter Property="CornerRadius" Value="{StaticResource ScanCardCornerRadius}" />
+            <Setter Property="Padding" Value="{StaticResource ScanCardPadding}" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        </Style>
+        <Style x:Key="ScanSecondaryTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
     </Page.Resources>
 
-    <Grid
-        x:Name="ContentArea"
-        Margin="{StaticResource SmallLeftRightMargin}"
-        RowSpacing="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <controls:WrapPanel
-            Grid.Row="0"
-            Margin="{StaticResource SmallTopBottomMargin}"
-            Orientation="Horizontal"
-            HorizontalSpacing="8"
-            VerticalSpacing="8">
-            <Button x:Uid="Scan_ConnectButton" Command="{x:Bind ViewModel.ConnectDevicesCommand}" />
-            <Button x:Uid="Scan_DisconnectButton" Command="{x:Bind ViewModel.DisconnectDevicesCommand}" />
-            <Button x:Uid="Scan_StartButton" Command="{x:Bind ViewModel.StartScanCommand}" />
-            <Button x:Uid="Scan_StopButton" Command="{x:Bind ViewModel.StopScanCommand}" />
-        </controls:WrapPanel>
-
-        <StackPanel Grid.Row="1" Spacing="6">
-            <TextBlock x:Uid="Scan_PageRoleDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
-            <TextBlock x:Uid="Scan_UsbConflictGuidance" Opacity="0.8" TextWrapping="WrapWholeWords" />
-            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
-            <ProgressBar
-                IsIndeterminate="True"
-                Visibility="{x:Bind ViewModel.IsRunning, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <TextBlock Text="{x:Bind ViewModel.CurrentPassText, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                <TextBlock Text="{x:Bind ViewModel.CurrentLedText, Mode=OneWay}" />
-                <TextBlock Text="{x:Bind ViewModel.CurrentDirectionText, Mode=OneWay}" />
-            </StackPanel>
-        </StackPanel>
-
+    <ScrollViewer
+        x:Name="WorkflowScrollViewer"
+        HorizontalScrollBarVisibility="Disabled"
+        HorizontalScrollMode="Disabled"
+        VerticalScrollBarVisibility="Auto"
+        VerticalScrollMode="Auto">
         <Grid
-            Grid.Row="2"
-            Margin="{StaticResource SmallTopBottomMargin}"
-            ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="5*" />
-                <ColumnDefinition Width="8*" />
-            </Grid.ColumnDefinitions>
+            x:Name="ContentArea"
+            Margin="{StaticResource ScanPagePadding}"
+            HorizontalAlignment="Stretch"
+            RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <Border
-                Grid.Column="0"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Padding="12">
-                <ScrollViewer
-                    VerticalScrollBarVisibility="Auto"
-                    VerticalScrollMode="Auto"
-                    HorizontalScrollBarVisibility="Disabled"
-                    HorizontalScrollMode="Disabled">
-                    <StackPanel Spacing="4">
-                        <Expander HorizontalAlignment="Stretch" IsExpanded="True">
-                            <Expander.Header>
-                                <TextBlock x:Uid="Scan_CoreSetupSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                            </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                <TextBlock x:Uid="Scan_SetupTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                <TextBlock x:Uid="Scan_SetupScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                 <Grid ColumnSpacing="8" RowSpacing="8">
-                                     <Grid.ColumnDefinitions>
-                                         <ColumnDefinition Width="*" />
-                                         <ColumnDefinition Width="*" />
-                                     </Grid.ColumnDefinitions>
-                                     <Grid.RowDefinitions>
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                         <RowDefinition Height="Auto" />
-                                     </Grid.RowDefinitions>
-
-                                    <ComboBox
-                                        Grid.Row="0"
-                                        Grid.Column="0"
-                                        x:Uid="Scan_RowsComboBox"
-                                        ItemsSource="{x:Bind ViewModel.RowOptions, Mode=OneWay}"
-                                        SelectedItem="{x:Bind ViewModel.SelectedRows, Mode=TwoWay}" />
-                                     <ComboBox
-                                         Grid.Row="0"
-                                         Grid.Column="1"
-                                         x:Uid="Scan_ScanMotorComboBox"
-                                         ItemsSource="{x:Bind ViewModel.MotorOptions, Mode=OneWay}"
-                                         ItemTemplate="{StaticResource ScanMotorOptionTemplate}"
-                                         SelectedItem="{x:Bind ViewModel.SelectedScanMotor, Mode=TwoWay}" />
-                                      <Grid
-                                          Grid.Row="1"
-                                          Grid.Column="0"
-                                          ColumnSpacing="8">
-                                          <Grid.ColumnDefinitions>
-                                              <ColumnDefinition Width="2*" />
-                                              <ColumnDefinition Width="*" />
-                                          </Grid.ColumnDefinitions>
-
-                                          <TextBox
-                                              Grid.Column="0"
-                                              x:Uid="Scan_MotorIntervalTextBox"
-                                              Text="{x:Bind ViewModel.MotorDistancePerLineValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                          <ComboBox
-                                              Grid.Column="1"
-                                              x:Uid="Scan_MotorIntervalUnitComboBox"
-                                              ItemsSource="{x:Bind ViewModel.MotorDistancePerLineUnitOptions, Mode=OneWay}"
-                                              SelectedItem="{x:Bind ViewModel.MotorDistancePerLineUnit, Mode=TwoWay}" />
-                                      </Grid>
-                                    <ToggleSwitch
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        x:Uid="Scan_WarmUpToggleSwitch"
-                                        IsOn="{x:Bind ViewModel.IsWarmUpEnabled, Mode=TwoWay}" />
-                                    <ToggleSwitch
-                                        Grid.Row="2"
-                                        Grid.Column="0"
-                                        x:Uid="Scan_PreviewToggleSwitch"
-                                        IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}" />
-                                    <ToggleSwitch
-                                        Grid.Row="2"
-                                        Grid.Column="1"
-                                        x:Uid="Scan_AlternateDirectionToggleSwitch"
-                                        IsOn="{x:Bind ViewModel.IsAlternateMotorDirectionEnabled, Mode=TwoWay}" />
-                                      <TextBox
-                                          Grid.Row="3"
-                                          Grid.Column="0"
-                                          x:Uid="Scan_ConfigProfileTextBox"
-                                          IsReadOnly="True"
-                                          Text="{x:Bind ViewModel.SelectedConfigProfileName, Mode=OneWay}" />
-                                      <Button
-                                          Grid.Row="3"
-                                          Grid.Column="1"
-                                          x:Uid="Scan_LoadConfigButton"
-                                          Command="{x:Bind ViewModel.LoadConfigProfileCommand}" />
-                                      <TextBlock
-                                          Grid.Row="4"
-                                          Grid.Column="0"
-                                          Grid.ColumnSpan="2"
-                                          Text="{x:Bind ViewModel.LoadedScanRecipeSummaryText, Mode=OneWay}"
-                                          Opacity="0.8"
-                                          TextWrapping="WrapWholeWords" />
-                                      <ComboBox
-                                          Grid.Row="5"
-                                          Grid.Column="0"
-                                          Grid.ColumnSpan="2"
-                                          x:Uid="Scan_StartingDirectionComboBox"
-                                          ItemsSource="{x:Bind ViewModel.DirectionOptions, Mode=OneWay}"
-                                          ItemTemplate="{StaticResource ScanDirectionOptionTemplate}"
-                                          SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
-                                     <TextBlock
-                                         Grid.Row="6"
-                                         Grid.Column="0"
-                                         Grid.ColumnSpan="2"
-                                         x:Uid="Scan_DirectionHelpText"
-                                         Opacity="0.8"
-                                         TextWrapping="WrapWholeWords" />
-                                     <TextBlock
-                                         Grid.Row="7"
-                                         Grid.Column="0"
-                                         Grid.ColumnSpan="2"
-                                         Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}"
-                                        Opacity="0.8"
-                                        TextWrapping="WrapWholeWords" />
-                                </Grid>
-                            </StackPanel>
-                        </Expander>
-
-                         <Expander HorizontalAlignment="Stretch" IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="AdvancedColorManagementContent">
-                             <Expander.Header>
-                                  <TextBlock x:Uid="Scan_AdvancedColorManagementSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                             </Expander.Header>
-                             <StackPanel x:Name="AdvancedColorManagementContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                  <TextBlock x:Uid="Scan_ColorSourceText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                  <TextBlock x:Uid="Scan_ColorManagementDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                 <ToggleSwitch x:Uid="Scan_ColorManagementToggleSwitch" IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
-                                <Grid ColumnSpacing="8" RowSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                     <TextBox Grid.Row="0" Grid.Column="0" x:Uid="Scan_RedWavelengthTextBox" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
-                                     <TextBox Grid.Row="0" Grid.Column="1" x:Uid="Scan_GreenWavelengthTextBox" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
-                                     <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Scan_BlueWavelengthTextBox" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
-                                     <TextBox Grid.Row="1" Grid.Column="1" x:Uid="Scan_OutputGammaTextBox" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
-                                 </Grid>
-                             </StackPanel>
-                         </Expander>
-
-                         <Expander HorizontalAlignment="Stretch" IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="OutputContent">
-                             <Expander.Header>
-                                 <TextBlock x:Uid="Scan_OutputSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                             </Expander.Header>
-                             <StackPanel x:Name="OutputContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                                  <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                  <TextBlock x:Uid="Scan_OutputScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                 <ComboBox
-                                     x:Uid="Scan_DngExportModeComboBox"
-                                     HorizontalAlignment="Stretch"
-                                     ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
-                                     ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
-                                     SelectedItem="{x:Bind ViewModel.SelectedDngExportMode, Mode=TwoWay}"
-                                     Visibility="{x:Bind ViewModel.IsDualFileDngExportAvailable, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                 <TextBlock
-                                     x:Uid="Scan_DngExportModeUnavailableText"
-                                     Opacity="0.8"
-                                     TextWrapping="WrapWholeWords"
-                                      Visibility="{x:Bind ViewModel.IsSingleFileDngExportForced, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                  <TextBlock x:Uid="Scan_DngGeometryRelationText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                                 <Grid ColumnSpacing="8" RowSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" />
-                                     <Button Grid.Column="1" x:Uid="Scan_ExportDngChannelsButton" Command="{x:Bind ViewModel.ExportDngChannelsCommand}" />
-                                </Grid>
-                                <TextBlock Text="{x:Bind ViewModel.OutputSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                            </StackPanel>
-                        </Expander>
+            <Grid Grid.Row="0" Margin="{StaticResource ScanHeaderMargin}" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="6">
+                    <TextBlock x:Uid="Scan_WorkflowTitle" Style="{ThemeResource TitleTextBlockStyle}" />
+                    <TextBlock Text="{x:Bind ViewModel.ReadinessReasonText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button x:Uid="Scan_StartButton" Command="{x:Bind ViewModel.StartScanCommand}" Style="{StaticResource AccentButtonStyle}" />
+                        <Button
+                            x:Uid="Scan_StopButton"
+                            BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
+                            Command="{x:Bind ViewModel.StopScanCommand}"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                     </StackPanel>
-                </ScrollViewer>
-            </Border>
+                </StackPanel>
+            </Grid>
 
-            <Border
-                Grid.Column="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Padding="12">
-                <ScrollViewer
-                    VerticalScrollBarVisibility="Auto"
-                    VerticalScrollMode="Auto"
-                    HorizontalScrollBarVisibility="Disabled"
-                    HorizontalScrollMode="Disabled">
-                    <Grid RowSpacing="12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+            <StackPanel Grid.Row="1" Spacing="8">
+                <InfoBar
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.TopRiskBannerText, Mode=OneWay}"
+                    Severity="Warning"
+                    Title="{x:Bind ViewModel.TopRiskBannerTitle, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsTopRiskBannerVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <InfoBar
+                    x:Uid="Scan_StartValidationInfoBar"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.StartValidationPromptText, Mode=OneWay}"
+                    Severity="Warning"
+                    Visibility="{x:Bind ViewModel.IsStartValidationPromptVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </StackPanel>
 
-                    <TextBlock Grid.Row="0" x:Uid="Scan_PreviewTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <StackPanel Grid.Row="1" Spacing="6">
-                        <TextBlock x:Uid="Scan_RunDetailsTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                        <TextBlock Text="{x:Bind ViewModel.CurrentPassText, Mode=OneWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.CurrentLedText, Mode=OneWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.CurrentDirectionText, Mode=OneWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.OutputSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                    <Grid Grid.Row="2" ColumnSpacing="12" RowSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                         <ComboBox
-                             Grid.Column="0"
-                             x:Uid="Scan_AlignmentModeComboBox"
-                             Width="180"
-                             ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}"
-                             ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}"
-                             SelectedItem="{x:Bind ViewModel.SelectedAlignmentMode, Mode=TwoWay}" />
-                         <ComboBox
-                             Grid.Column="1"
-                             x:Uid="Scan_PreviewModeComboBox"
-                             Width="220"
-                             ItemsSource="{x:Bind ViewModel.PreviewModes, Mode=OneWay}"
-                             ItemTemplate="{StaticResource ScanPreviewModeOptionTemplate}"
-                             SelectedItem="{x:Bind ViewModel.SelectedPreviewMode, Mode=TwoWay}" />
-                        <TextBlock
-                            Grid.Column="2"
-                            Text="{x:Bind ViewModel.ChannelMappingSummaryText, Mode=OneWay}"
-                            VerticalAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </Grid>
-                    <TextBlock Grid.Row="3" Text="{x:Bind ViewModel.PreviewDescriptionText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
+            <Grid Grid.Row="2" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                        <Border
-                            Grid.Row="4"
-                            MinHeight="320"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            Padding="12">
-                            <Grid>
-                                <Image Source="{x:Bind ViewModel.PreviewImage, Mode=OneWay}" Stretch="Uniform" />
-                            </Grid>
-                        </Border>
-
-                        <StackPanel Grid.Row="5" Spacing="8">
-                            <TextBlock x:Uid="Scan_PreviewPlaceholderTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind ViewModel.PreviewPlaceholderText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                <StackPanel Grid.Column="0" Width="{StaticResource ScanPreparationPanelWidth}" Spacing="12">
+                    <Border
+                        x:Name="DevicePreparationCard"
+                        BorderBrush="{x:Bind ViewModel.DeviceCardBorderBrush, Mode=OneWay}"
+                        Style="{StaticResource ScanWorkflowCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Scan_DeviceCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Uid="Scan_UsbConflictGuidance" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.DeviceStatusSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            <InfoBar
+                                x:Uid="Scan_DeviceBlockerInfoBar"
+                                IsOpen="True"
+                                Message="{x:Bind ViewModel.DeviceCardBlockerText, Mode=OneWay}"
+                                Severity="Warning"
+                                Visibility="{x:Bind ViewModel.IsDeviceCardBlocked, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         </StackPanel>
-                    </Grid>
-                </ScrollViewer>
-            </Border>
+                    </Border>
+
+                    <Border
+                        x:Name="ConfigurationPreparationCard"
+                        BorderBrush="{x:Bind ViewModel.ConfigurationCardBorderBrush, Mode=OneWay}"
+                        Style="{StaticResource ScanWorkflowCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Scan_ConfigCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Uid="Scan_SetupScopeText" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.ConfigurationStatusSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            <TextBox
+                                x:Uid="Scan_ConfigProfileTextBox"
+                                IsReadOnly="True"
+                                Text="{x:Bind ViewModel.SelectedConfigProfileName, Mode=OneWay}" />
+                            <Button
+                                x:Uid="Scan_LoadConfigButton"
+                                Command="{x:Bind ViewModel.LoadConfigProfileCommand}"
+                                IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" />
+                            <TextBlock Text="{x:Bind ViewModel.LoadedScanRecipeSummaryText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <Expander HorizontalAlignment="Stretch" IsExpanded="False">
+                                <Expander.Header>
+                                    <TextBlock x:Uid="Scan_AdvancedColorManagementSection" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                </Expander.Header>
+                                <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                                    <TextBlock x:Uid="Scan_ColorSourceText" Style="{StaticResource ScanSecondaryTextStyle}" />
+                                    <TextBlock x:Uid="Scan_ColorManagementDescription" Style="{StaticResource ScanSecondaryTextStyle}" />
+                                    <ToggleSwitch
+                                        x:Uid="Scan_ColorManagementToggleSwitch"
+                                        IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}"
+                                        IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
+                                    <Grid ColumnSpacing="8" RowSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBox Grid.Row="0" Grid.Column="0" x:Uid="Scan_RedWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="0" Grid.Column="1" x:Uid="Scan_GreenWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Scan_BlueWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" x:Uid="Scan_OutputGammaTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Expander>
+                            <InfoBar
+                                x:Uid="Scan_ConfigurationBlockerInfoBar"
+                                IsOpen="True"
+                                Message="{x:Bind ViewModel.ConfigurationCardBlockerText, Mode=OneWay}"
+                                Severity="Warning"
+                                Visibility="{x:Bind ViewModel.IsConfigurationCardBlocked, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        x:Name="ExecutionPreparationCard"
+                        BorderBrush="{x:Bind ViewModel.ExecutionCardBorderBrush, Mode=OneWay}"
+                        Style="{StaticResource ScanWorkflowCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Scan_ExecutionCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.ExecutionConfigSummaryText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <Grid ColumnSpacing="8" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <ComboBox Grid.Row="0" Grid.Column="0" x:Uid="Scan_RowsComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.RowOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedRows, Mode=TwoWay}" />
+                                <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="Scan_ScanMotorComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanMotorOptionTemplate}" ItemsSource="{x:Bind ViewModel.MotorOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedScanMotor, Mode=TwoWay}" />
+                                <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Scan_MotorIntervalTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.MotorDistancePerLineValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="Scan_MotorIntervalUnitComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.MotorDistancePerLineUnitOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.MotorDistancePerLineUnit, Mode=TwoWay}" />
+                                <ToggleSwitch Grid.Row="2" Grid.Column="0" x:Uid="Scan_WarmUpToggleSwitch" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.IsWarmUpEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch Grid.Row="2" Grid.Column="1" x:Uid="Scan_AlternateDirectionToggleSwitch" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.IsAlternateMotorDirectionEnabled, Mode=TwoWay}" />
+                                <ComboBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" x:Uid="Scan_StartingDirectionComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanDirectionOptionTemplate}" ItemsSource="{x:Bind ViewModel.DirectionOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedStartingDirection, Mode=TwoWay}" />
+                            </Grid>
+                            <TextBlock x:Uid="Scan_DirectionHelpText" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.ComputedMotorSummaryText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <InfoBar
+                                x:Uid="Scan_ExecutionBlockerInfoBar"
+                                IsOpen="True"
+                                Message="{x:Bind ViewModel.ExecutionCardBlockerText, Mode=OneWay}"
+                                Severity="Warning"
+                                Visibility="{x:Bind ViewModel.IsExecutionCardBlocked, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+
+                <Grid Grid.Column="1" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" Style="{StaticResource ScanWorkflowCardStyle}">
+                        <Grid RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Uid="Scan_PreviewTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                <ComboBox Grid.Column="1" x:Uid="Scan_AlignmentModeComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}" ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedAlignmentMode, Mode=TwoWay}" />
+                                <ComboBox Grid.Column="2" x:Uid="Scan_PreviewModeComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanPreviewModeOptionTemplate}" ItemsSource="{x:Bind ViewModel.PreviewModes, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedPreviewMode, Mode=TwoWay}" />
+                            </Grid>
+                            <ToggleSwitch Grid.Row="1" x:Uid="Scan_PreviewToggleSwitch" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}" />
+                            <TextBlock Grid.Row="2" Text="{x:Bind ViewModel.PreviewDescriptionText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <Border
+                                Grid.Row="3"
+                                MinHeight="{StaticResource ScanPreviewMinimumHeight}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="{StaticResource ScanCardBorderThickness}"
+                                CornerRadius="{StaticResource ScanCardCornerRadius}"
+                                Padding="{StaticResource ScanPreviewPadding}">
+                                <Grid>
+                                    <Image Source="{x:Bind ViewModel.PreviewImage, Mode=OneWay}" Stretch="Uniform" />
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Row="4" Spacing="4">
+                                <TextBlock x:Uid="Scan_PreviewPlaceholderTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind ViewModel.PreviewPlaceholderText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                                <TextBlock Text="{x:Bind ViewModel.ChannelMappingSummaryText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" Style="{StaticResource ScanWorkflowCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Scan_ProgressCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <ProgressBar
+                                IsIndeterminate="{x:Bind ViewModel.IsScanProgressIndeterminate, Mode=OneWay}"
+                                Maximum="{x:Bind ViewModel.ScanProgressMaximum, Mode=OneWay}"
+                                Value="{x:Bind ViewModel.ScanProgressValue, Mode=OneWay}" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.CurrentPassText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.CurrentLedText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.CurrentDirectionText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+                            </Grid>
+                            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        x:Name="OutputPreparationCard"
+                        Grid.Row="2"
+                        BorderBrush="{x:Bind ViewModel.OutputCardBorderBrush, Mode=OneWay}"
+                        Style="{StaticResource ScanWorkflowCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Scan_OutputWorkflowTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Uid="Scan_OutputScopeText" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <ComboBox
+                                x:Uid="Scan_DngExportModeComboBox"
+                                IsEnabled="{x:Bind ViewModel.IsOutputSettingsEnabled, Mode=OneWay}"
+                                ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
+                                ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.SelectedDngExportMode, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsDualFileDngExportAvailable, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBlock x:Uid="Scan_DngExportModeUnavailableText" Style="{StaticResource ScanSecondaryTextStyle}" Visibility="{x:Bind ViewModel.IsSingleFileDngExportForced, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBlock x:Uid="Scan_DngGeometryRelationText" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" />
+                                <Button x:Uid="Scan_ExportDngChannelsButton" Command="{x:Bind ViewModel.ExportDngChannelsCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.OutputActionReasonText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.OutputSummaryText, Mode=OneWay}" Style="{StaticResource ScanSecondaryTextStyle}" />
+                            <InfoBar
+                                x:Uid="Scan_OutputBlockerInfoBar"
+                                IsOpen="True"
+                                Message="{x:Bind ViewModel.OutputCardBlockerText, Mode=OneWay}"
+                                Severity="Warning"
+                                Visibility="{x:Bind ViewModel.IsOutputCardBlocked, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
         </Grid>
-    </Grid>
+    </ScrollViewer>
 </Page>

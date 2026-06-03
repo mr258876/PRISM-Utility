@@ -213,8 +213,6 @@
   <data name="UsbDebug_BulkOutHexModeToggleSwitch.OffContent" xml:space="preserve"><value>关（UTF-8 文本）</value></data>
   <data name="UsbDebug_BulkInDeviceComboBox.Header" xml:space="preserve"><value>设备</value></data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve"><value>扫描调试</value></data>
-  <data name="Scan_ConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
-  <data name="Scan_DisconnectButton.Content" xml:space="preserve"><value>断开连接</value></data>
   <data name="Scan_StartButton.Content" xml:space="preserve"><value>开始扫描</value></data>
   <data name="Scan_StopButton.Content" xml:space="preserve"><value>停止</value></data>
   <data name="Scan_SetupTitle.Text" xml:space="preserve"><value>扫描设置</value></data>
@@ -1083,4 +1081,24 @@
   <data name="Shell_ScannerStatus_FaultedWithMessage" xml:space="preserve">
     <value>扫描仪故障：{0}</value>
   </data>
+
+  <data name="Scan_WorkflowTitle.Text" xml:space="preserve"><value>扫描</value></data>
+  <data name="Scan_StartValidationInfoBar.Title" xml:space="preserve"><value>扫描前置条件需要处理</value></data>
+  <data name="Scan_DeviceCardTitle.Text" xml:space="preserve"><value>1. 扫描仪会话</value></data>
+  <data name="Scan_ConfigCardTitle.Text" xml:space="preserve"><value>2. 已加载配置</value></data>
+  <data name="Scan_ExecutionCardTitle.Text" xml:space="preserve"><value>3. 运动与轮次计划</value></data>
+  <data name="Scan_DeviceBlockerInfoBar.Title" xml:space="preserve"><value>设备阻塞项</value></data>
+  <data name="Scan_ConfigurationBlockerInfoBar.Title" xml:space="preserve"><value>配置阻塞项</value></data>
+  <data name="Scan_ExecutionBlockerInfoBar.Title" xml:space="preserve"><value>执行阻塞项</value></data>
+  <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve"><value>输出阻塞项</value></data>
+  <data name="Scan_ProgressCardTitle.Text" xml:space="preserve"><value>运行进度</value></data>
+  <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve"><value>输出</value></data>
+  <data name="Scan_Runtime_StartValidationFailed" xml:space="preserve"><value>扫描前置条件需要处理，工作流尚未启动。</value></data>
+  <data name="Scan_Runtime_StartValidationPrompt" xml:space="preserve"><value>请检查高亮的准备卡片，修正阻塞项后再次开始扫描。</value></data>
+  <data name="Scan_Runtime_TopRiskUsbDebugTitle" xml:space="preserve"><value>USB 调试正在占用扫描仪</value></data>
+  <data name="Scan_Runtime_TopRiskConnectFailedTitle" xml:space="preserve"><value>扫描仪连接需要处理</value></data>
+  <data name="Scan_Runtime_TopRiskInterruptedTitle" xml:space="preserve"><value>扫描已中断</value></data>
+  <data name="Scan_Runtime_TopRiskInterruptedText" xml:space="preserve"><value>工作流已中断。重新开始前请确认胶片传送和扫描仪状态。</value></data>
+  <data name="Scan_Runtime_TopRiskScanFailedTitle" xml:space="preserve"><value>扫描失败</value></data>
+  <data name="Scan_Runtime_TopRiskOutputFailedTitle" xml:space="preserve"><value>输出失败</value></data>
 </root>
