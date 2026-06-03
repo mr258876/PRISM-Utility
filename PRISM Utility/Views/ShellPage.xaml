@@ -35,48 +35,64 @@
             ExpandedModeThresholdWidth="1280"
             DisplayModeChanged="NavigationViewControl_DisplayModeChanged"
             Header="{x:Bind ((ContentControl)ViewModel.Selected).Content, Mode=OneWay}">
-            <NavigationView.PaneFooter>
-                <Border
-                    Height="40"
-                    Margin="0,0,0,4"
-                    Padding="0"
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem
+                    x:Name="ScannerConnectionItem"
+                    Content="{x:Bind ViewModel.ScannerStatusShortText, Mode=OneWay}"
+                    SelectsOnInvoked="False"
+                    KeyDown="ScannerConnectionItem_KeyDown"
+                    Tapped="ScannerConnectionItem_Tapped"
                     ToolTipService.ToolTip="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}"
                     AutomationProperties.Name="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}">
-                    <Grid VerticalAlignment="Center">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid
-                            Grid.Column="0"
-                            Width="40"
-                            Height="40">
-                            <FontIcon
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                FontSize="18"
-                                Glyph="&#xECF0;" />
-                            <Ellipse
-                                Width="8"
-                                Height="8"
-                                Margin="0,0,8,8"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Bottom"
-                                Fill="{x:Bind ViewModel.ScannerStatusDotBrush, Mode=OneWay}" />
-                        </Grid>
-                        <TextBlock
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Margin="8,0,12,0"
-                            MaxLines="1"
-                            MinWidth="0"
-                            Opacity="0.8"
-                            Text="{x:Bind ViewModel.ScannerStatusShortText, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
-                    </Grid>
-                </Border>
-            </NavigationView.PaneFooter>
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECF0;" />
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge
+                            Width="16"
+                            Height="16"
+                            Background="{x:Bind ViewModel.ScannerStatusDotBrush, Mode=OneWay}"
+                            Foreground="{x:Bind ViewModel.ScannerStatusBadgeForegroundBrush, Mode=OneWay}">
+                            <InfoBadge.Resources>
+                                <!-- Fix FontIcon margin -->
+                                <Thickness x:Key="IconInfoBadgeFontIconMargin">4,1,4,1</Thickness>
+                            </InfoBadge.Resources>
+                            <InfoBadge.IconSource>
+                                <FontIconSource
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="{x:Bind ViewModel.ScannerStatusBadgeGlyph, Mode=OneWay}"/>
+                            </InfoBadge.IconSource>
+                        </InfoBadge>
+                    </NavigationViewItem.InfoBadge>
+                    <FlyoutBase.AttachedFlyout>
+                        <Flyout>
+                            <StackPanel MinWidth="280" MaxWidth="360" Spacing="12">
+                                <TextBlock
+                                    Text="{x:Bind ViewModel.ScannerConnectionFlyoutTitle, Mode=OneWay}"
+                                    Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        Text="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                    <TextBlock
+                                        Text="{x:Bind ViewModel.ScannerConnectionFlyoutDescription, Mode=OneWay}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        TextWrapping="WrapWholeWords" />
+                                    <TextBlock
+                                        Text="{x:Bind ViewModel.ScannerConnectionUnavailableText, Mode=OneWay}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        TextWrapping="WrapWholeWords"
+                                        Visibility="{x:Bind ViewModel.ScannerConnectionUnavailableVisibility, Mode=OneWay}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                    <Button x:Uid="Shell_ScannerConnectButton" Command="{x:Bind ViewModel.ConnectScannerCommand}" />
+                                    <Button x:Uid="Shell_ScannerDisconnectButton" Command="{x:Bind ViewModel.DisconnectScannerCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Flyout>
+                    </FlyoutBase.AttachedFlyout>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
             <NavigationView.MenuItems>
                 <!--
                 TODO: Update item titles by updating <x:Uid>.Content entries in Strings/en-us/Resources.resw.
@@ -97,7 +113,7 @@
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Scan" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.ScanViewModel">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7F8;"/>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FE;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_ScanDebug" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.ScanDebugViewModel">

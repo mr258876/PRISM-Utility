@@ -1081,6 +1081,21 @@
   <data name="Shell_ScannerStatus_FaultedWithMessage" xml:space="preserve">
     <value>扫描仪故障：{0}</value>
   </data>
+  <data name="Shell_ScannerConnectionFlyoutTitle" xml:space="preserve">
+    <value>设备连接</value>
+  </data>
+  <data name="Shell_ScannerConnectionFlyoutDescription" xml:space="preserve">
+    <value>通过当前扫描或扫描调试工作流连接或断开设备。</value>
+  </data>
+  <data name="Shell_ScannerConnectionUnavailable" xml:space="preserve">
+    <value>打开扫描或扫描调试页面后可连接或断开扫描仪。</value>
+  </data>
+  <data name="Shell_ScannerConnectButton.Content" xml:space="preserve">
+    <value>连接设备</value>
+  </data>
+  <data name="Shell_ScannerDisconnectButton.Content" xml:space="preserve">
+    <value>断开连接</value>
+  </data>
 
   <data name="Scan_WorkflowTitle.Text" xml:space="preserve"><value>扫描</value></data>
   <data name="Scan_StartValidationInfoBar.Title" xml:space="preserve"><value>扫描前置条件需要处理</value></data>
@@ -1091,7 +1106,6 @@
   <data name="Scan_ConfigurationBlockerInfoBar.Title" xml:space="preserve"><value>配置阻塞项</value></data>
   <data name="Scan_ExecutionBlockerInfoBar.Title" xml:space="preserve"><value>执行阻塞项</value></data>
   <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve"><value>输出阻塞项</value></data>
-  <data name="Scan_ProgressCardTitle.Text" xml:space="preserve"><value>运行进度</value></data>
   <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_Runtime_StartValidationFailed" xml:space="preserve"><value>扫描前置条件需要处理，工作流尚未启动。</value></data>
   <data name="Scan_Runtime_StartValidationPrompt" xml:space="preserve"><value>请检查高亮的准备卡片，修正阻塞项后再次开始扫描。</value></data>

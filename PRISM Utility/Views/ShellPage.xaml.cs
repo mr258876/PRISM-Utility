@@ -1,5 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 
 using PRISM_Utility.Contracts.Services;
@@ -59,6 +60,24 @@ public sealed partial class ShellPage : Page
             Bottom = AppTitleBar.Margin.Bottom
         };
     }
+
+    private void ScannerConnectionItem_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        ShowScannerConnectionFlyout();
+        e.Handled = true;
+    }
+
+    private void ScannerConnectionItem_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is VirtualKey.Enter or VirtualKey.Space)
+        {
+            ShowScannerConnectionFlyout();
+            e.Handled = true;
+        }
+    }
+
+    private void ShowScannerConnectionFlyout()
+        => FlyoutBase.ShowAttachedFlyout(ScannerConnectionItem);
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {

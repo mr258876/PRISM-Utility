@@ -2883,6 +2883,21 @@
   <data name="Shell_ScannerStatus_FaultedWithMessage" xml:space="preserve">
     <value>Scanner faulted: {0}</value>
   </data>
+  <data name="Shell_ScannerConnectionFlyoutTitle" xml:space="preserve">
+    <value>Device connection</value>
+  </data>
+  <data name="Shell_ScannerConnectionFlyoutDescription" xml:space="preserve">
+    <value>Connect or disconnect using the active Scan or Scan Debug workflow.</value>
+  </data>
+  <data name="Shell_ScannerConnectionUnavailable" xml:space="preserve">
+    <value>Open Scan or Scan Debug to connect or disconnect the scanner.</value>
+  </data>
+  <data name="Shell_ScannerConnectButton.Content" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Shell_ScannerDisconnectButton.Content" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
 
   <data name="Scan_WorkflowTitle.Text" xml:space="preserve"><value>Scan</value></data>
   <data name="Scan_StartValidationInfoBar.Title" xml:space="preserve"><value>Scan prerequisites need attention</value></data>
@@ -2893,7 +2908,6 @@
   <data name="Scan_ConfigurationBlockerInfoBar.Title" xml:space="preserve"><value>Configuration blocker</value></data>
   <data name="Scan_ExecutionBlockerInfoBar.Title" xml:space="preserve"><value>Execution blocker</value></data>
   <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve"><value>Output blocker</value></data>
-  <data name="Scan_ProgressCardTitle.Text" xml:space="preserve"><value>Run progress</value></data>
   <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve"><value>Output</value></data>
   <data name="Scan_Runtime_StartValidationFailed" xml:space="preserve"><value>Scan prerequisites need attention before the workflow can start.</value></data>
   <data name="Scan_Runtime_StartValidationPrompt" xml:space="preserve"><value>Review the highlighted preparation cards, correct the blockers, then start the scan again.</value></data>
