@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Models;
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Models;
 using PRISM_Utility.Helpers;
 
 namespace PRISM_Utility.ViewModels;
@@ -15,10 +16,17 @@ public sealed record DialogRequest(string Title, string Content);
 
 public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 {
+    private const string RawUsbOwnerOperation = "USB Debug raw diagnostics";
+    private const string RawUsbOwnerIdPrefix = "usb-debug-raw";
+    private const string ObserverIdPrefix = "usb-debug-observer";
+
     private readonly IUsbService _usb;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
+    private readonly IScannerDeviceSessionManager _scannerManager;
     private readonly IUiDispatcher _dispatcher;
     private readonly IDebugOutputMirrorService _debugOutputMirror;
+    private readonly string _rawUsbOwnerId = $"{RawUsbOwnerIdPrefix}-{Guid.NewGuid():N}";
+    private readonly ScannerSessionObserverPermission _observerPermission;
 
     public ObservableCollection<UsbDeviceDto> UsbDevices { get; } = new();
     public ObservableCollection<UsbConfigDto> BulkInConfigs { get; } = new();
@@ -57,24 +65,49 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     public partial bool IsBulkInStopping { get; set; }
 
     [ObservableProperty] public partial string LogText { get; set; }
+    [ObservableProperty] public partial string ObservationStatusText { get; set; }
 
     public event EventHandler<DialogRequest>? DialogRequested;
+
+    private ScannerDeviceSessionSnapshot _scannerSnapshot;
+    private IUsbUsageLease? _rawUsbLease;
 
     private void RequestDialog(string title, string content)
         => DialogRequested?.Invoke(this, new DialogRequest(title, content));
 
-    public UsbDebugViewModel(IUsbService usb, IUsbUsageCoordinator usbUsageCoordinator, IUiDispatcher dispatcher, IDebugOutputMirrorService debugOutputMirror)
+    public UsbDebugViewModel(
+        IUsbService usb,
+        IUsbUsageCoordinator usbUsageCoordinator,
+        IScannerDeviceSessionManager scannerManager,
+        IUiDispatcher dispatcher,
+        IDebugOutputMirrorService debugOutputMirror)
     {
         _usb = usb;
         _usbUsageCoordinator = usbUsageCoordinator;
+        _scannerManager = scannerManager;
         _dispatcher = dispatcher;
         _debugOutputMirror = debugOutputMirror;
+        _scannerSnapshot = scannerManager.Snapshot;
+        _observerPermission = scannerManager.GrantObserverPermission(
+            $"{ObserverIdPrefix}-{Guid.NewGuid():N}",
+            ScannerSessionObserverScope.SessionState | ScannerSessionObserverScope.DeviceCatalog | ScannerSessionObserverScope.Diagnostics,
+            DateTimeOffset.UtcNow);
         SelectedBulkInSize = "4096";
         BulkOutText = string.Empty;
         LogText = string.Empty;
+        ObservationStatusText = string.Empty;
 
         _usb.DevicesChanged += OnUsbDevicesChanged;
+        _scannerManager.SnapshotChanged += OnScannerSnapshotChanged;
         RefreshDeviceList();
+        UpdateObservationStatus();
+    }
+
+    private void OnScannerSnapshotChanged(object? sender, ScannerDeviceSessionSnapshot snapshot)
+    {
+        _scannerSnapshot = snapshot;
+        UpdateObservationStatus();
+        RefreshCommandStates();
     }
 
     private void OnUsbDevicesChanged(object? sender, EventArgs e)
@@ -195,6 +228,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         SelectedBulkInConfig is not null &&
         SelectedBulkInInterface is not null &&
         SelectedBulkInEndpoint is not null &&
+        CanUseExclusiveRawCommands() &&
         !IsBulkInRunning;
 
     private bool CanStopBulkIn() => IsBulkInRunning && !IsBulkInStopping;
@@ -204,6 +238,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         SelectedBulkOutConfig is not null &&
         SelectedBulkOutInterface is not null &&
         SelectedBulkOutEndpoint is not null &&
+        CanUseExclusiveRawCommands() &&
         !string.IsNullOrWhiteSpace(BulkOutText);
 
     [RelayCommand(CanExecute = nameof(CanStartBulkIn))]
@@ -215,13 +250,20 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             return;
         }
 
-        if (_usbUsageCoordinator.IsScanDebugInUse)
+        if (!CanUseExclusiveRawCommands())
         {
-            RequestDialog("Shared_Dialog_UsbBusy.Title".GetLocalized(), "Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content".GetLocalized());
+            ShowReadOnlyObservationDialog();
             return;
         }
 
         if (!int.TryParse(SelectedBulkInSize, out var size) || size <= 0) return;
+
+        var acquireResult = await TryAcquireRawDiagnosticLeaseAsync("Bulk IN");
+        if (!acquireResult.Success || acquireResult.Lease is null)
+        {
+            ShowRawLeaseUnavailableFeedback(acquireResult);
+            return;
+        }
 
         _bulkInCts = new CancellationTokenSource();
         IProgress<(int transferred, byte[] data)> progress = new Progress<(int transferred, byte[] data)>(p =>
@@ -240,6 +282,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 
         try
         {
+            _rawUsbLease = acquireResult.Lease;
             _runningBulkInOutEndpoint = ResolveRunningBulkInOutEndpoint();
             _bulkInSession = _usb.OpenBulkDuplexSession(
                 SelectedBulkInUsbDevice.Id,
@@ -250,9 +293,9 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
                 _runningBulkInOutEndpoint);
 
             IsBulkInRunning = true;
-            _usbUsageCoordinator.SetUsbDebugInUse(true);
             IsBulkInStopping = false;
-            AppendLog("UsbDebug_Runtime_BulkInStarted".GetLocalized());
+            AppendLog("UsbDebug_Runtime_BulkInStarted".GetLocalizedOrFallback("Bulk IN started."));
+            RefreshCommandStates();
 
             while (!_bulkInCts.Token.IsCancellationRequested)
             {
@@ -266,7 +309,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         }
         catch (Exception ex)
         {
-            AppendLog("UsbDebug_Runtime_BulkInError".GetLocalizedFormat(ex.Message));
+            AppendLog("UsbDebug_Runtime_BulkInError".GetLocalizedFormatOrFallback("Bulk IN error: {0}", ex.Message));
         }
         finally
         {
@@ -280,8 +323,9 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
 
             IsBulkInStopping = false;
             IsBulkInRunning = false;
-            _usbUsageCoordinator.SetUsbDebugInUse(false);
-            AppendLog("UsbDebug_Runtime_BulkInStopped".GetLocalized());
+            await ReleaseRawUsbLeaseAsync();
+            AppendLog("UsbDebug_Runtime_BulkInStopped".GetLocalizedOrFallback("Bulk IN stopped."));
+            RefreshCommandStates();
         }
     }
 
@@ -291,7 +335,7 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         IsBulkInStopping = true;
         _bulkInCts?.Cancel();
-        AppendLog("UsbDebug_Runtime_BulkInStopping".GetLocalized());
+        AppendLog("UsbDebug_Runtime_BulkInStopping".GetLocalizedOrFallback("Stopping Bulk IN..."));
     }
 
     [RelayCommand(CanExecute = nameof(CanSendBulkOut))]
@@ -309,6 +353,12 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
             return;
         }
 
+        if (!CanUseExclusiveRawCommands())
+        {
+            ShowReadOnlyObservationDialog();
+            return;
+        }
+
         try
         {
             var data = IsBulkOutHexMode
@@ -323,8 +373,10 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         }
         catch (Exception ex)
         {
-            AppendLog("UsbDebug_Runtime_BulkOutError".GetLocalizedFormat(ex.Message));
-            RequestDialog("UsbDebug_Runtime_BulkOutFailed.Title".GetLocalized(), ex.Message);
+            AppendLog("UsbDebug_Runtime_BulkOutError".GetLocalizedFormatOrFallback("Bulk OUT error: {0}", ex.Message));
+            RequestDialog(
+                "UsbDebug_Runtime_BulkOutFailed.Title".GetLocalizedOrFallback("Bulk OUT failed"),
+                ex.Message);
         }
     }
 
@@ -379,14 +431,118 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
                 return await _bulkInSession.WriteBulkOutAsync(data, 3000, CancellationToken.None);
         }
 
-        using var session = _usb.OpenBulkDuplexSession(
-            requested.DeviceId,
-            requested.ConfigId,
-            requested.InterfaceId,
-            requested.AltId,
-            null,
-            requested.EndpointAddress);
-        return await session.WriteBulkOutAsync(data, 3000, CancellationToken.None);
+        var acquireResult = await TryAcquireRawDiagnosticLeaseAsync("Bulk OUT");
+        if (!acquireResult.Success || acquireResult.Lease is null)
+            throw new InvalidOperationException(BuildRawLeaseUnavailableMessage(acquireResult));
+
+        try
+        {
+            using var session = _usb.OpenBulkDuplexSession(
+                requested.DeviceId,
+                requested.ConfigId,
+                requested.InterfaceId,
+                requested.AltId,
+                null,
+                requested.EndpointAddress);
+            return await session.WriteBulkOutAsync(data, 3000, CancellationToken.None);
+        }
+        finally
+        {
+            if (!ReferenceEquals(acquireResult.Lease, _rawUsbLease))
+                await acquireResult.Lease.ReleaseAsync();
+        }
+    }
+
+    private bool CanUseExclusiveRawCommands()
+        => _scannerSnapshot.ActiveOwner is null;
+
+    private ValueTask<UsbUsageLeaseAcquireResult> TryAcquireRawDiagnosticLeaseAsync(string operation)
+    {
+        if (_rawUsbLease is not null)
+        {
+            return ValueTask.FromResult(new UsbUsageLeaseAcquireResult(
+                true,
+                _rawUsbLease,
+                _usbUsageCoordinator.ActiveLease,
+                string.Empty));
+        }
+
+        return _usbUsageCoordinator.TryAcquireLeaseAsync(_rawUsbOwnerId, UsbUsageOwnerType.RawUsb, $"{RawUsbOwnerOperation}: {operation}");
+    }
+
+    private async Task ReleaseRawUsbLeaseAsync()
+    {
+        if (_rawUsbLease is null)
+            return;
+
+        var lease = _rawUsbLease;
+        _rawUsbLease = null;
+        await lease.ReleaseAsync();
+    }
+
+    private void UpdateObservationStatus()
+    {
+        ObservationStatusText = BuildObservationStatusText();
+    }
+
+    private string BuildObservationStatusText()
+    {
+        if (_scannerSnapshot.ActiveOwner is not null && _observerPermission.Allows(ScannerSessionObserverScope.SessionState))
+        {
+            return "UsbDebug_ObservationStatus_ReadOnly".GetLocalizedOrFallback(
+                "Read-only observation mode: another scanner workflow owns the device. You can inspect session state, logs, and device information here, but Bulk IN/OUT is unavailable until that session disconnects.");
+        }
+
+        if (_rawUsbLease is not null || IsBulkInRunning)
+        {
+            return "UsbDebug_ObservationStatus_ExclusiveActive".GetLocalizedOrFallback(
+                "Exclusive raw diagnostics mode is active. USB Debug currently owns the raw USB lease and can use Bulk IN/OUT.");
+        }
+
+        return "UsbDebug_ObservationStatus_ExclusiveAvailable".GetLocalizedOrFallback(
+            "Exclusive raw diagnostics are available while no scanner workflow owns the device. Bulk IN/OUT will claim the raw USB lease on demand.");
+    }
+
+    private void RefreshCommandStates()
+    {
+        StartBulkInCommand.NotifyCanExecuteChanged();
+        SendBulkOutCommand.NotifyCanExecuteChanged();
+        StopBulkInCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ShowReadOnlyObservationDialog()
+    {
+        RequestDialog(
+            "Shared_Dialog_UsbBusy.Title".GetLocalizedOrFallback("USB busy"),
+            "UsbDebug_Runtime_ReadOnlyObservationOnly.Content".GetLocalizedOrFallback(
+                "A scanner session currently owns the device. USB Debug remains available for read-only observation of session state, logs, and device information, but raw Bulk IN/OUT commands are unavailable until that session disconnects."));
+    }
+
+    private void ShowRawLeaseUnavailableFeedback(UsbUsageLeaseAcquireResult acquireResult)
+    {
+        RequestDialog(
+            "Shared_Dialog_UsbBusy.Title".GetLocalizedOrFallback("USB busy"),
+            BuildRawLeaseUnavailableMessage(acquireResult));
+    }
+
+    private string BuildRawLeaseUnavailableMessage(UsbUsageLeaseAcquireResult acquireResult)
+    {
+        if (acquireResult.ActiveLease?.OwnerType == UsbUsageOwnerType.Scanner || _scannerSnapshot.ActiveOwner is not null)
+        {
+            return "UsbDebug_Runtime_ReadOnlyObservationOnly.Content".GetLocalizedOrFallback(
+                "A scanner session currently owns the device. USB Debug remains available for read-only observation of session state, logs, and device information, but raw Bulk IN/OUT commands are unavailable until that session disconnects.");
+        }
+
+        if (acquireResult.ActiveLease is not null)
+        {
+            return "UsbDebug_Runtime_ExclusiveLeaseUnavailable.Content".GetLocalizedFormatOrFallback(
+                "USB Debug could not acquire exclusive raw access because the device is already owned by {0} for {1}.",
+                acquireResult.ActiveLease.OwnerId,
+                acquireResult.ActiveLease.Operation);
+        }
+
+        return "UsbDebug_Runtime_ExclusiveLeaseUnavailableFallback.Content".GetLocalizedOrFallback(
+            "USB Debug could not acquire exclusive raw access for this operation.");
     }
 
     private byte? ResolveRunningBulkInOutEndpoint()
@@ -428,7 +584,8 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
     {
         _bulkInCts?.Cancel();
         _bulkInSession?.Dispose();
-        _usbUsageCoordinator.SetUsbDebugInUse(false);
+        _rawUsbLease?.Dispose();
+        _scannerManager.SnapshotChanged -= OnScannerSnapshotChanged;
         _usb.DevicesChanged -= OnUsbDevicesChanged;
     }
 

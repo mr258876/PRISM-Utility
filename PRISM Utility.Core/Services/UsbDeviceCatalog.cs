@@ -1,25 +1,127 @@
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using PRISM_Utility.Core.Contracts.Models;
+using System.Diagnostics;
 using Windows.Devices.Enumeration;
 
 internal sealed class UsbDeviceCatalog : IDisposable
 {
     private readonly object _gate = new();
+    private readonly object _refreshRequestGate = new();
+    private readonly Func<UsbDeviceCatalogSnapshot> _readSnapshot;
     private DeviceWatcher? _watcher;
     private Dictionary<string, UsbRegistry> _byId = new();
     private List<UsbDeviceDto> _devices = new();
+    private Action? _pendingRefreshCallbacks;
+    private bool _refreshRunning;
+    private int _disposed;
 
-    public UsbDeviceCatalog()
+    public UsbDeviceCatalog() : this(ReadUsbDeviceSnapshot)
     {
-        RefreshDevices();
+    }
+
+    internal UsbDeviceCatalog(Func<UsbDeviceCatalogSnapshot> readSnapshot)
+    {
+        _readSnapshot = readSnapshot;
     }
 
     public IReadOnlyList<UsbDeviceDto> GetDevices()
     {
-        RefreshDevices();
         lock (_gate)
             return _devices.ToList();
+    }
+
+    internal Task RefreshAsync(CancellationToken ct)
+    {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(UsbDeviceCatalog));
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var registration = ct.Register(() => completion.TrySetCanceled(ct));
+        if (!RequestRefresh(() => completion.TrySetResult()))
+        {
+            registration.Dispose();
+            throw new ObjectDisposedException(nameof(UsbDeviceCatalog));
+        }
+
+        return AwaitRefreshAsync(completion.Task, registration);
+    }
+
+    internal bool RequestRefresh(Action? onRefreshed = null)
+    {
+        if (IsDisposed)
+            return false;
+
+        lock (_refreshRequestGate)
+        {
+            if (onRefreshed is not null)
+                _pendingRefreshCallbacks += onRefreshed;
+
+            if (_refreshRunning)
+                return true;
+
+            _refreshRunning = true;
+        }
+
+        _ = Task.Run(RunRefreshLoop);
+        return true;
+    }
+
+    private static async Task AwaitRefreshAsync(Task refreshTask, CancellationTokenRegistration registration)
+    {
+        try
+        {
+            await refreshTask;
+        }
+        finally
+        {
+            registration.Dispose();
+        }
+    }
+
+    private void RunRefreshLoop()
+    {
+        while (!IsDisposed)
+        {
+            Action? callbacks;
+            lock (_refreshRequestGate)
+            {
+                callbacks = _pendingRefreshCallbacks;
+                _pendingRefreshCallbacks = null;
+            }
+
+            try
+            {
+                var snapshot = _readSnapshot();
+                lock (_gate)
+                {
+                    _byId = snapshot.Registries.ToDictionary(pair => pair.Key, pair => pair.Value);
+                    _devices = snapshot.Devices.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[UsbDeviceCatalog] Device refresh failed: {ex}");
+            }
+
+            if (!IsDisposed)
+                callbacks?.Invoke();
+
+            lock (_refreshRequestGate)
+            {
+                if (_pendingRefreshCallbacks is null)
+                {
+                    _refreshRunning = false;
+                    return;
+                }
+            }
+        }
+
+        lock (_refreshRequestGate)
+        {
+            _pendingRefreshCallbacks = null;
+            _refreshRunning = false;
+        }
     }
 
     public IReadOnlyList<UsbConfigDto> GetConfigs(string deviceId)
@@ -67,9 +169,9 @@ internal sealed class UsbDeviceCatalog : IDisposable
         var aqs = $"System.Devices.InterfaceClassGuid:=\"{{{usbInterfaceGuid}}}\"";
 
         _watcher = DeviceInformation.CreateWatcher(aqs, null, DeviceInformationKind.DeviceInterface);
-        _watcher.Added += (_, __) => onDeviceChanged();
-        _watcher.Removed += (_, __) => onDeviceChanged();
-        _watcher.Updated += (_, __) => onDeviceChanged();
+        _watcher.Added += (_, __) => RequestRefresh(onDeviceChanged);
+        _watcher.Removed += (_, __) => RequestRefresh(onDeviceChanged);
+        _watcher.Updated += (_, __) => RequestRefresh(onDeviceChanged);
         _watcher.Start();
     }
 
@@ -82,17 +184,25 @@ internal sealed class UsbDeviceCatalog : IDisposable
         {
             _watcher.Stop();
         }
-        catch
+        catch (InvalidOperationException ex)
         {
+            Debug.WriteLine($"[UsbDeviceCatalog] Failed to stop USB watcher: {ex}");
         }
 
         _watcher = null;
     }
 
     public void Dispose()
-        => StopWatcher();
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
 
-    private void RefreshDevices()
+        StopWatcher();
+    }
+
+    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+    private static UsbDeviceCatalogSnapshot ReadUsbDeviceSnapshot()
     {
         var newById = new Dictionary<string, UsbRegistry>();
         var newList = new List<UsbDeviceDto>();
@@ -110,11 +220,7 @@ internal sealed class UsbDeviceCatalog : IDisposable
             newList.Add(new UsbDeviceDto(id, (ushort)reg.Vid, (ushort)reg.Pid, (ushort)reg.Rev, display));
         }
 
-        lock (_gate)
-        {
-            _byId = newById;
-            _devices = newList;
-        }
+        return new UsbDeviceCatalogSnapshot(newById, newList);
     }
 
     private UsbDevice OpenDevice(string deviceId)
@@ -145,3 +251,7 @@ internal sealed class UsbDeviceCatalog : IDisposable
             .ToList();
     }
 }
+
+internal sealed record UsbDeviceCatalogSnapshot(
+    IReadOnlyDictionary<string, UsbRegistry> Registries,
+    IReadOnlyList<UsbDeviceDto> Devices);

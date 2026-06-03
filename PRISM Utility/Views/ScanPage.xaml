@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:helpers="using:PRISM_Utility.Helpers"
+    NavigationCacheMode="Enabled"
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -197,11 +198,11 @@
                             </StackPanel>
                         </Expander>
 
-                         <Expander HorizontalAlignment="Stretch" IsExpanded="False">
+                         <Expander HorizontalAlignment="Stretch" IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="AdvancedColorManagementContent">
                              <Expander.Header>
                                   <TextBlock x:Uid="Scan_AdvancedColorManagementSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
-                             <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                             <StackPanel x:Name="AdvancedColorManagementContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                   <TextBlock x:Uid="Scan_ColorSourceText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                   <TextBlock x:Uid="Scan_ColorManagementDescription" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <ToggleSwitch x:Uid="Scan_ColorManagementToggleSwitch" IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
@@ -223,11 +224,11 @@
                              </StackPanel>
                          </Expander>
 
-                         <Expander HorizontalAlignment="Stretch" IsExpanded="False">
+                         <Expander HorizontalAlignment="Stretch" IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="OutputContent">
                              <Expander.Header>
                                  <TextBlock x:Uid="Scan_OutputSection" Style="{ThemeResource SubtitleTextBlockStyle}" />
                              </Expander.Header>
-                             <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                             <StackPanel x:Name="OutputContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                   <TextBlock x:Uid="Scan_OutputTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                   <TextBlock x:Uid="Scan_OutputScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                  <ComboBox

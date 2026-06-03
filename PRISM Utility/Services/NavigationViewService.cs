@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml.Controls;
 
 using PRISM_Utility.Contracts.Services;
-using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.ViewModels;
 
@@ -14,7 +13,6 @@ public class NavigationViewService : INavigationViewService
     private readonly INavigationService _navigationService;
 
     private readonly IPageService _pageService;
-    private readonly IUsbUsageCoordinator _usbUsageCoordinator;
 
     private NavigationView? _navigationView;
 
@@ -22,11 +20,10 @@ public class NavigationViewService : INavigationViewService
 
     public object? SettingsItem => _navigationView?.SettingsItem;
 
-    public NavigationViewService(INavigationService navigationService, IPageService pageService, IUsbUsageCoordinator usbUsageCoordinator)
+    public NavigationViewService(INavigationService navigationService, IPageService pageService)
     {
         _navigationService = navigationService;
         _pageService = pageService;
-        _usbUsageCoordinator = usbUsageCoordinator;
     }
 
     [MemberNotNull(nameof(_navigationView))]
@@ -58,7 +55,7 @@ public class NavigationViewService : INavigationViewService
 
     private void OnBackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) => _navigationService.GoBack();
 
-    private async void OnItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    private void OnItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (args.IsSettingsInvoked)
         {
@@ -69,46 +66,8 @@ public class NavigationViewService : INavigationViewService
             var selectedItem = args.InvokedItemContainer as NavigationViewItem;
 
             if (selectedItem?.GetValue(NavigationHelper.NavigateToProperty) is string pageKey)
-            {
-                if (await IsNavigationBlockedAsync(pageKey))
-                    return;
-
                 _navigationService.NavigateTo(pageKey);
-            }
         }
-    }
-
-    private async Task<bool> IsNavigationBlockedAsync(string pageKey)
-    {
-        if (pageKey == typeof(UsbDebugViewModel).FullName && _usbUsageCoordinator.IsScanDebugInUse)
-        {
-            await ShowNavigationBlockedDialogAsync("Shared_Dialog_UsbBusy_UsbDebugBlockedByScanDebug.Content".GetLocalized());
-            return true;
-        }
-
-        if (pageKey == typeof(ScanDebugViewModel).FullName && _usbUsageCoordinator.IsUsbDebugInUse)
-        {
-            await ShowNavigationBlockedDialogAsync("Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content".GetLocalized());
-            return true;
-        }
-
-        return false;
-    }
-
-    private async Task ShowNavigationBlockedDialogAsync(string content)
-    {
-        if (_navigationView?.XamlRoot is null)
-            return;
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = _navigationView.XamlRoot,
-            Title = "Shared_Dialog_UsbBusy.Title".GetLocalized(),
-            Content = content,
-            CloseButtonText = "Shared_Dialog_Ok.CloseButtonText".GetLocalized()
-        };
-
-        await dialog.ShowAsync();
     }
 
     private NavigationViewItem? GetSelectedItem(IEnumerable<object> menuItems, Type pageType)

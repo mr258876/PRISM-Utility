@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using PRISM_Utility.Core.Models;
+
 namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface IUsbUsageCoordinator
@@ -6,7 +9,17 @@ public interface IUsbUsageCoordinator
 
     bool IsUsbDebugInUse { get; }
 
-    void SetScanDebugInUse(bool inUse);
+    UsbUsageLeaseSnapshot? ActiveLease { get; }
 
-    void SetUsbDebugInUse(bool inUse);
+    ValueTask<UsbUsageLeaseAcquireResult> TryAcquireLeaseAsync(string ownerId, UsbUsageOwnerType ownerType, string operation, CancellationToken ct = default);
+
+    ValueTask<bool> ReleaseAsync(Guid releaseToken, CancellationToken ct = default);
+
+    ValueTask<bool> ForceReleaseAsync(string ownerId, UsbUsageOwnerType ownerType, CancellationToken ct = default);
+
+    bool CanObserveReadOnly(string ownerId, UsbUsageOwnerType ownerType);
+
+    void SetScanDebugInUse(bool inUse, [CallerFilePath] string callerFilePath = "");
+
+    void SetUsbDebugInUse(bool inUse, [CallerFilePath] string callerFilePath = "");
 }

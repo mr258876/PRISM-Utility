@@ -6,9 +6,17 @@ public interface IScanDebugSessionCoordinator
 {
     bool IsConnectBlockedByUsbDebug();
 
-    Task<ScanOperationResult> ConnectAsync(IScanSessionService session, CancellationToken ct);
+    bool HasConnectedSession { get; }
 
-    Task<ScanOperationResult> DisconnectAsync(IScanSessionService session, CancellationToken ct);
+    IScanSessionService? ConnectedSession { get; }
 
-    Task<ScanOperationResult> SetWarmUpAsync(IScanSessionService session, bool enabled, CancellationToken ct);
+    Task<ScanOperationResult> ConnectAsync(CancellationToken ct);
+
+    Task<ScanOperationResult> DisconnectAsync(CancellationToken ct);
+
+    Task<ScanOperationResult> SetWarmUpAsync(bool enabled, CancellationToken ct);
+
+    Task<TResult> UseConnectedSessionAsync<TResult>(Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
+
+    Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
 }

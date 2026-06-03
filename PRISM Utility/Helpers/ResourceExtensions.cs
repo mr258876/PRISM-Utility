@@ -8,6 +8,15 @@ public static class ResourceExtensions
 {
     private static readonly ResourceLoader ResourceLoader = new();
 
+    private static string GetMissingResourceFallback(string resourceKey)
+    {
+#if DEBUG
+        return $"!!{resourceKey}!!";
+#else
+        return resourceKey;
+#endif
+    }
+
     public static string GetLocalizedOrFallback(this string resourceKey, string fallback)
     {
         if (string.IsNullOrWhiteSpace(resourceKey))
@@ -50,18 +59,14 @@ public static class ResourceExtensions
             var message = $"Missing localized resource '{resourceKey}'.";
             Debug.WriteLine(message);
             Trace.WriteLine(message);
-#if DEBUG
-            return $"!!{resourceKey}!!";
-#else
-            return resourceKey;
-#endif
+            return GetMissingResourceFallback(resourceKey);
         }
         catch (Exception ex)
         {
             var message = $"Failed to load localized resource '{resourceKey}'.";
             Debug.WriteLine($"{message} {ex}");
             Trace.WriteLine($"{message} {ex}");
-            throw new InvalidOperationException(message, ex);
+            return GetMissingResourceFallback(resourceKey);
         }
     }
 

@@ -35,6 +35,48 @@
             ExpandedModeThresholdWidth="1280"
             DisplayModeChanged="NavigationViewControl_DisplayModeChanged"
             Header="{x:Bind ((ContentControl)ViewModel.Selected).Content, Mode=OneWay}">
+            <NavigationView.PaneFooter>
+                <Border
+                    Height="40"
+                    Margin="0,0,0,4"
+                    Padding="0"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}">
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid
+                            Grid.Column="0"
+                            Width="40"
+                            Height="40">
+                            <FontIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="18"
+                                Glyph="&#xECF0;" />
+                            <Ellipse
+                                Width="8"
+                                Height="8"
+                                Margin="0,0,8,8"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Fill="{x:Bind ViewModel.ScannerStatusDotBrush, Mode=OneWay}" />
+                        </Grid>
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Margin="8,0,12,0"
+                            MaxLines="1"
+                            MinWidth="0"
+                            Opacity="0.8"
+                            Text="{x:Bind ViewModel.ScannerStatusShortText, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </Border>
+            </NavigationView.PaneFooter>
             <NavigationView.MenuItems>
                 <!--
                 TODO: Update item titles by updating <x:Uid>.Content entries in Strings/en-us/Resources.resw.

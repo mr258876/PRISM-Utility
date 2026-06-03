@@ -502,6 +502,12 @@
   <data name="UsbDebug_Runtime_NoHexBytesFound" xml:space="preserve"><value>未找到十六进制字节。</value></data>
   <data name="UsbDebug_Runtime_HexTokenLength" xml:space="preserve"><value>第 {0} 个标记必须正好为 2 位十六进制数字（支持 0xAA / AAh / AAH / AA）。</value></data>
   <data name="UsbDebug_Runtime_HexTokenInvalid" xml:space="preserve"><value>第 {0} 个标记不是有效的十六进制值：'{1}'。</value></data>
+  <data name="UsbDebug_ObservationStatus_ReadOnly" xml:space="preserve"><value>只读观察模式：其他扫描流程正占用设备。你可以在此查看会话状态、日志和设备信息，但在该会话断开前无法使用 Bulk IN/OUT。</value></data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveActive" xml:space="preserve"><value>独占原始诊断模式已启用。USB Debug 当前持有原始 USB 租约，可使用 Bulk IN/OUT。</value></data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveAvailable" xml:space="preserve"><value>当前没有扫描流程占用设备，可使用独占原始诊断。Bulk IN/OUT 会按需获取原始 USB 租约。</value></data>
+  <data name="UsbDebug_Runtime_ReadOnlyObservationOnly.Content" xml:space="preserve"><value>扫描会话当前正占用设备。USB Debug 仍可只读观察会话状态、日志和设备信息，但在该会话断开前无法使用原始 Bulk IN/OUT 命令。</value></data>
+  <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailable.Content" xml:space="preserve"><value>USB Debug 无法获取独占原始访问权限，因为设备已由 {0} 用于 {1}。</value></data>
+  <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailableFallback.Content" xml:space="preserve"><value>USB Debug 无法为此操作获取独占原始访问权限。</value></data>
   <data name="Scan_Runtime_StatusWaitingForDevices" xml:space="preserve"><value>正在等待扫描仪设备 1D50:619C 和 1D50:619D。</value></data>
   <data name="Scan_Runtime_StatusDevicesDetected" xml:space="preserve"><value>已检测到 619C/619D。点击“连接设备”以为扫描打开扫描仪会话。</value></data>
   <data name="Scan_Runtime_UsbDebugActive" xml:space="preserve"><value>USB 调试处于活动状态。连接扫描页面前请先停止它。</value></data>
@@ -645,6 +651,92 @@
   <data name="Scan_Runtime_MotorOption1" xml:space="preserve"><value>Motor1</value></data>
   <data name="Scan_Runtime_MotorOption2" xml:space="preserve"><value>Motor2</value></data>
   <data name="Scan_Runtime_MotorOption3" xml:space="preserve"><value>Motor3</value></data>
+  <data name="Scan_Runtime_DeviceStatusConnecting" xml:space="preserve"><value>正在连接扫描仪硬件...</value></data>
+  <data name="Scan_Runtime_DeviceStatusConnected" xml:space="preserve"><value>扫描仪已连接。</value></data>
+  <data name="Scan_Runtime_DeviceStatusDetected" xml:space="preserve"><value>已检测到扫描仪，可连接。</value></data>
+  <data name="Scan_Runtime_DeviceStatusMissing" xml:space="preserve"><value>未检测到 PRISM 扫描仪（VID 0x0483 / PID 0x619C 或 0x619D）。</value></data>
+  <data name="Scan_Runtime_ConfigStatusLoaded" xml:space="preserve"><value>{0}</value></data>
+  <data name="Scan_Runtime_ConfigStatusMissing" xml:space="preserve"><value>尚未加载扫描配置。</value></data>
+  <data name="Scan_Runtime_ExecutionConfigUnavailable" xml:space="preserve"><value>不可用</value></data>
+  <data name="Scan_Runtime_ExecutionConfigSummary" xml:space="preserve"><value>行数：{0} | 电机：{1} | 单行移动：{2} | DNG：{3}</value></data>
+  <data name="Scan_Runtime_ExecutionConfigIntervalOnly" xml:space="preserve"><value>间隔 {0} us</value></data>
+  <data name="Scan_Runtime_ExecutionConfigLineMove" xml:space="preserve"><value>{0} {1} @ {2} us</value></data>
+  <data name="Scan_Runtime_ScanStatusRunning" xml:space="preserve"><value>扫描进行中。</value></data>
+  <data name="Scan_Runtime_ScanStatusComplete" xml:space="preserve"><value>最近一次扫描已完成。</value></data>
+  <data name="Scan_Runtime_ScanStatusWaiting" xml:space="preserve"><value>等待开始扫描。</value></data>
+  <data name="Scan_Runtime_OutputStatusSummary" xml:space="preserve"><value>{0}</value></data>
+  <data name="Scan_Runtime_ReadinessStopAvailable" xml:space="preserve"><value>扫描正在运行。更改设置前请停止当前扫描。</value></data>
+  <data name="Scan_Runtime_ReadinessOutputBusy" xml:space="preserve"><value>输出操作仍在进行。开始下一次扫描前请等待其完成。</value></data>
+  <data name="Scan_Runtime_ReadinessConnecting" xml:space="preserve"><value>正在连接扫描仪硬件...</value></data>
+  <data name="Scan_Runtime_ReadinessNoDevices" xml:space="preserve"><value>开始前请连接 PRISM 扫描仪。</value></data>
+  <data name="Scan_Runtime_ReadinessConnectFirst" xml:space="preserve"><value>开始前请先连接扫描仪。</value></data>
+  <data name="Scan_Runtime_ReadinessConfigRequired" xml:space="preserve"><value>开始前请加载扫描配置。</value></data>
+  <data name="Scan_Runtime_ReadinessParametersMissing" xml:space="preserve"><value>扫描仪参数仍缺失。开始前请重新连接。</value></data>
+  <data name="Scan_Runtime_ReadinessReady" xml:space="preserve"><value>已准备好开始扫描。</value></data>
+  <data name="Scan_Runtime_OutputActionBusy" xml:space="preserve"><value>输出操作进行中。</value></data>
+  <data name="Scan_Runtime_OutputActionScanRunning" xml:space="preserve"><value>扫描进行中。</value></data>
+  <data name="Scan_Runtime_OutputActionReady" xml:space="preserve"><value>保存或导出最近一次扫描结果。</value></data>
+  <data name="Scan_Runtime_OutputActionNoResult" xml:space="preserve"><value>尚无可用扫描结果。</value></data>
+  <data name="Scan_Runtime_PreviewPlaceholderScanning" xml:space="preserve"><value>扫描期间预览会在此更新。</value></data>
+  <data name="Scan_Runtime_PreviewPlaceholderPrepareFirst" xml:space="preserve"><value>连接设备并运行一次扫描以填充预览。</value></data>
+  <data name="Scan_Runtime_PreviewModeRawRole" xml:space="preserve"><value>原始（{0}）</value></data>
+  <data name="Scan_Runtime_ErrorConfigProfileRequired" xml:space="preserve"><value>开始前请加载扫描配置。</value></data>
+  <data name="ScanDebug_Runtime_DeviceStateConnecting" xml:space="preserve"><value>连接中</value></data>
+  <data name="ScanDebug_Runtime_DeviceStateConnected" xml:space="preserve"><value>已连接</value></data>
+  <data name="ScanDebug_Runtime_DeviceStateDetected" xml:space="preserve"><value>已检测到设备</value></data>
+  <data name="ScanDebug_Runtime_DeviceStateWaiting" xml:space="preserve"><value>等待设备</value></data>
+  <data name="ScanDebug_IlluminationWorkModeHeader" xml:space="preserve"><value>工作模式</value></data>
+  <data name="ScanDebug_IlluminationWorkModeOff" xml:space="preserve"><value>关闭</value></data>
+  <data name="ScanDebug_IlluminationWorkModeSteady" xml:space="preserve"><value>常亮</value></data>
+  <data name="ScanDebug_IlluminationWorkModeSync" xml:space="preserve"><value>同步</value></data>
+  <data name="ScanDebug_ProfileStateNoProfile" xml:space="preserve"><value>无配置</value></data>
+  <data name="ScanDebug_ProfileStateUnsaved" xml:space="preserve"><value>有未保存更改</value></data>
+  <data name="ScanDebug_ProfileStateSaved" xml:space="preserve"><value>已保存</value></data>
+  <data name="ScanDebug_AcquisitionPlanNoActiveChannels" xml:space="preserve"><value>无活动采集通道。</value></data>
+  <data name="ScanDebug_AcquisitionPlanSelectedChannels" xml:space="preserve"><value>已选择 {0} 个采集通道。</value></data>
+  <data name="ScanDebug_AcquisitionPlanCurrentChannel" xml:space="preserve"><value>当前采集通道：{0}。</value></data>
+  <data name="ScanDebug_ChannelCalibrationCurrentSummary" xml:space="preserve"><value>校准通道：{0}（{1}）。</value></data>
+  <data name="ScanDebug_ChannelLedBindingItem" xml:space="preserve"><value>{0}：{1}</value></data>
+  <data name="ScanDebug_ChannelLedBindingUnassigned" xml:space="preserve"><value>未分配</value></data>
+  <data name="ScanDebug_DisabledReasonReady" xml:space="preserve"><value>就绪。</value></data>
+  <data name="ScanDebug_DisabledReasonScanRunning" xml:space="preserve"><value>扫描正在运行。</value></data>
+  <data name="ScanDebug_DisabledReasonOutputRunning" xml:space="preserve"><value>输出操作正在运行。</value></data>
+  <data name="ScanDebug_DisabledReasonDeviceBusy" xml:space="preserve"><value>设备忙。</value></data>
+  <data name="ScanDebug_DisabledReasonConnectDevice" xml:space="preserve"><value>请先连接设备。</value></data>
+  <data name="ScanDebug_DisabledReasonNoAcquisitionChannels" xml:space="preserve"><value>至少选择一个采集通道。</value></data>
+  <data name="ScanDebug_DisabledReasonConfirmAllAcquisitionChannels" xml:space="preserve"><value>请确认所有活动采集通道。</value></data>
+  <data name="ScanDebug_DisabledReasonInvalidRows" xml:space="preserve"><value>请输入有效行数。</value></data>
+  <data name="ScanDebug_DisabledReasonNoCapture" xml:space="preserve"><value>没有可用的扫描捕获数据。</value></data>
+  <data name="ScanDebug_DisabledReasonRequiresFourChannelCapture" xml:space="preserve"><value>导出需要四通道捕获。</value></data>
+  <data name="ScanDebug_DisabledReasonUnavailable" xml:space="preserve"><value>不可用。</value></data>
+  <data name="ScanDebug_ProfileChannelOverviewUnusedItem" xml:space="preserve"><value>{0}：未使用</value></data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationSaved" xml:space="preserve"><value>校准已保存</value></data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationMissing" xml:space="preserve"><value>缺少校准</value></data>
+  <data name="ScanDebug_ProfileChannelOverviewItem" xml:space="preserve"><value>{0}：{1}（{2}）</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleScanning" xml:space="preserve"><value>扫描中</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleDeviceDetected" xml:space="preserve"><value>已检测到设备</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleNoDevice" xml:space="preserve"><value>未连接设备</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleChannelUncalibrated" xml:space="preserve"><value>{0} 未校准</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleCapturedNoPreview" xml:space="preserve"><value>捕获数据无预览</value></data>
+  <data name="ScanDebug_PreviewEmptyTitleReady" xml:space="preserve"><value>预览就绪</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionScanning" xml:space="preserve"><value>扫描数据到达时会更新预览。</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionDeviceDetected" xml:space="preserve"><value>开始采集前请连接扫描仪。</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionNoDevice" xml:space="preserve"><value>连接 PRISM 扫描仪后开始。</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionChannelUncalibrated" xml:space="preserve"><value>预览前请为 {0}（{1}）保存校准配置。</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionCapturedNoPreview" xml:space="preserve"><value>启用预览或选择支持的行数以查看捕获数据。</value></data>
+  <data name="ScanDebug_PreviewEmptyDescriptionReady" xml:space="preserve"><value>使用 {0} 开始扫描以渲染预览。</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleUnavailable" xml:space="preserve"><value>捕获有效预览前无法进行列采样。</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleUnavailableWithError" xml:space="preserve"><value>列 {0}-{1}：{2}</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleSavedLevels" xml:space="preserve"><value>已保存黑电平 {0}，白电平 {1}。</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleSummary" xml:space="preserve"><value>列 {0}-{1}（{2} px），均值 {3}。{4}</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleNoPreviewSamples" xml:space="preserve"><value>所选范围内没有预览样本。</value></data>
+  <data name="ScanDebug_Runtime_ColumnSampleNoValidPixels" xml:space="preserve"><value>所选范围内没有有效像素。</value></data>
+  <data name="ScanDebug_Runtime_LimitDistanceMinimum" xml:space="preserve"><value>{0} 必须至少为 {1} mm。</value></data>
+  <data name="ScanDebug_Runtime_LimitDistanceInvalidNumber" xml:space="preserve"><value>{0} 必须是数字。</value></data>
+  <data name="ScanDebug_Runtime_LimitDistanceCurrentBelowMinimum" xml:space="preserve"><value>{0} 必须至少为 {1} mm；当前为 {2} mm。</value></data>
+  <data name="ScanDebug_Runtime_LimitDistanceCurrent" xml:space="preserve"><value>{0}：{1} mm。</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelTiltProbeDistance" xml:space="preserve"><value>倾斜探测距离</value></data>
+  <data name="ScanDebug_Runtime_LimitLabelZProbeDistance" xml:space="preserve"><value>Z 探测距离</value></data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve"><value>校准配置通道：{0}（尚未加载已保存配置）。</value></data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfile" xml:space="preserve"><value>校准配置通道：{0}（无已保存配置）。</value></data>
   <data name="ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded" xml:space="preserve"><value>校准配置通道：{0}（已加载已保存配置）。</value></data>
@@ -946,4 +1038,49 @@
   <data name="Main_SettingsCardTitle.Text" xml:space="preserve"><value>设置</value></data>
   <data name="Main_SettingsCardText.Text" xml:space="preserve"><value>维护新配置的全局默认值、DNG 几何默认值、设备设置和应用偏好。</value></data>
   <data name="Main_OpenSettingsButton.Content" xml:space="preserve"><value>打开设置</value></data>
+  <data name="Shell_ScannerStatusShort_Offline" xml:space="preserve">
+    <value>离线</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Detected" xml:space="preserve">
+    <value>已检测</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Connecting" xml:space="preserve">
+    <value>连接中</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Connected" xml:space="preserve">
+    <value>已连接</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Running" xml:space="preserve">
+    <value>运行中</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_ReconnectPrompt" xml:space="preserve">
+    <value>需重连</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Faulted" xml:space="preserve">
+    <value>故障</value>
+  </data>
+  <data name="Shell_ScannerStatus_NotDetected" xml:space="preserve">
+    <value>未检测到扫描仪。请连接扫描仪 USB 设备。</value>
+  </data>
+  <data name="Shell_ScannerStatus_Detected" xml:space="preserve">
+    <value>已检测到扫描仪，尚未连接。</value>
+  </data>
+  <data name="Shell_ScannerStatus_Connecting" xml:space="preserve">
+    <value>已检测到扫描仪，正在连接...</value>
+  </data>
+  <data name="Shell_ScannerStatus_Connected" xml:space="preserve">
+    <value>扫描仪已连接并就绪。</value>
+  </data>
+  <data name="Shell_ScannerStatus_Running" xml:space="preserve">
+    <value>扫描仪已连接，正在运行。</value>
+  </data>
+  <data name="Shell_ScannerStatus_ReconnectPrompt" xml:space="preserve">
+    <value>扫描仪需要重新连接。请确认重连后继续。</value>
+  </data>
+  <data name="Shell_ScannerStatus_Faulted" xml:space="preserve">
+    <value>扫描仪发生故障。请重新连接扫描仪以恢复。</value>
+  </data>
+  <data name="Shell_ScannerStatus_FaultedWithMessage" xml:space="preserve">
+    <value>扫描仪故障：{0}</value>
+  </data>
 </root>

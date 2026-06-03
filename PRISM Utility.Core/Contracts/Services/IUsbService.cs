@@ -7,6 +7,7 @@ public interface IUsbService : IDisposable
     event EventHandler<BulkInStateChangedEventArgs> BulkInStateChanged;
 
     IReadOnlyList<UsbDeviceDto> GetDevices();
+    Task RefreshDevicesAsync(CancellationToken ct);
     IReadOnlyList<UsbConfigDto> GetConfigs(string deviceId);
     IReadOnlyList<UsbInterfaceDto> GetInterfaces(string deviceId, byte configId);
     IReadOnlyList<UsbEndpointDto> GetBulkInEndpoints(string deviceId, byte configId, byte interfaceId, byte altId);

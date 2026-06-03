@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Models;
 using PRISM_Utility.Core.Models;
@@ -59,6 +60,7 @@ public class ScanSessionService : IScanSessionService
     public async Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
     {
         ThrowIfDisposed();
+        await _usb.RefreshDevicesAsync(ct);
         RefreshTargets();
         if (!Targets.IsDevicesPresent)
             return new ScanOperationResult(false, "619C/619D not detected.");
@@ -359,8 +361,9 @@ public class ScanSessionService : IScanSessionService
         {
             DisconnectSessionsInternalAsync().GetAwaiter().GetResult();
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[ScanSessionService] Dispose disconnect cleanup failed: {ex}");
         }
 
         IsConnected = false;

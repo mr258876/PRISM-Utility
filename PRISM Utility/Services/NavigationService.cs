@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 using CommunityToolkit.WinUI.Animations;
 
@@ -89,9 +90,16 @@ public class NavigationService : INavigationService
 
         if (_frame != null && (_frame.Content?.GetType() != pageType || (parameter != null && !parameter.Equals(_lastParameterUsed))))
         {
+            var currentPageName = _frame.Content?.GetType().Name ?? "(none)";
+            var targetPageName = pageType.Name;
+            var totalStopwatch = Stopwatch.StartNew();
+            NavigationTimingLogger.Write($"Start {currentPageName} -> {targetPageName}, clearNavigation={clearNavigation}, hasParameter={parameter is not null}");
+
             _frame.Tag = clearNavigation;
             var vmBeforeNavigation = _frame.GetPageViewModel();
+            var frameNavigateStopwatch = Stopwatch.StartNew();
             var navigated = _frame.Navigate(pageType, parameter);
+            frameNavigateStopwatch.Stop();
             if (navigated)
             {
                 _lastParameterUsed = parameter;
@@ -100,6 +108,9 @@ public class NavigationService : INavigationService
                     navigationAware.OnNavigatedFrom();
                 }
             }
+
+            totalStopwatch.Stop();
+            NavigationTimingLogger.Write($"End {currentPageName} -> {targetPageName}, navigated={navigated}, frameNavigate={frameNavigateStopwatch.Elapsed.TotalMilliseconds:0.0} ms, total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
             return navigated;
         }
@@ -111,6 +122,7 @@ public class NavigationService : INavigationService
     {
         if (sender is Frame frame)
         {
+            var stopwatch = Stopwatch.StartNew();
             var clearNavigation = (bool)frame.Tag;
             if (clearNavigation)
             {
@@ -123,6 +135,9 @@ public class NavigationService : INavigationService
             }
 
             Navigated?.Invoke(sender, e);
+            stopwatch.Stop();
+            var pageName = frame.Content?.GetType().Name ?? "(unknown)";
+            NavigationTimingLogger.Write($"OnNavigated {pageName}, callback={stopwatch.Elapsed.TotalMilliseconds:0.0} ms");
         }
     }
 

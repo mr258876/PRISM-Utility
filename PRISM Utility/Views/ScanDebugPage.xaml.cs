@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
@@ -47,6 +48,7 @@ public sealed partial class ScanDebugPage : Page
     private uint _activeRoiPointerId;
     private int _roiDragStartX;
     private ScanColumnRange _roiOriginalRange = new(0, 0);
+    private bool _areViewModelEventsSubscribed;
 
     public ScanDebugViewModel ViewModel
     {
@@ -55,29 +57,103 @@ public sealed partial class ScanDebugPage : Page
 
     public ScanDebugPage()
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var stepStopwatch = Stopwatch.StartNew();
         ViewModel = App.GetService<ScanDebugViewModel>();
+        NavigationTimingLogger.Write($"ScanDebugPage.ctor GetService<ScanDebugViewModel>={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         InitializeComponent();
+        NavigationTimingLogger.Write($"ScanDebugPage.ctor InitializeComponent={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        totalStopwatch.Stop();
+        NavigationTimingLogger.Write($"ScanDebugPage.ctor total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+    }
+
+    private void DeferredExpander_Expanding(Expander sender, ExpanderExpandingEventArgs args)
+    {
+        if (sender.Tag is string contentName)
+            FindName(contentName);
+    }
+
+    private void PreviewDisplayToolsFlyout_Opening(object sender, object e)
+    {
+        FindName("PreviewDisplayToolsContent");
+    }
+
+    private void OverlayToolsFlyout_Opening(object sender, object e)
+    {
+        FindName("OverlayToolsContent");
     }
 
     private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
-        ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
-        ViewModel.NoticeRequested += OnNoticeRequested;
+        var totalStopwatch = Stopwatch.StartNew();
+        var stepStopwatch = Stopwatch.StartNew();
+        SubscribeViewModelEvents();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded SubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
+        ViewModel.AttachRuntimeBindings();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded AttachRuntimeBindings={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         await ViewModel.RefreshDeviceSettingsBindingsAsync();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded RefreshDeviceSettingsBindingsAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         InitializeZoomScaleComboBox();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded InitializeZoomScaleComboBox={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         RefreshPreviewLayout();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded RefreshPreviewLayout={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        totalStopwatch.Stop();
+        NavigationTimingLogger.Write($"ScanDebugPage.Loaded total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
     }
 
     private async void OnUnloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var stepStopwatch = Stopwatch.StartNew();
+        UnsubscribeViewModelEvents();
+        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded UnsubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
+        DisposePreviewBitmap();
+        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded DisposePreviewBitmap={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
+        await ViewModel.DeactivateAsync();
+        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded DeactivateAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        totalStopwatch.Stop();
+        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+    }
+
+    private void SubscribeViewModelEvents()
+    {
+        if (_areViewModelEventsSubscribed)
+            return;
+
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
+        ViewModel.NoticeRequested += OnNoticeRequested;
+        _areViewModelEventsSubscribed = true;
+    }
+
+    private void UnsubscribeViewModelEvents()
+    {
+        if (!_areViewModelEventsSubscribed)
+            return;
+
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;
         ViewModel.NoticeRequested -= OnNoticeRequested;
-        DisposePreviewBitmap();
-        await ViewModel.CleanupAsync();
+        _areViewModelEventsSubscribed = false;
     }
 
     private void PreviewCanvasControl_CreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)

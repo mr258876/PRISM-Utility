@@ -1,6 +1,7 @@
 .vs/
 bin/
 obj/
+temp_docs/
 
 *.user
 *.suo

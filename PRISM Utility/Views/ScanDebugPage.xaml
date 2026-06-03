@@ -8,6 +8,7 @@
     xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:helpers="using:PRISM_Utility.Helpers"
+    NavigationCacheMode="Enabled"
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
@@ -532,11 +533,11 @@
                         </StackPanel>
                         </Border>
 
-                        <Expander IsExpanded="False">
+                        <Expander IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="AutofocusContent">
                             <Expander.Header>
                                 <TextBlock x:Uid="ScanDebug_AutofocusTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
                             </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                            <StackPanel x:Name="AutofocusContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                 <TextBlock x:Uid="ScanDebug_AutofocusNote" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <TextBlock Text="{x:Bind ViewModel.AutofocusSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <Grid ColumnSpacing="8" RowSpacing="8">
@@ -608,11 +609,11 @@
                             </StackPanel>
                         </Expander>
 
-                        <Expander IsExpanded="False">
+                        <Expander IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="IlluminationContent">
                             <Expander.Header>
                                 <TextBlock x:Uid="ScanDebug_IlluminationTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
                             </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                            <StackPanel x:Name="IlluminationContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                 <TextBlock x:Uid="ScanDebug_IlluminationNote" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <TextBlock Text="{x:Bind ViewModel.IlluminationSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveIlluminationChannels}">
@@ -641,11 +642,11 @@
                             </StackPanel>
                         </Expander>
 
-                        <Expander IsExpanded="False">
+                        <Expander IsExpanded="False" Expanding="DeferredExpander_Expanding" Tag="MotionContent">
                             <Expander.Header>
                                 <TextBlock x:Uid="ScanDebug_MotionTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
                             </Expander.Header>
-                            <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                            <StackPanel x:Name="MotionContent" x:Load="False" Margin="{StaticResource XSmallTopMargin}" Spacing="8">
                                 <TextBlock x:Uid="ScanDebug_MotionNote" Opacity="0.8" TextWrapping="WrapWholeWords" />
                                 <Button x:Uid="ScanDebug_RefreshMotionButton" Command="{x:Bind ViewModel.RefreshMotionCommand}" />
                                 <TextBlock Text="{x:Bind ViewModel.MotionSummaryText, Mode=OneWay}" Opacity="0.8" TextWrapping="WrapWholeWords" />
@@ -820,9 +821,9 @@
                                 SelectionChanged="ZoomScaleComboBox_SelectionChanged" />
                             <Button x:Uid="ScanDebug_PreviewDisplayToolsButton">
                                 <Button.Flyout>
-                                    <Flyout>
+                                    <Flyout Opening="PreviewDisplayToolsFlyout_Opening">
                                         <ScrollViewer MaxHeight="520" MinWidth="760" MaxWidth="1040">
-                                            <StackPanel MinWidth="760" Spacing="8">
+                                            <StackPanel x:Name="PreviewDisplayToolsContent" x:Load="False" MinWidth="760" Spacing="8">
                                                 <TextBlock x:Uid="ScanDebug_PreviewDisplayToolsDescription" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
                                                 <Grid ColumnSpacing="12">
                                                     <Grid.ColumnDefinitions>
@@ -856,9 +857,9 @@
                             </Button>
                             <Button x:Uid="ScanDebug_OverlayToolsButton">
                                 <Button.Flyout>
-                                    <Flyout>
+                                    <Flyout Opening="OverlayToolsFlyout_Opening">
                                         <ScrollViewer MaxHeight="620" MinWidth="860" MaxWidth="1120">
-                                            <StackPanel MinWidth="860" Spacing="8">
+                                            <StackPanel x:Name="OverlayToolsContent" x:Load="False" MinWidth="860" Spacing="8">
                                                 <TextBlock x:Uid="ScanDebug_RoiScopeDescription" Style="{StaticResource ScanDebugQuietTextBlockStyle}" />
                                                 <Grid ColumnSpacing="12">
                                                     <Grid.ColumnDefinitions>

@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Diagnostics;
+using System.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Xaml;
 
@@ -16,6 +18,9 @@ namespace PRISM_Utility;
 // To learn more about WinUI 3, see https://docs.microsoft.com/windows/apps/winui/winui3/.
 public partial class App : Application
 {
+    private readonly IScannerDeviceSessionManager _scannerDeviceSessionManager;
+    private int _scannerShutdownCleanupStarted;
+
     // The .NET Generic Host provides dependency injection, configuration, logging, and other services.
     // https://docs.microsoft.com/dotnet/core/extensions/generic-host
     // https://docs.microsoft.com/dotnet/core/extensions/dependency-injection
@@ -71,6 +76,8 @@ public partial class App : Application
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
             services.AddSingleton<IUsbService, UsbService>();
             services.AddSingleton<IUsbUsageCoordinator, UsbUsageCoordinator>();
+            services.AddSingleton<IScanSessionServiceFactory, ScanSessionServiceFactory>();
+            services.AddSingleton<IScannerDeviceSessionManager, ScannerDeviceSessionManager>();
             services.AddTransient<INavigationViewService, NavigationViewService>();
 
             services.AddSingleton<IActivationService, ActivationService>();
@@ -89,7 +96,7 @@ public partial class App : Application
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();
-            services.AddTransient<IScanDebugSessionCoordinator, ScanDebugSessionCoordinator>();
+            services.AddSingleton<IScanDebugSessionCoordinator, ScanDebugSessionCoordinator>();
             services.AddTransient<IDngWriterService, DngWriterService>();
 
             // Core Services
@@ -114,6 +121,7 @@ public partial class App : Application
         }).
         Build();
 
+        _scannerDeviceSessionManager = Host.Services.GetRequiredService<IScannerDeviceSessionManager>();
         InitializeComponent();
 
         UnhandledException += App_UnhandledException;
@@ -133,5 +141,18 @@ public partial class App : Application
         await App.GetService<ILanguageSelectorService>().ApplyLanguageAsync();
         await App.GetService<IDebugOutputSettingsService>().InitializeAsync();
         await App.GetService<IActivationService>().ActivateAsync(args);
+
+        MainWindow.Closed -= MainWindow_Closed;
+        MainWindow.Closed += MainWindow_Closed;
+    }
+
+    private async void MainWindow_Closed(object sender, WindowEventArgs args)
+    {
+        if (Interlocked.Exchange(ref _scannerShutdownCleanupStarted, 1) != 0)
+            return;
+
+        var result = await _scannerDeviceSessionManager.ShutdownAsync(CancellationToken.None);
+        if (!result.Success)
+            Debug.WriteLine($"Scanner shutdown cleanup incomplete: {result.Message}");
     }
 }

@@ -24,6 +24,11 @@
                 Margin="{StaticResource SmallTopBottomMargin}"
                 Opacity="0.8"
                 TextWrapping="WrapWholeWords" />
+            <TextBlock
+                Margin="0,0,0,8"
+                Opacity="0.85"
+                Text="{x:Bind ViewModel.ObservationStatusText, Mode=OneWay}"
+                TextWrapping="WrapWholeWords" />
             <controls:WrapPanel
                 x:Name="TransferFlowPanel"
                 Orientation="Horizontal"

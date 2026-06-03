@@ -11,11 +11,15 @@ public class UsbService : IUsbService
     public UsbService()
     {
         _catalog = new UsbDeviceCatalog();
-        _catalog.StartWatcher(() => DevicesChanged?.Invoke(this, EventArgs.Empty));
+        _catalog.StartWatcher(RaiseDevicesChanged);
+        _catalog.RequestRefresh(RaiseDevicesChanged);
     }
 
     public IReadOnlyList<UsbDeviceDto> GetDevices()
         => _catalog.GetDevices();
+
+    public Task RefreshDevicesAsync(CancellationToken ct)
+        => _catalog.RefreshAsync(ct);
 
     public IReadOnlyList<UsbConfigDto> GetConfigs(string deviceId)
         => _catalog.GetConfigs(deviceId);
@@ -97,6 +101,9 @@ public class UsbService : IUsbService
 
     private void RaiseBulkInStatus(BulkInState state, string? err = null)
         => BulkInStateChanged?.Invoke(this, new BulkInStateChangedEventArgs(state, err));
+
+    private void RaiseDevicesChanged()
+        => DevicesChanged?.Invoke(this, EventArgs.Empty);
 
     public void StartUsbWatcher(Action onDeviceChanged)
         => _catalog.StartWatcher(onDeviceChanged);

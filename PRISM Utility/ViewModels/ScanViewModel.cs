@@ -1,4 +1,5 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,6 +14,8 @@ using PRISM_Utility.Models;
 
 namespace PRISM_Utility.ViewModels;
 
+public sealed record ScanPreviewModeOption(string Key, string DisplayName);
+
 public partial class ScanViewModel : ObservableRecipient
 {
     private const string ForwardDirection = "Forward";
@@ -25,7 +28,7 @@ public partial class ScanViewModel : ObservableRecipient
     private const double DefaultGreenWavelengthNm = 525.0;
     private const double DefaultBlueWavelengthNm = 450.0;
     private const double DefaultOutputGamma = 2.2;
-    private readonly IScanSessionService _session;
+    private readonly IScannerDeviceSessionManager _sessionManager;
     private readonly IScanParameterService _parameters;
     private readonly IScanTransferSettingsService _transferSettings;
     private readonly IScanWorkflowService _workflow;
@@ -36,6 +39,8 @@ public partial class ScanViewModel : ObservableRecipient
     private readonly IScanChannelParameterProfileService _channelProfiles;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly IUiDispatcher _dispatcher;
+    private readonly CancellationTokenSource _uiLifetimeCts = new();
+    private readonly ScannerSessionOwner _sessionOwner;
 
     private CancellationTokenSource? _scanCts;
     private ScanWorkflowResult? _lastResult;
@@ -44,15 +49,18 @@ public partial class ScanViewModel : ObservableRecipient
     private uint _loadedSysClockKhz;
     private ScanFilmAcquisitionSettings? _selectedConfigAcquisitionSettings;
     private readonly Task _deviceSettingsInitializationTask;
+    private bool _isConfigProfileLoaded;
     private bool _isApplyingDerivedMotorDistance;
     private bool _isMotorDistanceDerivedFromInterval = true;
     private string _lastMotorDistancePerLineUnit = MotorDistanceUnitMillimeters;
     private bool _isDisposed;
+    private bool _areSessionEventsSubscribed;
     private bool _isLoadingColorManagementSettings;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096", "8192" };
     public ObservableCollection<string> DirectionOptions { get; } = new() { ForwardDirection, ReverseDirection };
     public ObservableCollection<string> PreviewModes { get; } = new() { "RGB Composite", "Raw Channel 1", "Raw Channel 2", "Raw Channel 3", "Raw Channel 4" };
+    public ObservableCollection<ScanPreviewModeOption> PreviewModeOptions { get; } = new();
     public ObservableCollection<string> MotorOptions { get; } = new() { "Motor1", "Motor2", "Motor3" };
     public ObservableCollection<string> MotorDistancePerLineUnitOptions { get; } = new(MotorDistanceUnitLabels);
     public ObservableCollection<ScanDngExportMode> DngExportModeOptions { get; } = new() { ScanDngExportMode.LinearRaw4, ScanDngExportMode.LinearRgbIrw };
@@ -125,6 +133,9 @@ public partial class ScanViewModel : ObservableRecipient
     public partial string LoadedScanRecipeSummaryText { get; set; }
 
     [ObservableProperty]
+    public partial string ExecutionConfigSummaryText { get; set; }
+
+    [ObservableProperty]
     public partial string MotorDistancePerLineValue { get; set; }
 
     [ObservableProperty]
@@ -186,6 +197,18 @@ public partial class ScanViewModel : ObservableRecipient
     public partial WriteableBitmap? PreviewImage { get; set; }
 
     [ObservableProperty]
+    public partial bool IsPreviewPlaceholderVisible { get; set; }
+
+    [ObservableProperty]
+    public partial double ScanProgressValue { get; set; }
+
+    [ObservableProperty]
+    public partial double ScanProgressMaximum { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsScanProgressIndeterminate { get; set; }
+
+    [ObservableProperty]
     public partial string StatusText { get; set; }
 
     [ObservableProperty]
@@ -210,10 +233,28 @@ public partial class ScanViewModel : ObservableRecipient
     public partial string OutputSummaryText { get; set; }
 
     [ObservableProperty]
+    public partial string DeviceStatusSummaryText { get; set; }
+
+    [ObservableProperty]
+    public partial string ConfigurationStatusSummaryText { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanStatusSummaryText { get; set; }
+
+    [ObservableProperty]
+    public partial string OutputStatusSummaryText { get; set; }
+
+    [ObservableProperty]
+    public partial string ReadinessReasonText { get; set; }
+
+    [ObservableProperty]
+    public partial string OutputActionReasonText { get; set; }
+
+    [ObservableProperty]
     public partial string ComputedMotorSummaryText { get; set; }
 
     public ScanViewModel(
-        IScanSessionService session,
+        IScannerDeviceSessionManager sessionManager,
         IScanParameterService parameters,
         IScanTransferSettingsService transferSettings,
         IScanWorkflowService workflow,
@@ -225,7 +266,9 @@ public partial class ScanViewModel : ObservableRecipient
         IUsbUsageCoordinator usbUsageCoordinator,
         IUiDispatcher dispatcher)
     {
-        _session = session;
+        var totalStopwatch = Stopwatch.StartNew();
+        var stepStopwatch = Stopwatch.StartNew();
+        _sessionManager = sessionManager;
         _parameters = parameters;
         _transferSettings = transferSettings;
         _workflow = workflow;
@@ -236,8 +279,16 @@ public partial class ScanViewModel : ObservableRecipient
         _channelProfiles = channelProfiles;
         _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = dispatcher;
+        _sessionOwner = new ScannerSessionOwner(
+            OwnerId: nameof(ScanViewModel),
+            OwnerType: ScannerSessionOwnerType.ScanWorkflow,
+            Operation: ScannerSessionOperation.Connect,
+            AcquiredAtUtc: DateTimeOffset.UtcNow,
+            LeaseId: $"scan-page-{Guid.NewGuid():N}");
         _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
+        NavigationTimingLogger.Write($"ScanViewModel.ctor dependencies={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
+        stepStopwatch.Restart();
         SelectedRows = RowOptions[1];
         IsWarmUpEnabled = false;
         IsPreviewEnabled = true;
@@ -259,6 +310,7 @@ public partial class ScanViewModel : ObservableRecipient
         SelectedScanMotor = MotorOptions[Math.Min(1, MotorOptions.Count - 1)];
         SelectedConfigProfileName = "Scan_Runtime_ConfigProfileNotSelected".GetLocalized();
         LoadedScanRecipeSummaryText = string.Empty;
+        ExecutionConfigSummaryText = string.Empty;
         MotorDistancePerLineValue = string.Empty;
         MotorDistancePerLineUnit = MotorDistanceUnitMillimeters;
         MotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
@@ -272,16 +324,65 @@ public partial class ScanViewModel : ObservableRecipient
         CurrentDirectionText = "Scan_Runtime_CurrentDirectionIdle".GetLocalized();
         PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderInitial".GetLocalized();
         PreviewDescriptionText = "Scan_Runtime_PreviewModeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(PreviewModes[0]));
+        IsPreviewPlaceholderVisible = true;
+        ScanProgressValue = 0;
+        ScanProgressMaximum = 1;
+        IsScanProgressIndeterminate = true;
         OutputSummaryText = "Scan_Runtime_OutputSummaryEmpty".GetLocalized();
         ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
+        DeviceStatusSummaryText = string.Empty;
+        ConfigurationStatusSummaryText = string.Empty;
+        ScanStatusSummaryText = string.Empty;
+        OutputStatusSummaryText = string.Empty;
+        ReadinessReasonText = string.Empty;
+        OutputActionReasonText = string.Empty;
+        NavigationTimingLogger.Write($"ScanViewModel.ctor defaultProperties={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
-        _session.TargetsChanged += OnSessionTargetsChanged;
-        RefreshTargets();
+        stepStopwatch.Restart();
+        Activate();
+        NavigationTimingLogger.Write($"ScanViewModel.ctor Activate={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         UpdatePassPlan();
         UpdateChannelMappingSummary();
         RefreshLoadedScanRecipeSummary();
+        UpdateExecutionConfigSummary();
         UpdatePreviewState();
+        UpdateReadinessSummaries();
+        NavigationTimingLogger.Write($"ScanViewModel.ctor summaries={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        stepStopwatch.Restart();
         _ = LoadColorManagementSettingsAsync();
+        NavigationTimingLogger.Write($"ScanViewModel.ctor start LoadColorManagementSettingsAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        totalStopwatch.Stop();
+        NavigationTimingLogger.Write($"ScanViewModel.ctor total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+    }
+
+    public void Activate()
+    {
+        if (_isDisposed)
+            return;
+
+        if (!_areSessionEventsSubscribed)
+        {
+            _sessionManager.TargetsChanged += OnSessionTargetsChanged;
+            _sessionManager.SnapshotChanged += OnSessionSnapshotChanged;
+            _areSessionEventsSubscribed = true;
+        }
+
+        ApplyManagerSnapshot(_sessionManager.Snapshot);
+        RefreshTargets();
+    }
+
+    public void Deactivate()
+    {
+        if (!_areSessionEventsSubscribed)
+            return;
+
+        _sessionManager.TargetsChanged -= OnSessionTargetsChanged;
+        _sessionManager.SnapshotChanged -= OnSessionSnapshotChanged;
+        _areSessionEventsSubscribed = false;
     }
 
     partial void OnIsAlternateMotorDirectionEnabledChanged(bool value)
@@ -291,18 +392,23 @@ public partial class ScanViewModel : ObservableRecipient
         => UpdatePassPlan();
 
     partial void OnSelectedRowsChanged(string value)
-        => UpdateComputedMotorSummary();
+    {
+        UpdateComputedMotorSummary();
+        UpdateExecutionConfigSummary();
+    }
 
     partial void OnMotorDistancePerLineValueChanged(string value)
     {
         if (_isApplyingDerivedMotorDistance)
         {
             UpdateComputedMotorSummary();
+            UpdateExecutionConfigSummary();
             return;
         }
 
         _isMotorDistanceDerivedFromInterval = false;
         UpdateComputedMotorSummary();
+        UpdateExecutionConfigSummary();
     }
 
     partial void OnMotorDistancePerLineUnitChanged(string value)
@@ -321,6 +427,7 @@ public partial class ScanViewModel : ObservableRecipient
         {
             RefreshDerivedMotorDistanceFromCurrentInterval();
             UpdateComputedMotorSummary();
+            UpdateExecutionConfigSummary();
             return;
         }
 
@@ -332,6 +439,7 @@ public partial class ScanViewModel : ObservableRecipient
         }
 
         UpdateComputedMotorSummary();
+        UpdateExecutionConfigSummary();
     }
 
     partial void OnMotorIntervalUsChanged(string value)
@@ -340,6 +448,7 @@ public partial class ScanViewModel : ObservableRecipient
             RefreshDerivedMotorDistanceFromCurrentInterval();
 
         UpdateComputedMotorSummary();
+        UpdateExecutionConfigSummary();
     }
 
     partial void OnSelectedScanMotorChanged(string value)
@@ -348,25 +457,68 @@ public partial class ScanViewModel : ObservableRecipient
             RefreshDerivedMotorDistanceFromCurrentInterval();
 
         UpdateComputedMotorSummary();
+        UpdateExecutionConfigSummary();
     }
 
     partial void OnIsPreviewEnabledChanged(bool value)
         => UpdatePreviewState();
 
+    partial void OnPreviewImageChanged(WriteableBitmap? value)
+        => IsPreviewPlaceholderVisible = value is null;
+
     partial void OnStatusTextChanged(string value)
-        => MirrorOutput("Scan.Status", value);
+    {
+        MirrorOutput("Scan.Status", value);
+        UpdateReadinessSummaries();
+    }
 
     partial void OnCurrentPassTextChanged(string value)
-        => MirrorOutput("Scan.Pass", value);
+    {
+        MirrorOutput("Scan.Pass", value);
+        UpdateReadinessSummaries();
+    }
 
     partial void OnCurrentLedTextChanged(string value)
-        => MirrorOutput("Scan.Led", value);
+    {
+        MirrorOutput("Scan.Led", value);
+        UpdateReadinessSummaries();
+    }
 
     partial void OnCurrentDirectionTextChanged(string value)
-        => MirrorOutput("Scan.Direction", value);
+    {
+        MirrorOutput("Scan.Direction", value);
+        UpdateReadinessSummaries();
+    }
 
     partial void OnOutputSummaryTextChanged(string value)
-        => MirrorOutput("Scan.Output", value);
+    {
+        MirrorOutput("Scan.Output", value);
+        UpdateReadinessSummaries();
+    }
+
+    partial void OnSelectedConfigProfileNameChanged(string value)
+        => UpdateReadinessSummaries();
+
+    partial void OnLoadedScanRecipeSummaryTextChanged(string value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsDevicesPresentChanged(bool value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsConnectedChanged(bool value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsConnectingChanged(bool value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsRunningChanged(bool value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsOutputAvailableChanged(bool value)
+        => UpdateReadinessSummaries();
+
+    partial void OnIsOutputOperationRunningChanged(bool value)
+        => UpdateReadinessSummaries();
 
     partial void OnIsColorManagementEnabledChanged(bool value)
     {
@@ -383,6 +535,7 @@ public partial class ScanViewModel : ObservableRecipient
             SelectedDngExportMode = ScanDngExportMode.LinearRaw4;
 
         RefreshLoadedScanRecipeSummary();
+        UpdateExecutionConfigSummary();
     }
 
     partial void OnSelectedAlignmentModeChanged(ScanChannelAlignmentMode value)
@@ -466,9 +619,29 @@ public partial class ScanViewModel : ObservableRecipient
     private void OnSessionTargetsChanged(object? sender, EventArgs e)
         => _dispatcher.TryEnqueue(RefreshTargets);
 
+    private void OnSessionSnapshotChanged(object? sender, ScannerDeviceSessionSnapshot snapshot)
+        => _dispatcher.TryEnqueue(() => ApplyManagerSnapshot(snapshot));
+
+    private void ApplyManagerSnapshot(ScannerDeviceSessionSnapshot snapshot)
+    {
+        var isOwnedByThisPage = string.Equals(snapshot.ActiveOwner?.LeaseId, _sessionOwner.LeaseId, StringComparison.Ordinal);
+
+        IsConnecting = snapshot.State == ScannerSessionState.Connecting && isOwnedByThisPage;
+        IsConnected = isOwnedByThisPage && (snapshot.State is ScannerSessionState.Connected or ScannerSessionState.Running);
+
+        if (isOwnedByThisPage && snapshot.State == ScannerSessionState.Running)
+        {
+            IsRunning = true;
+            return;
+        }
+
+        if (!isOwnedByThisPage || snapshot.State is ScannerSessionState.Connected or ScannerSessionState.Disconnected or ScannerSessionState.Faulted or ScannerSessionState.ReconnectPrompt)
+            IsRunning = false;
+    }
+
     private void RefreshTargets()
     {
-        IsDevicesPresent = _session.Targets.IsDevicesPresent;
+        IsDevicesPresent = _sessionManager.Targets.IsDevicesPresent;
 
         if (!IsConnected && !IsConnecting)
         {
@@ -480,10 +653,117 @@ public partial class ScanViewModel : ObservableRecipient
 
     private bool CanConnectDevices() => IsDevicesPresent && !IsConnected && !IsConnecting && !IsRunning;
     private bool CanDisconnectDevices() => IsConnected && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
-    private bool CanStartScan() => IsConnected && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
+    private bool CanStartScan() => IsConnected && _isConfigProfileLoaded && HasLoadedScannerParameters() && !IsConnecting && !IsRunning && !IsOutputOperationRunning;
     private bool CanStopScan() => IsRunning;
+    private bool HasLoadedScannerParameters() => _loadedSnapshot is not null && _loadedSysClockKhz >= ScanDebugConstants.MinSysClockKhz;
     private bool CanSaveRgbImage() => IsOutputAvailable && !IsRunning && !IsOutputOperationRunning;
     private bool CanExportDngChannels() => IsOutputAvailable && !IsRunning && !IsOutputOperationRunning;
+
+    private void UpdateReadinessSummaries()
+    {
+        DeviceStatusSummaryText = BuildDeviceStatusSummary();
+        ConfigurationStatusSummaryText = BuildConfigurationStatusSummary();
+        ScanStatusSummaryText = BuildScanStatusSummary();
+        OutputStatusSummaryText = "Scan_Runtime_OutputStatusSummary".GetLocalizedFormatOrFallback("{0}", OutputSummaryText ?? string.Empty);
+        ReadinessReasonText = BuildReadinessReason();
+        OutputActionReasonText = BuildOutputActionReason();
+
+        if (PreviewImage is null && IsPreviewEnabled && _lastResult is null)
+            PreviewPlaceholderText = BuildPreviewPlaceholderText();
+    }
+
+    private string BuildDeviceStatusSummary()
+    {
+        if (IsConnecting)
+            return "Scan_Runtime_DeviceStatusConnecting".GetLocalizedOrFallback("Connecting scanner hardware...");
+
+        if (IsConnected)
+            return "Scan_Runtime_DeviceStatusConnected".GetLocalizedOrFallback("Scanner connected.");
+
+        return IsDevicesPresent
+            ? "Scan_Runtime_DeviceStatusDetected".GetLocalizedOrFallback("Scanner detected and ready to connect.")
+            : "Scan_Runtime_DeviceStatusMissing".GetLocalizedOrFallback("No PRISM scanner (VID 0x0483 / PID 0x619C or 0x619D) detected.");
+    }
+
+    private string BuildConfigurationStatusSummary()
+        => _isConfigProfileLoaded
+            ? "Scan_Runtime_ConfigStatusLoaded".GetLocalizedFormatOrFallback("{0}", SelectedConfigProfileName ?? string.Empty)
+            : "Scan_Runtime_ConfigStatusMissing".GetLocalizedOrFallback("No scan configuration loaded.");
+
+    private void UpdateExecutionConfigSummary()
+    {
+        var rows = string.IsNullOrWhiteSpace(SelectedRows)
+            ? "Scan_Runtime_ExecutionConfigUnavailable".GetLocalizedOrFallback("Unavailable")
+            : SelectedRows;
+        var motor = string.IsNullOrWhiteSpace(SelectedScanMotor)
+            ? "Scan_Runtime_ExecutionConfigUnavailable".GetLocalizedOrFallback("Unavailable")
+            : SelectedScanMotor;
+        var lineMove = BuildLineMoveSummary();
+        var dngMode = GetDngExportModeDisplayName(SelectedDngExportMode);
+
+        ExecutionConfigSummaryText = "Scan_Runtime_ExecutionConfigSummary".GetLocalizedFormatOrFallback("Rows: {0} | Motor: {1} | Line move: {2} | DNG: {3}", rows, motor, lineMove, dngMode);
+    }
+
+    private string BuildLineMoveSummary()
+    {
+        var interval = string.IsNullOrWhiteSpace(MotorIntervalUs)
+            ? "Scan_Runtime_ExecutionConfigUnavailable".GetLocalizedOrFallback("Unavailable")
+            : MotorIntervalUs;
+
+        return string.IsNullOrWhiteSpace(MotorDistancePerLineValue)
+            ? "Scan_Runtime_ExecutionConfigIntervalOnly".GetLocalizedFormatOrFallback("Interval {0} us", interval)
+            : "Scan_Runtime_ExecutionConfigLineMove".GetLocalizedFormatOrFallback("{0} {1} @ {2} us", MotorDistancePerLineValue, MotorDistancePerLineUnit, interval);
+    }
+
+    private string BuildScanStatusSummary()
+    {
+        if (IsRunning)
+            return "Scan_Runtime_ScanStatusRunning".GetLocalizedOrFallback("Scan running.");
+
+        if (IsOutputAvailable)
+            return "Scan_Runtime_ScanStatusComplete".GetLocalizedOrFallback("Latest scan complete.");
+
+        return "Scan_Runtime_ScanStatusWaiting".GetLocalizedOrFallback("Waiting to start a scan.");
+    }
+
+    private string BuildReadinessReason()
+    {
+        if (IsRunning)
+            return "Scan_Runtime_ReadinessStopAvailable".GetLocalizedOrFallback("Scan is running. Stop the current scan before changing setup.");
+
+        if (IsOutputOperationRunning)
+            return "Scan_Runtime_ReadinessOutputBusy".GetLocalizedOrFallback("An output operation is still running. Wait for it to finish before starting another scan.");
+
+        if (IsConnecting)
+            return "Scan_Runtime_ReadinessConnecting".GetLocalizedOrFallback("Connecting to scanner hardware...");
+
+        if (!IsDevicesPresent)
+            return "Scan_Runtime_ReadinessNoDevices".GetLocalizedOrFallback("Connect a PRISM scanner before starting a scan.");
+
+        if (!IsConnected)
+            return "Scan_Runtime_ReadinessConnectFirst".GetLocalizedOrFallback("Connect to the scanner before starting a scan.");
+
+        if (!_isConfigProfileLoaded)
+            return "Scan_Runtime_ReadinessConfigRequired".GetLocalizedOrFallback("Load a scan configuration before starting.");
+
+        if (!HasLoadedScannerParameters())
+            return "Scan_Runtime_ReadinessParametersMissing".GetLocalizedOrFallback("Scanner parameters are still missing. Reconnect before starting.");
+
+        return "Scan_Runtime_ReadinessReady".GetLocalizedOrFallback("Ready to start scanning.");
+    }
+
+    private string BuildOutputActionReason()
+    {
+        if (IsOutputOperationRunning)
+            return "Scan_Runtime_OutputActionBusy".GetLocalizedOrFallback("Output operation in progress.");
+
+        if (IsRunning)
+            return "Scan_Runtime_OutputActionScanRunning".GetLocalizedOrFallback("Scan is running.");
+
+        return IsOutputAvailable
+            ? "Scan_Runtime_OutputActionReady".GetLocalizedOrFallback("Save or export the latest scan result.")
+            : "Scan_Runtime_OutputActionNoResult".GetLocalizedOrFallback("No scan result is available yet.");
+    }
 
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
@@ -502,7 +782,16 @@ public partial class ScanViewModel : ObservableRecipient
             await _deviceSettings.InitializeAsync();
             OnChannelAssignmentChanged();
 
-            var result = await _session.ConnectAsync(CancellationToken.None);
+            var result = _sessionManager.Snapshot.State == ScannerSessionState.ReconnectPrompt
+                && _sessionManager.Snapshot.ReconnectPrompt.RequiresConfirmation
+                ? await _sessionManager.ReconnectAfterPromptAsync(
+                    _sessionOwner with
+                    {
+                        Operation = ScannerSessionOperation.Reconnect,
+                        AcquiredAtUtc = DateTimeOffset.UtcNow
+                    },
+                    CancellationToken.None)
+                : await _sessionManager.ConnectAsync(_sessionOwner, CancellationToken.None);
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
@@ -510,17 +799,20 @@ public partial class ScanViewModel : ObservableRecipient
             }
 
             IsConnected = true;
-            _usbUsageCoordinator.SetScanDebugInUse(true);
             StatusText = "Scan_Runtime_StatusLoadingState".GetLocalized();
 
             var statusNotes = new List<string>();
 
             try
             {
-                var snapshot = await _parameters.LoadAsync(_session, _session.ConnectionToken);
+                var snapshot = await _sessionManager.UseSessionAsync(
+                    _sessionOwner.LeaseId,
+                    session => _parameters.LoadAsync(session, session.ConnectionToken),
+                    CancellationToken.None);
                 _loadedExposureTicks = snapshot.ExposureTicks;
                 _loadedSysClockKhz = snapshot.SysClockKhz;
                 _loadedSnapshot = snapshot;
+                StartScanCommand.NotifyCanExecuteChanged();
                 RefreshDerivedMotorDistanceFromCurrentInterval();
                 statusNotes.Add("Scan_Runtime_StatusParametersLoaded".GetLocalizedFormat(snapshot.ExposureTicks, snapshot.SysClockKhz));
             }
@@ -529,6 +821,7 @@ public partial class ScanViewModel : ObservableRecipient
                 _loadedSnapshot = null;
                 _loadedExposureTicks = 0;
                 _loadedSysClockKhz = 0;
+                StartScanCommand.NotifyCanExecuteChanged();
                 statusNotes.Add("Scan_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
             }
 
@@ -542,9 +835,8 @@ public partial class ScanViewModel : ObservableRecipient
         }
         catch (Exception ex)
         {
-            await _session.DisconnectAsync();
+            await _sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None);
             IsConnected = false;
-            _usbUsageCoordinator.SetScanDebugInUse(false);
             StatusText = "Scan_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
         }
         finally
@@ -559,11 +851,13 @@ public partial class ScanViewModel : ObservableRecipient
         IsConnecting = true;
         try
         {
-            _scanCts?.Cancel();
-            await _session.DisconnectAsync();
-            _usbUsageCoordinator.SetScanDebugInUse(false);
+            await _sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None);
             IsConnected = false;
+            _loadedSnapshot = null;
+            _loadedExposureTicks = 0;
+            _loadedSysClockKhz = 0;
             IsOutputAvailable = false;
+            ScanProgressValue = 0;
             _lastResult = null;
             PreviewImage = null;
             PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderInitial".GetLocalized();
@@ -582,42 +876,78 @@ public partial class ScanViewModel : ObservableRecipient
     [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task StartScan()
     {
+        if (!_isConfigProfileLoaded)
+        {
+            StatusText = "Scan_Runtime_ErrorConfigProfileRequired".GetLocalizedOrFallback("Load a scan configuration before starting.");
+            return;
+        }
+
         if (!TryBuildWorkflowRequest(out var request, out var error))
         {
             StatusText = error;
             return;
         }
 
-        if (request.Rows > _session.SingleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
+        var singleTransferMaxRows = await _sessionManager.UseSessionAsync(
+            _sessionOwner.LeaseId,
+            session => Task.FromResult(session.SingleTransferMaxRows),
+            CancellationToken.None);
+
+        if (request.Rows > singleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
         {
-            StatusText = "Scan_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(_session.SingleTransferMaxRows);
+            StatusText = "Scan_Runtime_StatusRowsLimitExceeded".GetLocalizedFormat(singleTransferMaxRows);
             return;
         }
 
         _scanCts = new CancellationTokenSource();
+        var uiToken = _uiLifetimeCts.Token;
         IsRunning = true;
+        ScanProgressValue = 0;
+        ScanProgressMaximum = 1;
+        IsScanProgressIndeterminate = true;
         IsOutputAvailable = false;
         _lastResult = null;
         OutputSummaryText = "Scan_Runtime_OutputSummaryInProgress".GetLocalized();
 
         try
         {
-            var result = await _workflow.ExecuteAsync(
-                _session,
-                request,
-                _scanCts.Token,
-                progress => _dispatcher.TryEnqueue(() => ApplyProgress(progress)),
-                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status)),
-                diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic));
+            var result = await _sessionManager.RunWithSessionStateAsync(
+                _sessionOwner.LeaseId,
+                ScannerSessionState.Running,
+                session => _workflow.ExecuteAsync(
+                    session,
+                    request,
+                    _scanCts.Token,
+                    progress =>
+                    {
+                        if (!uiToken.IsCancellationRequested)
+                            _dispatcher.TryEnqueue(() => ApplyProgress(progress));
+                    },
+                    status =>
+                    {
+                        if (!uiToken.IsCancellationRequested)
+                            _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status));
+                    },
+                    diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic)),
+                CancellationToken.None);
+
+            if (uiToken.IsCancellationRequested)
+                return;
 
             _lastResult = result;
             IsOutputAvailable = true;
+            ScanProgressMaximum = Math.Max(1, result.Passes.Count);
+            ScanProgressValue = ScanProgressMaximum;
+            IsScanProgressIndeterminate = false;
             OutputSummaryText = "Scan_Runtime_OutputSummaryCaptured".GetLocalizedFormat(result.Passes.Count, result.Rows, result.ComputedMotorStepsPerPass);
             StatusText = "Scan_Runtime_StatusCompleted".GetLocalized();
             UpdatePreviewState();
         }
         catch (OperationCanceledException)
         {
+            if (uiToken.IsCancellationRequested)
+                return;
+
             StatusText = "Scan_Runtime_StatusCanceled".GetLocalized();
             CurrentPassText = "Scan_Runtime_CurrentPassCanceled".GetLocalized();
             CurrentLedText = "Scan_Runtime_CurrentLedStopped".GetLocalized();
@@ -625,12 +955,17 @@ public partial class ScanViewModel : ObservableRecipient
         }
         catch (Exception ex)
         {
+            if (uiToken.IsCancellationRequested)
+                return;
+
             StatusText = "Scan_Runtime_StatusFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(ex.Message));
             OutputSummaryText = "Scan_Runtime_OutputSummaryFailed".GetLocalized();
         }
         finally
         {
-            IsRunning = false;
+            if (!uiToken.IsCancellationRequested)
+                IsRunning = false;
+
             _scanCts?.Dispose();
             _scanCts = null;
         }
@@ -648,14 +983,21 @@ public partial class ScanViewModel : ObservableRecipient
         {
             try
             {
-                await _session.StopMotorAsync(motorId, CancellationToken.None);
+                await _sessionManager.UseSessionAsync(
+                    _sessionOwner.LeaseId,
+                    async session =>
+                    {
+                        await session.StopMotorAsync(motorId, CancellationToken.None);
+                        return true;
+                    },
+                    CancellationToken.None);
             }
             catch
             {
             }
         }
 
-        var result = await _session.StopScanAsync(CancellationToken.None);
+        var result = await _sessionManager.StopAsync(_sessionOwner.LeaseId, CancellationToken.None);
         StatusText = result.Success ? "Scan_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
     }
 
@@ -749,6 +1091,8 @@ public partial class ScanViewModel : ObservableRecipient
             }
 
             await _channelProfiles.ReplaceProfilesAsync(imported);
+            _isConfigProfileLoaded = true;
+            StartScanCommand.NotifyCanExecuteChanged();
             SelectedConfigProfileName = imported.ProfileName;
             _selectedConfigAcquisitionSettings = imported.AcquisitionSettings?.Normalize();
 
@@ -757,6 +1101,8 @@ public partial class ScanViewModel : ObservableRecipient
 
             ApplyScanRecipeSettings(imported.ScanRecipeSettings);
             RefreshLoadedScanRecipeSummary();
+            UpdateExecutionConfigSummary();
+            UpdateReadinessSummaries();
 
             StatusText = (_selectedConfigAcquisitionSettings is null
                     ? "Scan_Runtime_StatusConfigProfileLoadedLegacy"
@@ -771,11 +1117,34 @@ public partial class ScanViewModel : ObservableRecipient
 
     private void ApplyProgress(ScanWorkflowProgress progress)
     {
+        UpdateScanProgress(progress);
         CurrentPassText = "Scan_Runtime_CurrentPassProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage));
         CurrentLedText = "Scan_Runtime_CurrentLedProgress".GetLocalizedFormat(progress.LedChannelIndex + 1);
         CurrentDirectionText = "Scan_Runtime_CurrentDirectionProgress".GetLocalizedFormat(GetDirectionDisplayName(progress.DirectionPositive ? ForwardDirection : ReverseDirection));
     }
 
+    private void UpdateScanProgress(ScanWorkflowProgress progress)
+    {
+        if (progress.CurrentPass <= 0 || progress.TotalPasses <= 0)
+        {
+            ScanProgressValue = 0;
+            ScanProgressMaximum = 1;
+            IsScanProgressIndeterminate = true;
+            return;
+        }
+
+        ScanProgressMaximum = progress.TotalPasses;
+        var passBase = Math.Clamp(progress.CurrentPass - 1, 0, progress.TotalPasses);
+        var progressValue = progress.Stage switch
+        {
+            "Completed" => progress.CurrentPass,
+            "Preparing" => passBase,
+            _ => passBase + 0.5,
+        };
+
+        ScanProgressValue = Math.Clamp(progressValue, 0, ScanProgressMaximum);
+        IsScanProgressIndeterminate = false;
+    }
     private void UpdatePassPlan()
     {
         Pass1DirectionText = GetDirectionForPass(0);
@@ -812,7 +1181,7 @@ public partial class ScanViewModel : ObservableRecipient
         {
             PreviewImage = null;
             PreviewDescriptionText = "Scan_Runtime_PreviewModeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode));
-            PreviewPlaceholderText = "Scan_Runtime_PreviewPlaceholderNextScan".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode));
+            PreviewPlaceholderText = BuildPreviewPlaceholderText();
             return;
         }
 
@@ -842,7 +1211,7 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        if (!TryParsePreviewChannelIndex(out var channelIndex) || _lastResult.Passes.Count <= channelIndex)
+        if (!TryParsePreviewChannelIndex(SelectedPreviewMode, out var channelIndex) || _lastResult.Passes.Count <= channelIndex)
         {
             PreviewImage = null;
             PreviewDescriptionText = "Scan_Runtime_PreviewRawUnavailable".GetLocalized();
@@ -868,8 +1237,36 @@ public partial class ScanViewModel : ObservableRecipient
     private void UpdateChannelMappingSummary()
     {
         var roles = GetEffectiveDeviceChannelRoles();
+        UpdatePreviewModeOptions();
         ChannelMappingSummaryText = "Scan_Runtime_ChannelMappingSummary".GetLocalizedFormat(GetChannelRoleDisplayName(roles[0]), GetChannelRoleDisplayName(roles[1]), GetChannelRoleDisplayName(roles[2]), GetChannelRoleDisplayName(roles[3]));
         RefreshLoadedScanRecipeSummary();
+    }
+
+    private string BuildPreviewPlaceholderText()
+    {
+        if (IsRunning)
+            return "Scan_Runtime_PreviewPlaceholderScanning".GetLocalizedOrFallback("Preview updates will appear here while scanning.");
+
+        if (!IsConnected || !_isConfigProfileLoaded || !HasLoadedScannerParameters())
+            return "Scan_Runtime_PreviewPlaceholderPrepareFirst".GetLocalizedOrFallback("Connect devices and run a scan to populate the preview.");
+
+        return "Scan_Runtime_PreviewPlaceholderNextScan".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode));
+    }
+
+    private void UpdatePreviewModeOptions()
+    {
+        for (var i = 0; i < PreviewModes.Count; i++)
+        {
+            var mode = PreviewModes[i];
+            var option = new ScanPreviewModeOption(mode, GetPreviewModeDisplayName(mode));
+            if (i < PreviewModeOptions.Count)
+                PreviewModeOptions[i] = option;
+            else
+                PreviewModeOptions.Add(option);
+        }
+
+        while (PreviewModeOptions.Count > PreviewModes.Count)
+            PreviewModeOptions.RemoveAt(PreviewModeOptions.Count - 1);
     }
 
     private void UpdateComputedMotorSummary()
@@ -908,6 +1305,11 @@ public partial class ScanViewModel : ObservableRecipient
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
     {
         request = new ScanWorkflowRequest(0, false, Array.Empty<ushort>(), Array.Empty<string>(), Array.Empty<ScanParameterSnapshot>(), 0, 0, false, false, 0, 0, null);
+        if (!_isConfigProfileLoaded)
+        {
+            error = "Scan_Runtime_ErrorConfigProfileRequired".GetLocalizedOrFallback("Load a scan configuration before starting.");
+            return false;
+        }
 
         if (!int.TryParse(SelectedRows, out var rows) || rows <= 0)
         {
@@ -927,13 +1329,11 @@ public partial class ScanViewModel : ObservableRecipient
             return false;
         }
 
-        if (_loadedSnapshot is null || _loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
+        if (!HasLoadedScannerParameters() || _loadedSnapshot is not { } fallbackSnapshot)
         {
             error = "Scan_Runtime_ErrorParametersNotLoaded".GetLocalized();
             return false;
         }
-
-        var fallbackSnapshot = _loadedSnapshot;
         var passRoles = GetEffectiveDeviceChannelRoles();
         var passProfiles = passRoles
             .Select(role => _channelProfiles.TryGetProfile(role, out var profile) ? profile.Parameters : fallbackSnapshot)
@@ -1196,16 +1596,22 @@ public partial class ScanViewModel : ObservableRecipient
             ? "Scan_Runtime_DirectionForward".GetLocalized()
             : "Scan_Runtime_DirectionReverse".GetLocalized();
 
-    private static string GetPreviewModeDisplayName(string mode)
-        => mode switch
+    private string GetPreviewModeDisplayName(string? mode)
+    {
+        mode = NormalizePreviewMode(mode);
+
+        if (string.Equals(mode, PreviewModes[0], StringComparison.Ordinal))
+            return "Scan_Runtime_PreviewModeRgbComposite".GetLocalized();
+
+        if (TryParsePreviewChannelIndex(mode, out var channelIndex))
         {
-            "RGB Composite" => "Scan_Runtime_PreviewModeRgbComposite".GetLocalized(),
-            "Raw Channel 1" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(1),
-            "Raw Channel 2" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(2),
-            "Raw Channel 3" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(3),
-            "Raw Channel 4" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(4),
-            _ => mode
-        };
+            var roles = GetEffectiveDeviceChannelRoles();
+            if (channelIndex < roles.Length)
+                return "Scan_Runtime_PreviewModeRawRole".GetLocalizedFormatOrFallback("Raw ({0})", GetChannelRoleDisplayName(roles[channelIndex]));
+        }
+
+        return mode;
+    }
 
     private static string GetDngExportModeDisplayName(ScanDngExportMode mode)
         => mode switch
@@ -1236,32 +1642,31 @@ public partial class ScanViewModel : ObservableRecipient
             _ => role
         };
 
-    private bool TryParsePreviewChannelIndex(out int channelIndex)
+    private string NormalizePreviewMode(string? previewMode)
+        => string.IsNullOrWhiteSpace(previewMode) ? PreviewModes[0] : previewMode;
+
+    private bool TryParsePreviewChannelIndex(string? previewMode, out int channelIndex)
     {
         channelIndex = -1;
-        if (!SelectedPreviewMode.StartsWith("Raw Channel ", StringComparison.OrdinalIgnoreCase))
+        previewMode = NormalizePreviewMode(previewMode);
+        if (!previewMode.StartsWith("Raw Channel ", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        return int.TryParse(SelectedPreviewMode[12..], out var oneBasedIndex)
+        return int.TryParse(previewMode[12..], out var oneBasedIndex)
                && (channelIndex = oneBasedIndex - 1) >= 0
                && channelIndex < ScanDebugConstants.IlluminationChannelCount;
     }
 
-    public async Task CleanupAsync()
+    public Task CleanupAsync()
     {
         if (_isDisposed)
-            return;
+            return Task.CompletedTask;
 
         _isDisposed = true;
-        _scanCts?.Cancel();
-
-        await _session.DisposeAsync();
-        _usbUsageCoordinator.SetScanDebugInUse(false);
-        _session.TargetsChanged -= OnSessionTargetsChanged;
-        IsConnected = false;
-        IsConnecting = false;
-        IsRunning = false;
+        _uiLifetimeCts.Cancel();
+        Deactivate();
         IsOutputAvailable = false;
         PreviewImage = null;
+        return Task.CompletedTask;
     }
 }

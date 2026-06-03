@@ -1272,6 +1272,24 @@
   <data name="UsbDebug_Runtime_HexTokenInvalid" xml:space="preserve">
     <value>Token #{0} is not valid hex: '{1}'.</value>
   </data>
+  <data name="UsbDebug_ObservationStatus_ReadOnly" xml:space="preserve">
+    <value>Read-only observation mode: another scanner workflow owns the device. You can inspect session state, logs, and device information here, but Bulk IN/OUT is unavailable until that session disconnects.</value>
+  </data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveActive" xml:space="preserve">
+    <value>Exclusive raw diagnostics mode is active. USB Debug currently owns the raw USB lease and can use Bulk IN/OUT.</value>
+  </data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveAvailable" xml:space="preserve">
+    <value>Exclusive raw diagnostics are available while no scanner workflow owns the device. Bulk IN/OUT will claim the raw USB lease on demand.</value>
+  </data>
+  <data name="UsbDebug_Runtime_ReadOnlyObservationOnly.Content" xml:space="preserve">
+    <value>A scanner session currently owns the device. USB Debug remains available for read-only observation of session state, logs, and device information, but raw Bulk IN/OUT commands are unavailable until that session disconnects.</value>
+  </data>
+  <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailable.Content" xml:space="preserve">
+    <value>USB Debug could not acquire exclusive raw access because the device is already owned by {0} for {1}.</value>
+  </data>
+  <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailableFallback.Content" xml:space="preserve">
+    <value>USB Debug could not acquire exclusive raw access for this operation.</value>
+  </data>
   <data name="Scan_Runtime_StatusWaitingForDevices" xml:space="preserve">
     <value>Waiting for scanner devices 1D50:619C and 1D50:619D.</value>
   </data>
@@ -1700,6 +1718,264 @@
   </data>
   <data name="Scan_Runtime_MotorOption3" xml:space="preserve">
     <value>Motor3</value>
+  </data>
+  <data name="Scan_Runtime_DeviceStatusConnecting" xml:space="preserve">
+    <value>Connecting scanner hardware...</value>
+  </data>
+  <data name="Scan_Runtime_DeviceStatusConnected" xml:space="preserve">
+    <value>Scanner connected.</value>
+  </data>
+  <data name="Scan_Runtime_DeviceStatusDetected" xml:space="preserve">
+    <value>Scanner detected and ready to connect.</value>
+  </data>
+  <data name="Scan_Runtime_DeviceStatusMissing" xml:space="preserve">
+    <value>No PRISM scanner (VID 0x0483 / PID 0x619C or 0x619D) detected.</value>
+  </data>
+  <data name="Scan_Runtime_ConfigStatusLoaded" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="Scan_Runtime_ConfigStatusMissing" xml:space="preserve">
+    <value>No scan configuration loaded.</value>
+  </data>
+  <data name="Scan_Runtime_ExecutionConfigUnavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="Scan_Runtime_ExecutionConfigSummary" xml:space="preserve">
+    <value>Rows: {0} | Motor: {1} | Line move: {2} | DNG: {3}</value>
+  </data>
+  <data name="Scan_Runtime_ExecutionConfigIntervalOnly" xml:space="preserve">
+    <value>Interval {0} us</value>
+  </data>
+  <data name="Scan_Runtime_ExecutionConfigLineMove" xml:space="preserve">
+    <value>{0} {1} @ {2} us</value>
+  </data>
+  <data name="Scan_Runtime_ScanStatusRunning" xml:space="preserve">
+    <value>Scan running.</value>
+  </data>
+  <data name="Scan_Runtime_ScanStatusComplete" xml:space="preserve">
+    <value>Latest scan complete.</value>
+  </data>
+  <data name="Scan_Runtime_ScanStatusWaiting" xml:space="preserve">
+    <value>Waiting to start a scan.</value>
+  </data>
+  <data name="Scan_Runtime_OutputStatusSummary" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessStopAvailable" xml:space="preserve">
+    <value>Scan is running. Stop the current scan before changing setup.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessOutputBusy" xml:space="preserve">
+    <value>An output operation is still running. Wait for it to finish before starting another scan.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessConnecting" xml:space="preserve">
+    <value>Connecting scanner hardware...</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessNoDevices" xml:space="preserve">
+    <value>Connect a PRISM scanner before starting.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessConnectFirst" xml:space="preserve">
+    <value>Connect the scanner before starting.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessConfigRequired" xml:space="preserve">
+    <value>Load a scan configuration before starting.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessParametersMissing" xml:space="preserve">
+    <value>Scanner parameters are still missing. Reconnect before starting.</value>
+  </data>
+  <data name="Scan_Runtime_ReadinessReady" xml:space="preserve">
+    <value>Ready to start scanning.</value>
+  </data>
+  <data name="Scan_Runtime_OutputActionBusy" xml:space="preserve">
+    <value>Output operation in progress.</value>
+  </data>
+  <data name="Scan_Runtime_OutputActionScanRunning" xml:space="preserve">
+    <value>Scan is running.</value>
+  </data>
+  <data name="Scan_Runtime_OutputActionReady" xml:space="preserve">
+    <value>Save or export the latest scan result.</value>
+  </data>
+  <data name="Scan_Runtime_OutputActionNoResult" xml:space="preserve">
+    <value>No scan result is available yet.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewPlaceholderScanning" xml:space="preserve">
+    <value>Preview updates will appear here while scanning.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewPlaceholderPrepareFirst" xml:space="preserve">
+    <value>Connect devices and run a scan to populate the preview.</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeRawRole" xml:space="preserve">
+    <value>Raw ({0})</value>
+  </data>
+  <data name="Scan_Runtime_ErrorConfigProfileRequired" xml:space="preserve">
+    <value>Load a scan configuration before starting.</value>
+  </data>
+  <data name="ScanDebug_Runtime_DeviceStateConnecting" xml:space="preserve">
+    <value>Connecting</value>
+  </data>
+  <data name="ScanDebug_Runtime_DeviceStateConnected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="ScanDebug_Runtime_DeviceStateDetected" xml:space="preserve">
+    <value>Device detected</value>
+  </data>
+  <data name="ScanDebug_Runtime_DeviceStateWaiting" xml:space="preserve">
+    <value>Waiting for device</value>
+  </data>
+  <data name="ScanDebug_IlluminationWorkModeHeader" xml:space="preserve">
+    <value>Work mode</value>
+  </data>
+  <data name="ScanDebug_IlluminationWorkModeOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_IlluminationWorkModeSteady" xml:space="preserve">
+    <value>Steady</value>
+  </data>
+  <data name="ScanDebug_IlluminationWorkModeSync" xml:space="preserve">
+    <value>Sync</value>
+  </data>
+  <data name="ScanDebug_ProfileStateNoProfile" xml:space="preserve">
+    <value>No profile</value>
+  </data>
+  <data name="ScanDebug_ProfileStateUnsaved" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+  <data name="ScanDebug_ProfileStateSaved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="ScanDebug_AcquisitionPlanNoActiveChannels" xml:space="preserve">
+    <value>No active acquisition channels.</value>
+  </data>
+  <data name="ScanDebug_AcquisitionPlanSelectedChannels" xml:space="preserve">
+    <value>{0} acquisition channels selected.</value>
+  </data>
+  <data name="ScanDebug_AcquisitionPlanCurrentChannel" xml:space="preserve">
+    <value>Current acquisition channel: {0}.</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationCurrentSummary" xml:space="preserve">
+    <value>Calibration channel: {0} ({1}).</value>
+  </data>
+  <data name="ScanDebug_ChannelLedBindingItem" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="ScanDebug_ChannelLedBindingUnassigned" xml:space="preserve">
+    <value>Unassigned</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonReady" xml:space="preserve">
+    <value>Ready.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonScanRunning" xml:space="preserve">
+    <value>A scan is running.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonOutputRunning" xml:space="preserve">
+    <value>An output operation is running.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonDeviceBusy" xml:space="preserve">
+    <value>The device is busy.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonConnectDevice" xml:space="preserve">
+    <value>Connect the device first.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonNoAcquisitionChannels" xml:space="preserve">
+    <value>Select at least one acquisition channel.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonConfirmAllAcquisitionChannels" xml:space="preserve">
+    <value>Confirm all active acquisition channels.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonInvalidRows" xml:space="preserve">
+    <value>Enter a valid row count.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonNoCapture" xml:space="preserve">
+    <value>No captured scan data is available.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonRequiresFourChannelCapture" xml:space="preserve">
+    <value>Export requires a four-channel capture.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonUnavailable" xml:space="preserve">
+    <value>Unavailable.</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewUnusedItem" xml:space="preserve">
+    <value>{0}: unused</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationSaved" xml:space="preserve">
+    <value>calibration saved</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationMissing" xml:space="preserve">
+    <value>calibration missing</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewItem" xml:space="preserve">
+    <value>{0}: {1} ({2})</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleScanning" xml:space="preserve">
+    <value>Scanning</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleDeviceDetected" xml:space="preserve">
+    <value>Device detected</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleNoDevice" xml:space="preserve">
+    <value>No device connected</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleChannelUncalibrated" xml:space="preserve">
+    <value>{0} is not calibrated</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleCapturedNoPreview" xml:space="preserve">
+    <value>Captured data has no preview</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyTitleReady" xml:space="preserve">
+    <value>Ready for preview</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionScanning" xml:space="preserve">
+    <value>Preview will update as scan data arrives.</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionDeviceDetected" xml:space="preserve">
+    <value>Connect the scanner before starting acquisition.</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionNoDevice" xml:space="preserve">
+    <value>Attach a PRISM scanner to begin.</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionChannelUncalibrated" xml:space="preserve">
+    <value>Save a calibration profile for {0} on {1} before previewing.</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionCapturedNoPreview" xml:space="preserve">
+    <value>Enable preview or choose a supported row count to view captured data.</value>
+  </data>
+  <data name="ScanDebug_PreviewEmptyDescriptionReady" xml:space="preserve">
+    <value>Start a scan with {0} to render the preview.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleUnavailable" xml:space="preserve">
+    <value>Column sampling is unavailable until a valid preview is captured.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleUnavailableWithError" xml:space="preserve">
+    <value>Columns {0}-{1}: {2}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleSavedLevels" xml:space="preserve">
+    <value>Saved black {0}, white {1}.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleSummary" xml:space="preserve">
+    <value>Columns {0}-{1} ({2} px), mean {3}. {4}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleNoPreviewSamples" xml:space="preserve">
+    <value>No preview samples are available in the selected range.</value>
+  </data>
+  <data name="ScanDebug_Runtime_ColumnSampleNoValidPixels" xml:space="preserve">
+    <value>No valid pixels were found in the selected range.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitDistanceMinimum" xml:space="preserve">
+    <value>{0} must be at least {1} mm.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitDistanceInvalidNumber" xml:space="preserve">
+    <value>{0} must be a number.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitDistanceCurrentBelowMinimum" xml:space="preserve">
+    <value>{0} must be at least {1} mm; current {2} mm.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitDistanceCurrent" xml:space="preserve">
+    <value>{0}: {1} mm.</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelTiltProbeDistance" xml:space="preserve">
+    <value>Tilt probe distance</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelZProbeDistance" xml:space="preserve">
+    <value>Z probe distance</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve">
     <value>Calibration profile channel: {0} (no saved profile loaded yet).</value>
@@ -2568,4 +2844,49 @@
   <data name="Main_SettingsCardTitle.Text" xml:space="preserve"><value>Settings</value></data>
   <data name="Main_SettingsCardText.Text" xml:space="preserve"><value>Maintain global defaults for new configurations, DNG geometry defaults, device settings, and app preferences.</value></data>
   <data name="Main_OpenSettingsButton.Content" xml:space="preserve"><value>Open Settings</value></data>
+  <data name="Shell_ScannerStatusShort_Offline" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Detected" xml:space="preserve">
+    <value>Detected</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Connecting" xml:space="preserve">
+    <value>Connecting</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_ReconnectPrompt" xml:space="preserve">
+    <value>Reconnect</value>
+  </data>
+  <data name="Shell_ScannerStatusShort_Faulted" xml:space="preserve">
+    <value>Faulted</value>
+  </data>
+  <data name="Shell_ScannerStatus_NotDetected" xml:space="preserve">
+    <value>Scanner not detected. Connect the scanner USB devices.</value>
+  </data>
+  <data name="Shell_ScannerStatus_Detected" xml:space="preserve">
+    <value>Scanner detected. Not connected.</value>
+  </data>
+  <data name="Shell_ScannerStatus_Connecting" xml:space="preserve">
+    <value>Scanner detected. Connecting...</value>
+  </data>
+  <data name="Shell_ScannerStatus_Connected" xml:space="preserve">
+    <value>Scanner connected and ready.</value>
+  </data>
+  <data name="Shell_ScannerStatus_Running" xml:space="preserve">
+    <value>Scanner connected and running.</value>
+  </data>
+  <data name="Shell_ScannerStatus_ReconnectPrompt" xml:space="preserve">
+    <value>Scanner reconnect required. Confirm reconnect to continue.</value>
+  </data>
+  <data name="Shell_ScannerStatus_Faulted" xml:space="preserve">
+    <value>Scanner faulted. Reconnect the scanner to recover.</value>
+  </data>
+  <data name="Shell_ScannerStatus_FaultedWithMessage" xml:space="preserve">
+    <value>Scanner faulted: {0}</value>
+  </data>
 </root>
