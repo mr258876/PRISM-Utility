@@ -119,7 +119,8 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
         var oldBulkOutId = SelectedBulkOutUsbDevice?.Id;
 
         UsbDevices.Clear();
-        foreach (var d in _usb.GetDevices()) UsbDevices.Add(d);
+        foreach (var device in _usb.GetDevices().Where(IsPrismScannerUsbDevice))
+            UsbDevices.Add(device);
 
         SelectedBulkInUsbDevice =
             oldId is null
@@ -131,6 +132,10 @@ public partial class UsbDebugViewModel : ObservableRecipient, IDisposable
                 ? UsbDevices.FirstOrDefault()
                 : UsbDevices.FirstOrDefault(x => x.Id == oldBulkOutId) ?? UsbDevices.FirstOrDefault();
     }
+
+    private static bool IsPrismScannerUsbDevice(UsbDeviceDto device)
+        => (device.Vid == ScanDebugConstants.BulkInVid && device.Pid == ScanDebugConstants.BulkInPid)
+           || (device.Vid == ScanDebugConstants.BulkOutVid && device.Pid == ScanDebugConstants.BulkOutPid);
 
     partial void OnSelectedBulkInUsbDeviceChanged(UsbDeviceDto? value)
     {

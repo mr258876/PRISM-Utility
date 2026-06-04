@@ -15,7 +15,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         var factory = new RegressionScanSessionServiceFactory();
         var coordinator = new UsbUsageCoordinator();
         await using var manager = new ScannerDeviceSessionManager(factory, coordinator);
-        var scanOwner = CreateOwner("scan-page", ScannerSessionOwnerType.ScanWorkflow, ScannerSessionOperation.Scan, "scan-lease");
+        var scanOwner = CreateOwner("scan-workflow", ScannerSessionOwnerType.ScanWorkflow, ScannerSessionOperation.Scan, "scan-workflow-lease");
 
         var connectResult = await manager.ConnectAsync(scanOwner, CancellationToken.None);
         var runningBlock = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -95,13 +95,14 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
     }
 
     [Fact]
-    public void LifecycleRegression_ScanViewModel_BindsOwnershipCommandsToItsOwnLease()
+    public void LifecycleRegression_ScanViewModel_BindsOwnershipCommandsToSharedWorkflowCoordinator()
     {
         var scanViewModel = ReadHostFile("PRISM Utility", "ViewModels", "ScanViewModel.cs");
 
-        Assert.Contains("snapshot.ActiveOwner?.LeaseId, _sessionOwner.LeaseId", scanViewModel, StringComparison.Ordinal);
-        Assert.Contains("_sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None)", scanViewModel, StringComparison.Ordinal);
-        Assert.Contains("_sessionManager.StopAsync(_sessionOwner.LeaseId, CancellationToken.None)", scanViewModel, StringComparison.Ordinal);
+        Assert.Contains("_scanSessionCoordinator.OwnsSnapshot(snapshot)", scanViewModel, StringComparison.Ordinal);
+        Assert.Contains("_scanSessionCoordinator.DisconnectAsync(CancellationToken.None)", scanViewModel, StringComparison.Ordinal);
+        Assert.Contains("_scanSessionCoordinator.StopAsync(CancellationToken.None)", scanViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("_sessionOwner", scanViewModel, StringComparison.Ordinal);
     }
 
     [Fact]

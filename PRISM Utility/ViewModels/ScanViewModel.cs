@@ -48,6 +48,7 @@ public partial class ScanViewModel : ObservableRecipient
     private sealed record ScanStartBlocker(string CardId, string Message);
 
     private readonly IScannerDeviceSessionManager _sessionManager;
+    private readonly IScanWorkflowSessionCoordinator _scanSessionCoordinator;
     private readonly IScanParameterService _parameters;
     private readonly IScanTransferSettingsService _transferSettings;
     private readonly IScanWorkflowService _workflow;
@@ -59,7 +60,6 @@ public partial class ScanViewModel : ObservableRecipient
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly IUiDispatcher _dispatcher;
     private readonly CancellationTokenSource _uiLifetimeCts = new();
-    private readonly ScannerSessionOwner _sessionOwner;
 
     private CancellationTokenSource? _scanCts;
     private ScanWorkflowResult? _lastResult;
@@ -75,6 +75,7 @@ public partial class ScanViewModel : ObservableRecipient
     private bool _isDisposed;
     private bool _areSessionEventsSubscribed;
     private bool _isLoadingColorManagementSettings;
+    private bool _isLoadingConnectedSessionState;
 
     public ObservableCollection<string> RowOptions { get; } = new() { "64", "128", "256", "512", "1024", "2048", "4096", "8192" };
     public ObservableCollection<string> DirectionOptions { get; } = new() { ForwardDirection, ReverseDirection };
@@ -341,6 +342,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     public ScanViewModel(
         IScannerDeviceSessionManager sessionManager,
+        IScanWorkflowSessionCoordinator scanSessionCoordinator,
         IScanParameterService parameters,
         IScanTransferSettingsService transferSettings,
         IScanWorkflowService workflow,
@@ -355,6 +357,7 @@ public partial class ScanViewModel : ObservableRecipient
         var totalStopwatch = Stopwatch.StartNew();
         var stepStopwatch = Stopwatch.StartNew();
         _sessionManager = sessionManager;
+        _scanSessionCoordinator = scanSessionCoordinator;
         _parameters = parameters;
         _transferSettings = transferSettings;
         _workflow = workflow;
@@ -365,12 +368,6 @@ public partial class ScanViewModel : ObservableRecipient
         _channelProfiles = channelProfiles;
         _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = dispatcher;
-        _sessionOwner = new ScannerSessionOwner(
-            OwnerId: nameof(ScanViewModel),
-            OwnerType: ScannerSessionOwnerType.ScanWorkflow,
-            Operation: ScannerSessionOperation.Connect,
-            AcquiredAtUtc: DateTimeOffset.UtcNow,
-            LeaseId: $"scan-page-{Guid.NewGuid():N}");
         _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
         NavigationTimingLogger.Write($"ScanViewModel.ctor dependencies={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
@@ -474,6 +471,9 @@ public partial class ScanViewModel : ObservableRecipient
 
         ApplyManagerSnapshot(_sessionManager.Snapshot);
         RefreshTargets();
+
+        if (IsConnected && !HasLoadedScannerParameters())
+            _ = LoadConnectedSessionStateIfNeededAsync();
     }
 
     public void Deactivate()
@@ -731,7 +731,7 @@ public partial class ScanViewModel : ObservableRecipient
 
     private void ApplyManagerSnapshot(ScannerDeviceSessionSnapshot snapshot)
     {
-        var isOwnedByThisPage = string.Equals(snapshot.ActiveOwner?.LeaseId, _sessionOwner.LeaseId, StringComparison.Ordinal);
+        var isOwnedByThisPage = _scanSessionCoordinator.OwnsSnapshot(snapshot);
 
         IsConnecting = snapshot.State == ScannerSessionState.Connecting && isOwnedByThisPage;
         IsConnected = isOwnedByThisPage && (snapshot.State is ScannerSessionState.Connected or ScannerSessionState.Running);
@@ -947,9 +947,8 @@ public partial class ScanViewModel : ObservableRecipient
             return null;
         }
 
-        var singleTransferMaxRows = await _sessionManager.UseSessionAsync(
-            _sessionOwner.LeaseId,
-            session => Task.FromResult(session.SingleTransferMaxRows),
+        var singleTransferMaxRows = await _scanSessionCoordinator.UseConnectedSessionAsync(
+            (session, _) => Task.FromResult(session.SingleTransferMaxRows),
             CancellationToken.None);
 
         if (request.Rows > singleTransferMaxRows && !request.WarmUpEnabled && !CanRunExtendedScan())
@@ -1044,6 +1043,56 @@ public partial class ScanViewModel : ObservableRecipient
         TopRiskBannerSeverity = InfoBarSeverity.Warning;
         IsTopRiskBannerVisible = false;
     }
+
+    private async Task LoadConnectedSessionStateIfNeededAsync()
+    {
+        if (_isLoadingConnectedSessionState || !IsConnected || HasLoadedScannerParameters())
+            return;
+
+        _isLoadingConnectedSessionState = true;
+        var statusNotes = new List<string>();
+
+        try
+        {
+            await _transferSettings.InitializeAsync();
+            await _channelProfiles.InitializeAsync();
+            await _deviceSettings.InitializeAsync();
+            OnChannelAssignmentChanged();
+
+            var snapshot = await _scanSessionCoordinator.UseConnectedSessionAsync(
+                (session, token) => _parameters.LoadAsync(session, token),
+                CancellationToken.None);
+
+            _loadedExposureTicks = snapshot.ExposureTicks;
+            _loadedSysClockKhz = snapshot.SysClockKhz;
+            _loadedSnapshot = snapshot;
+            StartScanCommand.NotifyCanExecuteChanged();
+            RefreshDerivedMotorDistanceFromCurrentInterval();
+            statusNotes.Add("Scan_Runtime_StatusParametersLoaded".GetLocalizedFormat(snapshot.ExposureTicks, snapshot.SysClockKhz));
+        }
+        catch (Exception ex)
+        {
+            _loadedSnapshot = null;
+            _loadedExposureTicks = 0;
+            _loadedSysClockKhz = 0;
+            StartScanCommand.NotifyCanExecuteChanged();
+            statusNotes.Add("Scan_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
+        }
+        finally
+        {
+            _isLoadingConnectedSessionState = false;
+        }
+
+        if (_selectedConfigAcquisitionSettings is not null)
+            ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);
+
+        UpdateComputedMotorSummary();
+        StatusText = statusNotes.Count > 0
+            ? "Scan_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
+            : "Scan_Runtime_StatusConnected".GetLocalized();
+        ClearTopRiskBanner();
+    }
+
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
     private async Task ConnectDevices()
     {
@@ -1062,16 +1111,7 @@ public partial class ScanViewModel : ObservableRecipient
             await _deviceSettings.InitializeAsync();
             OnChannelAssignmentChanged();
 
-            var result = _sessionManager.Snapshot.State == ScannerSessionState.ReconnectPrompt
-                && _sessionManager.Snapshot.ReconnectPrompt.RequiresConfirmation
-                ? await _sessionManager.ReconnectAfterPromptAsync(
-                    _sessionOwner with
-                    {
-                        Operation = ScannerSessionOperation.Reconnect,
-                        AcquiredAtUtc = DateTimeOffset.UtcNow
-                    },
-                    CancellationToken.None)
-                : await _sessionManager.ConnectAsync(_sessionOwner, CancellationToken.None);
+            var result = await _scanSessionCoordinator.ConnectAsync(CancellationToken.None);
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
@@ -1081,43 +1121,11 @@ public partial class ScanViewModel : ObservableRecipient
 
             IsConnected = true;
             StatusText = "Scan_Runtime_StatusLoadingState".GetLocalized();
-
-            var statusNotes = new List<string>();
-
-            try
-            {
-                var snapshot = await _sessionManager.UseSessionAsync(
-                    _sessionOwner.LeaseId,
-                    session => _parameters.LoadAsync(session, session.ConnectionToken),
-                    CancellationToken.None);
-                _loadedExposureTicks = snapshot.ExposureTicks;
-                _loadedSysClockKhz = snapshot.SysClockKhz;
-                _loadedSnapshot = snapshot;
-                StartScanCommand.NotifyCanExecuteChanged();
-                RefreshDerivedMotorDistanceFromCurrentInterval();
-                statusNotes.Add("Scan_Runtime_StatusParametersLoaded".GetLocalizedFormat(snapshot.ExposureTicks, snapshot.SysClockKhz));
-            }
-            catch (Exception ex)
-            {
-                _loadedSnapshot = null;
-                _loadedExposureTicks = 0;
-                _loadedSysClockKhz = 0;
-                StartScanCommand.NotifyCanExecuteChanged();
-                statusNotes.Add("Scan_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
-            }
-
-            if (_selectedConfigAcquisitionSettings is not null)
-                ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);
-
-            UpdateComputedMotorSummary();
-            StatusText = statusNotes.Count > 0
-                ? "Scan_Runtime_StatusConnectedWithNotes".GetLocalizedFormat(string.Join(". ", statusNotes))
-                : "Scan_Runtime_StatusConnected".GetLocalized();
-            ClearTopRiskBanner();
+            await LoadConnectedSessionStateIfNeededAsync();
         }
         catch (Exception ex)
         {
-            await _sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None);
+            await _scanSessionCoordinator.DisconnectAsync(CancellationToken.None);
             IsConnected = false;
             StatusText = "Scan_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
             ShowTopRiskBanner("Scan_Runtime_TopRiskConnectFailedTitle".GetLocalizedOrFallback("Scanner connection needs attention"), StatusText);
@@ -1134,7 +1142,7 @@ public partial class ScanViewModel : ObservableRecipient
         IsConnecting = true;
         try
         {
-            await _sessionManager.DisconnectAsync(_sessionOwner.LeaseId, CancellationToken.None);
+            await _scanSessionCoordinator.DisconnectAsync(CancellationToken.None);
             IsConnected = false;
             _loadedSnapshot = null;
             _loadedExposureTicks = 0;
@@ -1178,10 +1186,9 @@ public partial class ScanViewModel : ObservableRecipient
 
         try
         {
-            var result = await _sessionManager.RunWithSessionStateAsync(
-                _sessionOwner.LeaseId,
+            var result = await _scanSessionCoordinator.RunConnectedSessionStateAsync(
                 ScannerSessionState.Running,
-                session => _workflow.ExecuteAsync(
+                (session, _) => _workflow.ExecuteAsync(
                     session,
                     request,
                     _scanCts.Token,
@@ -1253,9 +1260,8 @@ public partial class ScanViewModel : ObservableRecipient
         {
             try
             {
-                await _sessionManager.UseSessionAsync(
-                    _sessionOwner.LeaseId,
-                    async session =>
+                await _scanSessionCoordinator.UseConnectedSessionAsync(
+                    async (session, _) =>
                     {
                         await session.StopMotorAsync(motorId, CancellationToken.None);
                         return true;
@@ -1268,7 +1274,7 @@ public partial class ScanViewModel : ObservableRecipient
             }
         }
 
-        var result = await _sessionManager.StopAsync(_sessionOwner.LeaseId, CancellationToken.None);
+        var result = await _scanSessionCoordinator.StopAsync(CancellationToken.None);
         StatusText = result.Success ? "Scan_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(result.Message);
         if (result.Success)
             ShowTopRiskBanner("Scan_Runtime_TopRiskInterruptedTitle".GetLocalizedOrFallback("Scan interrupted"), "Scan_Runtime_TopRiskInterruptedText".GetLocalizedOrFallback("The workflow was interrupted. Confirm film transport and scanner state before restarting."));

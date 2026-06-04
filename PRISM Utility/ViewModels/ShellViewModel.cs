@@ -18,7 +18,7 @@ namespace PRISM_Utility.ViewModels;
 
 public partial class ShellViewModel : ObservableRecipient
 {
-    private readonly IScannerDeviceSessionManager _scannerSessionManager;
+    private readonly IScannerAccessCoordinator _scannerAccessCoordinator;
     private readonly IUiDispatcher _dispatcher;
     private bool _isScannerStatusRegistered;
 
@@ -55,24 +55,26 @@ public partial class ShellViewModel : ObservableRecipient
 
     public string ScannerConnectionFlyoutTitle => "Shell_ScannerConnectionFlyoutTitle".GetLocalizedOrFallback("Device connection");
 
-    public string ScannerConnectionFlyoutDescription => "Shell_ScannerConnectionFlyoutDescription".GetLocalizedOrFallback("Use the current Scan or Scan Debug page connection workflow.");
+    public string ScannerConnectionFlyoutDescription => "Shell_ScannerConnectionFlyoutDescription".GetLocalizedOrFallback("Connect or disconnect the PRISM scanner from the shared navigation entry.");
 
-    public string ScannerConnectionUnavailableText => "Shell_ScannerConnectionUnavailable".GetLocalizedOrFallback("Open Scan or Scan Debug to connect or disconnect the scanner.");
+    public string ScannerConnectionUnavailableText => "Shell_ScannerConnectionUnavailable".GetLocalizedOrFallback("USB Debug owns the scanner. Disconnect USB Debug before using the shared scanner connection.");
 
-    public Visibility ScannerConnectionUnavailableVisibility => GetActiveConnectCommand() is null && GetActiveDisconnectCommand() is null
+    public Visibility ScannerConnectionUnavailableVisibility => GetActiveConnectCommand() is null
+        && GetActiveDisconnectCommand() is null
+        && _scannerAccessCoordinator.Snapshot.ActiveMode == ScannerAccessMode.UsbDebugRaw
         ? Visibility.Visible
         : Visibility.Collapsed;
 
     public ShellViewModel(
         INavigationService navigationService,
         INavigationViewService navigationViewService,
-        IScannerDeviceSessionManager scannerSessionManager,
+        IScannerAccessCoordinator scannerAccessCoordinator,
         IUiDispatcher dispatcher)
     {
         NavigationService = navigationService;
         NavigationService.Navigated += OnNavigated;
         NavigationViewService = navigationViewService;
-        _scannerSessionManager = scannerSessionManager;
+        _scannerAccessCoordinator = scannerAccessCoordinator;
         _dispatcher = dispatcher;
 
         ScannerStatusText = string.Empty;
@@ -82,7 +84,7 @@ public partial class ShellViewModel : ObservableRecipient
         ScannerStatusBadgeForegroundBrush = BuildBadgeForegroundBrush(Colors.Black);
 
         RegisterScannerStatus();
-        UpdateScannerStatus(_scannerSessionManager.Snapshot, _scannerSessionManager.Targets);
+        UpdateScannerStatus(_scannerAccessCoordinator.Snapshot);
     }
 
     public void UnregisterNavigation()
@@ -116,8 +118,7 @@ public partial class ShellViewModel : ObservableRecipient
         if (_isScannerStatusRegistered)
             return;
 
-        _scannerSessionManager.SnapshotChanged += OnScannerSnapshotChanged;
-        _scannerSessionManager.TargetsChanged += OnScannerTargetsChanged;
+        _scannerAccessCoordinator.SnapshotChanged += OnScannerAccessSnapshotChanged;
         _isScannerStatusRegistered = true;
     }
 
@@ -126,19 +127,17 @@ public partial class ShellViewModel : ObservableRecipient
         if (!_isScannerStatusRegistered)
             return;
 
-        _scannerSessionManager.SnapshotChanged -= OnScannerSnapshotChanged;
-        _scannerSessionManager.TargetsChanged -= OnScannerTargetsChanged;
+        _scannerAccessCoordinator.SnapshotChanged -= OnScannerAccessSnapshotChanged;
         _isScannerStatusRegistered = false;
     }
 
-    private void OnScannerSnapshotChanged(object? sender, ScannerDeviceSessionSnapshot snapshot)
-        => _dispatcher.TryEnqueue(() => UpdateScannerStatus(snapshot, _scannerSessionManager.Targets));
+    private void OnScannerAccessSnapshotChanged(object? sender, ScannerAccessSnapshot snapshot)
+        => _dispatcher.TryEnqueue(() => UpdateScannerStatus(snapshot));
 
-    private void OnScannerTargetsChanged(object? sender, EventArgs e)
-        => _dispatcher.TryEnqueue(() => UpdateScannerStatus(_scannerSessionManager.Snapshot, _scannerSessionManager.Targets));
-
-    private void UpdateScannerStatus(ScannerDeviceSessionSnapshot snapshot, ScanTargetState targets)
+    private void UpdateScannerStatus(ScannerAccessSnapshot accessSnapshot)
     {
+        var snapshot = accessSnapshot.ScannerSession;
+        var targets = accessSnapshot.Targets;
         var status = BuildScannerStatus(snapshot, targets);
         ScannerStatusText = status.Text;
         ScannerStatusShortText = status.ShortText;
@@ -166,30 +165,83 @@ public partial class ShellViewModel : ObservableRecipient
             _ => null
         };
 
-    private bool CanConnectScanner() => GetActiveConnectCommand()?.CanExecute(null) == true;
+    private ScannerAccessMode ActivePageAccessMode => ActivePageViewModel switch
+    {
+        ScanViewModel => ScannerAccessMode.ScanWorkflow,
+        ScanDebugViewModel => ScannerAccessMode.ScanDebug,
+        _ => ScannerAccessMode.None
+    };
 
-    private bool CanDisconnectScanner() => GetActiveDisconnectCommand()?.CanExecute(null) == true;
+    private bool CanConnectScanner()
+    {
+        var activeMode = ActivePageAccessMode;
+        if (activeMode != ScannerAccessMode.None)
+            return GetActiveConnectCommand()?.CanExecute(null) == true && _scannerAccessCoordinator.CanActivate(activeMode);
+
+        return CanConnectSharedScanner();
+    }
+
+    private bool CanDisconnectScanner()
+    {
+        var activeMode = ActivePageAccessMode;
+        if (activeMode != ScannerAccessMode.None)
+            return GetActiveDisconnectCommand()?.CanExecute(null) == true && _scannerAccessCoordinator.CanDeactivate(activeMode);
+
+        return CanDisconnectSharedScanner();
+    }
 
     [RelayCommand(CanExecute = nameof(CanConnectScanner))]
     private async Task ConnectScanner()
-        => await ExecuteActiveScannerCommandAsync(GetActiveConnectCommand());
+    {
+        var activeMode = ActivePageAccessMode;
+        if (activeMode != ScannerAccessMode.None && !_scannerAccessCoordinator.CanActivate(activeMode))
+            return;
+
+        if (await ExecuteActiveScannerCommandAsync(GetActiveConnectCommand()))
+            return;
+
+        if (activeMode != ScannerAccessMode.None)
+            return;
+
+        await _scannerAccessCoordinator.ActivateAsync(ScannerAccessMode.ScanWorkflow, CancellationToken.None);
+    }
 
     [RelayCommand(CanExecute = nameof(CanDisconnectScanner))]
     private async Task DisconnectScanner()
-        => await ExecuteActiveScannerCommandAsync(GetActiveDisconnectCommand());
+    {
+        var activeMode = ActivePageAccessMode;
+        if (activeMode != ScannerAccessMode.None && !_scannerAccessCoordinator.CanDeactivate(activeMode))
+            return;
 
-    private static async Task ExecuteActiveScannerCommandAsync(IRelayCommand? command)
+        if (await ExecuteActiveScannerCommandAsync(GetActiveDisconnectCommand()))
+            return;
+
+        if (activeMode != ScannerAccessMode.None)
+            return;
+
+        await _scannerAccessCoordinator.DeactivateAsync(ScannerAccessMode.ScanWorkflow, CancellationToken.None);
+    }
+
+    private bool CanConnectSharedScanner()
+        => GetActiveConnectCommand() is null && _scannerAccessCoordinator.CanActivate(ScannerAccessMode.ScanWorkflow);
+
+    private bool CanDisconnectSharedScanner()
+        => GetActiveDisconnectCommand() is null
+           && _scannerAccessCoordinator.CanDeactivate(ScannerAccessMode.ScanWorkflow);
+
+    private static async Task<bool> ExecuteActiveScannerCommandAsync(IRelayCommand? command)
     {
         if (command?.CanExecute(null) != true)
-            return;
+            return false;
 
         if (command is IAsyncRelayCommand asyncCommand)
         {
             await asyncCommand.ExecuteAsync(null);
-            return;
+            return true;
         }
 
         command.Execute(null);
+        return true;
     }
 
     private void NotifyScannerConnectionCommandStates()

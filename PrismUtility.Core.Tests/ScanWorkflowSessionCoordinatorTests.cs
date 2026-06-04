@@ -5,74 +5,64 @@ using Xunit;
 
 namespace PrismUtility.Core.Tests;
 
-[Trait("Category", "ScanDebug")]
-public sealed class ScanDebugSessionCoordinatorTests
+[Trait("Category", "ScanWorkflow")]
+public sealed class ScanWorkflowSessionCoordinatorTests
 {
     [Fact]
-    public async Task ConnectAsync_WhenScannerOwnedByScanWorkflow_ReturnsBusyWithoutClearingOwner()
+    public async Task ConnectAsync_CreatesSharedScanWorkflowOwner()
     {
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
         await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
-        var workflowOwner = CreateOwner("scan-workflow", ScannerSessionOwnerType.ScanWorkflow, ScannerSessionOperation.Connect, "workflow-lease");
-        var workflowConnect = await manager.ConnectAsync(workflowOwner, CancellationToken.None);
+        var coordinator = new ScanWorkflowSessionCoordinator(usbCoordinator, manager);
 
-        Assert.True(workflowConnect.Success);
-
-        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
         var result = await coordinator.ConnectAsync(CancellationToken.None);
 
-        Assert.False(result.Success);
-        Assert.Contains("read-only", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(workflowOwner, manager.Snapshot.ActiveOwner);
-        Assert.False(coordinator.HasConnectedSession);
-        Assert.Null(coordinator.ConnectedSession);
+        Assert.True(result.Success);
+        Assert.True(coordinator.HasConnectedSession);
+        Assert.Equal(ScannerSessionOwnerType.ScanWorkflow, manager.Snapshot.ActiveOwner?.OwnerType);
+        Assert.Equal("scan-workflow", manager.Snapshot.ActiveOwner?.OwnerId);
+        Assert.True(coordinator.OwnsSnapshot(manager.Snapshot));
         Assert.Single(factory.CreatedSessions);
     }
 
     [Fact]
-    public async Task SetWarmUpAsync_RoutesThroughManagerOwnedSharedSession()
+    public async Task ConnectAsync_WhenScannerOwnedByScanDebug_ReturnsBusyWithoutClearingOwner()
     {
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
         await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
-        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        var scanDebugOwner = CreateOwner("scan-debug", ScannerSessionOwnerType.ScanDebug, ScannerSessionOperation.Connect, "scan-debug-lease");
+        var scanDebugConnect = await manager.ConnectAsync(scanDebugOwner, CancellationToken.None);
+        var coordinator = new ScanWorkflowSessionCoordinator(usbCoordinator, manager);
 
-        var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
+        var result = await coordinator.ConnectAsync(CancellationToken.None);
 
-        Assert.True(connectResult.Success);
-        var connectedSession = Assert.IsType<FakeScanSessionService>(coordinator.ConnectedSession);
-
-        var warmUpResult = await coordinator.SetWarmUpAsync(true, CancellationToken.None);
-
-        Assert.True(warmUpResult.Success);
-        Assert.Same(factory.LastSession, connectedSession);
-        Assert.Equal(1, connectedSession.WarmUpCallCount);
-        Assert.Equal(ScannerSessionOwnerType.ScanDebug, manager.Snapshot.ActiveOwner?.OwnerType);
-        Assert.Equal("scan-debug", manager.Snapshot.ActiveOwner?.OwnerId);
+        Assert.True(scanDebugConnect.Success);
+        Assert.False(result.Success);
+        Assert.Contains("scan-debug", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cannot connect", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(scanDebugOwner, manager.Snapshot.ActiveOwner);
+        Assert.False(coordinator.HasConnectedSession);
+        Assert.Single(factory.CreatedSessions);
     }
 
     [Fact]
-    public async Task UseConnectedSessionAsync_RoutesMutatingCommandsThroughManagerOwnedSharedSession()
+    public async Task UseConnectedSessionAsync_RoutesThroughSharedWorkflowLease()
     {
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
         await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
-        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        var coordinator = new ScanWorkflowSessionCoordinator(usbCoordinator, manager);
 
         var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
-        var operationResult = await coordinator.UseConnectedSessionAsync(
-            async (session, token) =>
-            {
-                await session.SetMotorEnabledAsync(1, true, token);
-                return true;
-            },
+        var observedConnected = await coordinator.UseConnectedSessionAsync(
+            (session, _) => Task.FromResult(session.IsConnected),
             CancellationToken.None);
 
         Assert.True(connectResult.Success);
-        Assert.True(operationResult);
-        Assert.Equal(1, factory.LastSession!.SetMotorEnabledCallCount);
-        Assert.Equal(ScannerSessionOwnerType.ScanDebug, manager.Snapshot.ActiveOwner?.OwnerType);
+        Assert.True(observedConnected);
+        Assert.Equal(ScannerSessionOwnerType.ScanWorkflow, manager.Snapshot.ActiveOwner?.OwnerType);
     }
 
     [Fact]
@@ -81,7 +71,7 @@ public sealed class ScanDebugSessionCoordinatorTests
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
         await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
-        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        var coordinator = new ScanWorkflowSessionCoordinator(usbCoordinator, manager);
 
         var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -108,38 +98,17 @@ public sealed class ScanDebugSessionCoordinatorTests
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
     }
 
-    [Fact]
-    public async Task UseConnectedSessionAsync_UsesCoordinatorLeaseBinding()
-    {
-        var factory = new FakeScanSessionServiceFactory();
-        var usbCoordinator = new UsbUsageCoordinator();
-        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
-        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
-
-        var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
-        var observedConnected = await coordinator.UseConnectedSessionAsync(
-            (session, _) => Task.FromResult(session.IsConnected),
-            CancellationToken.None);
-
-        Assert.True(connectResult.Success);
-        Assert.True(observedConnected);
-        Assert.Equal(ScannerSessionOwnerType.ScanDebug, manager.Snapshot.ActiveOwner?.OwnerType);
-    }
-
     private static ScannerSessionOwner CreateOwner(string ownerId, ScannerSessionOwnerType ownerType, ScannerSessionOperation operation, string leaseId)
-        => new(ownerId, ownerType, operation, new DateTimeOffset(2026, 6, 2, 12, 0, 0, TimeSpan.Zero), leaseId);
+        => new(ownerId, ownerType, operation, new DateTimeOffset(2026, 6, 4, 12, 0, 0, TimeSpan.Zero), leaseId);
 
     private sealed class FakeScanSessionServiceFactory : IScanSessionServiceFactory
     {
         public List<FakeScanSessionService> CreatedSessions { get; } = [];
 
-        public FakeScanSessionService? LastSession { get; private set; }
-
         public IScanSessionService CreateSession()
         {
             var session = new FakeScanSessionService();
             CreatedSessions.Add(session);
-            LastSession = session;
             return session;
         }
     }
@@ -156,10 +125,6 @@ public sealed class ScanDebugSessionCoordinatorTests
         public int SingleTransferMaxRows => 1;
 
         public CancellationToken ConnectionToken => CancellationToken.None;
-
-        public int WarmUpCallCount { get; private set; }
-
-        public int SetMotorEnabledCallCount { get; private set; }
 
         public void RefreshTargets()
             => TargetsChanged?.Invoke(this, EventArgs.Empty);
@@ -180,10 +145,7 @@ public sealed class ScanDebugSessionCoordinatorTests
             => Task.FromResult(new ScanIlluminationState(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
 
         public Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct)
-        {
-            WarmUpCallCount++;
-            return Task.FromResult(new ScanOperationResult(true, enabled ? "Warm-up enabled." : "Warm-up disabled."));
-        }
+            => Task.FromResult(new ScanOperationResult(true, enabled ? "Warm-up enabled." : "Warm-up disabled."));
 
         public Task SetIlluminationLevelsAsync(ushort led1Level, ushort led2Level, ushort led3Level, ushort led4Level, CancellationToken ct)
             => Task.CompletedTask;
@@ -201,10 +163,7 @@ public sealed class ScanDebugSessionCoordinatorTests
             => Task.FromResult<IReadOnlyList<ScanMotorState>>([]);
 
         public Task SetMotorEnabledAsync(byte motorId, bool enabled, CancellationToken ct)
-        {
-            SetMotorEnabledCallCount++;
-            return Task.CompletedTask;
-        }
+            => Task.CompletedTask;
 
         public Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
             => Task.CompletedTask;
@@ -239,6 +198,7 @@ public sealed class ScanDebugSessionCoordinatorTests
         public void Dispose()
         {
             IsConnected = false;
+            _ = TargetsChanged;
             _ = MotionEventReceived;
         }
 

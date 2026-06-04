@@ -2881,10 +2881,10 @@
     <value>Device connection</value>
   </data>
   <data name="Shell_ScannerConnectionFlyoutDescription" xml:space="preserve">
-    <value>Connect or disconnect using the active Scan or Scan Debug workflow.</value>
+    <value>Connect or disconnect the PRISM scanner from the shared navigation entry.</value>
   </data>
   <data name="Shell_ScannerConnectionUnavailable" xml:space="preserve">
-    <value>Open Scan or Scan Debug to connect or disconnect the scanner.</value>
+    <value>USB Debug owns the scanner. Disconnect USB Debug before using the shared scanner connection.</value>
   </data>
   <data name="Shell_ScannerConnectButton.Content" xml:space="preserve">
     <value>Connect</value>

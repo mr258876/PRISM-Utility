@@ -16,6 +16,8 @@ public sealed class UsbUsageCoordinator : IUsbUsageCoordinator
     private readonly Dictionary<string, IUsbUsageLease> _legacyLeases = new(StringComparer.OrdinalIgnoreCase);
     private ActiveLeaseState? _activeLease;
 
+    public event EventHandler<UsbUsageLeaseSnapshot?>? ActiveLeaseChanged;
+
     public bool IsScanDebugInUse
     {
         get
@@ -53,6 +55,7 @@ public sealed class UsbUsageCoordinator : IUsbUsageCoordinator
         if (string.IsNullOrWhiteSpace(operation))
             throw new ArgumentException("Operation is required.", nameof(operation));
 
+        UsbUsageLeaseAcquireResult result;
         lock (_gate)
         {
             if (_activeLease is not null)
@@ -75,8 +78,11 @@ public sealed class UsbUsageCoordinator : IUsbUsageCoordinator
             var lease = new UsbUsageLease(this, snapshot, cancellationSource.Token);
             _activeLease = new ActiveLeaseState(snapshot, cancellationSource, lease);
 
-            return ValueTask.FromResult(new UsbUsageLeaseAcquireResult(true, lease, snapshot, string.Empty));
+            result = new UsbUsageLeaseAcquireResult(true, lease, snapshot, string.Empty);
         }
+
+        PublishActiveLeaseChanged(result.ActiveLease);
+        return ValueTask.FromResult(result);
     }
 
     public ValueTask<bool> ReleaseAsync(Guid releaseToken, CancellationToken ct = default)
@@ -198,8 +204,12 @@ public sealed class UsbUsageCoordinator : IUsbUsageCoordinator
         }
 
         cancellationSource.Dispose();
+        PublishActiveLeaseChanged(null);
         return ValueTask.FromResult(true);
     }
+
+    private void PublishActiveLeaseChanged(UsbUsageLeaseSnapshot? snapshot)
+        => ActiveLeaseChanged?.Invoke(this, snapshot);
 
     private sealed record ActiveLeaseState(
         UsbUsageLeaseSnapshot Snapshot,

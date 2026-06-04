@@ -1083,10 +1083,10 @@
     <value>设备连接</value>
   </data>
   <data name="Shell_ScannerConnectionFlyoutDescription" xml:space="preserve">
-    <value>通过当前扫描或扫描调试工作流连接或断开设备。</value>
+    <value>通过共享导航入口连接或断开 PRISM 扫描仪。</value>
   </data>
   <data name="Shell_ScannerConnectionUnavailable" xml:space="preserve">
-    <value>打开扫描或扫描调试页面后可连接或断开扫描仪。</value>
+    <value>USB 调试正在占用扫描仪。请先断开 USB 调试，再使用共享扫描仪连接。</value>
   </data>
   <data name="Shell_ScannerConnectButton.Content" xml:space="preserve">
     <value>连接设备</value>

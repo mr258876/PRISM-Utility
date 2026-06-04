@@ -5,6 +5,8 @@ namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface IUsbUsageCoordinator
 {
+    event EventHandler<UsbUsageLeaseSnapshot?>? ActiveLeaseChanged;
+
     bool IsScanDebugInUse { get; }
 
     bool IsUsbDebugInUse { get; }

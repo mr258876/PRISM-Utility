@@ -96,7 +96,9 @@ public partial class App : Application
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
             services.AddTransient<IScanSessionService, ScanSessionService>();
+            services.AddSingleton<IScanWorkflowSessionCoordinator, ScanWorkflowSessionCoordinator>();
             services.AddSingleton<IScanDebugSessionCoordinator, ScanDebugSessionCoordinator>();
+            services.AddSingleton<IScannerAccessCoordinator, ScannerAccessCoordinator>();
             services.AddTransient<IDngWriterService, DngWriterService>();
 
             // Core Services
