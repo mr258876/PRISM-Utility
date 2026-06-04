@@ -334,7 +334,7 @@
     <value>Scan</value>
   </data>
   <data name="UsbDebug_SelectDevice.Text" xml:space="preserve">
-    <value>Select Device</value>
+    <value>Select PRISM scanner device</value>
   </data>
   <data name="UsbDebug_BuckIn.Text" xml:space="preserve">
     <value>Bulk In</value>
@@ -370,7 +370,7 @@
     <value>Bulk Out</value>
   </data>
   <data name="UsbDebug_BulkOutDeviceComboBox.Header" xml:space="preserve">
-    <value>Device</value>
+    <value>PRISM device</value>
   </data>
   <data name="UsbDebug_BulkOutConfigComboBox.Header" xml:space="preserve">
     <value>Config</value>
@@ -400,7 +400,7 @@
     <value>Off (UTF-8 Text)</value>
   </data>
   <data name="UsbDebug_BulkInDeviceComboBox.Header" xml:space="preserve">
-    <value>Device</value>
+    <value>PRISM device</value>
   </data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve">
     <value>Scan Debugging</value>
@@ -430,7 +430,7 @@
     <value>Off</value>
   </data>
   <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve">
-    <value>Preview</value>
+    <value>Enable preview</value>
   </data>
   <data name="Scan_PreviewToggleSwitch.OnContent" xml:space="preserve">
     <value>On</value>
@@ -453,7 +453,7 @@
   <data name="Scan_StartingDirectionComboBox.Header" xml:space="preserve">
     <value>Starting direction</value>
   </data>
-  <data name="Scan_DirectionHelpText.Text" xml:space="preserve">
+  <data name="Scan_StartingDirectionComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>The four LED passes start in the selected direction. When alternating is enabled, each pass flips direction. When disabled, each pass scans in the same direction and the motor returns to the starting position before the next pass.</value>
   </data>
   <data name="Scan_PassPlanTitle.Text" xml:space="preserve">
@@ -606,10 +606,7 @@
   <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve">
     <value>Export DNG</value>
   </data>
-  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve">
-    <value>DNG export mode (current configuration)</value>
-  </data>
-  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve">
+  <data name="Scan_ExportDngChannelsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Dual-file DNG export requires exactly one Red, one Green, one Blue, and one IR or White channel. This current configuration will export as a single 4-channel raw DNG.</value>
   </data>
   <data name="Settings_DngGeometry.Text" xml:space="preserve">
@@ -637,10 +634,7 @@
     <value>Preview</value>
   </data>
   <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve">
-    <value>Preview mode</value>
-  </data>
-  <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve">
-    <value>Preview Surface</value>
+    <value>Preview channel</value>
   </data>
   <data name="Scan_RunDetailsTitle.Text" xml:space="preserve">
     <value>Run Details</value>
@@ -1267,16 +1261,16 @@
     <value>Token #{0} is not valid hex: '{1}'.</value>
   </data>
   <data name="UsbDebug_ObservationStatus_ReadOnly" xml:space="preserve">
-    <value>Read-only observation mode: another scanner workflow owns the device. You can inspect session state, logs, and device information here, but Bulk IN/OUT is unavailable until that session disconnects.</value>
+    <value>Read-only observation mode: another scanner workflow owns the PRISM devices. You can inspect session state, logs, and device information here, but Bulk IN/OUT is unavailable until that session disconnects.</value>
   </data>
   <data name="UsbDebug_ObservationStatus_ExclusiveActive" xml:space="preserve">
-    <value>Exclusive raw diagnostics mode is active. USB Debug currently owns the raw USB lease and can use Bulk IN/OUT.</value>
+    <value>Exclusive raw diagnostics mode is active for the PRISM scanner devices. USB Debug currently owns the raw USB lease and can use Bulk IN/OUT.</value>
   </data>
   <data name="UsbDebug_ObservationStatus_ExclusiveAvailable" xml:space="preserve">
-    <value>Exclusive raw diagnostics are available while no scanner workflow owns the device. Bulk IN/OUT will claim the raw USB lease on demand.</value>
+    <value>Exclusive raw diagnostics are available while no scanner workflow owns the PRISM devices. Bulk IN/OUT will claim the raw USB lease on demand.</value>
   </data>
   <data name="UsbDebug_Runtime_ReadOnlyObservationOnly.Content" xml:space="preserve">
-    <value>A scanner session currently owns the device. USB Debug remains available for read-only observation of session state, logs, and device information, but raw Bulk IN/OUT commands are unavailable until that session disconnects.</value>
+    <value>A scanner session currently owns the PRISM devices. USB Debug remains available for read-only observation of session state, logs, and device information, but raw Bulk IN/OUT commands are unavailable until that session disconnects.</value>
   </data>
   <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailable.Content" xml:space="preserve">
     <value>USB Debug could not acquire exclusive raw access because the device is already owned by {0} for {1}.</value>
@@ -2703,19 +2697,19 @@
   <data name="Scan_PageRoleDescription.Text" xml:space="preserve">
     <value>Formal scan workspace: load a configuration, review the effective recipe, run the scan, then save RGB or export DNG output.</value>
   </data>
-  <data name="Scan_UsbConflictGuidance.Text" xml:space="preserve">
+  <data name="Scan_DeviceCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>When this page is connected or scanning, it owns the USB device. Disconnect here before using USB Debug on the same hardware.</value>
   </data>
-  <data name="Scan_SetupScopeText.Text" xml:space="preserve">
+  <data name="Scan_ConfigCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>These controls define the formal scan run. The loaded configuration is the source of truth for recipe, color, and DNG mode; global settings only provide defaults for new or reset configurations.</value>
   </data>
   <data name="Scan_ColorSourceText.Text" xml:space="preserve">
     <value>Effective source: loaded scan configuration. If no configuration is loaded, the current values were initialized from global defaults.</value>
   </data>
-  <data name="Scan_OutputScopeText.Text" xml:space="preserve">
+  <data name="Scan_OutputWorkflowTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Output actions use the current scan result and the loaded configuration DNG mode. DNG mode is saved with the scan configuration, not the global settings.</value>
   </data>
-  <data name="Scan_DngGeometryRelationText.Text" xml:space="preserve">
+  <data name="Scan_DngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>DNG geometry defaults describe exported metadata and active/masked columns; preview ROI tools in Scan Debug are separate unless their selected ROI target is explicitly applied there.</value>
   </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
@@ -2818,7 +2812,7 @@
     <value>Apply and reset affect only the selected ROI target shown above. DNG active/masked defaults remain in Settings unless a profile workflow explicitly saves matching geometry.</value>
   </data>
   <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve">
-    <value>USB Debug requires exclusive access to the selected device. If Scan or Scan Debug is connected, disconnect there first, then return here to claim endpoints.</value>
+    <value>USB Debug now targets only PRISM scanner devices 1D50:619C and 1D50:619D. It requires exclusive access to the selected PRISM device; if Scan or Scan Debug is connected, disconnect there first, then return here to claim endpoints.</value>
   </data>
   <data name="Main_PageTitle.Text" xml:space="preserve"><value>PRISM Utility workspace</value></data>
   <data name="Main_PageDescription.Text" xml:space="preserve"><value>Use this overview to choose the right page. Status cards are placeholders until a live session reports connection, configuration, and export details.</value></data>

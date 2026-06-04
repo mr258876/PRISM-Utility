@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
@@ -238,6 +239,10 @@ public partial class ScanViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string CurrentDirectionText { get; set; }
 
+    public string HeaderScanStatusText => IsRunning
+        ? string.Join(" | ", new[] { CurrentPassText, CurrentLedText, CurrentDirectionText }.Where(text => !string.IsNullOrWhiteSpace(text)))
+        : string.Empty;
+
     [ObservableProperty]
     public partial string PreviewPlaceholderText { get; set; }
 
@@ -279,6 +284,9 @@ public partial class ScanViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial bool IsTopRiskBannerVisible { get; set; }
+
+    [ObservableProperty]
+    public partial InfoBarSeverity TopRiskBannerSeverity { get; set; }
 
     [ObservableProperty]
     public partial string StartValidationPromptText { get; set; }
@@ -416,6 +424,7 @@ public partial class ScanViewModel : ObservableRecipient
         OutputActionReasonText = string.Empty;
         TopRiskBannerTitle = string.Empty;
         TopRiskBannerText = string.Empty;
+        TopRiskBannerSeverity = InfoBarSeverity.Warning;
         StartValidationPromptText = string.Empty;
         DeviceCardBlockerText = string.Empty;
         ConfigurationCardBlockerText = string.Empty;
@@ -567,18 +576,21 @@ public partial class ScanViewModel : ObservableRecipient
     partial void OnCurrentPassTextChanged(string value)
     {
         MirrorOutput("Scan.Pass", value);
+        OnPropertyChanged(nameof(HeaderScanStatusText));
         UpdateReadinessSummaries();
     }
 
     partial void OnCurrentLedTextChanged(string value)
     {
         MirrorOutput("Scan.Led", value);
+        OnPropertyChanged(nameof(HeaderScanStatusText));
         UpdateReadinessSummaries();
     }
 
     partial void OnCurrentDirectionTextChanged(string value)
     {
         MirrorOutput("Scan.Direction", value);
+        OnPropertyChanged(nameof(HeaderScanStatusText));
         UpdateReadinessSummaries();
     }
 
@@ -604,7 +616,10 @@ public partial class ScanViewModel : ObservableRecipient
         => UpdateReadinessSummaries();
 
     partial void OnIsRunningChanged(bool value)
-        => UpdateReadinessSummaries();
+    {
+        OnPropertyChanged(nameof(HeaderScanStatusText));
+        UpdateReadinessSummaries();
+    }
 
     partial void OnIsOutputAvailableChanged(bool value)
         => UpdateReadinessSummaries();
@@ -1014,10 +1029,11 @@ public partial class ScanViewModel : ObservableRecipient
     private static string AppendBlockerText(string current, string message)
         => string.IsNullOrWhiteSpace(current) ? message : $"{current}\n{message}";
 
-    private void ShowTopRiskBanner(string title, string message)
+    private void ShowTopRiskBanner(string title, string message, InfoBarSeverity severity = InfoBarSeverity.Warning)
     {
         TopRiskBannerTitle = title;
         TopRiskBannerText = message;
+        TopRiskBannerSeverity = severity;
         IsTopRiskBannerVisible = true;
     }
 
@@ -1025,6 +1041,7 @@ public partial class ScanViewModel : ObservableRecipient
     {
         TopRiskBannerTitle = string.Empty;
         TopRiskBannerText = string.Empty;
+        TopRiskBannerSeverity = InfoBarSeverity.Warning;
         IsTopRiskBannerVisible = false;
     }
     [RelayCommand(CanExecute = nameof(CanConnectDevices))]
@@ -1212,7 +1229,7 @@ public partial class ScanViewModel : ObservableRecipient
 
             StatusText = "Scan_Runtime_StatusFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(ex.Message));
             OutputSummaryText = "Scan_Runtime_OutputSummaryFailed".GetLocalized();
-            ShowTopRiskBanner("Scan_Runtime_TopRiskScanFailedTitle".GetLocalizedOrFallback("Scan failed"), StatusText);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskScanFailedTitle".GetLocalizedOrFallback("Scan failed"), StatusText, InfoBarSeverity.Error);
         }
         finally
         {
@@ -1294,7 +1311,7 @@ public partial class ScanViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusRgbSaveFailed".GetLocalizedFormat(ex.Message);
-            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText, InfoBarSeverity.Error);
         }
         finally
         {
@@ -1328,7 +1345,7 @@ public partial class ScanViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "Scan_Runtime_StatusDngExportFailed".GetLocalizedFormat(ex.Message);
-            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText);
+            ShowTopRiskBanner("Scan_Runtime_TopRiskOutputFailedTitle".GetLocalizedOrFallback("Output failed"), StatusText, InfoBarSeverity.Error);
         }
         finally
         {

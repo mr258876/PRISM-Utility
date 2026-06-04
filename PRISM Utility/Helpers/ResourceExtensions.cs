@@ -6,7 +6,16 @@ namespace PRISM_Utility.Helpers;
 
 public static class ResourceExtensions
 {
-    private static readonly ResourceLoader ResourceLoader = new();
+    private static readonly object ResourceLoaderGate = new();
+    private static ResourceLoader ResourceLoader = new();
+
+    public static void ResetResourceLoader()
+    {
+        lock (ResourceLoaderGate)
+        {
+            ResourceLoader = new ResourceLoader();
+        }
+    }
 
     private static string GetMissingResourceFallback(string resourceKey)
     {
@@ -24,7 +33,11 @@ public static class ResourceExtensions
 
         try
         {
-            var localized = ResourceLoader.GetString(resourceKey);
+            string localized;
+            lock (ResourceLoaderGate)
+            {
+                localized = ResourceLoader.GetString(resourceKey);
+            }
             if (!string.IsNullOrEmpty(localized))
                 return localized;
 
@@ -52,7 +65,11 @@ public static class ResourceExtensions
 
         try
         {
-            var localized = ResourceLoader.GetString(resourceKey);
+            string localized;
+            lock (ResourceLoaderGate)
+            {
+                localized = ResourceLoader.GetString(resourceKey);
+            }
             if (!string.IsNullOrEmpty(localized))
                 return localized;
 

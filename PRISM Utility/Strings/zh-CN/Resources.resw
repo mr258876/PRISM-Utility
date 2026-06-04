@@ -189,7 +189,7 @@
   <data name="SettingsPage_PrivacyTermsLink.NavigateUri" xml:space="preserve"><value>https://YourPrivacyUrlGoesHere/</value></data>
   <data name="Shell_UsbDebug.Content" xml:space="preserve"><value>USB 调试</value></data>
   <data name="Shell_Scan.Content" xml:space="preserve"><value>扫描</value></data>
-  <data name="UsbDebug_SelectDevice.Text" xml:space="preserve"><value>选择设备</value></data>
+  <data name="UsbDebug_SelectDevice.Text" xml:space="preserve"><value>选择 PRISM 扫描仪设备</value></data>
   <data name="UsbDebug_BuckIn.Text" xml:space="preserve"><value>Bulk IN</value></data>
   <data name="UsbDebug_StopBulkInButton.Content" xml:space="preserve"><value>停止</value></data>
   <data name="UsbDebug_StartBulkInButton.Content" xml:space="preserve"><value>启动 Bulk IN</value></data>
@@ -201,7 +201,7 @@
   <data name="UsbDebug_DeviceBulkInRequestSizeComboBox.PlaceholderText" xml:space="preserve"><value>选择或输入</value></data>
   <data name="UsbDebug_DeviceBuliInRequestSizeComboBox_HelpText.Text" xml:space="preserve"><value>您也可以直接输入数值。由于 WinUSB，最大值为 2097152。</value></data>
   <data name="UsbDebug_BulkOut.Text" xml:space="preserve"><value>Bulk OUT</value></data>
-  <data name="UsbDebug_BulkOutDeviceComboBox.Header" xml:space="preserve"><value>设备</value></data>
+  <data name="UsbDebug_BulkOutDeviceComboBox.Header" xml:space="preserve"><value>PRISM 设备</value></data>
   <data name="UsbDebug_BulkOutConfigComboBox.Header" xml:space="preserve"><value>配置</value></data>
   <data name="UsbDebug_BulkOutInterfaceComboBox.Header" xml:space="preserve"><value>接口</value></data>
   <data name="UsbDebug_BulkOutEndpointComboBox.Header" xml:space="preserve"><value>端点</value></data>
@@ -211,7 +211,7 @@
   <data name="UsbDebug_BulkOutHexModeToggleSwitch.Header" xml:space="preserve"><value>十六进制模式</value></data>
   <data name="UsbDebug_BulkOutHexModeToggleSwitch.OnContent" xml:space="preserve"><value>开（Hex）</value></data>
   <data name="UsbDebug_BulkOutHexModeToggleSwitch.OffContent" xml:space="preserve"><value>关（UTF-8 文本）</value></data>
-  <data name="UsbDebug_BulkInDeviceComboBox.Header" xml:space="preserve"><value>设备</value></data>
+  <data name="UsbDebug_BulkInDeviceComboBox.Header" xml:space="preserve"><value>PRISM 设备</value></data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve"><value>扫描调试</value></data>
   <data name="Scan_StartButton.Content" xml:space="preserve"><value>开始扫描</value></data>
   <data name="Scan_StopButton.Content" xml:space="preserve"><value>停止</value></data>
@@ -221,7 +221,7 @@
   <data name="Scan_WarmUpToggleSwitch.Header" xml:space="preserve"><value>预热</value></data>
   <data name="Scan_WarmUpToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_WarmUpToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
-  <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve"><value>预览</value></data>
+  <data name="Scan_PreviewToggleSwitch.Header" xml:space="preserve"><value>启用预览</value></data>
   <data name="Scan_PreviewToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_PreviewToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_AlignmentModeComboBox.Header" xml:space="preserve"><value>对齐模式</value></data>
@@ -229,7 +229,7 @@
   <data name="Scan_AlternateDirectionToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
   <data name="Scan_AlternateDirectionToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
   <data name="Scan_StartingDirectionComboBox.Header" xml:space="preserve"><value>起始方向</value></data>
-  <data name="Scan_DirectionHelpText.Text" xml:space="preserve"><value>四个 LED 扫描轮次将从所选方向开始。启用交替时，每轮都会翻转方向。禁用时，每轮都按相同方向扫描，电机会在下一轮开始前返回起始位置。</value></data>
+  <data name="Scan_StartingDirectionComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>四个 LED 扫描轮次将从所选方向开始。启用交替时，每轮都会翻转方向。禁用时，每轮都按相同方向扫描，电机会在下一轮开始前返回起始位置。</value></data>
   <data name="Scan_PassPlanTitle.Text" xml:space="preserve"><value>扫描轮次计划</value></data>
   <data name="Scan_PassPlanSection.Text" xml:space="preserve"><value>轮次与照明计划</value></data>
   <data name="Scan_Pass1Title.Text" xml:space="preserve"><value>第 1 轮 · LED1</value></data>
@@ -280,8 +280,7 @@
   <data name="Scan_OutputSection.Text" xml:space="preserve"><value>输出</value></data>
   <data name="Scan_SaveRgbImageButton.Content" xml:space="preserve"><value>保存 RGB 图像</value></data>
   <data name="Scan_ExportDngChannelsButton.Content" xml:space="preserve"><value>导出 DNG</value></data>
-  <data name="Scan_DngExportModeComboBox.Header" xml:space="preserve"><value>DNG 导出模式（当前配置）</value></data>
-  <data name="Scan_DngExportModeUnavailableText.Text" xml:space="preserve"><value>双文件 DNG 导出需要且仅需要一个红、一个绿、一个蓝，以及一个 IR 或白色通道。当前配置将导出为单个 4 通道原始 DNG。</value></data>
+  <data name="Scan_ExportDngChannelsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>双文件 DNG 导出需要且仅需要一个红、一个绿、一个蓝，以及一个 IR 或白色通道。当前配置将导出为单个 4 通道原始 DNG。</value></data>
   <data name="Settings_DngGeometry.Text" xml:space="preserve"><value>DNG 几何默认值</value></data>
   <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve"><value>默认有效区域起始列</value></data>
   <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve"><value>默认有效区域结束列</value></data>
@@ -290,8 +289,7 @@
   <data name="Settings_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve"><value>恢复 DNG 几何默认值</value></data>
   <data name="Settings_DngGeometryDescription.Text" xml:space="preserve"><value>DNG 导出会保留完整 raw 缓冲区。这里的默认值用于新配置或默认导出元数据，描述有效区域和 masked 黑参考范围；扫描调试中的 ROI 编辑是可视化/调试选择，除非明确应用到所选 ROI 目标。</value></data>
   <data name="Scan_PreviewTitle.Text" xml:space="preserve"><value>预览</value></data>
-  <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve"><value>预览模式</value></data>
-  <data name="Scan_PreviewPlaceholderTitle.Text" xml:space="preserve"><value>预览区域</value></data>
+  <data name="Scan_PreviewModeComboBox.Header" xml:space="preserve"><value>预览通道</value></data>
   <data name="Scan_RunDetailsTitle.Text" xml:space="preserve"><value>运行详情</value></data>
   <data name="ScanDebug_StartButton.Content" xml:space="preserve"><value>开始</value></data>
   <data name="ScanDebug_ConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
@@ -500,10 +498,10 @@
   <data name="UsbDebug_Runtime_NoHexBytesFound" xml:space="preserve"><value>未找到十六进制字节。</value></data>
   <data name="UsbDebug_Runtime_HexTokenLength" xml:space="preserve"><value>第 {0} 个标记必须正好为 2 位十六进制数字（支持 0xAA / AAh / AAH / AA）。</value></data>
   <data name="UsbDebug_Runtime_HexTokenInvalid" xml:space="preserve"><value>第 {0} 个标记不是有效的十六进制值：'{1}'。</value></data>
-  <data name="UsbDebug_ObservationStatus_ReadOnly" xml:space="preserve"><value>只读观察模式：其他扫描流程正占用设备。你可以在此查看会话状态、日志和设备信息，但在该会话断开前无法使用 Bulk IN/OUT。</value></data>
-  <data name="UsbDebug_ObservationStatus_ExclusiveActive" xml:space="preserve"><value>独占原始诊断模式已启用。USB Debug 当前持有原始 USB 租约，可使用 Bulk IN/OUT。</value></data>
-  <data name="UsbDebug_ObservationStatus_ExclusiveAvailable" xml:space="preserve"><value>当前没有扫描流程占用设备，可使用独占原始诊断。Bulk IN/OUT 会按需获取原始 USB 租约。</value></data>
-  <data name="UsbDebug_Runtime_ReadOnlyObservationOnly.Content" xml:space="preserve"><value>扫描会话当前正占用设备。USB Debug 仍可只读观察会话状态、日志和设备信息，但在该会话断开前无法使用原始 Bulk IN/OUT 命令。</value></data>
+  <data name="UsbDebug_ObservationStatus_ReadOnly" xml:space="preserve"><value>只读观察模式：其他扫描流程正占用 PRISM 设备。你可以在此查看会话状态、日志和设备信息，但在该会话断开前无法使用 Bulk IN/OUT。</value></data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveActive" xml:space="preserve"><value>PRISM 扫描仪设备的独占原始诊断模式已启用。USB Debug 当前持有原始 USB 租约，可使用 Bulk IN/OUT。</value></data>
+  <data name="UsbDebug_ObservationStatus_ExclusiveAvailable" xml:space="preserve"><value>当前没有扫描流程占用 PRISM 设备，可使用独占原始诊断。Bulk IN/OUT 会按需获取原始 USB 租约。</value></data>
+  <data name="UsbDebug_Runtime_ReadOnlyObservationOnly.Content" xml:space="preserve"><value>扫描会话当前正占用 PRISM 设备。USB Debug 仍可只读观察会话状态、日志和设备信息，但在该会话断开前无法使用原始 Bulk IN/OUT 命令。</value></data>
   <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailable.Content" xml:space="preserve"><value>USB Debug 无法获取独占原始访问权限，因为设备已由 {0} 用于 {1}。</value></data>
   <data name="UsbDebug_Runtime_ExclusiveLeaseUnavailableFallback.Content" xml:space="preserve"><value>USB Debug 无法为此操作获取独占原始访问权限。</value></data>
   <data name="Scan_Runtime_StatusWaitingForDevices" xml:space="preserve"><value>正在等待扫描仪设备 1D50:619C 和 1D50:619D。</value></data>
@@ -979,11 +977,11 @@
   <data name="Settings_ColorManagementScopeText.Text" xml:space="preserve"><value>仅全局默认值。单次扫描的色彩行为请在已加载扫描配置中修改。</value></data>
   <data name="Settings_DngGeometryScopeText.Text" xml:space="preserve"><value>仅默认几何。有效区表示 DNG 图像可用列；屏蔽区表示黑参考列。对焦 ROI 与 DNG 导出几何相互独立。</value></data>
   <data name="Scan_PageRoleDescription.Text" xml:space="preserve"><value>正式扫描工作区：加载配置、确认当前生效配方、执行扫描，然后保存 RGB 或导出 DNG。</value></data>
-  <data name="Scan_UsbConflictGuidance.Text" xml:space="preserve"><value>此页面连接或扫描时会占用 USB 设备。若要在同一硬件上使用 USB 调试，请先在此断开连接。</value></data>
-  <data name="Scan_SetupScopeText.Text" xml:space="preserve"><value>这些控件定义正式扫描流程。已加载配置是配方、色彩和 DNG 模式的来源；全局设置只为新建或重置配置提供默认值。</value></data>
+  <data name="Scan_DeviceCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>此页面连接或扫描时会占用 USB 设备。若要在同一硬件上使用 USB 调试，请先在此断开连接。</value></data>
+  <data name="Scan_ConfigCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>这些控件定义正式扫描流程。已加载配置是配方、色彩和 DNG 模式的来源；全局设置只为新建或重置配置提供默认值。</value></data>
   <data name="Scan_ColorSourceText.Text" xml:space="preserve"><value>生效来源：已加载扫描配置。若未加载配置，当前值来自全局默认值初始化。</value></data>
-  <data name="Scan_OutputScopeText.Text" xml:space="preserve"><value>输出操作使用当前扫描结果和已加载配置中的 DNG 模式。DNG 模式随扫描配置保存，不属于全局设置。</value></data>
-  <data name="Scan_DngGeometryRelationText.Text" xml:space="preserve"><value>DNG 几何默认值描述导出元数据中的有效列和 masked 列；扫描调试中的预览 ROI 工具与其分离，除非在那里明确应用所选 ROI 目标。</value></data>
+  <data name="Scan_OutputWorkflowTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>输出操作使用当前扫描结果和已加载配置中的 DNG 模式。DNG 模式随扫描配置保存，不属于全局设置。</value></data>
+  <data name="Scan_DngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>DNG 几何默认值描述导出元数据中的有效列和 masked 列；扫描调试中的预览 ROI 工具与其分离，除非在那里明确应用所选 ROI 目标。</value></data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve"><value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。</value></data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve"><value>扫描调试工作台</value></data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve"><value>状态</value></data>
@@ -1017,7 +1015,7 @@
   <data name="ScanDebug_PreviewEmptyDescription.Text" xml:space="preserve"><value>连接扫描仪并开始采集后将在此显示实时预览。</value></data>
   <data name="ScanDebug_RoiScopeDescription.Text" xml:space="preserve"><value>ROI 目标是带范围的选择：BW 有效区用于预览/校准的可用区域，BW 屏蔽区用于参考屏蔽区域，对焦 ROI 用于自动对焦检查。它们不会修改全局 DNG 几何默认值。</value></data>
   <data name="ScanDebug_RoiActionScopeText.Text" xml:space="preserve"><value>应用和重置只影响上方选择的 ROI 目标。DNG 有效区/屏蔽区默认值仍在设置页维护，除非配置流程明确保存对应几何。</value></data>
-  <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve"><value>USB 调试需要独占访问所选设备。如果扫描或扫描调试已连接，请先在那里断开连接，再回到此页占用端点。</value></data>
+  <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve"><value>USB 调试现在只针对 PRISM 扫描仪设备 1D50:619C 和 1D50:619D。它需要独占访问所选 PRISM 设备；如果扫描或扫描调试已连接，请先在那里断开连接，再回到此页占用端点。</value></data>
   <data name="Main_PageTitle.Text" xml:space="preserve"><value>PRISM Utility 工作区</value></data>
   <data name="Main_PageDescription.Text" xml:space="preserve"><value>使用此概览选择正确页面。连接、配置和导出详情接入实时会话前，这些状态卡片仅作为占位提示。</value></data>
   <data name="Main_StatusConnectionTitle.Text" xml:space="preserve"><value>连接状态</value></data>

@@ -125,6 +125,7 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
         CultureInfo.DefaultThreadCurrentUICulture = culture;
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
+        ResourceExtensions.ResetResourceLoader();
     }
 
     private async Task RefreshShellAsync()
