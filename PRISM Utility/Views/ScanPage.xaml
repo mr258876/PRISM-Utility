@@ -253,23 +253,23 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <controls:WrapPanel
-                                Grid.Row="0"
-                                Orientation="Horizontal"
-                                HorizontalSpacing="{StaticResource ScanInlineSpacing}"
-                                VerticalSpacing="{StaticResource ScanInlineSpacing}">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{StaticResource ScanInlineSpacing}">
-                                    <TextBlock x:Uid="Scan_PreviewTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <ToggleSwitch x:Uid="Scan_PreviewToggleSwitch" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}" />
-                                </StackPanel>
+                            <Grid Grid.Row="0" ColumnSpacing="{StaticResource ScanInlineSpacing}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Uid="Scan_PreviewTitle" VerticalAlignment="Center" Style="{ThemeResource SubtitleTextBlockStyle}" />
                                 <controls:WrapPanel
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
                                     Orientation="Horizontal"
                                     HorizontalSpacing="{StaticResource ScanInlineSpacing}"
                                     VerticalSpacing="{StaticResource ScanInlineSpacing}">
+                                    <ToggleSwitch x:Uid="Scan_PreviewToggleSwitch" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}" />
                                     <ComboBox x:Uid="Scan_PreviewModeComboBox" Width="{StaticResource ScanPreviewHeaderComboBoxWidth}" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanPreviewModeOptionTemplate}" ItemsSource="{x:Bind ViewModel.PreviewModeOptions, Mode=OneWay}" SelectedValue="{x:Bind ViewModel.SelectedPreviewMode, Mode=TwoWay}" SelectedValuePath="Key" />
                                     <ComboBox x:Uid="Scan_AlignmentModeComboBox" Width="{StaticResource ScanPreviewHeaderComboBoxWidth}" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}" ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedAlignmentMode, Mode=TwoWay}" />
                                 </controls:WrapPanel>
-                            </controls:WrapPanel>
+                            </Grid>
                             <Border
                                 Grid.Row="1"
                                 MinHeight="{StaticResource ScanPreviewMinimumHeight}"
@@ -291,23 +291,31 @@
                         BorderBrush="{x:Bind ViewModel.OutputCardBorderBrush, Mode=OneWay}"
                         Style="{StaticResource ScanWorkflowCardStyle}">
                         <StackPanel Spacing="8">
-                            <controls:WrapPanel
-                                Orientation="Horizontal"
-                                HorizontalSpacing="{StaticResource ScanInlineSpacing}"
-                                VerticalSpacing="{StaticResource ScanInlineSpacing}">
+                            <Grid ColumnSpacing="{StaticResource ScanInlineSpacing}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock x:Uid="Scan_OutputWorkflowTitle" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                                <ComboBox
-                                    x:Uid="Scan_DngExportModeComboBox"
-                                    Width="{StaticResource ScanOutputDngExportModeComboBoxWidth}"
-                                    IsEnabled="{x:Bind ViewModel.IsOutputSettingsEnabled, Mode=OneWay}"
-                                    ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
-                                    ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
-                                    SelectedItem="{x:Bind ViewModel.SelectedDngExportMode, Mode=TwoWay}"
-                                    VerticalAlignment="Center"
-                                    Visibility="{x:Bind ViewModel.IsDualFileDngExportAvailable, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                <Button x:Uid="Scan_ExportDngChannelsButton" Command="{x:Bind ViewModel.ExportDngChannelsCommand}" VerticalAlignment="Center" />
-                                <Button x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" VerticalAlignment="Center" />
-                            </controls:WrapPanel>
+                                <controls:WrapPanel
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal"
+                                    HorizontalSpacing="{StaticResource ScanInlineSpacing}"
+                                    VerticalSpacing="{StaticResource ScanInlineSpacing}">
+                                    <ComboBox
+                                        x:Uid="Scan_DngExportModeComboBox"
+                                        Width="{StaticResource ScanOutputDngExportModeComboBoxWidth}"
+                                        IsEnabled="{x:Bind ViewModel.IsOutputSettingsEnabled, Mode=OneWay}"
+                                        ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
+                                        ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedDngExportMode, Mode=TwoWay}"
+                                        VerticalAlignment="Center"
+                                        Visibility="{x:Bind ViewModel.IsDualFileDngExportAvailable, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    <Button x:Uid="Scan_ExportDngChannelsButton" Command="{x:Bind ViewModel.ExportDngChannelsCommand}" VerticalAlignment="Center" />
+                                    <Button x:Uid="Scan_SaveRgbImageButton" Command="{x:Bind ViewModel.SaveRgbImageCommand}" VerticalAlignment="Center" />
+                                </controls:WrapPanel>
+                            </Grid>
                             <InfoBar
                                 x:Uid="Scan_OutputBlockerInfoBar"
                                 IsOpen="True"

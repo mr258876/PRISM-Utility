@@ -734,7 +734,7 @@ public partial class ScanViewModel : ObservableRecipient
         var isOwnedByThisPage = _scanSessionCoordinator.OwnsSnapshot(snapshot);
 
         IsConnecting = snapshot.State == ScannerSessionState.Connecting && isOwnedByThisPage;
-        IsConnected = isOwnedByThisPage && (snapshot.State is ScannerSessionState.Connected or ScannerSessionState.Running);
+        IsConnected = snapshot.State is ScannerSessionState.Connected or ScannerSessionState.Running;
 
         if (isOwnedByThisPage && snapshot.State == ScannerSessionState.Running)
         {

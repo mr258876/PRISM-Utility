@@ -16,10 +16,10 @@ public sealed class ScannerAccessCoordinatorTests
         var result = await fixture.Access.ActivateAsync(ScannerAccessMode.ScanWorkflow, CancellationToken.None);
 
         Assert.True(result.Success);
-        Assert.Equal(ScannerAccessMode.ScanWorkflow, fixture.Access.Snapshot.ActiveMode);
+        Assert.Equal(ScannerAccessMode.None, fixture.Access.Snapshot.ActiveMode);
         Assert.Equal(ScannerAccessAvailability.Active, fixture.Access.Snapshot.Availability);
         Assert.True(fixture.Access.CanDeactivate(ScannerAccessMode.ScanWorkflow));
-        Assert.Equal("scan-workflow", fixture.Manager.Snapshot.ActiveOwner?.OwnerId);
+        Assert.Null(fixture.Manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -32,14 +32,14 @@ public sealed class ScannerAccessCoordinatorTests
 
         Assert.True(rawLease.Success);
         Assert.False(result.Success);
-        Assert.Contains("USB Debug", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Raw USB diagnostics", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(ScannerAccessMode.UsbDebugRaw, fixture.Access.Snapshot.ActiveMode);
         Assert.Equal(ScannerAccessAvailability.BlockedByUsbDebug, fixture.Access.Snapshot.Availability);
         Assert.False(fixture.Access.CanActivate(ScannerAccessMode.ScanWorkflow));
     }
 
     [Fact]
-    public async Task ActivateAsync_ScanWorkflow_WhenRawUsbActiveAndTargetsMissing_ReturnsUsbDebugBlockedReason()
+    public async Task ActivateAsync_ScanWorkflow_WhenRawUsbActiveAndTargetsMissing_ReturnsRawUsbBlockedReason()
     {
         await using var fixture = new AccessFixture(targetsPresent: false);
         var rawLease = await fixture.Usb.TryAcquireLeaseAsync("usb-debug-raw", UsbUsageOwnerType.RawUsb, "Bulk IN");
@@ -48,7 +48,7 @@ public sealed class ScannerAccessCoordinatorTests
 
         Assert.True(rawLease.Success);
         Assert.False(result.Success);
-        Assert.Contains("USB Debug", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Raw USB diagnostics", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Connect a PRISM scanner", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(ScannerAccessAvailability.BlockedByUsbDebug, fixture.Access.Snapshot.Availability);
     }
@@ -58,12 +58,11 @@ public sealed class ScannerAccessCoordinatorTests
     {
         await using var fixture = new AccessFixture();
         var connectResult = await fixture.Access.ActivateAsync(ScannerAccessMode.ScanWorkflow, CancellationToken.None);
-        var leaseId = fixture.Manager.Snapshot.ActiveOwner!.LeaseId;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var runningTask = fixture.Manager.RunWithSessionStateAsync(
-            leaseId,
+        var runningTask = fixture.Manager.RunConnectedSessionStateAsync(
+            CreateOwner("scan-workflow", ScannerSessionOwnerType.ScanWorkflow, ScannerSessionOperation.Scan, "scan-workflow-operation"),
             ScannerSessionState.Running,
             async _ =>
             {
@@ -88,12 +87,11 @@ public sealed class ScannerAccessCoordinatorTests
     {
         await using var fixture = new AccessFixture();
         var connectResult = await fixture.Access.ActivateAsync(ScannerAccessMode.ScanDebug, CancellationToken.None);
-        var leaseId = fixture.Manager.Snapshot.ActiveOwner!.LeaseId;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var runningTask = fixture.Manager.RunWithSessionStateAsync(
-            leaseId,
+        var runningTask = fixture.Manager.RunConnectedSessionStateAsync(
+            CreateOwner("scan-debug", ScannerSessionOwnerType.ScanDebug, ScannerSessionOperation.Diagnostics, "scan-debug-operation"),
             ScannerSessionState.Running,
             async _ =>
             {
@@ -112,6 +110,22 @@ public sealed class ScannerAccessCoordinatorTests
         release.SetResult();
         Assert.True(await runningTask);
     }
+
+    [Fact]
+    public async Task CanDeactivate_ScanDebug_IsTrueForIdleGlobalConnection()
+    {
+        await using var fixture = new AccessFixture();
+        var connectResult = await fixture.Access.ActivateAsync(ScannerAccessMode.ScanWorkflow, CancellationToken.None);
+        var attachResult = await fixture.Debug.ConnectAsync(CancellationToken.None);
+
+        Assert.True(connectResult.Success);
+        Assert.True(attachResult.Success);
+        Assert.Equal(ScannerAccessMode.None, fixture.Access.Snapshot.ActiveMode);
+        Assert.True(fixture.Access.CanDeactivate(ScannerAccessMode.ScanDebug));
+    }
+
+    private static ScannerSessionOwner CreateOwner(string ownerId, ScannerSessionOwnerType ownerType, ScannerSessionOperation operation, string leaseId)
+        => new(ownerId, ownerType, operation, new DateTimeOffset(2026, 6, 4, 12, 0, 0, TimeSpan.Zero), leaseId);
 
     [Fact]
     public async Task SnapshotChanged_RaisesWhenRawUsbLeaseChanges()

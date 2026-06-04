@@ -9,7 +9,7 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanWorkflowSessionCoordinatorTests
 {
     [Fact]
-    public async Task ConnectAsync_CreatesSharedScanWorkflowOwner()
+    public async Task ConnectAsync_CreatesGlobalScannerConnection()
     {
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
@@ -20,14 +20,13 @@ public sealed class ScanWorkflowSessionCoordinatorTests
 
         Assert.True(result.Success);
         Assert.True(coordinator.HasConnectedSession);
-        Assert.Equal(ScannerSessionOwnerType.ScanWorkflow, manager.Snapshot.ActiveOwner?.OwnerType);
-        Assert.Equal("scan-workflow", manager.Snapshot.ActiveOwner?.OwnerId);
-        Assert.True(coordinator.OwnsSnapshot(manager.Snapshot));
+        Assert.Null(manager.Snapshot.ActiveOwner);
+        Assert.False(coordinator.OwnsSnapshot(manager.Snapshot));
         Assert.Single(factory.CreatedSessions);
     }
 
     [Fact]
-    public async Task ConnectAsync_WhenScannerOwnedByScanDebug_ReturnsBusyWithoutClearingOwner()
+    public async Task ConnectAsync_WhenScannerConnectedByScanDebug_ReusesGlobalSession()
     {
         var factory = new FakeScanSessionServiceFactory();
         var usbCoordinator = new UsbUsageCoordinator();
@@ -39,11 +38,9 @@ public sealed class ScanWorkflowSessionCoordinatorTests
         var result = await coordinator.ConnectAsync(CancellationToken.None);
 
         Assert.True(scanDebugConnect.Success);
-        Assert.False(result.Success);
-        Assert.Contains("scan-debug", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("cannot connect", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(scanDebugOwner, manager.Snapshot.ActiveOwner);
-        Assert.False(coordinator.HasConnectedSession);
+        Assert.True(result.Success);
+        Assert.Null(manager.Snapshot.ActiveOwner);
+        Assert.True(coordinator.HasConnectedSession);
         Assert.Single(factory.CreatedSessions);
     }
 
@@ -62,7 +59,7 @@ public sealed class ScanWorkflowSessionCoordinatorTests
 
         Assert.True(connectResult.Success);
         Assert.True(observedConnected);
-        Assert.Equal(ScannerSessionOwnerType.ScanWorkflow, manager.Snapshot.ActiveOwner?.OwnerType);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]

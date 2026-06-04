@@ -107,8 +107,10 @@ public partial class App : Application
             // Views and ViewModels
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<SettingsPage>();
-            services.AddTransient<UsbDebugViewModel>();
-            services.AddTransient<UsbDebugPage>();
+            services.AddTransient<DeviceConfigurationViewModel>();
+            services.AddTransient<DeviceConfigurationPage>();
+            services.AddTransient<LogViewModel>();
+            services.AddTransient<LogPage>();
             services.AddTransient<ScanViewModel>();
             services.AddTransient<ScanPage>();
             services.AddTransient<ScanDebugViewModel>();

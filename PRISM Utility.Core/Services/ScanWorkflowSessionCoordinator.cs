@@ -8,7 +8,6 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
     private const string OwnerId = "scan-workflow";
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly IScannerDeviceSessionManager _sessionManager;
-    private ScannerSessionOwner? _owner;
 
     public ScanWorkflowSessionCoordinator(IUsbUsageCoordinator usbUsageCoordinator, IScannerDeviceSessionManager sessionManager)
     {
@@ -23,16 +22,13 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
         => ConnectedSession is not null;
 
     public IScanSessionService? ConnectedSession
-        => _owner is null ? null : _sessionManager.TryGetOwnedSession(_owner.LeaseId);
+        => _sessionManager.TryGetConnectedSession();
 
     public bool OwnsSnapshot(ScannerDeviceSessionSnapshot snapshot)
     {
         var activeOwner = snapshot.ActiveOwner;
         if (activeOwner is null)
             return false;
-
-        if (_owner is not null && string.Equals(activeOwner.LeaseId, _owner.LeaseId, StringComparison.Ordinal))
-            return true;
 
         return activeOwner.OwnerType == ScannerSessionOwnerType.ScanWorkflow
             && string.Equals(activeOwner.OwnerId, OwnerId, StringComparison.Ordinal);
@@ -45,10 +41,6 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
 
         if (IsConnectBlockedByUsbDebug())
             return new ScanOperationResult(false, "USB Debug currently owns scanner USB access.");
-
-        var activeOwner = _sessionManager.Snapshot.ActiveOwner;
-        if (activeOwner is not null && activeOwner.OwnerType != ScannerSessionOwnerType.ScanWorkflow)
-            return new ScanOperationResult(false, BuildBusyMessage("Scanner session is already owned by another workflow."));
 
         var owner = CreateOwner(GetOperationForConnect());
 
@@ -64,7 +56,6 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
                 if (session is null)
                     return new ScanOperationResult(false, "Scanner connected but the shared workflow session was unavailable.");
 
-                _owner = owner;
             }
 
             if (!result.Success && IsOwnershipConflict(result.Message))
@@ -80,36 +71,29 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
 
     public async Task<ScanOperationResult> DisconnectAsync(CancellationToken ct)
     {
-        if (_owner is null || ConnectedSession is null)
-        {
-            _owner = null;
+        if (ConnectedSession is null)
             return new ScanOperationResult(true, "Scanner disconnected.");
-        }
 
-        var result = await _sessionManager.DisconnectAsync(_owner.LeaseId, ct);
-        if (result.Success)
-            _owner = null;
-
-        return result;
+        return await _sessionManager.DisconnectAsync(ct);
     }
 
     public Task<ScanStopResult> StopAsync(CancellationToken ct)
     {
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             return Task.FromResult(new ScanStopResult(false, "Scanner not connected. Connect the scanner before stopping scan workflow."));
 
-        return _sessionManager.StopAsync(_owner.LeaseId, ct);
+        return _sessionManager.StopAsync(CreateOwner(ScannerSessionOperation.Scan), ct);
     }
 
     public Task<TResult> UseConnectedSessionAsync<TResult>(Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             throw new InvalidOperationException("Scanner not connected. Connect the scanner before issuing Scan workflow commands.");
 
-        return _sessionManager.UseSessionAsync(
-            _owner.LeaseId,
+        return _sessionManager.UseConnectedSessionAsync(
+            CreateOwner(ScannerSessionOperation.Diagnostics),
             session => ExecuteWithSessionTokenAsync(session, action, ct),
             ct);
     }
@@ -118,11 +102,11 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             throw new InvalidOperationException("Scanner not connected. Connect the scanner before issuing Scan workflow commands.");
 
-        return _sessionManager.RunWithSessionStateAsync(
-            _owner.LeaseId,
+        return _sessionManager.RunConnectedSessionStateAsync(
+            CreateOwner(state == ScannerSessionState.Running ? ScannerSessionOperation.Scan : ScannerSessionOperation.Diagnostics),
             state,
             session => ExecuteWithSessionTokenAsync(session, action, ct),
             ct);

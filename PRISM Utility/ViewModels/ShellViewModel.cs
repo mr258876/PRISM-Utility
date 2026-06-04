@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -27,6 +28,9 @@ public partial class ShellViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial object? Selected { get; set; }
+
+    [ObservableProperty]
+    public partial string HeaderText { get; set; }
 
     [ObservableProperty]
     public partial string ScannerStatusText { get; set; }
@@ -57,7 +61,7 @@ public partial class ShellViewModel : ObservableRecipient
 
     public string ScannerConnectionFlyoutDescription => "Shell_ScannerConnectionFlyoutDescription".GetLocalizedOrFallback("Connect or disconnect the PRISM scanner from the shared navigation entry.");
 
-    public string ScannerConnectionUnavailableText => "Shell_ScannerConnectionUnavailable".GetLocalizedOrFallback("USB Debug owns the scanner. Disconnect USB Debug before using the shared scanner connection.");
+    public string ScannerConnectionUnavailableText => "Shell_ScannerConnectionUnavailable".GetLocalizedOrFallback("Raw scanner diagnostics owns the scanner. Release it before using the shared scanner connection.");
 
     public Visibility ScannerConnectionUnavailableVisibility => GetActiveConnectCommand() is null
         && GetActiveDisconnectCommand() is null
@@ -79,6 +83,7 @@ public partial class ShellViewModel : ObservableRecipient
 
         ScannerStatusText = string.Empty;
         ScannerStatusShortText = string.Empty;
+        HeaderText = string.Empty;
         ScannerStatusDotBrush = BuildStatusBrush("TextFillColorTertiaryBrush", Colors.Gray);
         ScannerStatusBadgeGlyph = ScannerStatusGlyphs.Offline;
         ScannerStatusBadgeForegroundBrush = BuildBadgeForegroundBrush(Colors.Black);
@@ -100,6 +105,15 @@ public partial class ShellViewModel : ObservableRecipient
         if (e.SourcePageType == typeof(SettingsPage))
         {
             Selected = NavigationViewService.SettingsItem;
+            HeaderText = GetNavigationViewItemHeader(Selected);
+            NotifyScannerConnectionCommandStates();
+            return;
+        }
+
+        if (e.SourcePageType == typeof(DeviceConfigurationPage))
+        {
+            Selected = null;
+            HeaderText = "DeviceConfiguration_Header".GetLocalizedOrFallback("Device configuration");
             NotifyScannerConnectionCommandStates();
             return;
         }
@@ -108,6 +122,7 @@ public partial class ShellViewModel : ObservableRecipient
         if (selectedItem != null)
         {
             Selected = selectedItem;
+            HeaderText = GetNavigationViewItemHeader(selectedItem);
         }
 
         NotifyScannerConnectionCommandStates();
@@ -229,6 +244,15 @@ public partial class ShellViewModel : ObservableRecipient
         => GetActiveDisconnectCommand() is null
            && _scannerAccessCoordinator.CanDeactivate(ScannerAccessMode.ScanWorkflow);
 
+    [RelayCommand]
+    private void NavigateToDeviceConfiguration()
+        => NavigationService.NavigateTo(typeof(DeviceConfigurationViewModel).FullName!);
+
+    private static string GetNavigationViewItemHeader(object? item)
+        => item is ContentControl contentControl
+            ? contentControl.Content?.ToString() ?? string.Empty
+            : string.Empty;
+
     private static async Task<bool> ExecuteActiveScannerCommandAsync(IRelayCommand? command)
     {
         if (command?.CanExecute(null) != true)
@@ -276,7 +300,7 @@ public partial class ShellViewModel : ObservableRecipient
                 "Shell_ScannerStatus_ReconnectPrompt".GetLocalizedOrFallback("Scanner reconnect required. Confirm reconnect to continue."),
                 "Shell_ScannerStatusShort_ReconnectPrompt".GetLocalizedOrFallback("Reconnect"),
                 BuildStatusBrush("SystemFillColorCautionBrush", Colors.DarkOrange),
-                ScannerStatusGlyphs.Reconnect,
+                ScannerStatusGlyphs.ReconnectPrompt,
                 BuildBadgeForegroundBrush(Colors.Black)),
             ScannerSessionState.Faulted => new(
                 string.IsNullOrWhiteSpace(snapshot.Fault?.Message)
@@ -312,9 +336,9 @@ public partial class ShellViewModel : ObservableRecipient
         public const string Running = "\uE768";
         public const string Connected = "\uE73E";
         public const string Connecting = "\uE895";
-        public const string Reconnect = "\uE72C";
-        public const string Faulted = "\uE8C9";
-        public const string Detected = "\uE823";
+        public const string ReconnectPrompt = "\uE72C";
+        public const string Faulted = "\uE814";
+        public const string Detected = "\uE9AE";
         public const string Offline = "\uE711";
     }
 

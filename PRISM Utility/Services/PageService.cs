@@ -15,10 +15,11 @@ public class PageService : IPageService
     public PageService()
     {
         Configure<MainViewModel, MainPage>();
-        Configure<UsbDebugViewModel, UsbDebugPage>();
+        Configure<LogViewModel, LogPage>();
         Configure<ScanViewModel, ScanPage>();
         Configure<ScanDebugViewModel, ScanDebugPage>();
         Configure<SettingsViewModel, SettingsPage>();
+        Configure<DeviceConfigurationViewModel, DeviceConfigurationPage>();
     }
 
     public Type GetPageType(string key)

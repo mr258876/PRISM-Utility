@@ -19,8 +19,8 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
 
         var connectResult = await manager.ConnectAsync(scanOwner, CancellationToken.None);
         var runningBlock = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var runningOperation = manager.RunWithSessionStateAsync(
-            scanOwner.LeaseId,
+        var runningOperation = manager.RunConnectedSessionStateAsync(
+            scanOwner,
             ScannerSessionState.Running,
             async session =>
             {
@@ -42,8 +42,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.True(connectResult.Success);
         Assert.True(observer.Allows(ScannerSessionObserverScope.SessionState));
         Assert.False(rawUsbAcquire.Success);
-        Assert.False(scanDebugConnect.Success);
-        Assert.Contains("read-only", scanDebugConnect.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(scanDebugConnect.Success);
         Assert.Equal(ScannerSessionState.Running, manager.Snapshot.State);
         Assert.Equal(scanOwner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
         Assert.Single(factory.CreatedSessions);
@@ -53,7 +52,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         runningBlock.SetResult();
         Assert.True(await runningOperation);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(scanOwner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -63,10 +62,10 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         var scanPageXaml = ReadHostFile("PRISM Utility", "Views", "ScanPage.xaml");
         var scanDebugPage = ReadHostFile("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
         var scanDebugPageXaml = ReadHostFile("PRISM Utility", "Views", "ScanDebugPage.xaml");
-        var usbDebugPage = ReadHostFile("PRISM Utility", "Views", "UsbDebugPage.xaml.cs");
+        var logPage = ReadHostFile("PRISM Utility", "Views", "LogPage.xaml.cs");
         var scanViewModel = ReadHostFile("PRISM Utility", "ViewModels", "ScanViewModel.cs");
         var scanDebugViewModel = ReadHostFile("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
-        var usbDebugViewModel = ReadHostFile("PRISM Utility", "ViewModels", "UsbDebugViewModel.cs");
+        var logViewModel = ReadHostFile("PRISM Utility", "ViewModels", "LogViewModel.cs");
 
         Assert.Contains("NavigationCacheMode=\"Enabled\"", scanPageXaml, StringComparison.Ordinal);
         Assert.Contains("NavigationCacheMode=\"Enabled\"", scanDebugPageXaml, StringComparison.Ordinal);
@@ -76,7 +75,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.DoesNotContain("ShutdownAsync", scanPage, StringComparison.Ordinal);
         Assert.DoesNotContain("DisconnectAsync", scanDebugPage, StringComparison.Ordinal);
         Assert.DoesNotContain("ShutdownAsync", scanDebugPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("_scannerManager", usbDebugPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("_scannerManager", logPage, StringComparison.Ordinal);
 
         var scanCleanup = ExtractMemberBody(scanViewModel, "CleanupAsync");
         Assert.DoesNotContain("DisconnectAsync", scanCleanup, StringComparison.Ordinal);
@@ -88,10 +87,10 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.DoesNotContain("SetWarmUp", scanDebugCleanup, StringComparison.Ordinal);
         Assert.DoesNotContain("DisposeAsync", scanDebugCleanup, StringComparison.Ordinal);
 
-        var usbDispose = ExtractMemberBody(usbDebugViewModel, "Dispose");
-        Assert.DoesNotContain("_scannerManager.DisconnectAsync", usbDispose, StringComparison.Ordinal);
-        Assert.DoesNotContain("_scannerManager.ShutdownAsync", usbDispose, StringComparison.Ordinal);
-        Assert.DoesNotContain("OpenBulkDuplexSession", usbDispose, StringComparison.Ordinal);
+        var logDispose = ExtractMemberBody(logViewModel, "Dispose");
+        Assert.DoesNotContain("DisconnectAsync", logDispose, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShutdownAsync", logDispose, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpenBulkDuplexSession", logDispose, StringComparison.Ordinal);
     }
 
     [Fact]

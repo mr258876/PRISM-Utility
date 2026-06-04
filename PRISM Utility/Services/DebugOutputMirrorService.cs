@@ -7,8 +7,12 @@ namespace PRISM_Utility.Services;
 
 public sealed class DebugOutputMirrorService : IDebugOutputMirrorService
 {
+    private const int MaxRecentEntryCount = 500;
+
     private readonly IDebugOutputSettingsService _settingsService;
     private readonly SemaphoreSlim _logFileGate = new(1, 1);
+    private readonly object _recentEntriesGate = new();
+    private readonly List<DebugOutputMirrorEntry> _recentEntries = new();
     private readonly string _logFilePath;
 
     public DebugOutputMirrorService(IDebugOutputSettingsService settingsService, IOptions<LocalSettingsOptions> options)
@@ -20,12 +24,30 @@ public sealed class DebugOutputMirrorService : IDebugOutputMirrorService
         _logFilePath = Path.Combine(localApplicationData, applicationDataFolder, "Logs", "DebugOutput.log");
     }
 
+    public event EventHandler<DebugOutputMirrorEntry>? EntryMirrored;
+
+    public IReadOnlyList<DebugOutputMirrorEntry> RecentEntries
+    {
+        get
+        {
+            lock (_recentEntriesGate)
+            {
+                return _recentEntries.ToArray();
+            }
+        }
+    }
+
     public void Mirror(string source, string message)
     {
         if (string.IsNullOrWhiteSpace(message))
             return;
 
-        var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{source}] {message}";
+        var timestamp = DateTimeOffset.Now;
+        var line = $"[{timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{source}] {message}";
+        var entry = new DebugOutputMirrorEntry(timestamp, source, message, line);
+        AddRecentEntry(entry);
+        EntryMirrored?.Invoke(this, entry);
+
         if (_settingsService.IsDebugConsoleEnabled)
         {
             Debug.WriteLine(line);
@@ -34,6 +56,24 @@ public sealed class DebugOutputMirrorService : IDebugOutputMirrorService
 
         if (_settingsService.IsFileLogEnabled)
             _ = AppendLineAsync(line);
+    }
+
+    public void ClearRecentEntries()
+    {
+        lock (_recentEntriesGate)
+        {
+            _recentEntries.Clear();
+        }
+    }
+
+    private void AddRecentEntry(DebugOutputMirrorEntry entry)
+    {
+        lock (_recentEntriesGate)
+        {
+            _recentEntries.Add(entry);
+            if (_recentEntries.Count > MaxRecentEntryCount)
+                _recentEntries.RemoveRange(0, _recentEntries.Count - MaxRecentEntryCount);
+        }
     }
 
     private async Task AppendLineAsync(string line)

@@ -1,0 +1,139 @@
+<Page
+    x:Class="PRISM_Utility.Views.DeviceConfigurationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:helpers="using:PRISM_Utility.Helpers"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
+        <DataTemplate x:Key="ScanChannelRoleOptionTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer
+        VerticalScrollBarVisibility="Auto"
+        VerticalScrollMode="Auto"
+        HorizontalScrollBarVisibility="Disabled"
+        HorizontalScrollMode="Disabled">
+        <Grid>
+            <StackPanel x:Name="ContentArea">
+                <TextBlock x:Uid="DeviceConfiguration_DeviceSettings" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsDescription"
+                        Opacity="0.8"
+                        TextWrapping="WrapWholeWords" />
+
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsMotor1"
+                        Margin="{StaticResource SmallTopMargin}"
+                        Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <Grid Margin="{StaticResource XSmallTopMargin}" ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox Grid.Column="0" x:Uid="DeviceConfiguration_Motor1StepsPerRevolutionTextBox" Text="{x:Bind ViewModel.Motor1StepsPerRevolution, Mode=TwoWay}" />
+                        <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor1MicrostepsTextBox" Text="{x:Bind ViewModel.Motor1Microsteps, Mode=TwoWay}" />
+                        <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor1LeadLengthTextBox" Text="{x:Bind ViewModel.Motor1LeadLengthMm, Mode=TwoWay}" />
+                    </Grid>
+
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsMotor2"
+                        Margin="{StaticResource SmallTopMargin}"
+                        Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <Grid Margin="{StaticResource XSmallTopMargin}" ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox Grid.Column="0" x:Uid="DeviceConfiguration_Motor2StepsPerRevolutionTextBox" Text="{x:Bind ViewModel.Motor2StepsPerRevolution, Mode=TwoWay}" />
+                        <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor2MicrostepsTextBox" Text="{x:Bind ViewModel.Motor2Microsteps, Mode=TwoWay}" />
+                        <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor2LeadLengthTextBox" Text="{x:Bind ViewModel.Motor2LeadLengthMm, Mode=TwoWay}" />
+                    </Grid>
+
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsMotor3"
+                        Margin="{StaticResource SmallTopMargin}"
+                        Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <Grid Margin="{StaticResource XSmallTopMargin}" ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox Grid.Column="0" x:Uid="DeviceConfiguration_Motor3StepsPerRevolutionTextBox" Text="{x:Bind ViewModel.Motor3StepsPerRevolution, Mode=TwoWay}" />
+                        <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor3MicrostepsTextBox" Text="{x:Bind ViewModel.Motor3Microsteps, Mode=TwoWay}" />
+                        <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor3LeadLengthTextBox" Text="{x:Bind ViewModel.Motor3LeadLengthMm, Mode=TwoWay}" />
+                    </Grid>
+
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsChannels"
+                        Margin="{StaticResource SmallTopMargin}"
+                        Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DeviceSettingsChannelsDescription"
+                        Margin="{StaticResource XSmallTopMargin}"
+                        Opacity="0.8"
+                        TextWrapping="WrapWholeWords" />
+                    <Grid Margin="{StaticResource XSmallTopMargin}" ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ComboBox Grid.Row="0" Grid.Column="0" x:Uid="DeviceConfiguration_Channel1RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel1Role, Mode=TwoWay}" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" x:Uid="DeviceConfiguration_Channel2RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel2Role, Mode=TwoWay}" />
+                        <ComboBox Grid.Row="1" Grid.Column="0" x:Uid="DeviceConfiguration_Channel3RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel3Role, Mode=TwoWay}" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="DeviceConfiguration_Channel4RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel4Role, Mode=TwoWay}" />
+                    </Grid>
+
+                    <Button
+                        x:Uid="DeviceConfiguration_RestoreDeviceSettingsDefaultsButton"
+                        Margin="0,8,0,0"
+                        Command="{x:Bind ViewModel.RestoreDeviceSettingsDefaultsCommand}" />
+                </StackPanel>
+
+                <TextBlock x:Uid="DeviceConfiguration_DngGeometry" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                    <TextBlock x:Uid="DeviceConfiguration_DngGeometryScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                    <Grid ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBox Grid.Row="0" Grid.Column="0" x:Uid="DeviceConfiguration_DngActiveStartTextBox" Text="{x:Bind ViewModel.DngActiveStart, Mode=TwoWay}" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Uid="DeviceConfiguration_DngActiveEndTextBox" Text="{x:Bind ViewModel.DngActiveEndInclusive, Mode=TwoWay}" />
+                        <TextBox Grid.Row="1" Grid.ColumnSpan="2" x:Uid="DeviceConfiguration_DngMaskedRangesTextBox" Text="{x:Bind ViewModel.DngMaskedRanges, Mode=TwoWay}" />
+                    </Grid>
+                    <Button
+                        x:Uid="DeviceConfiguration_RestoreDngGeometryDefaultsButton"
+                        Margin="0,8,0,0"
+                        Command="{x:Bind ViewModel.RestoreDngGeometryDefaultsCommand}" />
+                    <TextBlock
+                        x:Uid="DeviceConfiguration_DngGeometryDescription"
+                        Margin="0,6,0,0"
+                        Opacity="0.8"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

@@ -46,7 +46,7 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
         {
             ScannerAccessMode.ScanWorkflow => _scanWorkflow.ConnectAsync(ct),
             ScannerAccessMode.ScanDebug => _scanDebug.ConnectAsync(ct),
-            ScannerAccessMode.UsbDebugRaw => Task.FromResult(new ScanOperationResult(false, "USB Debug raw access is started from the USB Debug page.")),
+            ScannerAccessMode.UsbDebugRaw => Task.FromResult(new ScanOperationResult(false, "Raw USB diagnostics are not available from the PRISM Utility app.")),
             _ => Task.FromResult(new ScanOperationResult(false, "Select a scanner access mode before connecting."))
         };
     }
@@ -61,7 +61,7 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
         {
             ScannerAccessMode.ScanWorkflow => _scanWorkflow.DisconnectAsync(ct),
             ScannerAccessMode.ScanDebug => _scanDebug.DisconnectAsync(ct),
-            ScannerAccessMode.UsbDebugRaw => Task.FromResult(new ScanOperationResult(false, "USB Debug raw access is stopped from the USB Debug page.")),
+            ScannerAccessMode.UsbDebugRaw => Task.FromResult(new ScanOperationResult(false, "Raw USB diagnostics are not active in the PRISM Utility app.")),
             _ => Task.FromResult(new ScanOperationResult(false, "Select a scanner access mode before disconnecting."))
         };
     }
@@ -107,6 +107,9 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
 
         if (usbLease?.OwnerType == UsbUsageOwnerType.RawUsb)
             return ScannerAccessMode.UsbDebugRaw;
+
+        if (usbLease?.OwnerType == UsbUsageOwnerType.Scanner && scannerSnapshot.ActiveOwner is null)
+            return ScannerAccessMode.None;
 
         if (scannerSnapshot.ActiveOwner is not null || usbLease is not null)
             return ScannerAccessMode.Unknown;
@@ -154,7 +157,7 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
         ScannerAccessAvailability availability)
     {
         if (usbLease?.OwnerType == UsbUsageOwnerType.RawUsb)
-            return $"USB Debug owns scanner USB access for '{usbLease.Operation}'.";
+            return $"Raw USB diagnostics own scanner USB access for '{usbLease.Operation}'.";
 
         if (activeMode == ScannerAccessMode.ScanWorkflow)
             return "Scan workflow owns the scanner session.";
@@ -186,7 +189,7 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
             return "Select a scanner access mode before connecting.";
 
         if (mode == ScannerAccessMode.UsbDebugRaw)
-            return "USB Debug raw access is started from the USB Debug page.";
+            return "Raw USB diagnostics are not available from the PRISM Utility app.";
 
         if (snapshot.UsbLease?.OwnerType == UsbUsageOwnerType.RawUsb)
             return snapshot.BlockedReason;
@@ -207,8 +210,8 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
     {
         if (mode == ScannerAccessMode.ScanWorkflow)
         {
-            if (!_scanWorkflow.HasConnectedSession || snapshot.ActiveMode != ScannerAccessMode.ScanWorkflow)
-                return "Scan workflow does not own a connected scanner session.";
+            if (!_scanWorkflow.HasConnectedSession)
+                return "Scanner is not connected.";
 
             return snapshot.ScannerSession.State == ScannerSessionState.Connected
                 ? null
@@ -217,8 +220,8 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
 
         if (mode == ScannerAccessMode.ScanDebug)
         {
-            if (!_scanDebug.HasConnectedSession || snapshot.ActiveMode != ScannerAccessMode.ScanDebug)
-                return "Scan Debug does not own a connected scanner session.";
+            if (!_scanDebug.HasConnectedSession)
+                return "Scanner is not connected.";
 
             return snapshot.ScannerSession.State == ScannerSessionState.Connected
                 ? null
@@ -227,8 +230,8 @@ public sealed class ScannerAccessCoordinator : IScannerAccessCoordinator, IDispo
 
         if (mode == ScannerAccessMode.UsbDebugRaw)
             return snapshot.ActiveMode == ScannerAccessMode.UsbDebugRaw
-                ? "USB Debug raw access is stopped from the USB Debug page."
-                : "USB Debug raw access is not active.";
+                ? "Raw USB diagnostics are not active in the PRISM Utility app."
+                : "Raw USB diagnostics are not active.";
 
         return "Select a scanner access mode before disconnecting.";
     }

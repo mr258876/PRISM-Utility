@@ -27,13 +27,13 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.True(connectedSession.IsConnected);
         Assert.False(connectedSession.DisposeAsyncCalled);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner, manager.Snapshot.ActiveOwner);
+        Assert.Null(manager.Snapshot.ActiveOwner);
         Assert.NotNull(coordinator.ActiveLease);
 
         using var secondClient = new FakeTransientScannerClient(manager);
         Assert.Same(manager, secondClient.Manager);
         Assert.Equal(ScannerSessionState.Connected, secondClient.Manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, secondClient.Manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(secondClient.Manager.Snapshot.ActiveOwner);
 
         var disconnectResult = await manager.DisconnectAsync(owner.LeaseId, CancellationToken.None);
 
@@ -71,7 +71,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.Contains("busy", secondWarmUp.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, factory.LastSession.WarmUpCallCount);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -97,6 +97,7 @@ public sealed class ScannerDeviceSessionManagerTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => canceledRelease);
         Assert.True(connectResult.Success);
         Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Equal(ScannerSessionOperation.WarmUp, manager.Snapshot.ActiveOwner?.Operation);
         Assert.NotNull(coordinator.ActiveLease);
 
         factory.WarmUpDelay.SetResult();
@@ -215,7 +216,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.True(session.IsConnected);
         Assert.False(session.DisposeAsyncCalled);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -248,7 +249,7 @@ public sealed class ScannerDeviceSessionManagerTests
 
         Assert.True(result);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -292,7 +293,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.False(result.Success);
         Assert.Contains("supplied lease", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
         Assert.Equal(0, session.DisconnectCallCount);
         Assert.Equal(0, session.DisposeAsyncCallCount);
         Assert.NotNull(coordinator.ActiveLease);
@@ -312,7 +313,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.False(result.Success);
         Assert.Contains("supplied lease", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -331,7 +332,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.Contains("supplied lease", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, session.WarmUpCallCount);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]
@@ -424,7 +425,7 @@ public sealed class ScannerDeviceSessionManagerTests
 
         Assert.True(connectResult.Success);
         Assert.Contains("supplied lease", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
     }
 
@@ -444,7 +445,7 @@ public sealed class ScannerDeviceSessionManagerTests
 
         Assert.True(connectResult.Success);
         Assert.Contains("supplied lease", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(owner.LeaseId, manager.Snapshot.ActiveOwner?.LeaseId);
+        Assert.Null(manager.Snapshot.ActiveOwner);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
     }
 
@@ -483,7 +484,7 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.Equal(1, discoverySession.ConnectCallCount);
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
         Assert.False(manager.Snapshot.ReconnectPrompt.RequiresConfirmation);
-        Assert.Equal(ScannerSessionOperation.Reconnect, manager.Snapshot.ActiveOwner?.Operation);
+        Assert.Null(manager.Snapshot.ActiveOwner);
     }
 
     [Fact]

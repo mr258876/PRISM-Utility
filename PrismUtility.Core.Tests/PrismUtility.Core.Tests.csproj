@@ -25,7 +25,4 @@
     <ProjectReference Include="..\PRISM Utility.Core\PrismUtility.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="..\PRISM Utility\ViewModels\UsbDebugViewModel.cs" Link="Imported\UsbDebugViewModel.cs" />
-  </ItemGroup>
 </Project>

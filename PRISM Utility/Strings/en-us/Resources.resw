@@ -156,95 +156,134 @@
   <data name="Settings_Scanner.Text" xml:space="preserve">
     <value>Scanner</value>
   </data>
-  <data name="Settings_DeviceSettings.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_Header" xml:space="preserve">
+    <value>Device configuration</value>
+  </data>
+  <data name="DeviceConfiguration_Title.Text" xml:space="preserve">
+    <value>Device configuration</value>
+  </data>
+  <data name="DeviceConfiguration_PageTitle" xml:space="preserve">
+    <value>Device configuration</value>
+  </data>
+  <data name="DeviceConfiguration_DeviceSettings.Text" xml:space="preserve">
     <value>Device settings</value>
   </data>
-  <data name="Settings_DeviceSettingsDescription.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsDescription.Text" xml:space="preserve">
     <value>Configure each motor's mechanical values so host-side move and speed inputs can be interpreted in engineering units.</value>
   </data>
-  <data name="Settings_DeviceSettingsMotor1.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsMotor1.Text" xml:space="preserve">
     <value>Motor1</value>
   </data>
-  <data name="Settings_Motor1StepsPerRevolutionTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1StepsPerRevolutionTextBox.Header" xml:space="preserve">
     <value>Steps per revolution</value>
   </data>
-  <data name="Settings_Motor1StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 200</value>
   </data>
-  <data name="Settings_Motor1MicrostepsTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1MicrostepsTextBox.Header" xml:space="preserve">
     <value>Microsteps</value>
   </data>
-  <data name="Settings_Motor1MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1MicrostepsTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 16</value>
   </data>
-  <data name="Settings_Motor1LeadLengthTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1LeadLengthTextBox.Header" xml:space="preserve">
     <value>Lead length (mm/rev)</value>
   </data>
-  <data name="Settings_Motor1LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor1LeadLengthTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 2.0</value>
   </data>
-  <data name="Settings_DeviceSettingsMotor2.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsMotor2.Text" xml:space="preserve">
     <value>Motor2</value>
   </data>
-  <data name="Settings_Motor2StepsPerRevolutionTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2StepsPerRevolutionTextBox.Header" xml:space="preserve">
     <value>Steps per revolution</value>
   </data>
-  <data name="Settings_Motor2StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 200</value>
   </data>
-  <data name="Settings_Motor2MicrostepsTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2MicrostepsTextBox.Header" xml:space="preserve">
     <value>Microsteps</value>
   </data>
-  <data name="Settings_Motor2MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2MicrostepsTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 16</value>
   </data>
-  <data name="Settings_Motor2LeadLengthTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2LeadLengthTextBox.Header" xml:space="preserve">
     <value>Lead length (mm/rev)</value>
   </data>
-  <data name="Settings_Motor2LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor2LeadLengthTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 2.0</value>
   </data>
-  <data name="Settings_DeviceSettingsMotor3.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsMotor3.Text" xml:space="preserve">
     <value>Motor3</value>
   </data>
-  <data name="Settings_Motor3StepsPerRevolutionTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3StepsPerRevolutionTextBox.Header" xml:space="preserve">
     <value>Steps per revolution</value>
   </data>
-  <data name="Settings_Motor3StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3StepsPerRevolutionTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 200</value>
   </data>
-  <data name="Settings_Motor3MicrostepsTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3MicrostepsTextBox.Header" xml:space="preserve">
     <value>Microsteps</value>
   </data>
-  <data name="Settings_Motor3MicrostepsTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3MicrostepsTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 16</value>
   </data>
-  <data name="Settings_Motor3LeadLengthTextBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3LeadLengthTextBox.Header" xml:space="preserve">
     <value>Lead length (mm/rev)</value>
   </data>
-  <data name="Settings_Motor3LeadLengthTextBox.PlaceholderText" xml:space="preserve">
+  <data name="DeviceConfiguration_Motor3LeadLengthTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 2.0</value>
   </data>
-  <data name="Settings_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve">
+  <data name="DeviceConfiguration_RestoreDeviceSettingsDefaultsButton.Content" xml:space="preserve">
     <value>Restore device defaults</value>
   </data>
-  <data name="Settings_DeviceSettingsChannels.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsChannels.Text" xml:space="preserve">
     <value>Illumination channel roles</value>
   </data>
-  <data name="Settings_DeviceSettingsChannelsDescription.Text" xml:space="preserve">
+  <data name="DeviceConfiguration_DeviceSettingsChannelsDescription.Text" xml:space="preserve">
     <value>Describe the hardware color wired to each LED channel. NA/Unused channels are skipped by multi-channel scans.</value>
   </data>
-  <data name="Settings_Channel1RoleComboBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Channel1RoleComboBox.Header" xml:space="preserve">
     <value>Channel 1</value>
   </data>
-  <data name="Settings_Channel2RoleComboBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Channel2RoleComboBox.Header" xml:space="preserve">
     <value>Channel 2</value>
   </data>
-  <data name="Settings_Channel3RoleComboBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Channel3RoleComboBox.Header" xml:space="preserve">
     <value>Channel 3</value>
   </data>
-  <data name="Settings_Channel4RoleComboBox.Header" xml:space="preserve">
+  <data name="DeviceConfiguration_Channel4RoleComboBox.Header" xml:space="preserve">
     <value>Channel 4</value>
+  </data>
+  <data name="DeviceConfiguration_DngGeometry.Text" xml:space="preserve">
+    <value>DNG geometry defaults</value>
+  </data>
+  <data name="DeviceConfiguration_DngGeometryScopeText.Text" xml:space="preserve">
+    <value>Default DNG export geometry. Active range marks usable image columns; masked ranges mark black reference columns.</value>
+  </data>
+  <data name="DeviceConfiguration_DngActiveStartTextBox.Header" xml:space="preserve">
+    <value>Active start column</value>
+  </data>
+  <data name="DeviceConfiguration_DngActiveStartTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 16</value>
+  </data>
+  <data name="DeviceConfiguration_DngActiveEndTextBox.Header" xml:space="preserve">
+    <value>Active end column</value>
+  </data>
+  <data name="DeviceConfiguration_DngActiveEndTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 3679</value>
+  </data>
+  <data name="DeviceConfiguration_DngMaskedRangesTextBox.Header" xml:space="preserve">
+    <value>Masked black ranges</value>
+  </data>
+  <data name="DeviceConfiguration_DngMaskedRangesTextBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. 0-15, 3680-3695</value>
+  </data>
+  <data name="DeviceConfiguration_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve">
+    <value>Restore DNG geometry defaults</value>
+  </data>
+  <data name="DeviceConfiguration_DngGeometryDescription.Text" xml:space="preserve">
+    <value>Focus ROI and DNG export geometry are independent unless a scan workflow explicitly applies an ROI target.</value>
   </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
     <value>Multi-buffer bulk IN</value>
@@ -327,11 +366,29 @@
   <data name="SettingsPage_PrivacyTermsLink.NavigateUri" xml:space="preserve">
     <value>https://YourPrivacyUrlGoesHere/</value>
   </data>
-  <data name="Shell_UsbDebug.Content" xml:space="preserve">
-    <value>USB Debugging</value>
+  <data name="Shell_Log.Content" xml:space="preserve">
+    <value>Log</value>
   </data>
   <data name="Shell_Scan.Content" xml:space="preserve">
     <value>Scan</value>
+  </data>
+  <data name="Log_Title.Text" xml:space="preserve">
+    <value>Scanner Log</value>
+  </data>
+  <data name="Log_Description.Text" xml:space="preserve">
+    <value>Passive mirrored diagnostic logs from scan and scanner workflows. This page does not expose device, endpoint, or transfer controls.</value>
+  </data>
+  <data name="Log_ClearButton.Content" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Log_EmptyState.Text" xml:space="preserve">
+    <value>No mirrored log entries yet.</value>
+  </data>
+  <data name="Log_StatusEmpty" xml:space="preserve">
+    <value>No mirrored log entries yet.</value>
+  </data>
+  <data name="Log_StatusFormat" xml:space="preserve">
+    <value>{0} mirrored log entries.</value>
   </data>
   <data name="UsbDebug_SelectDevice.Text" xml:space="preserve">
     <value>Select PRISM scanner device</value>
@@ -609,27 +666,6 @@
   <data name="Scan_ExportDngChannelsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Dual-file DNG export requires exactly one Red, one Green, one Blue, and one IR or White channel. This current configuration will export as a single 4-channel raw DNG.</value>
   </data>
-  <data name="Settings_DngGeometry.Text" xml:space="preserve">
-    <value>DNG geometry defaults</value>
-  </data>
-  <data name="Settings_DngActiveStartTextBox.Header" xml:space="preserve">
-    <value>Default active area start column</value>
-  </data>
-  <data name="Settings_DngActiveEndTextBox.Header" xml:space="preserve">
-    <value>Default active area end column</value>
-  </data>
-  <data name="Settings_DngMaskedRangesTextBox.Header" xml:space="preserve">
-    <value>Default masked black-reference ranges</value>
-  </data>
-  <data name="Settings_DngMaskedRangesTextBox.PlaceholderText" xml:space="preserve">
-    <value>Example: 26-115, 7580-7591</value>
-  </data>
-  <data name="Settings_RestoreDngGeometryDefaultsButton.Content" xml:space="preserve">
-    <value>Restore DNG Geometry Defaults</value>
-  </data>
-  <data name="Settings_DngGeometryDescription.Text" xml:space="preserve">
-    <value>DNG export keeps the full raw buffer. These defaults describe the active area and masked black-reference ranges for new configurations or default export metadata; Scan Debug ROI edits are visual/debug selections unless applied to their selected ROI target.</value>
-  </data>
   <data name="Scan_PreviewTitle.Text" xml:space="preserve">
     <value>Preview</value>
   </data>
@@ -811,7 +847,7 @@
     <value>System Clock (kHz)</value>
   </data>
   <data name="ScanDebug_SysClockKhzTextBox.PlaceholderText" xml:space="preserve">
-    <value>>=30000</value>
+    <value>&gt;=30000</value>
   </data>
   <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve">
     <value>Apply Parameters</value>
@@ -1624,10 +1660,10 @@
     <value>Config profile load canceled.</value>
   </data>
   <data name="Scan_Runtime_StatusConfigProfileLoaded" xml:space="preserve">
-    <value>Loaded config profile &quot;{0}&quot; and applied saved LED and motor settings.</value>
+    <value>Loaded config profile "{0}" and applied saved LED and motor settings.</value>
   </data>
   <data name="Scan_Runtime_StatusConfigProfileLoadedLegacy" xml:space="preserve">
-    <value>Loaded config profile &quot;{0}&quot;. This file does not contain LED or motor settings.</value>
+    <value>Loaded config profile "{0}". This file does not contain LED or motor settings.</value>
   </data>
   <data name="Scan_Runtime_StatusLoadConfigProfileFailed" xml:space="preserve">
     <value>Failed to load config profile: {0}</value>
@@ -2691,9 +2727,6 @@
   <data name="Settings_ColorManagementScopeText.Text" xml:space="preserve">
     <value>Global defaults only. Change per-scan color behavior in the loaded scan configuration.</value>
   </data>
-  <data name="Settings_DngGeometryScopeText.Text" xml:space="preserve">
-    <value>Default geometry only. Active area describes the usable DNG image columns; masked ranges describe black-reference columns. Focus ROI remains separate from DNG export geometry.</value>
-  </data>
   <data name="Scan_PageRoleDescription.Text" xml:space="preserve">
     <value>Formal scan workspace: load a configuration, review the effective recipe, run the scan, then save RGB or export DNG output.</value>
   </data>
@@ -2814,24 +2847,60 @@
   <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve">
     <value>USB Debug now targets only PRISM scanner devices 1D50:619C and 1D50:619D. It requires exclusive access to the selected PRISM device; if Scan or Scan Debug is connected, disconnect there first, then return here to claim endpoints.</value>
   </data>
-  <data name="Main_PageTitle.Text" xml:space="preserve"><value>PRISM Utility workspace</value></data>
-  <data name="Main_PageDescription.Text" xml:space="preserve"><value>Use this overview to choose the right page. Status cards are placeholders until a live session reports connection, configuration, and export details.</value></data>
-  <data name="Main_StatusConnectionTitle.Text" xml:space="preserve"><value>Connection status</value></data>
-  <data name="Main_StatusConnectionText.Text" xml:space="preserve"><value>No shared connection state is shown here yet. Use Scan, Scan Debug, or USB Debug to connect and release hardware deliberately.</value></data>
-  <data name="Main_StatusConfigTitle.Text" xml:space="preserve"><value>Configuration ownership</value></data>
-  <data name="Main_StatusConfigText.Text" xml:space="preserve"><value>Settings stores global defaults. Loaded scan profiles own current color, channel, DNG mode, and ROI-related recipe values.</value></data>
-  <data name="Main_StatusExportTitle.Text" xml:space="preserve"><value>Export status</value></data>
-  <data name="Main_StatusExportText.Text" xml:space="preserve"><value>RGB and DNG outputs are produced from Scan or Scan Debug results; this page does not edit output settings.</value></data>
-  <data name="Main_WorkflowsTitle.Text" xml:space="preserve"><value>Choose a workflow</value></data>
-  <data name="Main_ScanCardTitle.Text" xml:space="preserve"><value>Formal Scan</value></data>
-  <data name="Main_ScanCardText.Text" xml:space="preserve"><value>Run production scans from a loaded configuration and export RGB or DNG output.</value></data>
-  <data name="Main_OpenScanButton.Content" xml:space="preserve"><value>Open Scan</value></data>
-  <data name="Main_ScanDebugCardTitle.Text" xml:space="preserve"><value>Scan Debug</value></data>
-  <data name="Main_ScanDebugCardText.Text" xml:space="preserve"><value>Validate hardware, perform temporary acquisitions, tune calibration, and author scan profiles.</value></data>
-  <data name="Main_OpenScanDebugButton.Content" xml:space="preserve"><value>Open Scan Debug</value></data>
-  <data name="Main_SettingsCardTitle.Text" xml:space="preserve"><value>Settings</value></data>
-  <data name="Main_SettingsCardText.Text" xml:space="preserve"><value>Maintain global defaults for new configurations, DNG geometry defaults, device settings, and app preferences.</value></data>
-  <data name="Main_OpenSettingsButton.Content" xml:space="preserve"><value>Open Settings</value></data>
+  <data name="Main_PageTitle.Text" xml:space="preserve">
+    <value>PRISM Utility workspace</value>
+  </data>
+  <data name="Main_PageDescription.Text" xml:space="preserve">
+    <value>Use this overview to choose the right page. Status cards are placeholders until a live session reports connection, configuration, and export details.</value>
+  </data>
+  <data name="Main_StatusConnectionTitle.Text" xml:space="preserve">
+    <value>Connection status</value>
+  </data>
+  <data name="Main_StatusConnectionText.Text" xml:space="preserve">
+    <value>No shared connection state is shown here yet. Use Scan, Scan Debug, or USB Debug to connect and release hardware deliberately.</value>
+  </data>
+  <data name="Main_StatusConfigTitle.Text" xml:space="preserve">
+    <value>Configuration ownership</value>
+  </data>
+  <data name="Main_StatusConfigText.Text" xml:space="preserve">
+    <value>Settings stores global defaults. Loaded scan profiles own current color, channel, DNG mode, and ROI-related recipe values.</value>
+  </data>
+  <data name="Main_StatusExportTitle.Text" xml:space="preserve">
+    <value>Export status</value>
+  </data>
+  <data name="Main_StatusExportText.Text" xml:space="preserve">
+    <value>RGB and DNG outputs are produced from Scan or Scan Debug results; this page does not edit output settings.</value>
+  </data>
+  <data name="Main_WorkflowsTitle.Text" xml:space="preserve">
+    <value>Choose a workflow</value>
+  </data>
+  <data name="Main_ScanCardTitle.Text" xml:space="preserve">
+    <value>Formal Scan</value>
+  </data>
+  <data name="Main_ScanCardText.Text" xml:space="preserve">
+    <value>Run production scans from a loaded configuration and export RGB or DNG output.</value>
+  </data>
+  <data name="Main_OpenScanButton.Content" xml:space="preserve">
+    <value>Open Scan</value>
+  </data>
+  <data name="Main_ScanDebugCardTitle.Text" xml:space="preserve">
+    <value>Scan Debug</value>
+  </data>
+  <data name="Main_ScanDebugCardText.Text" xml:space="preserve">
+    <value>Validate hardware, perform temporary acquisitions, tune calibration, and author scan profiles.</value>
+  </data>
+  <data name="Main_OpenScanDebugButton.Content" xml:space="preserve">
+    <value>Open Scan Debug</value>
+  </data>
+  <data name="Main_SettingsCardTitle.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Main_SettingsCardText.Text" xml:space="preserve">
+    <value>Maintain global defaults for new configurations, DNG geometry defaults, device settings, and app preferences.</value>
+  </data>
+  <data name="Main_OpenSettingsButton.Content" xml:space="preserve">
+    <value>Open Settings</value>
+  </data>
   <data name="Shell_ScannerStatusShort_Offline" xml:space="preserve">
     <value>Offline</value>
   </data>
@@ -2884,7 +2953,7 @@
     <value>Connect or disconnect the PRISM scanner from the shared navigation entry.</value>
   </data>
   <data name="Shell_ScannerConnectionUnavailable" xml:space="preserve">
-    <value>USB Debug owns the scanner. Disconnect USB Debug before using the shared scanner connection.</value>
+    <value>Raw scanner diagnostics owns the scanner. Release it before using the shared scanner connection.</value>
   </data>
   <data name="Shell_ScannerConnectButton.Content" xml:space="preserve">
     <value>Connect</value>
@@ -2892,23 +2961,61 @@
   <data name="Shell_ScannerDisconnectButton.Content" xml:space="preserve">
     <value>Disconnect</value>
   </data>
-
-  <data name="Scan_WorkflowTitle.Text" xml:space="preserve"><value>Scan</value></data>
-  <data name="Scan_StartValidationInfoBar.Title" xml:space="preserve"><value>Scan prerequisites need attention</value></data>
-  <data name="Scan_DeviceCardTitle.Text" xml:space="preserve"><value>1. Scanner session</value></data>
-  <data name="Scan_ConfigCardTitle.Text" xml:space="preserve"><value>2. Loaded configuration</value></data>
-  <data name="Scan_ExecutionCardTitle.Text" xml:space="preserve"><value>3. Motion and pass plan</value></data>
-  <data name="Scan_DeviceBlockerInfoBar.Title" xml:space="preserve"><value>Device blocker</value></data>
-  <data name="Scan_ConfigurationBlockerInfoBar.Title" xml:space="preserve"><value>Configuration blocker</value></data>
-  <data name="Scan_ExecutionBlockerInfoBar.Title" xml:space="preserve"><value>Execution blocker</value></data>
-  <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve"><value>Output blocker</value></data>
-  <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve"><value>Output</value></data>
-  <data name="Scan_Runtime_StartValidationFailed" xml:space="preserve"><value>Scan prerequisites need attention before the workflow can start.</value></data>
-  <data name="Scan_Runtime_StartValidationPrompt" xml:space="preserve"><value>Review the highlighted preparation cards, correct the blockers, then start the scan again.</value></data>
-  <data name="Scan_Runtime_TopRiskUsbDebugTitle" xml:space="preserve"><value>USB debug owns the scanner</value></data>
-  <data name="Scan_Runtime_TopRiskConnectFailedTitle" xml:space="preserve"><value>Scanner connection needs attention</value></data>
-  <data name="Scan_Runtime_TopRiskInterruptedTitle" xml:space="preserve"><value>Scan interrupted</value></data>
-  <data name="Scan_Runtime_TopRiskInterruptedText" xml:space="preserve"><value>The workflow was interrupted. Confirm film transport and scanner state before restarting.</value></data>
-  <data name="Scan_Runtime_TopRiskScanFailedTitle" xml:space="preserve"><value>Scan failed</value></data>
-  <data name="Scan_Runtime_TopRiskOutputFailedTitle" xml:space="preserve"><value>Output failed</value></data>
+  <data name="Shell_DeviceConfigurationButton.Content" xml:space="preserve">
+    <value>Device configuration</value>
+  </data>
+  <data name="Scan_WorkflowTitle.Text" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="Scan_StartValidationInfoBar.Title" xml:space="preserve">
+    <value>Scan prerequisites need attention</value>
+  </data>
+  <data name="Scan_DeviceCardTitle.Text" xml:space="preserve">
+    <value>1. Scanner session</value>
+  </data>
+  <data name="Scan_ConfigCardTitle.Text" xml:space="preserve">
+    <value>2. Loaded configuration</value>
+  </data>
+  <data name="Scan_ExecutionCardTitle.Text" xml:space="preserve">
+    <value>3. Motion and pass plan</value>
+  </data>
+  <data name="Scan_DeviceBlockerInfoBar.Title" xml:space="preserve">
+    <value>Device blocker</value>
+  </data>
+  <data name="Scan_ConfigurationBlockerInfoBar.Title" xml:space="preserve">
+    <value>Configuration blocker</value>
+  </data>
+  <data name="Scan_ExecutionBlockerInfoBar.Title" xml:space="preserve">
+    <value>Execution blocker</value>
+  </data>
+  <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve">
+    <value>Output blocker</value>
+  </data>
+  <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Scan_Runtime_StartValidationFailed" xml:space="preserve">
+    <value>Scan prerequisites need attention before the workflow can start.</value>
+  </data>
+  <data name="Scan_Runtime_StartValidationPrompt" xml:space="preserve">
+    <value>Review the highlighted preparation cards, correct the blockers, then start the scan again.</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskUsbDebugTitle" xml:space="preserve">
+    <value>USB debug owns the scanner</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskConnectFailedTitle" xml:space="preserve">
+    <value>Scanner connection needs attention</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskInterruptedTitle" xml:space="preserve">
+    <value>Scan interrupted</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskInterruptedText" xml:space="preserve">
+    <value>The workflow was interrupted. Confirm film transport and scanner state before restarting.</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskScanFailedTitle" xml:space="preserve">
+    <value>Scan failed</value>
+  </data>
+  <data name="Scan_Runtime_TopRiskOutputFailedTitle" xml:space="preserve">
+    <value>Output failed</value>
+  </data>
 </root>

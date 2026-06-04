@@ -8,7 +8,6 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
     private const string OwnerId = "scan-debug";
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly IScannerDeviceSessionManager _sessionManager;
-    private ScannerSessionOwner? _owner;
 
     public ScanDebugSessionCoordinator(IUsbUsageCoordinator usbUsageCoordinator, IScannerDeviceSessionManager sessionManager)
     {
@@ -23,23 +22,14 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
         => ConnectedSession is not null;
 
     public IScanSessionService? ConnectedSession
-        => _owner is null ? null : _sessionManager.TryGetOwnedSession(_owner.LeaseId);
+        => _sessionManager.TryGetConnectedSession();
 
     public async Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
     {
         if (ConnectedSession is not null)
             return new ScanOperationResult(true, "Scanner session already connected.");
 
-        var activeOwner = _sessionManager.Snapshot.ActiveOwner;
-        if (activeOwner is not null && activeOwner.OwnerType != ScannerSessionOwnerType.ScanDebug)
-            return new ScanOperationResult(false, BuildBusyMessage("Scanner session is already owned by another workflow."));
-
-        var owner = new ScannerSessionOwner(
-            OwnerId,
-            ScannerSessionOwnerType.ScanDebug,
-            ScannerSessionOperation.Connect,
-            DateTimeOffset.UtcNow,
-            Guid.NewGuid().ToString("N"));
+        var owner = CreateOwner(ScannerSessionOperation.Connect);
 
         try
         {
@@ -50,7 +40,6 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
                 if (session is null)
                     return new ScanOperationResult(false, "Scanner connected but the shared session was unavailable.");
 
-                _owner = owner;
             }
 
             if (!result.Success && IsOwnershipConflict(result.Message))
@@ -66,36 +55,29 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
 
     public async Task<ScanOperationResult> DisconnectAsync(CancellationToken ct)
     {
-        if (_owner is null || ConnectedSession is null)
-        {
-            _owner = null;
-            return new ScanOperationResult(true, "Scanner disconnected.");
-        }
+        if (_sessionManager.Snapshot.State != ScannerSessionState.Connected)
+            return new ScanOperationResult(false, "Scan Debug can disconnect only when the scanner is connected and idle.");
 
-        var result = await _sessionManager.DisconnectAsync(_owner.LeaseId, ct);
-        if (result.Success)
-            _owner = null;
-
-        return result;
+        return await _sessionManager.DisconnectAsync(ct);
     }
 
     public Task<ScanOperationResult> SetWarmUpAsync(bool enabled, CancellationToken ct)
     {
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             return Task.FromResult(new ScanOperationResult(false, "Scanner not connected. Connect the scanner before changing warm-up state."));
 
-        return _sessionManager.SetWarmUpEnabledAsync(_owner.LeaseId, enabled, ct);
+        return _sessionManager.SetWarmUpEnabledAsync(CreateOwner(ScannerSessionOperation.WarmUp), enabled, ct);
     }
 
     public Task<TResult> UseConnectedSessionAsync<TResult>(Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             throw new InvalidOperationException("Scanner not connected. Connect the scanner before issuing Scan Debug commands.");
 
-        return _sessionManager.UseSessionAsync(
-            _owner.LeaseId,
+        return _sessionManager.UseConnectedSessionAsync(
+            CreateOwner(ScannerSessionOperation.Diagnostics),
             session => ExecuteWithSessionTokenAsync(session, action, ct),
             ct);
     }
@@ -104,15 +86,23 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        if (_owner is null || ConnectedSession is null)
+        if (ConnectedSession is null)
             throw new InvalidOperationException("Scanner not connected. Connect the scanner before issuing Scan Debug commands.");
 
-        return _sessionManager.RunWithSessionStateAsync(
-            _owner.LeaseId,
+        return _sessionManager.RunConnectedSessionStateAsync(
+            CreateOwner(ScannerSessionOperation.Diagnostics),
             state,
             session => ExecuteWithSessionTokenAsync(session, action, ct),
             ct);
     }
+
+    private static ScannerSessionOwner CreateOwner(ScannerSessionOperation operation)
+        => new(
+            OwnerId,
+            ScannerSessionOwnerType.ScanDebug,
+            operation,
+            DateTimeOffset.UtcNow,
+            $"scan-debug-{Guid.NewGuid():N}");
 
     private string BuildBusyMessage(string fallbackMessage)
     {
