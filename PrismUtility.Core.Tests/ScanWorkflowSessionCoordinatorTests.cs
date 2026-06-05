@@ -95,6 +95,42 @@ public sealed class ScanWorkflowSessionCoordinatorTests
         Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
     }
 
+    [Fact]
+    public async Task RunConnectedSessionStateAsync_WhenBusyAndNonBlocking_ThrowsBusy()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanWorkflowSessionCoordinator(usbCoordinator, manager);
+
+        var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runningTask = coordinator.RunConnectedSessionStateAsync(
+            ScannerSessionState.Running,
+            async (_, _) =>
+            {
+                entered.TrySetResult();
+                await release.Task.WaitAsync(CancellationToken.None);
+                return "running";
+            },
+            CancellationToken.None);
+
+        await entered.Task.WaitAsync(CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunConnectedSessionStateAsync(
+            ScannerSessionState.Running,
+            (_, _) => Task.FromResult("blocked"),
+            CancellationToken.None,
+            waitForAvailability: false));
+
+        Assert.True(connectResult.Success);
+        Assert.Contains("busy", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        release.SetResult();
+        Assert.Equal("running", await runningTask);
+    }
+
     private static ScannerSessionOwner CreateOwner(string ownerId, ScannerSessionOwnerType ownerType, ScannerSessionOperation operation, string leaseId)
         => new(ownerId, ownerType, operation, new DateTimeOffset(2026, 6, 4, 12, 0, 0, TimeSpan.Zero), leaseId);
 

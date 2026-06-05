@@ -1203,7 +1203,8 @@ public partial class ScanViewModel : ObservableRecipient
                             _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status));
                     },
                     diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic)),
-                CancellationToken.None);
+                CancellationToken.None,
+                waitForAvailability: false);
 
             if (uiToken.IsCancellationRequested)
                 return;

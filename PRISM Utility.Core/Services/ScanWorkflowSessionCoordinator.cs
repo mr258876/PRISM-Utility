@@ -98,7 +98,7 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
             ct);
     }
 
-    public Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
+    public Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true)
     {
         ArgumentNullException.ThrowIfNull(action);
 
@@ -109,7 +109,8 @@ public sealed class ScanWorkflowSessionCoordinator : IScanWorkflowSessionCoordin
             CreateOwner(state == ScannerSessionState.Running ? ScannerSessionOperation.Scan : ScannerSessionOperation.Diagnostics),
             state,
             session => ExecuteWithSessionTokenAsync(session, action, ct),
-            ct);
+            ct,
+            waitForAvailability);
     }
 
     private ScannerSessionOperation GetOperationForConnect()

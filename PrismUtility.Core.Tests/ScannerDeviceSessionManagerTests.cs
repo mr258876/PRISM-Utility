@@ -190,6 +190,84 @@ public sealed class ScannerDeviceSessionManagerTests
     }
 
     [Fact]
+    public async Task RunConnectedSessionStateAsync_WhenBusyAndNonBlocking_ThrowsBusyWithoutWaiting()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "scan-operation");
+
+        var connectResult = await manager.ConnectAsync(owner, CancellationToken.None);
+        var runEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runningTask = manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            async _ =>
+            {
+                runEntered.TrySetResult();
+                await releaseRun.Task.WaitAsync(CancellationToken.None);
+                return "running";
+            },
+            CancellationToken.None);
+
+        await runEntered.Task.WaitAsync(CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.RunConnectedSessionStateAsync<string>(
+            scanOwner,
+            ScannerSessionState.Running,
+            _ => Task.FromResult("blocked"),
+            CancellationToken.None,
+            waitForAvailability: false));
+
+        Assert.True(connectResult.Success);
+        Assert.Contains("busy", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ScannerSessionState.Running, manager.Snapshot.State);
+
+        releaseRun.SetResult();
+
+        Assert.Equal("running", await runningTask);
+    }
+
+    [Fact]
+    public async Task RunConnectedSessionStateAsync_WhenActionFailsAfterDisconnect_ClearsActiveOwner()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "scan-operation");
+
+        var connectResult = await manager.ConnectAsync(owner, CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.RunConnectedSessionStateAsync<string>(
+            scanOwner,
+            ScannerSessionState.Running,
+            async session =>
+            {
+                await session.DisconnectAsync();
+                throw new InvalidOperationException("Scan failed after the device session disconnected.");
+            },
+            CancellationToken.None));
+
+        Assert.True(connectResult.Success);
+        Assert.Equal("Scan failed after the device session disconnected.", ex.Message);
+        Assert.Equal(ScannerSessionState.Disconnected, manager.Snapshot.State);
+        Assert.Null(manager.Snapshot.ActiveOwner);
+
+        var reconnectResult = await manager.ConnectAsync(owner, CancellationToken.None);
+        var retryResult = await manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            _ => Task.FromResult("retry succeeded"),
+            CancellationToken.None);
+
+        Assert.True(reconnectResult.Success);
+        Assert.Equal("retry succeeded", retryResult);
+        Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
+        Assert.Null(manager.Snapshot.ActiveOwner);
+    }
+
+    [Fact]
     public async Task Manager_TargetsAndSessionAccess_SurviveTransientClientCleanupWithoutDisposal()
     {
         var factory = new FakeScanSessionServiceFactory();

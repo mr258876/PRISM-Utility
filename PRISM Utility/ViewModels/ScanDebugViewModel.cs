@@ -2589,6 +2589,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             else
                 await RunSingleScanAsync(rows, _scanCts.Token);
         }
+        catch (Exception ex)
+        {
+            StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(ex.Message);
+        }
         finally
         {
             IsRunning = false;
@@ -2642,7 +2646,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                     diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
                     ReportScanReadProgress),
-                ct);
+                ct,
+                waitForAvailability: false);
         }
 
         return await _sessionCoordinator.RunConnectedSessionStateAsync(
@@ -2653,7 +2658,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                 diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
                 ReportScanReadProgress),
-            ct);
+            ct,
+            waitForAvailability: false);
     }
 
     private void MirrorOutput(string source, string message)
@@ -2748,14 +2754,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         try
         {
-            var result = await _workflow.ExecuteAsync(
-                _session,
-                request,
+            var result = await _sessionCoordinator.RunConnectedSessionStateAsync(
+                ScannerSessionState.Running,
+                (session, token) => _workflow.ExecuteAsync(
+                    session,
+                    request,
+                    token,
+                    progress => _dispatcher.TryEnqueue(() => StatusText = "ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage), progress.LedChannelIndex + 1)),
+                    status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
+                    diagnostic => _debugOutputMirror.Mirror("ScanDebug.WorkflowDiagnostic", diagnostic),
+                    ReportScanReadProgress),
                 ct,
-                progress => _dispatcher.TryEnqueue(() => StatusText = "ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage), progress.LedChannelIndex + 1)),
-                status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
-                diagnostic => _debugOutputMirror.Mirror("ScanDebug.WorkflowDiagnostic", diagnostic),
-                ReportScanReadProgress);
+                waitForAvailability: false);
 
             var previewPass = result.Passes.FirstOrDefault();
             if (previewPass is null || previewPass.ImageBytes.Length == 0)

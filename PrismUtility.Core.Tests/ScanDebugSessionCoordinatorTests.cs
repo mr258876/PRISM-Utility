@@ -205,6 +205,42 @@ public sealed class ScanDebugSessionCoordinatorTests
     }
 
     [Fact]
+    public async Task RunConnectedSessionStateAsync_WhenBusyAndNonBlocking_ThrowsBusy()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+
+        var connectResult = await coordinator.ConnectAsync(CancellationToken.None);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runningTask = coordinator.RunConnectedSessionStateAsync(
+            ScannerSessionState.Running,
+            async (_, _) =>
+            {
+                entered.TrySetResult();
+                await release.Task.WaitAsync(CancellationToken.None);
+                return "running";
+            },
+            CancellationToken.None);
+
+        await entered.Task.WaitAsync(CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunConnectedSessionStateAsync(
+            ScannerSessionState.Running,
+            (_, _) => Task.FromResult("blocked"),
+            CancellationToken.None,
+            waitForAvailability: false));
+
+        Assert.True(connectResult.Success);
+        Assert.Contains("busy", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        release.SetResult();
+        Assert.Equal("running", await runningTask);
+    }
+
+    [Fact]
     public async Task UseConnectedSessionAsync_UsesCoordinatorLeaseBinding()
     {
         var factory = new FakeScanSessionServiceFactory();
