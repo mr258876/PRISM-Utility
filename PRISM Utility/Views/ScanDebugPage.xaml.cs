@@ -49,6 +49,7 @@ public sealed partial class ScanDebugPage : Page
     private int _roiDragStartX;
     private ScanColumnRange _roiOriginalRange = new(0, 0);
     private bool _areViewModelEventsSubscribed;
+    private bool _isUpdatingCurrentCalibrationIlluminationEditor;
 
     public ScanDebugViewModel ViewModel
     {
@@ -64,6 +65,7 @@ public sealed partial class ScanDebugPage : Page
 
         stepStopwatch.Restart();
         InitializeComponent();
+        InitializeCurrentCalibrationIlluminationEditor();
         NavigationTimingLogger.Write($"ScanDebugPage.ctor InitializeComponent={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         Loaded += OnLoaded;
@@ -76,6 +78,55 @@ public sealed partial class ScanDebugPage : Page
     {
         if (sender.Tag is string contentName)
             FindName(contentName);
+    }
+
+    private void InitializeCurrentCalibrationIlluminationEditor()
+    {
+        CurrentCalibrationIlluminationWorkModeComboBox.ItemsSource = ViewModel.CurrentCalibrationIlluminationWorkModeOptions;
+        RefreshCurrentCalibrationIlluminationEditor();
+    }
+
+    private void RefreshCurrentCalibrationIlluminationEditor()
+    {
+        _isUpdatingCurrentCalibrationIlluminationEditor = true;
+        try
+        {
+            var isEnabled = ViewModel.HasCurrentCalibrationIlluminationChannel;
+            CurrentCalibrationIlluminationLevelTextBox.IsEnabled = isEnabled;
+            CurrentCalibrationIlluminationPulseClockTextBox.IsEnabled = isEnabled;
+            CurrentCalibrationIlluminationWorkModeComboBox.IsEnabled = isEnabled;
+            SetTextBoxText(CurrentCalibrationIlluminationLevelTextBox, ViewModel.CurrentCalibrationIlluminationLevel);
+            SetTextBoxText(CurrentCalibrationIlluminationPulseClockTextBox, ViewModel.CurrentCalibrationIlluminationPulseClock);
+            CurrentCalibrationIlluminationWorkModeComboBox.SelectedItem = ViewModel.CurrentCalibrationIlluminationWorkMode;
+        }
+        finally
+        {
+            _isUpdatingCurrentCalibrationIlluminationEditor = false;
+        }
+    }
+
+    private static void SetTextBoxText(TextBox textBox, string value)
+    {
+        if (!string.Equals(textBox.Text, value, StringComparison.Ordinal))
+            textBox.Text = value;
+    }
+
+    private void CurrentCalibrationIlluminationLevelTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_isUpdatingCurrentCalibrationIlluminationEditor)
+            ViewModel.CurrentCalibrationIlluminationLevel = CurrentCalibrationIlluminationLevelTextBox.Text;
+    }
+
+    private void CurrentCalibrationIlluminationPulseClockTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_isUpdatingCurrentCalibrationIlluminationEditor)
+            ViewModel.CurrentCalibrationIlluminationPulseClock = CurrentCalibrationIlluminationPulseClockTextBox.Text;
+    }
+
+    private void CurrentCalibrationIlluminationWorkModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isUpdatingCurrentCalibrationIlluminationEditor && CurrentCalibrationIlluminationWorkModeComboBox.SelectedItem is string workMode)
+            ViewModel.CurrentCalibrationIlluminationWorkMode = workMode;
     }
 
     private void PreviewDisplayToolsFlyout_Opening(object sender, object e)
@@ -275,6 +326,15 @@ public sealed partial class ScanDebugPage : Page
             || e.PropertyName == nameof(ScanDebugViewModel.IsColumnSampleEditModeEnabled))
         {
             _ = DispatcherQueue.TryEnqueue(DrawRoiOverlays);
+        }
+
+        if (e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationChannel)
+            || e.PropertyName == nameof(ScanDebugViewModel.HasCurrentCalibrationIlluminationChannel)
+            || e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationLevel)
+            || e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationPulseClock)
+            || e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationWorkMode))
+        {
+            _ = DispatcherQueue.TryEnqueue(RefreshCurrentCalibrationIlluminationEditor);
         }
     }
 

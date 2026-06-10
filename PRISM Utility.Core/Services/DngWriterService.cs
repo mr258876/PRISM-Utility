@@ -150,6 +150,7 @@ public sealed class DngWriterService : IDngWriterService
                 FrameRate = default,
                 BlackLevel = request.BlackLevel,
                 WhiteLevel = request.WhiteLevel,
+                CaptureTime = ToNativeDateTime(request.CaptureTime),
                 ActiveArea = ToNativeRectangle(activeArea),
                 DefaultCrop = ToNativeRectangle(defaultCrop),
                 MaskedAreas = maskedAreas,
@@ -226,6 +227,25 @@ public sealed class DngWriterService : IDngWriterService
                 Numerator = rational.Numerator,
                 Denominator = rational.Denominator
             };
+
+    private static NativePrismDngDateTime ToNativeDateTime(DateTimeOffset? dateTime)
+    {
+        if (dateTime is null)
+            return default;
+
+        var value = dateTime.Value;
+        return new NativePrismDngDateTime
+        {
+            Year = (uint)value.Year,
+            Month = (uint)value.Month,
+            Day = (uint)value.Day,
+            Hour = (uint)value.Hour,
+            Minute = (uint)value.Minute,
+            Second = (uint)value.Second,
+            OffsetMinutes = checked((int)value.Offset.TotalMinutes),
+            HasDateTime = 1
+        };
+    }
 
     private static NativePrismDngColorMetadata ToNativeColorMetadata(DngColorMetadata? color)
         => new()
@@ -342,6 +362,19 @@ public sealed class DngWriterService : IDngWriterService
         public double BottomRight;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePrismDngDateTime
+    {
+        public uint Year;
+        public uint Month;
+        public uint Day;
+        public uint Hour;
+        public uint Minute;
+        public uint Second;
+        public int OffsetMinutes;
+        public uint HasDateTime;
+    }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NativePrismDngMetadata
     {
@@ -362,6 +395,7 @@ public sealed class DngWriterService : IDngWriterService
         public NativePrismDngRational64 FrameRate;
         public uint BlackLevel;
         public uint WhiteLevel;
+        public NativePrismDngDateTime CaptureTime;
         public NativePrismDngRectangle ActiveArea;
         public NativePrismDngRectangle DefaultCrop;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = PrismDngMaxMaskedAreas)]

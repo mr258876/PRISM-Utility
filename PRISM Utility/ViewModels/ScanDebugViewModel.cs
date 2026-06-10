@@ -71,6 +71,8 @@ public sealed class ScanDebugIlluminationChannelViewModel : ObservableObject
 
     public int LedNumber => LedIndex + 1;
 
+    public string Role => _role;
+
     public string DisplayName => $"{GetChannelRoleDisplayName(_role)} (LED{LedNumber})";
 
     public string LevelHeader => "ScanDebug_IlluminationLevelHeader".GetLocalized();
@@ -149,6 +151,7 @@ public sealed class ScanDebugIlluminationChannelViewModel : ObservableObject
             return;
 
         _role = role;
+        OnPropertyChanged(nameof(Role));
         OnPropertyChanged(nameof(DisplayName));
     }
 
@@ -443,6 +446,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial ScanDngExportMode SelectedProfileDngExportMode { get; set; }
+
+    [ObservableProperty]
+    public partial ScanDngExportMode SelectedDebugDngExportMode { get; set; }
 
     [ObservableProperty]
     public partial string CalibrationChannelStatusText { get; set; }
@@ -1000,6 +1006,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ScanRecipeOutputGamma = "2.2";
         SelectedProfileAlignmentMode = AlignmentModeOptions[0];
         SelectedProfileDngExportMode = DngExportModeOptions[0];
+        SelectedDebugDngExportMode = DngExportModeOptions[0];
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet".GetLocalizedFormat(GetCalibrationChannelDisplayName(CalibrationChannelOptions[0]));
         FilmProfileName = "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized();
         SelectedRoiSelection = RoiSelectionOptions[0];
@@ -1187,8 +1194,38 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsMultiChannelScanEnabledChanged(bool value)
     {
+        if (value)
+            ForceMultiChannelWorkflowDependencies();
+
+        NotifyScanWorkflowDependencyEditabilityChanged();
         MarkProfileDirty();
         NotifyAcquisitionPlanChanged();
+    }
+
+    partial void OnIsContinuousScanEnabledChanged(bool value)
+    {
+        if (value && IsMultiChannelScanEnabled)
+            IsContinuousScanEnabled = false;
+    }
+
+    partial void OnIsScanMotorTransportEnabledChanged(bool value)
+    {
+        if (!value && IsMultiChannelScanEnabled)
+            IsScanMotorTransportEnabled = true;
+    }
+
+    partial void OnIsScanLedAutoControlEnabledChanged(bool value)
+    {
+        if (!value && IsMultiChannelScanEnabled)
+            IsScanLedAutoControlEnabled = true;
+    }
+
+    private void ForceMultiChannelWorkflowDependencies()
+    {
+        IsContinuousScanEnabled = false;
+        IsWaterfallEnabled = false;
+        IsScanLedAutoControlEnabled = true;
+        IsScanMotorTransportEnabled = true;
     }
 
     partial void OnFilmProfileNameChanged(string value)
@@ -1268,9 +1305,56 @@ public partial class ScanDebugViewModel : ObservableRecipient
         MarkProfileDirty();
         NotifyAcquisitionPlanChanged();
         OnPropertyChanged(nameof(CurrentCalibrationChannelSummaryText));
+        NotifyCurrentCalibrationIlluminationChannelChanged();
+        OnPropertyChanged(nameof(CurrentCalibrationChannelReversed));
         NotifyPreviewStatePropertiesChanged();
         _ = HandleSelectedCalibrationChannelChangedAsync(value);
     }
+
+    partial void OnIsChannel1ReversedChanged(bool value)
+    {
+        MarkProfileDirty();
+        NotifyCurrentCalibrationChannelReversedChanged(0);
+    }
+
+    partial void OnIsChannel2ReversedChanged(bool value)
+    {
+        MarkProfileDirty();
+        NotifyCurrentCalibrationChannelReversedChanged(1);
+    }
+
+    partial void OnIsChannel3ReversedChanged(bool value)
+    {
+        MarkProfileDirty();
+        NotifyCurrentCalibrationChannelReversedChanged(2);
+    }
+
+    partial void OnIsChannel4ReversedChanged(bool value)
+    {
+        MarkProfileDirty();
+        NotifyCurrentCalibrationChannelReversedChanged(3);
+    }
+
+    partial void OnIsScanRecipeColorManagementEnabledChanged(bool value)
+        => MarkProfileDirty();
+
+    partial void OnScanRecipeRedWavelengthNmChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnScanRecipeGreenWavelengthNmChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnScanRecipeBlueWavelengthNmChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnScanRecipeOutputGammaChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnSelectedProfileAlignmentModeChanged(ScanChannelAlignmentMode value)
+        => MarkProfileDirty();
+
+    partial void OnSelectedProfileDngExportModeChanged(ScanDngExportMode value)
+        => MarkProfileDirty();
 
     partial void OnSelectedRoiSelectionChanged(string value)
     {
@@ -1329,7 +1413,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsRunningChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         OnPropertyChanged(nameof(IsAcquisitionRunning));
         NotifyActionAvailabilityChanged();
         NotifyPreviewStatePropertiesChanged();
@@ -1354,38 +1438,38 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsConnectingChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         OnPropertyChanged(nameof(DeviceStateText));
         NotifyDeviceActionAvailabilityChanged();
     }
 
     partial void OnIsApplyingParametersChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         NotifyActionAvailabilityChanged();
     }
 
     partial void OnIsAutoCalibratingChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         NotifyActionAvailabilityChanged();
     }
 
     partial void OnIsAutoFocusingChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         NotifyDeviceActionAvailabilityChanged();
     }
 
     partial void OnIsApplyingIlluminationChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         NotifyDeviceActionAvailabilityChanged();
     }
 
     partial void OnIsApplyingMotionChanged(bool value)
     {
-        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanAcquisitionSettingsEditabilityChanged();
         NotifyDeviceActionAvailabilityChanged();
     }
 
@@ -1407,6 +1491,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsWaterfallEnabledChanged(bool value)
     {
+        if (value && IsMultiChannelScanEnabled)
+        {
+            IsWaterfallEnabled = false;
+            return;
+        }
+
         OnPropertyChanged(nameof(CanEditRoiSelection));
         OnPropertyChanged(nameof(CanEditColumnSampleSelection));
         EnsureRoiEditModeAvailability();
@@ -1509,6 +1599,89 @@ public partial class ScanDebugViewModel : ObservableRecipient
         GetCalibrationChannelDisplayName(SelectedCalibrationChannel),
         GetBoundLedName(SelectedCalibrationChannel));
 
+    public ScanDebugIlluminationChannelViewModel? CurrentCalibrationIlluminationChannel
+        => ActiveIlluminationChannels.FirstOrDefault(channel => string.Equals(channel.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase));
+
+    public bool HasCurrentCalibrationIlluminationChannel => CurrentCalibrationIlluminationChannel is not null;
+
+    public bool CurrentCalibrationChannelReversed
+    {
+        get => CurrentCalibrationIlluminationChannel?.LedIndex switch
+        {
+            0 => IsChannel1Reversed,
+            1 => IsChannel2Reversed,
+            2 => IsChannel3Reversed,
+            3 => IsChannel4Reversed,
+            _ => false
+        };
+        set
+        {
+            switch (CurrentCalibrationIlluminationChannel?.LedIndex)
+            {
+                case 0:
+                    IsChannel1Reversed = value;
+                    break;
+                case 1:
+                    IsChannel2Reversed = value;
+                    break;
+                case 2:
+                    IsChannel3Reversed = value;
+                    break;
+                case 3:
+                    IsChannel4Reversed = value;
+                    break;
+                default:
+                    return;
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
+    public IReadOnlyList<string> CurrentCalibrationIlluminationWorkModeOptions => IlluminationWorkModeOptions;
+
+    public string CurrentCalibrationIlluminationLevel
+    {
+        get => CurrentCalibrationIlluminationChannel?.Level ?? string.Empty;
+        set
+        {
+            var channel = CurrentCalibrationIlluminationChannel;
+            if (channel is null)
+                return;
+
+            channel.Level = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string CurrentCalibrationIlluminationPulseClock
+    {
+        get => CurrentCalibrationIlluminationChannel?.PulseClock ?? string.Empty;
+        set
+        {
+            var channel = CurrentCalibrationIlluminationChannel;
+            if (channel is null)
+                return;
+
+            channel.PulseClock = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string CurrentCalibrationIlluminationWorkMode
+    {
+        get => CurrentCalibrationIlluminationChannel?.WorkMode ?? IlluminationWorkModeOptions[0];
+        set
+        {
+            var channel = CurrentCalibrationIlluminationChannel;
+            if (channel is null)
+                return;
+
+            channel.WorkMode = value;
+            OnPropertyChanged();
+        }
+    }
+
     public string ChannelLedBindingSummaryText
     {
         get
@@ -1543,6 +1716,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsAutoFocusing &&
         !IsApplyingIllumination &&
         !IsApplyingMotion;
+
+    public bool CanEditScanMotorTransport => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;
+
+    public bool CanEditScanLedAutoControl => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;
+
+    public bool CanEditContinuousScan => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;
+
+    public bool CanEditWaterfall => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;
 
     public bool CanEditRoiSelection => PreviewFrame is not null && !IsWaterfallEnabled && IsPreviewEnabled;
 
@@ -1719,7 +1900,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 }
 
                 IsOutputOperationRunning = true;
-                await _channelImages.ExportDngChannelsAsync(folder, _lastWorkflowResult, BuildDebugChannelAssignment(), ScanChannelAlignmentMode.Ecc, ScanDngExportMode.LinearRaw4, _channelProfiles.Profiles);
+                await _channelImages.ExportDngChannelsAsync(folder, _lastWorkflowResult, BuildDebugChannelAssignment(), ScanChannelAlignmentMode.Ecc, SelectedDebugDngExportMode, _channelProfiles.Profiles);
                 StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
                 return;
             }
@@ -3798,6 +3979,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(PreviewEmptyStateDescriptionText));
     }
 
+    private void NotifyScanAcquisitionSettingsEditabilityChanged()
+    {
+        OnPropertyChanged(nameof(AreScanAcquisitionSettingsEditable));
+        NotifyScanWorkflowDependencyEditabilityChanged();
+    }
+
+    private void NotifyScanWorkflowDependencyEditabilityChanged()
+    {
+        OnPropertyChanged(nameof(CanEditScanMotorTransport));
+        OnPropertyChanged(nameof(CanEditScanLedAutoControl));
+        OnPropertyChanged(nameof(CanEditContinuousScan));
+        OnPropertyChanged(nameof(CanEditWaterfall));
+    }
+
     private void NotifyDeviceActionAvailabilityChanged()
     {
         OnPropertyChanged(nameof(IsDeviceConnectActionAvailable));
@@ -4346,6 +4541,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 throw new ArgumentOutOfRangeException(nameof(ledIndex));
         }
 
+        NotifyCurrentCalibrationIlluminationInputChanged(ledIndex);
         return true;
     }
 
@@ -4382,6 +4578,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 throw new ArgumentOutOfRangeException(nameof(ledIndex));
         }
 
+        NotifyCurrentCalibrationIlluminationInputChanged(ledIndex);
         return true;
     }
 
@@ -4421,6 +4618,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (value)
             SetIlluminationSyncInput(ledIndex, false);
 
+        NotifyCurrentCalibrationIlluminationInputChanged(ledIndex);
         return true;
     }
 
@@ -4460,6 +4658,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (value)
             SetIlluminationSteadyInput(ledIndex, false);
 
+        NotifyCurrentCalibrationIlluminationInputChanged(ledIndex);
         return true;
     }
 
@@ -4538,6 +4737,34 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         RefreshActiveIlluminationChannelBindings();
+        NotifyCurrentCalibrationIlluminationChannelChanged();
+    }
+
+    private void NotifyCurrentCalibrationIlluminationChannelChanged()
+    {
+        OnPropertyChanged(nameof(CurrentCalibrationIlluminationChannel));
+        OnPropertyChanged(nameof(HasCurrentCalibrationIlluminationChannel));
+        OnPropertyChanged(nameof(CurrentCalibrationChannelReversed));
+        NotifyCurrentCalibrationIlluminationInputsChanged();
+    }
+
+    private void NotifyCurrentCalibrationChannelReversedChanged(int ledIndex)
+    {
+        if (CurrentCalibrationIlluminationChannel?.LedIndex == ledIndex)
+            OnPropertyChanged(nameof(CurrentCalibrationChannelReversed));
+    }
+
+    private void NotifyCurrentCalibrationIlluminationInputChanged(int ledIndex)
+    {
+        if (CurrentCalibrationIlluminationChannel?.LedIndex == ledIndex)
+            NotifyCurrentCalibrationIlluminationInputsChanged();
+    }
+
+    private void NotifyCurrentCalibrationIlluminationInputsChanged()
+    {
+        OnPropertyChanged(nameof(CurrentCalibrationIlluminationLevel));
+        OnPropertyChanged(nameof(CurrentCalibrationIlluminationPulseClock));
+        OnPropertyChanged(nameof(CurrentCalibrationIlluminationWorkMode));
     }
 
     private void RefreshAcquisitionChannels(IReadOnlyList<string> roles)

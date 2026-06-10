@@ -94,6 +94,18 @@ struct PrismDngBlackLevelPlane
     double bottomRight;
 };
 
+struct PrismDngDateTime
+{
+    uint32_t year;
+    uint32_t month;
+    uint32_t day;
+    uint32_t hour;
+    uint32_t minute;
+    uint32_t second;
+    int32_t offsetMinutes;
+    uint32_t hasDateTime;
+};
+
 struct PrismDngMetadata
 {
     const wchar_t* make;
@@ -105,6 +117,7 @@ struct PrismDngMetadata
     PrismDngRational64 frameRate;
     uint32_t blackLevel;
     uint32_t whiteLevel;
+    PrismDngDateTime captureTime;
     PrismDngRectangle activeArea;
     PrismDngRectangle defaultCrop;
     PrismDngRectangle maskedAreas[PRISM_DNG_MAX_MASKED_AREAS];

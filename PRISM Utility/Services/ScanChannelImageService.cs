@@ -140,7 +140,8 @@ public sealed class ScanChannelImageService : IScanChannelImageService
 
     public async Task ExportDngChannelsAsync(StorageFolder folder, ScanWorkflowResult result, ScanChannelAssignment assignment, ScanChannelAlignmentMode alignmentMode, ScanDngExportMode exportMode = ScanDngExportMode.LinearRaw4, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null)
     {
-        var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd_HHmmss");
+        var captureTime = DateTimeOffset.Now;
+        var timestamp = captureTime.ToString("yyyyMMdd_HHmmss");
 
         if (result.Passes.Count != ScanDebugConstants.IlluminationChannelCount)
             throw new InvalidOperationException($"Expected {ScanDebugConstants.IlluminationChannelCount} scan passes for DNG export, but found {result.Passes.Count}.");
@@ -173,10 +174,10 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         switch (exportMode)
         {
             case ScanDngExportMode.LinearRaw4:
-                await ExportLinearRaw4Async(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, channelProfiles);
+                await ExportLinearRaw4Async(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, captureTime, channelProfiles);
                 break;
             case ScanDngExportMode.LinearRgbIrw:
-                await ExportLinearRgbIrwAsync(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, channelProfiles);
+                await ExportLinearRgbIrwAsync(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, captureTime, channelProfiles);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(exportMode), exportMode, "Unsupported DNG export mode.");
@@ -208,7 +209,8 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 exposureTime = new DngRational(exposureNanoseconds, 1_000_000_000u);
         }
 
-        var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd_HHmmss");
+        var captureTime = DateTimeOffset.Now;
+        var timestamp = captureTime.ToString("yyyyMMdd_HHmmss");
         var file = await folder.CreateFileAsync($"scan_{timestamp}_{channelLabel.ToLowerInvariant()}.dng", CreationCollisionOption.ReplaceExisting);
         var outputPath = file.Path;
 
@@ -233,6 +235,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 Software: ScannerSoftware,
                 ExposureTime: exposureTime,
                 WhiteLevel: profile?.WhiteLevel ?? ushort.MaxValue,
+                CaptureTime: captureTime,
                 ActiveArea: effectiveArea,
                 DefaultCrop: effectiveArea,
                 MaskedAreas: maskedAreas,
@@ -302,6 +305,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         DngRectangle effectiveArea,
         DngRectangle[] maskedAreas,
         DngRational? exposureTime,
+        DateTimeOffset captureTime,
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles)
     {
         var file = await folder.CreateFileAsync($"{baseFileName}_linearraw4.dng", CreationCollisionOption.ReplaceExisting);
@@ -327,6 +331,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 Software: ScannerSoftware,
                 ExposureTime: exposureTime,
                 WhiteLevel: ResolveWhiteLevel(assignment.Roles, channelProfiles),
+                CaptureTime: captureTime,
                 ActiveArea: effectiveArea,
                 DefaultCrop: effectiveArea,
                 MaskedAreas: maskedAreas,
@@ -344,6 +349,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         DngRectangle effectiveArea,
         DngRectangle[] maskedAreas,
         DngRational? exposureTime,
+        DateTimeOffset captureTime,
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles)
     {
         var rgbPasses = GetRequiredRolePasses(normalizedPasses, assignment, "Red", "Green", "Blue");
@@ -375,6 +381,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 Software: ScannerSoftware,
                 ExposureTime: exposureTime,
                 WhiteLevel: ResolveWhiteLevel(rgbRoles, channelProfiles),
+                CaptureTime: captureTime,
                 ActiveArea: effectiveArea,
                 DefaultCrop: effectiveArea,
                 MaskedAreas: maskedAreas,
@@ -400,6 +407,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 Software: ScannerSoftware,
                 ExposureTime: exposureTime,
                 WhiteLevel: ResolveWhiteLevel(new[] { auxChannel.Role }, channelProfiles),
+                CaptureTime: captureTime,
                 ActiveArea: effectiveArea,
                 DefaultCrop: effectiveArea,
                 MaskedAreas: maskedAreas,

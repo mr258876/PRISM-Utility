@@ -68,6 +68,7 @@ public sealed record DngWriteRequest(
     DngRational? ExposureTime = null,
     uint BlackLevel = 0,
     uint WhiteLevel = 0,
+    DateTimeOffset? CaptureTime = null,
     DngRectangle? ActiveArea = null,
     DngRectangle? DefaultCrop = null,
     DngRectangle[]? MaskedAreas = null,

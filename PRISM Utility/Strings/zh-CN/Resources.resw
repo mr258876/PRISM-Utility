@@ -718,7 +718,7 @@
     <value>关</value>
   </data>
   <data name="ScanDebug_ContinuousToggleSwitch.Header" xml:space="preserve">
-    <value>连续</value>
+    <value>连续扫描</value>
   </data>
   <data name="ScanDebug_ContinuousToggleSwitch.OnContent" xml:space="preserve">
     <value>开</value>
@@ -792,11 +792,23 @@
   <data name="ScanDebug_ParamsTitle.Text" xml:space="preserve">
     <value>扫描仪参数</value>
   </data>
+  <data name="ScanDebug_ProfileConfigTitle.Text" xml:space="preserve">
+    <value>配置加载/保存</value>
+  </data>
+  <data name="ScanDebug_ChannelProfileTitle.Text" xml:space="preserve">
+    <value>当前通道校准</value>
+  </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>曝光时间 = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
   <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve">
     <value>胶片配置名称</value>
+  </data>
+  <data name="ScanDebug_ProfileAlignmentModeComboBox.Header" xml:space="preserve">
+    <value>对齐模式</value>
+  </data>
+  <data name="ScanDebug_ProfileDngExportModeComboBox.Header" xml:space="preserve">
+    <value>DNG 导出模式</value>
   </data>
   <data name="ScanDebug_CalibrationChannelComboBox.Header" xml:space="preserve">
     <value>校准通道</value>
@@ -892,7 +904,37 @@
     <value>照明控制</value>
   </data>
   <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve">
-    <value>LED2 在 RGBW 背光中对应 White，在 RGBIR 背光中对应 IR。同一通道不能同时启用常亮和同步。</value>
+    <value>活动 LED 通道的手动 override。用于强制关闭、常亮或同步，不改变当前校准通道。</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationTitle.Text" xml:space="preserve">
+    <value>当前通道照明</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
+    <value>这些控件会编辑所选校准通道绑定的 LED。</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
+    <value>行方向反转</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>关</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationLevelTextBox.Header" xml:space="preserve">
+    <value>电平</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationLevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.Header" xml:space="preserve">
+    <value>脉冲时钟数</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 用于同步</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationWorkModeComboBox.Header" xml:space="preserve">
+    <value>工作模式</value>
   </data>
   <data name="ScanDebug_IlluminationLevelHeader" xml:space="preserve">
     <value>电平</value>
@@ -2745,11 +2787,17 @@
   <data name="Scan_DngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>DNG 几何默认值描述导出元数据中的有效列和 masked 列；扫描调试中的预览 ROI 工具与其分离，除非在那里明确应用所选 ROI 目标。</value>
   </data>
+  <data name="ScanDebug_DebugDngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>只选择最近一次扫描调试采集结果的 DNG 导出模式，不会修改所编写的扫描配置。</value>
+  </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
     <value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
     <value>扫描调试工作台</value>
+  </data>
+  <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。已连接的调试会话会占用 USB 设备；若要打开 USB 调试或在同一硬件上执行正式扫描，请先在此断开连接。</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>状态</value>
@@ -2782,10 +2830,10 @@
     <value>输出</value>
   </data>
   <data name="ScanDebug_OutputScopeText.Text" xml:space="preserve">
-    <value>导出 DNG 使用最近一次调试采集结果，以及写入所编写扫描配置中的 DNG 模式。</value>
+    <value>导出 DNG 使用最近一次调试采集结果，以及页面标题栏中选择的 DNG 模式。配置中的 DNG 模式在配置加载/保存处修改。</value>
   </data>
   <data name="ScanDebug_ProfileConfigScopeText.Text" xml:space="preserve">
-    <value>此处的色彩管理和 DNG 导出模式是配置文件范围内的值，不是全局默认值。</value>
+    <value>此处的对齐模式、DNG 导出模式和色彩管理是配置文件范围内的值，不是全局默认值。</value>
   </data>
   <data name="ScanDebug_CalibrationTitle.Text" xml:space="preserve">
     <value>校准列采样</value>
@@ -3017,5 +3065,8 @@
   </data>
   <data name="Scan_Runtime_TopRiskOutputFailedTitle" xml:space="preserve">
     <value>输出失败</value>
+  </data>
+  <data name="ScanDebug_ChannelParamsTitle.Text" xml:space="preserve">
+    <value>通道参数</value>
   </data>
 </root>

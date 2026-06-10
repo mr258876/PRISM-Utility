@@ -129,6 +129,67 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.Contains("=> string.Format(CultureInfo.CurrentCulture, resourceKey.GetLocalized(), args);", resourceExtensions, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LifecycleRegression_ScanDebugMultiChannel_ForcesWorkflowDependencies()
+    {
+        var scanDebugViewModel = ReadHostFile("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var scanDebugPageXaml = ReadHostFile("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var zhCnResources = ReadHostFile("PRISM Utility", "Strings", "zh-CN", "Resources.resw");
+        var normalizedZhCnResources = zhCnResources.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var multiChannelChanged = ExtractMemberBody(scanDebugViewModel, "OnIsMultiChannelScanEnabledChanged");
+        Assert.Contains("ForceMultiChannelWorkflowDependencies();", multiChannelChanged, StringComparison.Ordinal);
+        Assert.Contains("NotifyScanWorkflowDependencyEditabilityChanged();", multiChannelChanged, StringComparison.Ordinal);
+
+        var forceMultiChannelDependencies = ExtractMemberBodyAtDeclaration(scanDebugViewModel, "private void ForceMultiChannelWorkflowDependencies()");
+        Assert.Contains("IsContinuousScanEnabled = false;", forceMultiChannelDependencies, StringComparison.Ordinal);
+        Assert.Contains("IsWaterfallEnabled = false;", forceMultiChannelDependencies, StringComparison.Ordinal);
+        Assert.Contains("IsScanLedAutoControlEnabled = true;", forceMultiChannelDependencies, StringComparison.Ordinal);
+        Assert.Contains("IsScanMotorTransportEnabled = true;", forceMultiChannelDependencies, StringComparison.Ordinal);
+
+        Assert.Contains("public bool CanEditContinuousScan => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool CanEditWaterfall => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool CanEditScanMotorTransport => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool CanEditScanLedAutoControl => AreScanAcquisitionSettingsEditable && !IsMultiChannelScanEnabled;", scanDebugViewModel, StringComparison.Ordinal);
+
+        Assert.Contains("OnPropertyChanged(nameof(CanEditContinuousScan));", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditWaterfall));", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditScanMotorTransport));", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditScanLedAutoControl));", scanDebugViewModel, StringComparison.Ordinal);
+
+        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditContinuousScan, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditWaterfall, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditScanMotorTransport, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditScanLedAutoControl, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+
+        var continuousChanged = ExtractMemberBody(scanDebugViewModel, "OnIsContinuousScanEnabledChanged");
+        Assert.Contains("if (value && IsMultiChannelScanEnabled)", continuousChanged, StringComparison.Ordinal);
+        Assert.Contains("IsContinuousScanEnabled = false;", continuousChanged, StringComparison.Ordinal);
+
+        var waterfallChanged = ExtractMemberBody(scanDebugViewModel, "OnIsWaterfallEnabledChanged");
+        Assert.Contains("if (value && IsMultiChannelScanEnabled)", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("IsWaterfallEnabled = false;", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditRoiSelection));", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditColumnSampleSelection));", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("EnsureRoiEditModeAvailability();", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("EnsureColumnSampleEditModeAvailability();", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("_previewPresenter.Reset();", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("RenderPreview(_previewRows);", waterfallChanged, StringComparison.Ordinal);
+
+        var ledAutoChanged = ExtractMemberBody(scanDebugViewModel, "OnIsScanLedAutoControlEnabledChanged");
+        Assert.Contains("if (!value && IsMultiChannelScanEnabled)", ledAutoChanged, StringComparison.Ordinal);
+        Assert.Contains("IsScanLedAutoControlEnabled = true;", ledAutoChanged, StringComparison.Ordinal);
+
+        var motorTransportChanged = ExtractMemberBody(scanDebugViewModel, "OnIsScanMotorTransportEnabledChanged");
+        Assert.Contains("if (!value && IsMultiChannelScanEnabled)", motorTransportChanged, StringComparison.Ordinal);
+        Assert.Contains("IsScanMotorTransportEnabled = true;", motorTransportChanged, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "<data name=\"ScanDebug_ContinuousToggleSwitch.Header\" xml:space=\"preserve\">\n    <value>连续扫描</value>",
+            normalizedZhCnResources,
+            StringComparison.Ordinal);
+    }
+
     private static ScannerSessionOwner CreateOwner(string ownerId, ScannerSessionOwnerType ownerType, ScannerSessionOperation operation, string leaseId)
         => new(ownerId, ownerType, operation, new DateTimeOffset(2026, 6, 2, 12, 0, 0, TimeSpan.Zero), leaseId);
 
@@ -153,8 +214,21 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         var declarationIndex = source.IndexOf(memberName + "(", StringComparison.Ordinal);
         Assert.True(declarationIndex >= 0, $"Could not find member '{memberName}'.");
 
+        return ExtractBodyFromIndex(source, declarationIndex, memberName);
+    }
+
+    private static string ExtractMemberBodyAtDeclaration(string source, string declaration)
+    {
+        var declarationIndex = source.IndexOf(declaration, StringComparison.Ordinal);
+        Assert.True(declarationIndex >= 0, $"Could not find declaration '{declaration}'.");
+
+        return ExtractBodyFromIndex(source, declarationIndex, declaration);
+    }
+
+    private static string ExtractBodyFromIndex(string source, int declarationIndex, string description)
+    {
         var openBraceIndex = source.IndexOf('{', declarationIndex);
-        Assert.True(openBraceIndex >= 0, $"Could not find body for member '{memberName}'.");
+        Assert.True(openBraceIndex >= 0, $"Could not find body for '{description}'.");
 
         var depth = 0;
         for (var index = openBraceIndex; index < source.Length; index++)
@@ -168,7 +242,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
                 return source[openBraceIndex..(index + 1)];
         }
 
-        throw new InvalidOperationException($"Could not extract body for member '{memberName}'.");
+        throw new InvalidOperationException($"Could not extract body for '{description}'.");
     }
 
     private sealed class RegressionScanSessionServiceFactory : IScanSessionServiceFactory

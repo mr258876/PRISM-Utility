@@ -7,6 +7,7 @@
 #include <string>
 
 #include "dng_camera_profile.h"
+#include "dng_date_time.h"
 #include "dng_exif.h"
 #include "dng_file_stream.h"
 #include "dng_host.h"
@@ -193,6 +194,7 @@ void ApplyColorMetadata(dng_negative& negative, const PrismDngColorMetadata& col
     {
         AutoPtr<dng_camera_profile> profile(new dng_camera_profile());
         profile->SetName("Project PRISM");
+        profile->SetCalibrationIlluminant1(lsD65);
 
         if (color.hasColorMatrix1 != 0)
         {
@@ -277,6 +279,7 @@ void ApplyLinearRawMultiChannelMetadata(dng_negative& negative, const PrismDngMe
 
     AutoPtr<dng_camera_profile> profile(new dng_camera_profile());
     profile->SetName("Project PRISM LinearRaw4");
+    profile->SetCalibrationIlluminant1(lsD65);
     profile->SetColorMatrix1(BuildFourChannelColorMatrix(metadata));
     negative.AddProfile(profile);
 }
@@ -318,19 +321,69 @@ void ApplyBlackLevels(dng_negative& negative, const PrismDngMetadata& metadata)
     negative.SetBlackLevel(metadata.blackLevel);
 }
 
+bool IsValidCaptureTime(const PrismDngDateTime& captureTime)
+{
+    if (captureTime.hasDateTime == 0)
+    {
+        return false;
+    }
+
+    const dng_date_time dateTime(
+        captureTime.year,
+        captureTime.month,
+        captureTime.day,
+        captureTime.hour,
+        captureTime.minute,
+        captureTime.second);
+    return dateTime.IsValid();
+}
+
+void ApplyCaptureTime(dng_exif& exif, const PrismDngDateTime& captureTime)
+{
+    if (!IsValidCaptureTime(captureTime))
+    {
+        return;
+    }
+
+    dng_date_time_info dateTimeInfo;
+    dateTimeInfo.SetDateTime(dng_date_time(
+        captureTime.year,
+        captureTime.month,
+        captureTime.day,
+        captureTime.hour,
+        captureTime.minute,
+        captureTime.second));
+
+    dng_time_zone timeZone;
+    timeZone.SetOffsetMinutes(captureTime.offsetMinutes);
+    if (timeZone.IsValid())
+    {
+        dateTimeInfo.SetZone(timeZone);
+        exif.SetVersion0231();
+    }
+
+    exif.fDateTime = dateTimeInfo;
+    exif.fDateTimeOriginal = dateTimeInfo;
+    exif.fDateTimeDigitized = dateTimeInfo;
+}
+
 void ApplyMetadata(dng_negative& negative, const PrismDngImageBuffer& image, const PrismDngMetadata& metadata)
 {
-    const auto fullImageBounds = dng_rect(image.height, image.width);
     const auto hasActiveArea = !(metadata.activeArea.top == 0 && metadata.activeArea.left == 0
         && metadata.activeArea.bottom == 0 && metadata.activeArea.right == 0);
     const auto hasDefaultCrop = !(metadata.defaultCrop.top == 0 && metadata.defaultCrop.left == 0
         && metadata.defaultCrop.bottom == 0 && metadata.defaultCrop.right == 0);
+    const PrismDngRectangle activeArea = hasActiveArea
+        ? metadata.activeArea
+        : PrismDngRectangle{ 0, 0, image.height, image.width };
 
-    negative.SetActiveArea(hasActiveArea ? ToDngRect(metadata.activeArea) : fullImageBounds);
+    negative.SetActiveArea(ToDngRect(activeArea));
 
     if (hasDefaultCrop)
     {
-        negative.SetDefaultCropOrigin(metadata.defaultCrop.left, metadata.defaultCrop.top);
+        negative.SetDefaultCropOrigin(
+            metadata.defaultCrop.left - activeArea.left,
+            metadata.defaultCrop.top - activeArea.top);
         negative.SetDefaultCropSize(
             metadata.defaultCrop.right - metadata.defaultCrop.left,
             metadata.defaultCrop.bottom - metadata.defaultCrop.top);
@@ -338,7 +391,9 @@ void ApplyMetadata(dng_negative& negative, const PrismDngImageBuffer& image, con
     else
     {
         negative.SetDefaultCropOrigin(0, 0);
-        negative.SetDefaultCropSize(image.width, image.height);
+        negative.SetDefaultCropSize(
+            activeArea.right - activeArea.left,
+            activeArea.bottom - activeArea.top);
     }
 
     negative.SetRawDefaultCrop();
@@ -370,6 +425,7 @@ void ApplyMetadata(dng_negative& negative, const PrismDngImageBuffer& image, con
     SetDngString(exif.fMake, metadata.make);
     SetDngString(exif.fModel, metadata.model);
     SetDngString(exif.fSoftware, metadata.software);
+    ApplyCaptureTime(exif, metadata.captureTime);
 
     if (metadata.uniqueCameraModel != nullptr && metadata.uniqueCameraModel[0] != L'\0')
     {

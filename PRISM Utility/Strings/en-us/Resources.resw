@@ -792,11 +792,23 @@
   <data name="ScanDebug_ParamsTitle.Text" xml:space="preserve">
     <value>Scanner Parameters</value>
   </data>
+  <data name="ScanDebug_ProfileConfigTitle.Text" xml:space="preserve">
+    <value>Configuration load/save</value>
+  </data>
+  <data name="ScanDebug_ChannelProfileTitle.Text" xml:space="preserve">
+    <value>Current channel calibration</value>
+  </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>Exposure time = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
   <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve">
     <value>Film profile name</value>
+  </data>
+  <data name="ScanDebug_ProfileAlignmentModeComboBox.Header" xml:space="preserve">
+    <value>Alignment mode</value>
+  </data>
+  <data name="ScanDebug_ProfileDngExportModeComboBox.Header" xml:space="preserve">
+    <value>DNG export mode</value>
   </data>
   <data name="ScanDebug_CalibrationChannelComboBox.Header" xml:space="preserve">
     <value>Calibration channel</value>
@@ -892,7 +904,37 @@
     <value>Illumination Control</value>
   </data>
   <data name="ScanDebug_IlluminationNote.Text" xml:space="preserve">
-    <value>LED2 maps to White on RGBW backlights and IR on RGBIR backlights. Steady and sync cannot be enabled on the same channel at the same time.</value>
+    <value>Manual override for active LED channels. Use this to force an LED off, steady, or sync without changing the selected calibration channel.</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationTitle.Text" xml:space="preserve">
+    <value>Current channel illumination</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
+    <value>These controls edit the LED bound to the selected calibration channel.</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
+    <value>Reverse row direction</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ScanDebug_CurrentChannelReverseToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationLevelTextBox.Header" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationLevelTextBox.PlaceholderText" xml:space="preserve">
+    <value>0-65535</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.Header" xml:space="preserve">
+    <value>Pulse clocks</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.PlaceholderText" xml:space="preserve">
+    <value>&gt;=2 for sync</value>
+  </data>
+  <data name="ScanDebug_CurrentIlluminationWorkModeComboBox.Header" xml:space="preserve">
+    <value>Work mode</value>
   </data>
   <data name="ScanDebug_IlluminationLevelHeader" xml:space="preserve">
     <value>Level</value>
@@ -2745,11 +2787,17 @@
   <data name="Scan_DngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>DNG geometry defaults describe exported metadata and active/masked columns; preview ROI tools in Scan Debug are separate unless their selected ROI target is explicitly applied there.</value>
   </data>
+  <data name="ScanDebug_DebugDngExportModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Selects the DNG mode for debug exports from the latest Scan Debug acquisition only. It does not change the authored scan configuration.</value>
+  </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
     <value>Hardware debug workspace: use it for temporary acquisition, calibration, ROI checks, and profile authoring before running formal scans on the Scan page.</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
     <value>Scan Debug Workstation</value>
+  </data>
+  <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Hardware debug workspace: use it for temporary acquisition, calibration, ROI checks, and profile authoring before running formal scans on the Scan page. A connected debug session owns the USB device; disconnect here before opening USB Debug or starting a formal scan on the same hardware.</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>Status</value>
@@ -2782,10 +2830,10 @@
     <value>Output</value>
   </data>
   <data name="ScanDebug_OutputScopeText.Text" xml:space="preserve">
-    <value>Export DNG uses the latest debug acquisition and the DNG mode saved in the authored scan profile.</value>
+    <value>Export DNG uses the latest debug acquisition and the DNG mode selected in the page header. The authored configuration DNG mode is edited in configuration load/save.</value>
   </data>
   <data name="ScanDebug_ProfileConfigScopeText.Text" xml:space="preserve">
-    <value>Color management and DNG export mode here are configuration-scoped profile values, not global defaults.</value>
+    <value>Alignment, DNG export mode, and color management here are configuration-scoped profile values, not global defaults.</value>
   </data>
   <data name="ScanDebug_CalibrationTitle.Text" xml:space="preserve">
     <value>Calibration column samples</value>
@@ -3017,5 +3065,8 @@
   </data>
   <data name="Scan_Runtime_TopRiskOutputFailedTitle" xml:space="preserve">
     <value>Output failed</value>
+  </data>
+  <data name="ScanDebug_ChannelParamsTitle.Text" xml:space="preserve">
+    <value>Channel Parameters</value>
   </data>
 </root>
