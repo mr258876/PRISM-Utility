@@ -185,11 +185,18 @@
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBox Grid.Row="0" Grid.Column="0" x:Uid="Scan_RedWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
                                         <TextBox Grid.Row="0" Grid.Column="1" x:Uid="Scan_GreenWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
                                         <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Scan_BlueWavelengthTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
                                         <TextBox Grid.Row="1" Grid.Column="1" x:Uid="Scan_OutputGammaTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                                        <ComboBox Grid.Row="2" Grid.Column="0" x:Uid="Scan_TargetWhitePointComboBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" SelectedValuePath="Tag" SelectedValue="{x:Bind ViewModel.SelectedTargetWhitePointMode, Mode=TwoWay}">
+                                            <ComboBoxItem x:Uid="Scan_TargetWhitePointD65ComboBoxItem" Tag="D65" />
+                                            <ComboBoxItem x:Uid="Scan_TargetWhitePointD50ComboBoxItem" Tag="D50" />
+                                            <ComboBoxItem x:Uid="Scan_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature" />
+                                        </ComboBox>
+                                        <TextBox Grid.Row="2" Grid.Column="1" x:Uid="Scan_ManualWhitePointColorTemperatureTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
                                     </Grid>
                                 </StackPanel>
                             </Expander>

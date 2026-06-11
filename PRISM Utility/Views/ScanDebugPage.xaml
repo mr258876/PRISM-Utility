@@ -261,6 +261,8 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <ToggleSwitch
                                         Grid.Row="0"
@@ -317,6 +319,7 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -393,6 +396,19 @@
                                              Grid.Column="1"
                                              x:Uid="Scan_OutputGammaTextBox"
                                              Text="{x:Bind ViewModel.ScanRecipeOutputGamma, Mode=TwoWay}"/>
+                                    <ComboBox Grid.Row="6"
+                                              Grid.Column="0"
+                                              x:Uid="Scan_TargetWhitePointComboBox"
+                                              SelectedValuePath="Tag"
+                                              SelectedValue="{x:Bind ViewModel.SelectedScanRecipeTargetWhitePointMode, Mode=TwoWay}">
+                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointD65ComboBoxItem" Tag="D65"/>
+                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointD50ComboBoxItem" Tag="D50"/>
+                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature"/>
+                                    </ComboBox>
+                                    <TextBox Grid.Row="6"
+                                             Grid.Column="1"
+                                             x:Uid="Scan_ManualWhitePointColorTemperatureTextBox"
+                                             Text="{x:Bind ViewModel.ScanRecipeManualWhitePointColorTemperatureK, Mode=TwoWay}"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>

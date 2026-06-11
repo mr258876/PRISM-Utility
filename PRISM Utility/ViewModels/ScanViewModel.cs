@@ -42,6 +42,7 @@ public partial class ScanViewModel : ObservableRecipient
     private const double DefaultGreenWavelengthNm = 525.0;
     private const double DefaultBlueWavelengthNm = 450.0;
     private const double DefaultOutputGamma = 2.2;
+    private const double DefaultManualWhitePointColorTemperatureK = 6504.0;
     private static readonly Brush ScanCardNormalBorderBrush = GetThemeBrush("CardStrokeColorDefaultBrush", Colors.Gray);
     private static readonly Brush ScanCardBlockerBorderBrush = GetThemeBrush("SystemFillColorCautionBrush", Colors.Goldenrod);
 
@@ -118,6 +119,12 @@ public partial class ScanViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string OutputGamma { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectedTargetWhitePointMode { get; set; }
+
+    [ObservableProperty]
+    public partial string ManualWhitePointColorTemperatureK { get; set; }
 
     [ObservableProperty]
     public partial ScanDngExportMode SelectedDngExportMode { get; set; }
@@ -383,6 +390,8 @@ public partial class ScanViewModel : ObservableRecipient
         GreenWavelengthNm = DefaultGreenWavelengthNm.ToString("0");
         BlueWavelengthNm = DefaultBlueWavelengthNm.ToString("0");
         OutputGamma = DefaultOutputGamma.ToString("0.0");
+        SelectedTargetWhitePointMode = nameof(ScanTargetWhitePointMode.D65);
+        ManualWhitePointColorTemperatureK = DefaultManualWhitePointColorTemperatureK.ToString("0");
         SelectedDngExportMode = DngExportModeOptions[0];
         SelectedAlignmentMode = AlignmentModeOptions[0];
         UpdateDngExportModeAvailability();
@@ -685,6 +694,26 @@ public partial class ScanViewModel : ObservableRecipient
     {
         if (TryParseColorDouble(value, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var parsed, out _))
             OnColorManagementChanged(settings => settings with { OutputGamma = parsed });
+        else
+            UpdatePreviewState();
+
+        RefreshLoadedScanRecipeSummary();
+    }
+
+    partial void OnSelectedTargetWhitePointModeChanged(string value)
+    {
+        if (TryParseTargetWhitePointMode(value, out var mode))
+            OnColorManagementChanged(settings => settings with { TargetWhitePointMode = mode });
+        else
+            UpdatePreviewState();
+
+        RefreshLoadedScanRecipeSummary();
+    }
+
+    partial void OnManualWhitePointColorTemperatureKChanged(string value)
+    {
+        if (TryParseColorDouble(value, "Scan_Runtime_FieldManualWhitePointColorTemperatureK".GetLocalized(), out var parsed, out _))
+            OnColorManagementChanged(settings => settings with { ManualWhitePointColorTemperatureK = parsed });
         else
             UpdatePreviewState();
 
@@ -1688,6 +1717,8 @@ public partial class ScanViewModel : ObservableRecipient
             GreenWavelengthNm = FormatColorDouble(colorManagement.GreenWavelengthNm);
             BlueWavelengthNm = FormatColorDouble(colorManagement.BlueWavelengthNm);
             OutputGamma = FormatColorDouble(colorManagement.OutputGamma);
+            SelectedTargetWhitePointMode = colorManagement.TargetWhitePointMode.ToString();
+            ManualWhitePointColorTemperatureK = FormatColorDouble(colorManagement.ManualWhitePointColorTemperatureK);
         }
 
         if (settings?.AlignmentMode is { } alignmentMode && AlignmentModeOptions.Contains(alignmentMode))
@@ -1832,6 +1863,8 @@ public partial class ScanViewModel : ObservableRecipient
         GreenWavelengthNm = FormatColorDouble(settings.GreenWavelengthNm);
         BlueWavelengthNm = FormatColorDouble(settings.BlueWavelengthNm);
         OutputGamma = FormatColorDouble(settings.OutputGamma);
+        SelectedTargetWhitePointMode = settings.TargetWhitePointMode.ToString();
+        ManualWhitePointColorTemperatureK = FormatColorDouble(settings.ManualWhitePointColorTemperatureK);
     }
 
     private void OnColorManagementChanged(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)
@@ -1856,12 +1889,19 @@ public partial class ScanViewModel : ObservableRecipient
         if (!TryParseColorDouble(RedWavelengthNm, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var redWavelength, out error)
             || !TryParseColorDouble(GreenWavelengthNm, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var greenWavelength, out error)
             || !TryParseColorDouble(BlueWavelengthNm, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var blueWavelength, out error)
-            || !TryParseColorDouble(OutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error))
+            || !TryParseColorDouble(OutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error)
+            || !TryParseColorDouble(ManualWhitePointColorTemperatureK, "Scan_Runtime_FieldManualWhitePointColorTemperatureK".GetLocalized(), out var manualWhitePointColorTemperature, out error))
         {
             return false;
         }
 
-        options = new ScanColorManagementOptions(IsColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma);
+        if (!TryParseTargetWhitePointMode(SelectedTargetWhitePointMode, out var targetWhitePointMode))
+        {
+            error = "Scan_Runtime_FieldTargetWhitePoint".GetLocalizedOrFallback("Target white point");
+            return false;
+        }
+
+        options = new ScanColorManagementOptions(IsColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma, targetWhitePointMode, manualWhitePointColorTemperature);
         error = string.Empty;
         return true;
     }
@@ -1880,6 +1920,10 @@ public partial class ScanViewModel : ObservableRecipient
 
     private static string FormatColorDouble(double value)
         => InvariantNumericText.FormatCompactDouble(value);
+
+    private static bool TryParseTargetWhitePointMode(string value, out ScanTargetWhitePointMode mode)
+        => Enum.TryParse(value, out mode)
+            && mode is ScanTargetWhitePointMode.D65 or ScanTargetWhitePointMode.D50 or ScanTargetWhitePointMode.ManualColorTemperature;
 
     private static string GetDirectionDisplayName(string direction)
         => string.Equals(direction, ForwardDirection, StringComparison.OrdinalIgnoreCase)

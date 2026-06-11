@@ -13,6 +13,9 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
         if (parameter as string == "AlignmentMode" && value is ScanChannelAlignmentMode alignmentMode)
             return GetAlignmentModeDisplayName(alignmentMode);
 
+        if (parameter as string == "TargetWhitePointMode" && value is ScanTargetWhitePointMode targetWhitePointMode)
+            return GetTargetWhitePointModeDisplayName(targetWhitePointMode);
+
         if (value is not string token || string.IsNullOrWhiteSpace(token))
             return value?.ToString() ?? string.Empty;
 
@@ -21,6 +24,7 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             "Direction" => GetDirectionDisplayName(token),
             "ChannelRole" => GetChannelRoleDisplayName(token),
             "PreviewMode" => GetPreviewModeDisplayName(token),
+            "TargetWhitePointMode" => GetTargetWhitePointModeDisplayName(token),
             "Motor" => GetMotorDisplayName(token),
             "CalibrationChannel" => GetCalibrationChannelDisplayName(token),
             "MotorDirection" => GetMotorDirectionDisplayName(token),
@@ -77,6 +81,24 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             ScanChannelAlignmentMode.MutualInformation => "Scan_Runtime_AlignmentModeMutualInformation".GetLocalized(),
             ScanChannelAlignmentMode.EccThenMutualInformation => "Scan_Runtime_AlignmentModeEccThenMutualInformation".GetLocalized(),
             _ => mode.ToString()
+        };
+
+    private static string GetTargetWhitePointModeDisplayName(ScanTargetWhitePointMode mode)
+        => mode switch
+        {
+            ScanTargetWhitePointMode.D65 => "Scan_Runtime_TargetWhitePointModeD65".GetLocalized(),
+            ScanTargetWhitePointMode.D50 => "Scan_Runtime_TargetWhitePointModeD50".GetLocalized(),
+            ScanTargetWhitePointMode.ManualColorTemperature => "Scan_Runtime_TargetWhitePointModeManualColorTemperature".GetLocalized(),
+            _ => mode.ToString()
+        };
+
+    private static string GetTargetWhitePointModeDisplayName(string mode)
+        => mode switch
+        {
+            nameof(ScanTargetWhitePointMode.D65) => "Scan_Runtime_TargetWhitePointModeD65".GetLocalized(),
+            nameof(ScanTargetWhitePointMode.D50) => "Scan_Runtime_TargetWhitePointModeD50".GetLocalized(),
+            nameof(ScanTargetWhitePointMode.ManualColorTemperature) => "Scan_Runtime_TargetWhitePointModeManualColorTemperature".GetLocalized(),
+            _ => mode
         };
 
     private static string GetMotorDisplayName(string motor)

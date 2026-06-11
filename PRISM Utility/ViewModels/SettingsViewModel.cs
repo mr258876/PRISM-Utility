@@ -80,6 +80,12 @@ public partial class SettingsViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string OutputGamma { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial string SelectedTargetWhitePointMode { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ManualWhitePointColorTemperatureK { get; set; } = string.Empty;
+
     public IReadOnlyList<AppLanguageOption> LanguageOptions { get; } =
     [
         new("system", "Settings_Language_System".GetLocalized()),
@@ -263,6 +269,23 @@ public partial class SettingsViewModel : ObservableRecipient
         _ = SaveColorManagementSettingsAsync(settings => settings with { OutputGamma = parsed });
     }
 
+    partial void OnSelectedTargetWhitePointModeChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings)
+            return;
+
+        if (TryParseTargetWhitePointMode(value, out var mode))
+            _ = SaveColorManagementSettingsAsync(settings => settings with { TargetWhitePointMode = mode });
+    }
+
+    partial void OnManualWhitePointColorTemperatureKChanged(string value)
+    {
+        if (_isLoadingColorManagementSettings || !TryParseColorDouble(value, out var parsed))
+            return;
+
+        _ = SaveColorManagementSettingsAsync(settings => settings with { ManualWhitePointColorTemperatureK = parsed });
+    }
+
     private async Task LoadScanTransferSettingsAsync()
     {
         _isLoadingScanTransferMode = true;
@@ -332,6 +355,8 @@ public partial class SettingsViewModel : ObservableRecipient
         GreenWavelengthNm = FormatColorDouble(settings.GreenWavelengthNm);
         BlueWavelengthNm = FormatColorDouble(settings.BlueWavelengthNm);
         OutputGamma = FormatColorDouble(settings.OutputGamma);
+        SelectedTargetWhitePointMode = settings.TargetWhitePointMode.ToString();
+        ManualWhitePointColorTemperatureK = FormatColorDouble(settings.ManualWhitePointColorTemperatureK);
     }
 
     private async Task SaveColorManagementSettingsAsync(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)
@@ -361,6 +386,10 @@ public partial class SettingsViewModel : ObservableRecipient
 
     private static string FormatColorDouble(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static bool TryParseTargetWhitePointMode(string value, out ScanTargetWhitePointMode mode)
+        => Enum.TryParse(value, out mode)
+            && mode is ScanTargetWhitePointMode.D65 or ScanTargetWhitePointMode.D50 or ScanTargetWhitePointMode.ManualColorTemperature;
 
     private static (string VersionDescription, string BuildDescription) GetVersionInfo()
     {

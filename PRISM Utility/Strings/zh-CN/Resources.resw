@@ -348,6 +348,21 @@
   <data name="Settings_OutputGammaTextBox.Header" xml:space="preserve">
     <value>输出伽马</value>
   </data>
+  <data name="Settings_TargetWhitePointComboBox.Header" xml:space="preserve">
+    <value>目标白点</value>
+  </data>
+  <data name="Settings_TargetWhitePointD65ComboBoxItem.Content" xml:space="preserve">
+    <value>D65</value>
+  </data>
+  <data name="Settings_TargetWhitePointD50ComboBoxItem.Content" xml:space="preserve">
+    <value>D50</value>
+  </data>
+  <data name="Settings_TargetWhitePointManualComboBoxItem.Content" xml:space="preserve">
+    <value>手动色温</value>
+  </data>
+  <data name="Settings_ManualWhitePointColorTemperatureTextBox.Header" xml:space="preserve">
+    <value>手动色温 (K)</value>
+  </data>
   <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve">
     <value>恢复全局颜色默认值</value>
   </data>
@@ -653,6 +668,21 @@
   </data>
   <data name="Scan_OutputGammaTextBox.Header" xml:space="preserve">
     <value>输出伽马</value>
+  </data>
+  <data name="Scan_TargetWhitePointComboBox.Header" xml:space="preserve">
+    <value>目标白点</value>
+  </data>
+  <data name="Scan_TargetWhitePointD65ComboBoxItem.Content" xml:space="preserve">
+    <value>D65</value>
+  </data>
+  <data name="Scan_TargetWhitePointD50ComboBoxItem.Content" xml:space="preserve">
+    <value>D50</value>
+  </data>
+  <data name="Scan_TargetWhitePointManualComboBoxItem.Content" xml:space="preserve">
+    <value>手动色温</value>
+  </data>
+  <data name="Scan_ManualWhitePointColorTemperatureTextBox.Header" xml:space="preserve">
+    <value>手动色温 (K)</value>
   </data>
   <data name="Scan_OutputSection.Text" xml:space="preserve">
     <value>输出</value>
@@ -1613,6 +1643,18 @@
   </data>
   <data name="Scan_Runtime_FieldOutputGamma" xml:space="preserve">
     <value>输出伽马</value>
+  </data>
+  <data name="Scan_Runtime_FieldManualWhitePointColorTemperatureK" xml:space="preserve">
+    <value>手动色温 (K)</value>
+  </data>
+  <data name="Scan_Runtime_TargetWhitePointModeD65" xml:space="preserve">
+    <value>D65</value>
+  </data>
+  <data name="Scan_Runtime_TargetWhitePointModeD50" xml:space="preserve">
+    <value>D50</value>
+  </data>
+  <data name="Scan_Runtime_TargetWhitePointModeManualColorTemperature" xml:space="preserve">
+    <value>手动色温</value>
   </data>
   <data name="Scan_Runtime_CurrentPassIdle" xml:space="preserve">
     <value>第 - / 4 轮</value>

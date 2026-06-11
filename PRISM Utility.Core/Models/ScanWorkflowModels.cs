@@ -66,13 +66,22 @@ public enum ScanChannelAlignmentMode
     EccThenMutualInformation = 2
 }
 
+public enum ScanTargetWhitePointMode
+{
+    D65 = 0,
+    D50 = 1,
+    ManualColorTemperature = 2
+}
+
 public sealed record ScanColorManagementOptions(
     bool IsEnabled,
     double RedWavelengthNm,
     double GreenWavelengthNm,
     double BlueWavelengthNm,
-    double OutputGamma)
+    double OutputGamma,
+    ScanTargetWhitePointMode TargetWhitePointMode = ScanTargetWhitePointMode.D65,
+    double ManualWhitePointColorTemperatureK = 6504.0)
 {
     public static ScanColorManagementOptions CreateDefault()
-        => new(true, 680.0, 525.0, 450.0, 2.2);
+        => new(true, 680.0, 525.0, 450.0, 2.2, ScanTargetWhitePointMode.D65, 6504.0);
 }

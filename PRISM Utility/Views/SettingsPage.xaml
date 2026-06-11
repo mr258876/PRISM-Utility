@@ -9,6 +9,7 @@
     mc:Ignorable="d">
     <Page.Resources>
         <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
     </Page.Resources>
     <ScrollViewer
         VerticalScrollBarVisibility="Auto"
@@ -121,12 +122,19 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBox Grid.Row="0" Grid.Column="0" x:Uid="Settings_RedWavelengthTextBox" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
                     <TextBox Grid.Row="0" Grid.Column="1" x:Uid="Settings_GreenWavelengthTextBox" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
                     <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Settings_BlueWavelengthTextBox" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
                     <TextBox Grid.Row="1" Grid.Column="1" x:Uid="Settings_OutputGammaTextBox" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="2" Grid.Column="0" x:Uid="Settings_TargetWhitePointComboBox" SelectedValuePath="Tag" SelectedValue="{x:Bind ViewModel.SelectedTargetWhitePointMode, Mode=TwoWay}">
+                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD65ComboBoxItem" Tag="D65" />
+                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD50ComboBoxItem" Tag="D50" />
+                        <ComboBoxItem x:Uid="Settings_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature" />
+                    </ComboBox>
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Uid="Settings_ManualWhitePointColorTemperatureTextBox" Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
                 </Grid>
                 <Button
                     x:Uid="Settings_RestoreColorManagementDefaultsButton"

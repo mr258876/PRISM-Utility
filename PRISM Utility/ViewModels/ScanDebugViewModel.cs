@@ -442,6 +442,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial string ScanRecipeOutputGamma { get; set; }
 
     [ObservableProperty]
+    public partial string SelectedScanRecipeTargetWhitePointMode { get; set; }
+
+    [ObservableProperty]
+    public partial string ScanRecipeManualWhitePointColorTemperatureK { get; set; }
+
+    [ObservableProperty]
     public partial ScanChannelAlignmentMode SelectedProfileAlignmentMode { get; set; }
 
     [ObservableProperty]
@@ -1004,6 +1010,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ScanRecipeGreenWavelengthNm = "525";
         ScanRecipeBlueWavelengthNm = "450";
         ScanRecipeOutputGamma = "2.2";
+        SelectedScanRecipeTargetWhitePointMode = nameof(ScanTargetWhitePointMode.D65);
+        ScanRecipeManualWhitePointColorTemperatureK = "6504";
         SelectedProfileAlignmentMode = AlignmentModeOptions[0];
         SelectedProfileDngExportMode = DngExportModeOptions[0];
         SelectedDebugDngExportMode = DngExportModeOptions[0];
@@ -1348,6 +1356,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => MarkProfileDirty();
 
     partial void OnScanRecipeOutputGammaChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnSelectedScanRecipeTargetWhitePointModeChanged(string value)
+        => MarkProfileDirty();
+
+    partial void OnScanRecipeManualWhitePointColorTemperatureKChanged(string value)
         => MarkProfileDirty();
 
     partial void OnSelectedProfileAlignmentModeChanged(ScanChannelAlignmentMode value)
@@ -3084,14 +3098,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryParseColorDouble(ScanRecipeRedWavelengthNm, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var redWavelength, out error)
             || !TryParseColorDouble(ScanRecipeGreenWavelengthNm, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var greenWavelength, out error)
             || !TryParseColorDouble(ScanRecipeBlueWavelengthNm, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var blueWavelength, out error)
-            || !TryParseColorDouble(ScanRecipeOutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error))
+            || !TryParseColorDouble(ScanRecipeOutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error)
+            || !TryParseColorDouble(ScanRecipeManualWhitePointColorTemperatureK, "Scan_Runtime_FieldManualWhitePointColorTemperatureK".GetLocalized(), out var manualWhitePointColorTemperature, out error))
         {
+            return false;
+        }
+
+        if (!TryParseTargetWhitePointMode(SelectedScanRecipeTargetWhitePointMode, out var targetWhitePointMode))
+        {
+            error = "Scan_Runtime_FieldTargetWhitePoint".GetLocalizedOrFallback("Target white point");
             return false;
         }
 
         settings = new ScanFilmScanRecipeSettings(
             BuildAuthoredChannelAssignment(),
-            new ScanColorManagementOptions(IsScanRecipeColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma),
+            new ScanColorManagementOptions(IsScanRecipeColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma, targetWhitePointMode, manualWhitePointColorTemperature),
             SelectedProfileAlignmentMode,
             SelectedProfileDngExportMode);
         error = string.Empty;
@@ -3115,6 +3136,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             ScanRecipeGreenWavelengthNm = FormatColorDouble(colorManagement.GreenWavelengthNm);
             ScanRecipeBlueWavelengthNm = FormatColorDouble(colorManagement.BlueWavelengthNm);
             ScanRecipeOutputGamma = FormatColorDouble(colorManagement.OutputGamma);
+            SelectedScanRecipeTargetWhitePointMode = colorManagement.TargetWhitePointMode.ToString();
+            ScanRecipeManualWhitePointColorTemperatureK = FormatColorDouble(colorManagement.ManualWhitePointColorTemperatureK);
         }
 
         if (settings?.AlignmentMode is { } alignmentMode && AlignmentModeOptions.Contains(alignmentMode))
@@ -3138,6 +3161,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private static string FormatColorDouble(double value)
         => InvariantNumericText.FormatCompactDouble(value);
+
+    private static bool TryParseTargetWhitePointMode(string value, out ScanTargetWhitePointMode mode)
+        => Enum.TryParse(value, out mode)
+            && mode is ScanTargetWhitePointMode.D65 or ScanTargetWhitePointMode.D50 or ScanTargetWhitePointMode.ManualColorTemperature;
 
     private static int CountActiveWorkflowPasses(ScanWorkflowRequest request)
         => ScanChannelRoleHelper.CountActiveRoles(request.PassChannelRoles);
@@ -3266,7 +3293,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private ScanColorManagementOptions BuildDebugColorManagementOptions()
     {
         var defaults = ScanColorManagementOptions.CreateDefault();
-        return new ScanColorManagementOptions(IsGammaCorrectionEnabled, defaults.RedWavelengthNm, defaults.GreenWavelengthNm, defaults.BlueWavelengthNm, TryParsePreviewGamma(out var gamma) ? gamma : defaults.OutputGamma);
+        return new ScanColorManagementOptions(IsGammaCorrectionEnabled, defaults.RedWavelengthNm, defaults.GreenWavelengthNm, defaults.BlueWavelengthNm, TryParsePreviewGamma(out var gamma) ? gamma : defaults.OutputGamma, defaults.TargetWhitePointMode, defaults.ManualWhitePointColorTemperatureK);
     }
 
     private void ApplyScanFrame(byte[] imageBytes, int rows, string successStatus)

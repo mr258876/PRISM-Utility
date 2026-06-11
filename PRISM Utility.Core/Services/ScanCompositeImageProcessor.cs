@@ -9,6 +9,8 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
     private const double MinimumVisibleWavelengthNm = 380.0;
     private const double MaximumVisibleWavelengthNm = 780.0;
     private const double MinimumOutputGamma = 0.1;
+    private const double MinimumWhitePointColorTemperatureK = 1667.0;
+    private const double MaximumWhitePointColorTemperatureK = 25000.0;
     private const double ChannelScaleLowPercentile = 0.1;
     private const double ChannelScaleHighPercentile = 99.9;
     private const double LuminanceScalePercentile = 99.5;
@@ -96,7 +98,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return false;
         }
 
-        var colorTransform = BuildColorTransform(colorManagement, passByRole, width, rows);
+        if (!TryBuildColorTransform(colorManagement, passByRole, width, rows, out var colorTransform, out error) || colorTransform is null)
+            return false;
+
         var pixelCount = width * rows;
         var xyzPixels = colorManagement.IsEnabled ? new XyzColor[pixelCount] : Array.Empty<XyzColor>();
         var luminanceValues = colorManagement.IsEnabled ? new double[pixelCount] : Array.Empty<double>();
@@ -219,6 +223,15 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return false;
         }
 
+        if (options.TargetWhitePointMode == ScanTargetWhitePointMode.ManualColorTemperature
+            && (!IsFinite(options.ManualWhitePointColorTemperatureK)
+                || options.ManualWhitePointColorTemperatureK < MinimumWhitePointColorTemperatureK
+                || options.ManualWhitePointColorTemperatureK > MaximumWhitePointColorTemperatureK))
+        {
+            error = $"Manual white point color temperature must be between {MinimumWhitePointColorTemperatureK:0} K and {MaximumWhitePointColorTemperatureK:0} K.";
+            return false;
+        }
+
         error = string.Empty;
         return true;
     }
@@ -229,23 +242,42 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         return shouldReverse ? (rows - 1 - y) : y;
     }
 
-    private RgbDisplayColorTransform BuildColorTransform(
+    private bool TryBuildColorTransform(
         ScanColorManagementOptions options,
         Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)> passByRole,
         int width,
-        int rows)
+        int rows,
+        out RgbDisplayColorTransform? transform,
+        out string error)
     {
+        error = string.Empty;
         if (!options.IsEnabled)
-            return RgbDisplayColorTransform.CreateIdentity(options.OutputGamma);
+        {
+            transform = RgbDisplayColorTransform.CreateIdentity(options.OutputGamma);
+            return true;
+        }
 
-        return new RgbDisplayColorTransform(
-            InterpolateCie1931(options.RedWavelengthNm),
-            InterpolateCie1931(options.GreenWavelengthNm),
-            InterpolateCie1931(options.BlueWavelengthNm),
+        var redPrimary = InterpolateCie1931(options.RedWavelengthNm);
+        var greenPrimary = InterpolateCie1931(options.GreenWavelengthNm);
+        var bluePrimary = InterpolateCie1931(options.BlueWavelengthNm);
+        var targetWhite = ResolveTargetWhitePoint(options);
+        if (!TrySolveWhitePointGains(redPrimary, greenPrimary, bluePrimary, targetWhite, out var gains))
+        {
+            transform = null;
+            error = "Target white point cannot be represented by the selected RGB wavelengths.";
+            return false;
+        }
+
+        transform = new RgbDisplayColorTransform(
+            redPrimary,
+            greenPrimary,
+            bluePrimary,
+            gains,
             BuildChannelScale(passByRole, "Red", width, rows),
             BuildChannelScale(passByRole, "Green", width, rows),
             BuildChannelScale(passByRole, "Blue", width, rows),
             options.OutputGamma);
+        return true;
     }
 
     private ChannelScale BuildChannelScale(
@@ -265,6 +297,67 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         var high = ComputePercentile(values, ChannelScaleHighPercentile);
         return high > low ? new ChannelScale(low, high) : new ChannelScale(0.0, MaxSampleValue);
     }
+
+    private static XyzColor ResolveTargetWhitePoint(ScanColorManagementOptions options)
+        => options.TargetWhitePointMode switch
+        {
+            ScanTargetWhitePointMode.D50 => new XyzColor(0.96422, 1.0, 0.82521),
+            ScanTargetWhitePointMode.ManualColorTemperature => ColorTemperatureToXyz(options.ManualWhitePointColorTemperatureK),
+            _ => new XyzColor(0.95047, 1.0, 1.08883)
+        };
+
+    private static XyzColor ColorTemperatureToXyz(double colorTemperatureK)
+    {
+        var temperature = Math.Clamp(colorTemperatureK, MinimumWhitePointColorTemperatureK, MaximumWhitePointColorTemperatureK);
+        var x = temperature <= 4000.0
+            ? (-0.2661239e9 / Math.Pow(temperature, 3.0)) - (0.2343580e6 / Math.Pow(temperature, 2.0)) + (0.8776956e3 / temperature) + 0.179910
+            : (-3.0258469e9 / Math.Pow(temperature, 3.0)) + (2.1070379e6 / Math.Pow(temperature, 2.0)) + (0.2226347e3 / temperature) + 0.240390;
+
+        var y = temperature <= 2222.0
+            ? (-1.1063814 * Math.Pow(x, 3.0)) - (1.34811020 * Math.Pow(x, 2.0)) + (2.18555832 * x) - 0.20219683
+            : temperature <= 4000.0
+                ? (-0.9549476 * Math.Pow(x, 3.0)) - (1.37418593 * Math.Pow(x, 2.0)) + (2.09137015 * x) - 0.16748867
+                : (3.0817580 * Math.Pow(x, 3.0)) - (5.87338670 * Math.Pow(x, 2.0)) + (3.75112997 * x) - 0.37001483;
+
+        return new XyzColor(x / y, 1.0, (1.0 - x - y) / y);
+    }
+
+    private static bool TrySolveWhitePointGains(XyzColor redPrimary, XyzColor greenPrimary, XyzColor bluePrimary, XyzColor targetWhite, out ChannelGains gains)
+    {
+        var determinant = (redPrimary.X * ((greenPrimary.Y * bluePrimary.Z) - (bluePrimary.Y * greenPrimary.Z)))
+            - (greenPrimary.X * ((redPrimary.Y * bluePrimary.Z) - (bluePrimary.Y * redPrimary.Z)))
+            + (bluePrimary.X * ((redPrimary.Y * greenPrimary.Z) - (greenPrimary.Y * redPrimary.Z)));
+
+        if (Math.Abs(determinant) <= Epsilon)
+        {
+            gains = default;
+            return false;
+        }
+
+        var redGain = Determinant(
+            targetWhite.X, greenPrimary.X, bluePrimary.X,
+            targetWhite.Y, greenPrimary.Y, bluePrimary.Y,
+            targetWhite.Z, greenPrimary.Z, bluePrimary.Z) / determinant;
+        var greenGain = Determinant(
+            redPrimary.X, targetWhite.X, bluePrimary.X,
+            redPrimary.Y, targetWhite.Y, bluePrimary.Y,
+            redPrimary.Z, targetWhite.Z, bluePrimary.Z) / determinant;
+        var blueGain = Determinant(
+            redPrimary.X, greenPrimary.X, targetWhite.X,
+            redPrimary.Y, greenPrimary.Y, targetWhite.Y,
+            redPrimary.Z, greenPrimary.Z, targetWhite.Z) / determinant;
+
+        gains = new ChannelGains(redGain, greenGain, blueGain);
+        return IsPositiveFinite(redGain) && IsPositiveFinite(greenGain) && IsPositiveFinite(blueGain);
+    }
+
+    private static double Determinant(
+        double m11, double m12, double m13,
+        double m21, double m22, double m23,
+        double m31, double m32, double m33)
+        => (m11 * ((m22 * m33) - (m23 * m32)))
+            - (m12 * ((m21 * m33) - (m23 * m31)))
+            + (m13 * ((m21 * m32) - (m22 * m31)));
 
     private static XyzColor InterpolateCie1931(double wavelengthNm)
     {
@@ -300,6 +393,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
 
     private static bool IsFinite(double value)
         => !double.IsNaN(value) && !double.IsInfinity(value);
+
+    private static bool IsPositiveFinite(double value)
+        => IsFinite(value) && value > 0.0;
 
     private static double NormalizeSample(ushort sample)
         => sample / MaxSampleValue;
@@ -354,6 +450,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
     }
 
     private readonly record struct XyzColor(double X, double Y, double Z);
+    private readonly record struct ChannelGains(double Red, double Green, double Blue);
     private readonly record struct ChannelScale(double Low, double High);
     private readonly record struct BgraDisplayColor(byte Blue, byte Green, byte Red);
 
@@ -362,17 +459,19 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         private readonly XyzColor _redPrimary;
         private readonly XyzColor _greenPrimary;
         private readonly XyzColor _bluePrimary;
+        private readonly ChannelGains _whitePointGains;
         private readonly ChannelScale _redScale;
         private readonly ChannelScale _greenScale;
         private readonly ChannelScale _blueScale;
         private readonly double _outputGamma;
         private double _luminanceScale = 1.0;
 
-        public RgbDisplayColorTransform(XyzColor redPrimary, XyzColor greenPrimary, XyzColor bluePrimary, ChannelScale redScale, ChannelScale greenScale, ChannelScale blueScale, double outputGamma)
+        public RgbDisplayColorTransform(XyzColor redPrimary, XyzColor greenPrimary, XyzColor bluePrimary, ChannelGains whitePointGains, ChannelScale redScale, ChannelScale greenScale, ChannelScale blueScale, double outputGamma)
         {
             _redPrimary = redPrimary;
             _greenPrimary = greenPrimary;
             _bluePrimary = bluePrimary;
+            _whitePointGains = whitePointGains;
             _redScale = redScale;
             _greenScale = greenScale;
             _blueScale = blueScale;
@@ -384,6 +483,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
                 new XyzColor(1.0, 0.0, 0.0),
                 new XyzColor(0.0, 1.0, 0.0),
                 new XyzColor(0.0, 0.0, 1.0),
+                new ChannelGains(1.0, 1.0, 1.0),
                 new ChannelScale(0.0, MaxSampleValue),
                 new ChannelScale(0.0, MaxSampleValue),
                 new ChannelScale(0.0, MaxSampleValue),
@@ -396,9 +496,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             var blue = NormalizeSample(blueSample, _blueScale);
 
             return new XyzColor(
-                (red * _redPrimary.X) + (green * _greenPrimary.X) + (blue * _bluePrimary.X),
-                (red * _redPrimary.Y) + (green * _greenPrimary.Y) + (blue * _bluePrimary.Y),
-                (red * _redPrimary.Z) + (green * _greenPrimary.Z) + (blue * _bluePrimary.Z));
+                (red * _whitePointGains.Red * _redPrimary.X) + (green * _whitePointGains.Green * _greenPrimary.X) + (blue * _whitePointGains.Blue * _bluePrimary.X),
+                (red * _whitePointGains.Red * _redPrimary.Y) + (green * _whitePointGains.Green * _greenPrimary.Y) + (blue * _whitePointGains.Blue * _bluePrimary.Y),
+                (red * _whitePointGains.Red * _redPrimary.Z) + (green * _whitePointGains.Green * _greenPrimary.Z) + (blue * _whitePointGains.Blue * _bluePrimary.Z));
         }
 
         public void SetLuminanceScale(double luminanceScale)

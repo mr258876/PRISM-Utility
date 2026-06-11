@@ -10,6 +10,8 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
     private const string GreenWavelengthNmKey = "ScanColorManagementGreenWavelengthNm";
     private const string BlueWavelengthNmKey = "ScanColorManagementBlueWavelengthNm";
     private const string OutputGammaKey = "ScanColorManagementOutputGamma";
+    private const string TargetWhitePointModeKey = "ScanColorManagementTargetWhitePointMode";
+    private const string ManualWhitePointColorTemperatureKKey = "ScanColorManagementManualWhitePointColorTemperatureK";
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
@@ -40,6 +42,8 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
             var greenWavelength = await _localSettingsService.ReadSettingAsync<double?>(GreenWavelengthNmKey);
             var blueWavelength = await _localSettingsService.ReadSettingAsync<double?>(BlueWavelengthNmKey);
             var outputGamma = await _localSettingsService.ReadSettingAsync<double?>(OutputGammaKey);
+            var targetWhitePointMode = await _localSettingsService.ReadSettingAsync<ScanTargetWhitePointMode?>(TargetWhitePointModeKey);
+            var manualWhitePointColorTemperature = await _localSettingsService.ReadSettingAsync<double?>(ManualWhitePointColorTemperatureKKey);
 
             Settings = Settings with
             {
@@ -47,7 +51,9 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
                 RedWavelengthNm = IsVisibleWavelength(redWavelength) ? redWavelength.Value : Settings.RedWavelengthNm,
                 GreenWavelengthNm = IsVisibleWavelength(greenWavelength) ? greenWavelength.Value : Settings.GreenWavelengthNm,
                 BlueWavelengthNm = IsVisibleWavelength(blueWavelength) ? blueWavelength.Value : Settings.BlueWavelengthNm,
-                OutputGamma = outputGamma is >= 0.1 ? outputGamma.Value : Settings.OutputGamma
+                OutputGamma = outputGamma is >= 0.1 ? outputGamma.Value : Settings.OutputGamma,
+                TargetWhitePointMode = IsSupportedTargetWhitePointMode(targetWhitePointMode) ? targetWhitePointMode.Value : Settings.TargetWhitePointMode,
+                ManualWhitePointColorTemperatureK = IsSupportedColorTemperature(manualWhitePointColorTemperature) ? manualWhitePointColorTemperature.Value : Settings.ManualWhitePointColorTemperatureK
             };
 
             _isInitialized = true;
@@ -71,8 +77,16 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
         await _localSettingsService.SaveSettingAsync(GreenWavelengthNmKey, settings.GreenWavelengthNm);
         await _localSettingsService.SaveSettingAsync(BlueWavelengthNmKey, settings.BlueWavelengthNm);
         await _localSettingsService.SaveSettingAsync(OutputGammaKey, settings.OutputGamma);
+        await _localSettingsService.SaveSettingAsync(TargetWhitePointModeKey, settings.TargetWhitePointMode);
+        await _localSettingsService.SaveSettingAsync(ManualWhitePointColorTemperatureKKey, settings.ManualWhitePointColorTemperatureK);
     }
 
     private static bool IsVisibleWavelength(double? wavelengthNm)
         => wavelengthNm is >= 380.0 and <= 780.0;
+
+    private static bool IsSupportedTargetWhitePointMode(ScanTargetWhitePointMode? mode)
+        => mode is ScanTargetWhitePointMode.D65 or ScanTargetWhitePointMode.D50 or ScanTargetWhitePointMode.ManualColorTemperature;
+
+    private static bool IsSupportedColorTemperature(double? colorTemperatureK)
+        => colorTemperatureK is >= 1667.0 and <= 25000.0;
 }
