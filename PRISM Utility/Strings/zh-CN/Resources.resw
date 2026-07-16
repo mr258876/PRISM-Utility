@@ -930,6 +930,18 @@
   <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve">
     <value>运行自动对焦</value>
   </data>
+  <data name="ScanDebug_ManualFocusTitle.Text" xml:space="preserve">
+    <value>手动 Z 对焦</value>
+  </data>
+  <data name="ScanDebug_ManualFocusDistanceMmTextBox.Header" xml:space="preserve">
+    <value>点动距离 (mm)</value>
+  </data>
+  <data name="ScanDebug_ManualFocusNegativeButton.Content" xml:space="preserve">
+    <value>Z-</value>
+  </data>
+  <data name="ScanDebug_ManualFocusPositiveButton.Content" xml:space="preserve">
+    <value>Z+</value>
+  </data>
   <data name="ScanDebug_IlluminationTitle.Text" xml:space="preserve">
     <value>照明控制</value>
   </data>
@@ -1617,6 +1629,9 @@
   <data name="ScanDebug_Runtime_StatusMonochromeDngExported" xml:space="preserve">
     <value>单色 DNG 已导出到 {0}</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusWorkflowPreviewChannelUnavailable" xml:space="preserve">
+    <value>所选 workflow 预览通道不可用。</value>
+  </data>
   <data name="Scan_Runtime_StatusDngExportFailed" xml:space="preserve">
     <value>DNG 导出失败：{0}</value>
   </data>
@@ -1998,6 +2013,9 @@
   <data name="ScanDebug_DisabledReasonRequiresFourChannelCapture" xml:space="preserve">
     <value>导出需要四通道捕获。</value>
   </data>
+  <data name="ScanDebug_DisabledReasonRequiresSingleOrFourChannelCapture" xml:space="preserve">
+    <value>DNG 导出支持单个所选通道，或完整四通道捕获。</value>
+  </data>
   <data name="ScanDebug_DisabledReasonUnavailable" xml:space="preserve">
     <value>不可用。</value>
   </data>
@@ -2084,6 +2102,9 @@
   </data>
   <data name="ScanDebug_Runtime_LimitLabelZProbeDistance" xml:space="preserve">
     <value>Z 探测距离</value>
+  </data>
+  <data name="ScanDebug_Runtime_LimitLabelManualFocusDistance" xml:space="preserve">
+    <value>手动对焦距离</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve">
     <value>校准配置通道：{0}（尚未加载已保存配置）。</value>
@@ -2193,8 +2214,14 @@
   <data name="ScanDebug_Runtime_StatusExportFailed" xml:space="preserve">
     <value>导出失败：{0}</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusExportNoWorkflowPass" xml:space="preserve">
+    <value>没有可用于 DNG 导出的 workflow 采集轮次。</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusExportRequiresFourChannelWorkflow" xml:space="preserve">
     <value>当前 DNG 导出要求完整的 {1} 通道 workflow 结果，而这次扫描只采集了 {0} 轮。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusExportRequiresSingleOrFourChannelWorkflow" xml:space="preserve">
+    <value>DNG 导出支持单个所选通道，或完整四通道 workflow 结果。本次扫描采集了 {0} 个所选通道。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusUsbDebugActive" xml:space="preserve">
     <value>USB 调试处于活动状态。连接扫描调试前请先停止它。</value>
@@ -2547,6 +2574,33 @@
   <data name="ScanDebug_Runtime_ErrorAutofocusWarmUpOffRequired" xml:space="preserve">
     <value>自动对焦要求预热关闭：{0}</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusBusy" xml:space="preserve">
+    <value>另一个扫描或运动动作正在运行，手动对焦不可用。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusStarted" xml:space="preserve">
+    <value>手动对焦 {0}：正在点动 {1} mm 并采样 {2} 行...</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusStopped" xml:space="preserve">
+    <value>手动对焦已停止。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusCompleted" xml:space="preserve">
+    <value>手动对焦已完成。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusFailed" xml:space="preserve">
+    <value>手动对焦失败：{0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusScanFailed" xml:space="preserve">
+    <value>手动对焦预览扫描失败：{0}</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusManualFocusMotionTimeout" xml:space="preserve">
+    <value>手动对焦运动未能在超时前稳定。</value>
+  </data>
+  <data name="ScanDebug_Runtime_ManualFocusPreviewPhase" xml:space="preserve">
+    <value>手动对焦 {0} {1} mm</value>
+  </data>
+  <data name="ScanDebug_Runtime_ErrorManualFocusDistancePositive" xml:space="preserve">
+    <value>手动对焦距离必须是有效的正 Motor3 距离。</value>
+  </data>
   <data name="ScanDebug_Runtime_RowsLimitExceeded.Title" xml:space="preserve">
     <value>超出行数限制</value>
   </data>
@@ -2571,6 +2625,9 @@
   <data name="ScanDebug_Runtime_StatusStartingMultiChannelScan" xml:space="preserve">
     <value>正在开始多通道扫描流程...</value>
   </data>
+  <data name="ScanDebug_Runtime_ErrorWorkflowContinuousUnsupported" xml:space="preserve">
+    <value>workflow 扫描不能在“连续”启用时运行。请先关闭“连续”。</value>
+  </data>
   <data name="ScanDebug_Runtime_ErrorMultiChannelContinuousUnsupported" xml:space="preserve">
     <value>多通道调试扫描不能在“连续”启用时运行。请先关闭“连续”。</value>
   </data>
@@ -2579,6 +2636,9 @@
   </data>
   <data name="ScanDebug_Runtime_ErrorNoActiveScanChannels" xml:space="preserve">
     <value>启动扫描流程前，至少选择一个有效扫描通道。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusAtLeastOneAcquisitionChannelRequired" xml:space="preserve">
+    <value>至少需要保留一个采集通道。</value>
   </data>
   <data name="ScanDebug_Runtime_ErrorSingleChannelRequiresExactlyOnePass" xml:space="preserve">
     <value>单通道扫描要求恰好一个有效扫描通道。请将其他通道设为 Unused，或启用多通道扫描。</value>
@@ -2861,6 +2921,12 @@
   </data>
   <data name="ScanDebug_BasicAcquisitionScopeText.Text" xml:space="preserve">
     <value>仅本次调试会话的临时采集覆盖参数。正式扫描请使用扫描页。</value>
+  </data>
+  <data name="ScanDebug_AcquisitionChannelsTitle.Text" xml:space="preserve">
+    <value>采集通道</value>
+  </data>
+  <data name="ScanDebug_AcquisitionChannelsHelpText.Text" xml:space="preserve">
+    <value>选择一个通道进行单通道调试采集，选择多个通道则执行 workflow 采集。至少需要保留一个通道。</value>
   </data>
   <data name="ScanDebug_AdvancedDebugSwitchesTitle.Text" xml:space="preserve">
     <value>高级调试开关</value>

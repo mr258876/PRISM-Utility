@@ -236,7 +236,7 @@ public sealed partial class ScanDebugPage : Page
 
         DisposePreviewBitmap();
         var pixels = GetCanvasPixels(frame);
-        _previewBitmap = CanvasBitmap.CreateFromBytes(resourceCreator, pixels, frame.Width, frame.Height, DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Ignore);
+        _previewBitmap = CanvasBitmap.CreateFromBytes(resourceCreator, pixels, frame.Width, frame.Height, DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Premultiplied);
         _previewBitmapVersion = frame.Version;
         _previewBitmapWidth = frame.Width;
         _previewBitmapHeight = frame.Height;
@@ -735,6 +735,49 @@ public sealed partial class ScanDebugPage : Page
         _isRoiMoveMode = false;
         _activeRoiPointerId = 0;
         PreviewCanvasControl.ReleasePointerCaptures();
+    }
+
+    private void ManualFocusNegativeButton_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        BeginManualFocusHold(sender, e, positive: false);
+    }
+
+    private void ManualFocusPositiveButton_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        BeginManualFocusHold(sender, e, positive: true);
+    }
+
+    private void ManualFocusButton_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        EndManualFocusHold(sender, e);
+    }
+
+    private void ManualFocusButton_PointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        EndManualFocusHold(sender, e);
+    }
+
+    private void ManualFocusButton_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        ViewModel.EndManualFocusHold();
+    }
+
+    private void BeginManualFocusHold(object sender, PointerRoutedEventArgs e, bool positive)
+    {
+        if (sender is Button button)
+            button.CapturePointer(e.Pointer);
+
+        ViewModel.BeginManualFocusHold(positive);
+        e.Handled = true;
+    }
+
+    private void EndManualFocusHold(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Button button)
+            button.ReleasePointerCapture(e.Pointer);
+
+        ViewModel.EndManualFocusHold();
+        e.Handled = true;
     }
 
     private void DrawRoiOverlays()

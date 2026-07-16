@@ -52,6 +52,41 @@ public sealed class ScanWorkflowServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_PropagatesWorkflowRowAvailabilityMetadata()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var snapshots = new List<ScanWorkflowRowsAvailable>();
+
+        await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true),
+            CancellationToken.None,
+            onRowsAvailable: snapshot =>
+            {
+                lock (snapshots)
+                    snapshots.Add(snapshot);
+            });
+
+        await WaitForAsync(() =>
+        {
+            lock (snapshots)
+                return snapshots.Count == ScanDebugConstants.IlluminationChannelCount;
+        });
+
+        lock (snapshots)
+        {
+            Assert.Collection(
+                snapshots.OrderBy(snapshot => snapshot.CurrentPass),
+                snapshot => AssertWorkflowSnapshot(snapshot, 1, 0, 0, true, "Blue"),
+                snapshot => AssertWorkflowSnapshot(snapshot, 2, 1, 1, false, "Green"),
+                snapshot => AssertWorkflowSnapshot(snapshot, 3, 2, 2, true, "Red"),
+                snapshot => AssertWorkflowSnapshot(snapshot, 4, 3, 3, false, "IR"));
+        }
+    }
+
+    [Fact]
     public async Task ExecuteAsync_LedAutoControlDisabled_ScansWithoutIlluminationChanges()
     {
         var log = new List<string>();
@@ -65,6 +100,39 @@ public sealed class ScanWorkflowServiceTests
         Assert.DoesNotContain("IlluminationOff", log);
         Assert.DoesNotContain("RestoreIllumination", log);
         Assert.Equal(ScanDebugConstants.IlluminationChannelCount, log.Count(entry => entry.StartsWith("Scan:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SparseSelectedPass_AppliesMatchingPhysicalLedSettings()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var request = BuildRequest(alternateMotorDirection: true) with
+        {
+            LedLevels = [0, 0, 345, 0],
+            PassChannelRoles = ["Unused", "Unused", "Red", "Unused"],
+            AcquisitionSettings = new ScanFilmAcquisitionSettings(
+                0,
+                0,
+                345,
+                0,
+                0x04,
+                0,
+                ScanDebugConstants.IlluminationMinSyncPulseClock,
+                ScanDebugConstants.IlluminationMinSyncPulseClock,
+                ScanDebugConstants.IlluminationMinSyncPulseClock,
+                ScanDebugConstants.IlluminationMinSyncPulseClock,
+                ScanDebugConstants.MotionDefaultIntervalNs)
+        };
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None);
+
+        var pass = Assert.Single(result.Passes);
+        Assert.Equal(2, pass.LedChannelIndex);
+        Assert.Contains("IlluminationOn:2:0,0,345,0:4:0", log);
+        Assert.Equal(1, log.Count(entry => entry == "IlluminationOff"));
     }
 
     private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true)
@@ -121,6 +189,31 @@ public sealed class ScanWorkflowServiceTests
         return -1;
     }
 
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            if (condition())
+                return;
+
+            await Task.Delay(20);
+        }
+
+        Assert.True(condition(), "Timed out waiting for workflow row callback propagation.");
+    }
+
+    private static void AssertWorkflowSnapshot(ScanWorkflowRowsAvailable snapshot, int currentPass, int passIndex, byte ledChannelIndex, bool directionPositive, string channelRole)
+    {
+        Assert.Equal(currentPass, snapshot.CurrentPass);
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, snapshot.TotalPasses);
+        Assert.Equal(passIndex, snapshot.PassIndex);
+        Assert.Equal(ledChannelIndex, snapshot.LedChannelIndex);
+        Assert.Equal(directionPositive, snapshot.DirectionPositive);
+        Assert.Equal(channelRole, snapshot.ChannelRole);
+        Assert.Equal(1, snapshot.CompletedRows);
+        Assert.Equal(ScanDebugConstants.BytesPerLine, snapshot.ImageBytes.Length);
+    }
+
     private sealed class RecordingParameterService(List<string> log) : IScanParameterService
     {
         public IReadOnlyList<ScanParameterDefinition> Definitions => Array.Empty<ScanParameterDefinition>();
@@ -161,7 +254,7 @@ public sealed class ScanWorkflowServiceTests
 
         public Task ApplySingleChannelAsync(IScanSessionService session, ScanFilmAcquisitionSettings settings, byte ledIndex, CancellationToken ct)
         {
-            log.Add($"IlluminationOn:{ledIndex}");
+            log.Add($"IlluminationOn:{ledIndex}:{settings.Led1Level},{settings.Led2Level},{settings.Led3Level},{settings.Led4Level}:{settings.SteadyMask}:{settings.SyncMask}");
             return Task.CompletedTask;
         }
 
@@ -276,14 +369,16 @@ public sealed class ScanWorkflowServiceTests
         public Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct)
             => Task.FromResult(new ScanOperationResult(true, string.Empty));
 
-        public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+        public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
         {
             log.Add($"Scan:{_scanIndex++}");
-            return Task.FromResult(new ScanStartResult(true, string.Empty, new byte[rows * ScanDebugConstants.BytesPerLine]));
+            var imageBytes = new byte[rows * ScanDebugConstants.BytesPerLine];
+            onRowsAvailable?.Invoke(imageBytes, rows);
+            return Task.FromResult(new ScanStartResult(true, string.Empty, imageBytes));
         }
 
-        public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
-            => StartScanAsync(totalRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
+        public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
+            => StartScanAsync(totalRows, ct, onStatus, onDiagnostic, onProgress, onRowsAvailable, expectedLineTimeUs);
 
         public Task<ScanStopResult> StopScanAsync(CancellationToken ct)
             => Task.FromResult(new ScanStopResult(true, string.Empty));

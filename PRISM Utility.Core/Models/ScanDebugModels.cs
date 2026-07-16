@@ -118,6 +118,8 @@ public static class ScanDebugConstants
     }
 }
 
+public delegate void ScanRowsAvailableHandler(byte[] imageBytes, int completedRows);
+
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
 
 public sealed record ScanAck(byte Command, byte Status, uint Target, uint Completed);

@@ -13,7 +13,6 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
     private const double MotionTimeoutMultiplier = 2.0;
     private const double TiltBalanceTolerance = 0.035;
     private const double TiltImprovementEpsilon = 0.0025;
-    private const double SharpnessImprovementRatio = 0.005;
     private const uint FineZProbeDivisor = 4;
 
     private readonly IScanImageDecoder _decoder;
@@ -119,38 +118,69 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
 
     private async Task<FocusProbe> OptimizeZAtStepAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe baseline, uint zProbeSteps, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
-        var current = baseline;
-        LogProbe(onStatus, $"Autofocus z {phase} baseline", current.Metrics);
+        LogProbe(onStatus, $"Autofocus z {phase} baseline", baseline.Metrics);
 
-        var positive = await ProbeZFromCurrentAsync(session, request, current, true, zProbeSteps, $"Autofocus z {phase} +probe", onStatus, onFrameCaptured, ct);
-        var negative = await ProbeZFromCurrentAsync(session, request, current, false, zProbeSteps, $"Autofocus z {phase} -probe", onStatus, onFrameCaptured, ct);
-        var best = SelectBestSharpnessProbe(current, positive, negative);
-        if (ReferenceEquals(best, current))
+        var step = CheckedToInt(zProbeSteps, nameof(zProbeSteps));
+        var radius = CheckedMultiplyToInt(zProbeSteps, request.MaxZIterations, nameof(request.MaxZIterations));
+        var firstOffset = CheckedOffset(baseline.ZOffsetSteps, -radius, $"Autofocus z {phase} sweep start");
+        var lastOffset = CheckedOffset(baseline.ZOffsetSteps, radius, $"Autofocus z {phase} sweep end");
+        var preloadOffset = CheckedOffset(firstOffset, -step, $"Autofocus z {phase} preload");
+        var sampleCount = checked((request.MaxZIterations * 2) + 1);
+
+        onStatus?.Invoke($"Autofocus z {phase}: one-way sweep {sampleCount} point(s), offsets {firstOffset:+#;-#;0}..{lastOffset:+#;-#;0} steps.");
+
+        var physicalOffset = baseline.ZOffsetSteps;
+        await MoveZToOffsetAsync(session, request, physicalOffset, preloadOffset, ct);
+        physicalOffset = preloadOffset;
+
+        await MoveZToOffsetAsync(session, request, physicalOffset, firstOffset, ct);
+        physicalOffset = firstOffset;
+
+        var best = await CaptureFocusProbeAsync(
+            session,
+            request.SampleRows,
+            baseline.TiltOffsetSteps,
+            physicalOffset,
+            request.RoiSettings,
+            $"Autofocus z {phase} sweep 1/{sampleCount}",
+            onStatus,
+            onFrameCaptured,
+            ct);
+        LogProbe(onStatus, $"Autofocus z {phase} sweep 1/{sampleCount}", best.Metrics);
+
+        for (var sampleIndex = 1; sampleIndex < sampleCount; sampleIndex++)
         {
-            onStatus?.Invoke($"Autofocus z {phase}: no single-step sharpness improvement found; keeping current Z.");
-            return current;
+            var nextOffset = CheckedOffset(firstOffset, (long)step * sampleIndex, $"Autofocus z {phase} sweep offset");
+            await MoveZToOffsetAsync(session, request, physicalOffset, nextOffset, ct);
+            physicalOffset = nextOffset;
+
+            var probe = await CaptureFocusProbeAsync(
+                session,
+                request.SampleRows,
+                baseline.TiltOffsetSteps,
+                physicalOffset,
+                request.RoiSettings,
+                $"Autofocus z {phase} sweep {sampleIndex + 1}/{sampleCount}",
+                onStatus,
+                onFrameCaptured,
+                ct);
+            LogProbe(onStatus, $"Autofocus z {phase} sweep {sampleIndex + 1}/{sampleCount}", probe.Metrics);
+
+            if (probe.Metrics.OverallSharpness > best.Metrics.OverallSharpness)
+                best = probe;
         }
 
-        var stepPositive = best.ZOffsetSteps > current.ZOffsetSteps;
-        await MoveZAsync(session, request, stepPositive, zProbeSteps, ct);
-        current = best;
-        LogProbe(onStatus, $"Autofocus z {phase} step", current.Metrics);
+        if (best.ZOffsetSteps == firstOffset || best.ZOffsetSteps == lastOffset)
+            onStatus?.Invoke($"Autofocus z {phase}: best sharpness was at the sweep edge; the real focus may be outside this Z window.");
 
-        for (var iteration = 2; iteration <= request.MaxZIterations; iteration++)
-        {
-            var next = await ProbeZForwardAsync(session, request, current, stepPositive, zProbeSteps, $"Autofocus z {phase} iteration {iteration}", onStatus, onFrameCaptured, ct);
-            if (!IsSharpnessMeaningfullyBetter(next.Metrics.OverallSharpness, current.Metrics.OverallSharpness))
-            {
-                await MoveZAsync(session, request, !stepPositive, zProbeSteps, ct);
-                onStatus?.Invoke($"Autofocus z {phase}: further movement stopped improving overall sharpness.");
-                return current;
-            }
+        var bestPreloadOffset = CheckedOffset(best.ZOffsetSteps, -step, $"Autofocus z {phase} final preload");
+        await MoveZToOffsetAsync(session, request, physicalOffset, bestPreloadOffset, ct);
+        physicalOffset = bestPreloadOffset;
 
-            current = next;
-            LogProbe(onStatus, $"Autofocus z {phase} iteration {iteration}", current.Metrics);
-        }
+        await MoveZToOffsetAsync(session, request, physicalOffset, best.ZOffsetSteps, ct);
+        LogProbe(onStatus, $"Autofocus z {phase} selected", best.Metrics);
 
-        return current;
+        return best;
     }
 
     private async Task<FocusProbe> ProbeTiltFromCurrentAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe current, bool positive, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
@@ -185,38 +215,6 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             ct);
     }
 
-    private async Task<FocusProbe> ProbeZFromCurrentAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe current, bool positive, uint zProbeSteps, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
-    {
-        await MoveZAsync(session, request, positive, zProbeSteps, ct);
-        var probe = await CaptureFocusProbeAsync(
-            session,
-            request.SampleRows,
-            current.TiltOffsetSteps,
-            current.ZOffsetSteps + (positive ? (int)zProbeSteps : -(int)zProbeSteps),
-            request.RoiSettings,
-            label,
-            onStatus,
-            onFrameCaptured,
-            ct);
-        await MoveZAsync(session, request, !positive, zProbeSteps, ct);
-        return probe;
-    }
-
-    private async Task<FocusProbe> ProbeZForwardAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe current, bool positive, uint zProbeSteps, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
-    {
-        await MoveZAsync(session, request, positive, zProbeSteps, ct);
-        return await CaptureFocusProbeAsync(
-            session,
-            request.SampleRows,
-            current.TiltOffsetSteps,
-            current.ZOffsetSteps + (positive ? (int)zProbeSteps : -(int)zProbeSteps),
-            request.RoiSettings,
-            label,
-            onStatus,
-            onFrameCaptured,
-            ct);
-    }
-
     private async Task MoveTiltAsync(IScanSessionService session, ScanAutofocusRequest request, bool positive, uint steps, CancellationToken ct)
     {
         if (steps == 0)
@@ -239,6 +237,19 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         await session.MoveMotorStepsAsync(FocusMotor1Id, direction, steps, request.MotorIntervalNs, ct);
         await session.MoveMotorStepsAsync(FocusMotor3Id, direction, steps, request.MotorIntervalNs, ct);
         await WaitForFocusMotorMotionCompleteEventsAsync(session, steps, request.MotorIntervalNs, ct);
+    }
+
+    private async Task MoveZToOffsetAsync(IScanSessionService session, ScanAutofocusRequest request, int currentOffsetSteps, int targetOffsetSteps, CancellationToken ct)
+    {
+        var delta = (long)targetOffsetSteps - currentOffsetSteps;
+        if (delta == 0)
+            return;
+
+        var steps = Math.Abs(delta);
+        if (steps > uint.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(targetOffsetSteps), "Autofocus Z move is too large.");
+
+        await MoveZAsync(session, request, delta > 0, (uint)steps, ct);
     }
 
     private static async Task WaitForFocusMotorMotionCompleteEventsAsync(IScanSessionService session, uint steps, uint intervalNs, CancellationToken ct)
@@ -404,20 +415,37 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return candidates.OrderBy(candidate => Math.Abs(candidate.Metrics.TiltImbalance)).First();
     }
 
-    private static FocusProbe SelectBestSharpnessProbe(FocusProbe current, FocusProbe positive, FocusProbe negative)
-    {
-        var candidates = new[] { current, positive, negative };
-        return candidates.OrderByDescending(candidate => candidate.Metrics.OverallSharpness).First();
-    }
-
     private static bool IsTiltMeaningfullyBetter(double candidateImbalance, double currentImbalance)
         => Math.Abs(candidateImbalance) + TiltImprovementEpsilon < Math.Abs(currentImbalance);
 
-    private static bool IsSharpnessMeaningfullyBetter(double candidateSharpness, double currentSharpness)
-        => candidateSharpness > currentSharpness + Math.Max(Math.Abs(currentSharpness) * SharpnessImprovementRatio, 0.0001);
-
     private static void LogProbe(Action<string>? onStatus, string label, FocusMetrics metrics)
         => onStatus?.Invoke($"{label}: overall={metrics.OverallSharpness:0.0000}, left={metrics.LeftSharpness:0.0000}, right={metrics.RightSharpness:0.0000}, imbalance={metrics.TiltImbalance:+0.0000;-0.0000;0.0000}");
+
+    private static int CheckedToInt(uint steps, string parameterName)
+    {
+        if (steps > int.MaxValue)
+            throw new ArgumentOutOfRangeException(parameterName, "Autofocus step count is too large.");
+
+        return (int)steps;
+    }
+
+    private static int CheckedMultiplyToInt(uint steps, int multiplier, string parameterName)
+    {
+        var result = (ulong)steps * (ulong)multiplier;
+        if (result > int.MaxValue)
+            throw new ArgumentOutOfRangeException(parameterName, "Autofocus sweep window is too large.");
+
+        return (int)result;
+    }
+
+    private static int CheckedOffset(int origin, long delta, string label)
+    {
+        var result = origin + delta;
+        if (result < int.MinValue || result > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(delta), $"{label} exceeds the autofocus offset range.");
+
+        return (int)result;
+    }
 
     private static void ValidateRequest(IScanSessionService session, ScanAutofocusRequest request)
     {

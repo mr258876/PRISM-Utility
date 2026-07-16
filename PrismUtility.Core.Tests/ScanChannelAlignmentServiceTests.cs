@@ -176,6 +176,9 @@ public sealed class ScanChannelAlignmentServiceTests
 
         public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, out ScanCompositePixelBuffer? frame, out string error)
             => throw new NotSupportedException();
+
+        public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, out ScanCompositePixelBuffer? frame, out string error)
+            => throw new NotSupportedException();
     }
 
     private sealed class TestScanImageDecoder(int width, int effectiveStart, int effectiveEndInclusive) : IScanImageDecoder

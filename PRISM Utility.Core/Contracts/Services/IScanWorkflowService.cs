@@ -11,5 +11,6 @@ public interface IScanWorkflowService
         Action<ScanWorkflowProgress>? onProgress = null,
         Action<string>? onStatus = null,
         Action<string>? onDiagnostic = null,
-        Action<int, int>? onByteProgress = null);
+        Action<int, int>? onByteProgress = null,
+        ScanWorkflowRowsAvailableHandler? onRowsAvailable = null);
 }

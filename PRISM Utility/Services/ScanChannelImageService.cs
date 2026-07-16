@@ -90,6 +90,27 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         return true;
     }
 
+    public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<int, int> completedRowsByPassIndex, WriteableBitmap? currentBitmap, out ScanCompositeFrame? frame, out string error, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
+    {
+        frame = null;
+        if (!TryBuildPartialRgbCompositeBuffer(result, assignment, colorManagement, completedRowsByPassIndex, out var buffer, out error, channelProfiles, applyWhiteLevel) || buffer is null)
+            return false;
+
+        var bitmap = currentBitmap;
+        if (bitmap is null || bitmap.PixelWidth != buffer.Width || bitmap.PixelHeight != buffer.Height)
+            bitmap = new WriteableBitmap(buffer.Width, buffer.Height);
+
+        using (var stream = bitmap.PixelBuffer.AsStream())
+        {
+            stream.Position = 0;
+            stream.Write(buffer.Pixels, 0, buffer.Pixels.Length);
+        }
+
+        bitmap.Invalidate();
+        frame = new ScanCompositeFrame(buffer, bitmap);
+        return true;
+    }
+
     public async Task<ScanCompositePixelBuffer> BuildRgbCompositeBufferAsync(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, ScanChannelAlignmentMode alignmentMode, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
     {
         var (buffer, error) = await Task.Run(() =>
@@ -282,6 +303,49 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         var alignedResult = BuildAlignedResult(result, previewPasses);
         var normalizedAssignment = BuildNormalizedAssignment(assignment);
         return _processor.TryBuildRgbComposite(alignedResult, normalizedAssignment, colorManagement, out buffer, out error);
+    }
+
+    private bool TryBuildPartialRgbCompositeBuffer(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<int, int> completedRowsByPassIndex, out ScanCompositePixelBuffer? buffer, out string error, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
+    {
+        buffer = null;
+
+        var normalizedPasses = BuildNormalizedPassBuffers(result, assignment);
+        var previewPasses = applyWhiteLevel ? ApplyWhiteLevelOverrides(normalizedPasses, assignment.Roles.ToArray(), result.Rows, channelProfiles) : normalizedPasses;
+        var normalizedResult = BuildAlignedResult(result, previewPasses);
+        var normalizedAssignment = BuildNormalizedAssignment(assignment);
+        var availableRowsByRole = BuildRoleAvailabilityMap(result, assignment, completedRowsByPassIndex);
+        return _processor.TryBuildPartialRgbComposite(normalizedResult, normalizedAssignment, colorManagement, availableRowsByRole, out buffer, out error);
+    }
+
+    private byte[][] BuildNormalizedPassBuffers(ScanWorkflowResult result, ScanChannelAssignment assignment)
+    {
+        var normalizedPasses = new byte[result.Passes.Count][];
+        for (var index = 0; index < result.Passes.Count; index++)
+            normalizedPasses[index] = _processor.NormalizePassBuffer(result.Passes[index], index < assignment.ReversedFlags.Count && assignment.ReversedFlags[index]);
+
+        return normalizedPasses;
+    }
+
+    private static IReadOnlyDictionary<string, ScanRowAvailability> BuildRoleAvailabilityMap(ScanWorkflowResult result, ScanChannelAssignment assignment, IReadOnlyDictionary<int, int> completedRowsByPassIndex)
+    {
+        var availability = new Dictionary<string, ScanRowAvailability>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < result.Passes.Count && index < assignment.Roles.Count; index++)
+        {
+            var role = assignment.Roles[index];
+            if (string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase) || availability.ContainsKey(role))
+                continue;
+
+            var completedRows = completedRowsByPassIndex.TryGetValue(index, out var explicitCompletedRows)
+                ? explicitCompletedRows
+                : result.Rows;
+            completedRows = Math.Clamp(completedRows, 0, result.Rows);
+
+            var shouldReverse = !result.Passes[index].DirectionPositive ^ assignment.ReversedFlags[index];
+            var startRow = shouldReverse ? result.Rows - completedRows : 0;
+            availability[role] = new ScanRowAvailability(startRow, completedRows);
+        }
+
+        return availability;
     }
 
     private static ScanChannelAssignment BuildNormalizedAssignment(ScanChannelAssignment assignment)

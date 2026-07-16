@@ -1,4 +1,5 @@
 ﻿using PRISM_Utility.Core.Contracts.Models;
+using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Contracts.Services;
 public interface IUsbService : IDisposable
@@ -60,8 +61,8 @@ public interface IUsbService : IDisposable
 public interface IUsbBulkDuplexSession : IDisposable
 {
     Task<(int transferred, byte[] data)> ReadBulkInOnceAsync(int bufferSize, int timeoutMs, CancellationToken ct);
-    Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null);
-    Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null);
+    Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null);
+    Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null);
     int? GetBulkInMaxTransferSize();
     Task<int> WriteBulkOutAsync(byte[] data, int timeoutMs, CancellationToken ct);
 }

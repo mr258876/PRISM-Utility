@@ -45,6 +45,26 @@ public sealed record ScanWorkflowProgress(
     bool DirectionPositive,
     string Stage);
 
+public sealed record ScanWorkflowRowsAvailable(
+    int CurrentPass,
+    int TotalPasses,
+    int PassIndex,
+    byte LedChannelIndex,
+    bool DirectionPositive,
+    string ChannelRole,
+    byte[] ImageBytes,
+    int CompletedRows);
+
+public sealed record ScanRowAvailability(int StartRow, int RowCount)
+{
+    public int EndExclusive => StartRow + Math.Max(0, RowCount);
+
+    public bool Contains(int row)
+        => row >= StartRow && row < EndExclusive;
+}
+
+public delegate void ScanWorkflowRowsAvailableHandler(ScanWorkflowRowsAvailable snapshot);
+
 public sealed record ScanChannelAssignment(
     string Channel1Role,
     string Channel2Role,

@@ -247,6 +247,35 @@
                             </Grid>
 
                             <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                <TextBlock x:Uid="ScanDebug_AcquisitionChannelsTitle"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <TextBlock x:Uid="ScanDebug_AcquisitionChannelsHelpText"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.AcquisitionChannels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Margin="0,0,0,4"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      IsEnabled="{Binding IsSelectionEditable}">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{Binding ChannelLedBindingText}"
+                                                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                                    <TextBlock Text="{Binding CalibrationStatusText}"
+                                                               Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                                </StackPanel>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{x:Bind ViewModel.AcquisitionPlanSummaryText, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                <TextBlock Text="{x:Bind ViewModel.ChannelLedBindingSummaryText, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                <TextBlock Text="{x:Bind ViewModel.StartDisabledReasonText, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                            </StackPanel>
+
+                            <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
                                 <TextBlock x:Uid="ScanDebug_AdvancedDebugSwitchesTitle"
                                            Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                 <TextBlock x:Uid="ScanDebug_AdvancedDebugSwitchesScopeText"
@@ -258,9 +287,6 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
@@ -279,23 +305,11 @@
                                     <ToggleSwitch
                                         Grid.Row="1"
                                         Grid.Column="0"
-                                        x:Uid="ScanDebug_ScanLedAutoControlToggleSwitch"
-                                        IsEnabled="{x:Bind ViewModel.CanEditScanLedAutoControl, Mode=OneWay}"
-                                        IsOn="{x:Bind ViewModel.IsScanLedAutoControlEnabled, Mode=TwoWay}"/>
-                                    <ToggleSwitch
-                                        Grid.Row="1"
-                                        Grid.Column="1"
                                         x:Uid="ScanDebug_ScanMotorTransportToggleSwitch"
                                         IsEnabled="{x:Bind ViewModel.CanEditScanMotorTransport, Mode=OneWay}"
                                         IsOn="{x:Bind ViewModel.IsScanMotorTransportEnabled, Mode=TwoWay}"/>
                                     <ToggleSwitch
-                                        Grid.Row="2"
-                                        Grid.Column="0"
-                                        x:Uid="ScanDebug_MultiChannelToggleSwitch"
-                                        IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
-                                        IsOn="{x:Bind ViewModel.IsMultiChannelScanEnabled, Mode=TwoWay}"/>
-                                    <ToggleSwitch
-                                        Grid.Row="2"
+                                        Grid.Row="1"
                                         Grid.Column="1"
                                         x:Uid="Scan_AlternateDirectionToggleSwitch"
                                         IsEnabled="{x:Bind ViewModel.AreScanAcquisitionSettingsEditable, Mode=OneWay}"
@@ -405,10 +419,11 @@
                                         <ComboBoxItem x:Uid="Scan_TargetWhitePointD50ComboBoxItem" Tag="D50"/>
                                         <ComboBoxItem x:Uid="Scan_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature"/>
                                     </ComboBox>
-                                    <TextBox Grid.Row="6"
-                                             Grid.Column="1"
-                                             x:Uid="Scan_ManualWhitePointColorTemperatureTextBox"
-                                             Text="{x:Bind ViewModel.ScanRecipeManualWhitePointColorTemperatureK, Mode=TwoWay}"/>
+                                     <TextBox Grid.Row="6"
+                                              Grid.Column="1"
+                                              x:Uid="Scan_ManualWhitePointColorTemperatureTextBox"
+                                              IsEnabled="{x:Bind ViewModel.IsScanRecipeManualWhitePointColorTemperatureEnabled, Mode=OneWay}"
+                                              Text="{x:Bind ViewModel.ScanRecipeManualWhitePointColorTemperatureK, Mode=TwoWay}"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -709,6 +724,8 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <StackPanel Grid.Row="0"
@@ -785,7 +802,61 @@
                                           ItemsSource="{x:Bind ViewModel.MotorDirectionOptions, Mode=OneWay}"
                                           ItemTemplate="{StaticResource ScanMotorDirectionOptionTemplate}"
                                           SelectedItem="{x:Bind ViewModel.AutofocusTiltDirection, Mode=TwoWay}"/>
-                                <Button Grid.Row="3"
+
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="2"
+                                           x:Uid="ScanDebug_ManualFocusTitle"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <Grid Grid.Row="4"
+                                      Grid.Column="0"
+                                      Grid.ColumnSpan="2"
+                                      ColumnSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0"
+                                                Spacing="4">
+                                        <TextBox x:Uid="ScanDebug_ManualFocusDistanceMmTextBox"
+                                                 Text="{x:Bind ViewModel.ManualFocusDistanceMm, Mode=TwoWay}"/>
+                                        <Border
+                                            Padding="8,4"
+                                            CornerRadius="6"
+                                            Background="{x:Bind ViewModel.ManualFocusDistanceLimitBrush, Mode=OneWay}">
+                                            <TextBlock
+                                                Text="{x:Bind ViewModel.ManualFocusDistanceLimitText, Mode=OneWay}"
+                                                TextWrapping="WrapWholeWords"
+                                                FontSize="12"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <Grid Grid.Column="1"
+                                          MinWidth="112"
+                                          ColumnSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="ManualFocusNegativeButton"
+                                                Grid.Column="0"
+                                                x:Uid="ScanDebug_ManualFocusNegativeButton"
+                                                IsEnabled="{x:Bind ViewModel.CanStartManualFocusAction, Mode=OneWay}"
+                                                PointerPressed="ManualFocusNegativeButton_PointerPressed"
+                                                PointerReleased="ManualFocusButton_PointerReleased"
+                                                PointerCanceled="ManualFocusButton_PointerCanceled"
+                                                PointerCaptureLost="ManualFocusButton_PointerCaptureLost"/>
+                                        <Button x:Name="ManualFocusPositiveButton"
+                                                Grid.Column="1"
+                                                x:Uid="ScanDebug_ManualFocusPositiveButton"
+                                                IsEnabled="{x:Bind ViewModel.CanStartManualFocusAction, Mode=OneWay}"
+                                                PointerPressed="ManualFocusPositiveButton_PointerPressed"
+                                                PointerReleased="ManualFocusButton_PointerReleased"
+                                                PointerCanceled="ManualFocusButton_PointerCanceled"
+                                                PointerCaptureLost="ManualFocusButton_PointerCaptureLost"/>
+                                    </Grid>
+                                </Grid>
+                                <Button Grid.Row="5"
                                         Grid.Column="0"
                                         Grid.ColumnSpan="2"
                                         x:Uid="ScanDebug_RunAutofocusButton"
@@ -817,9 +888,33 @@
                                             <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                                <ComboBox Header="{Binding WorkModeHeader}"
-                                                          ItemsSource="{Binding WorkModeOptions}"
-                                                          SelectedItem="{Binding WorkMode, Mode=TwoWay}"/>
+                                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBox Grid.Row="0"
+                                                             Grid.Column="0"
+                                                             Header="{Binding LevelHeader}"
+                                                             PlaceholderText="{Binding LevelPlaceholder}"
+                                                             Text="{Binding Level, Mode=TwoWay}"/>
+                                                    <TextBox Grid.Row="0"
+                                                             Grid.Column="1"
+                                                             Header="{Binding PulseClockHeader}"
+                                                             PlaceholderText="{Binding PulseClockPlaceholder}"
+                                                             Text="{Binding PulseClock, Mode=TwoWay}"/>
+                                                    <ComboBox Grid.Row="1"
+                                                              Grid.Column="0"
+                                                              Grid.ColumnSpan="2"
+                                                              Header="{Binding WorkModeHeader}"
+                                                              ItemsSource="{Binding WorkModeOptions}"
+                                                              SelectedItem="{Binding WorkMode, Mode=TwoWay}"/>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>

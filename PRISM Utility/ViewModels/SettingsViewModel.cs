@@ -81,10 +81,17 @@ public partial class SettingsViewModel : ObservableRecipient
     public partial string OutputGamma { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsManualWhitePointColorTemperatureEnabled))]
     public partial string SelectedTargetWhitePointMode { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string ManualWhitePointColorTemperatureK { get; set; } = string.Empty;
+
+    public bool IsManualWhitePointColorTemperatureEnabled =>
+        string.Equals(
+            SelectedTargetWhitePointMode,
+            nameof(ScanTargetWhitePointMode.ManualColorTemperature),
+            StringComparison.Ordinal);
 
     public IReadOnlyList<AppLanguageOption> LanguageOptions { get; } =
     [

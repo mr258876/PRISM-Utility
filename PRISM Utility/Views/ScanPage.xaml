@@ -196,7 +196,7 @@
                                             <ComboBoxItem x:Uid="Scan_TargetWhitePointD50ComboBoxItem" Tag="D50" />
                                             <ComboBoxItem x:Uid="Scan_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature" />
                                         </ComboBox>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Uid="Scan_ManualWhitePointColorTemperatureTextBox" IsEnabled="{x:Bind ViewModel.IsSetupEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" x:Uid="Scan_ManualWhitePointColorTemperatureTextBox" IsEnabled="{x:Bind ViewModel.IsManualWhitePointColorTemperatureEditingEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
                                     </Grid>
                                 </StackPanel>
                             </Expander>

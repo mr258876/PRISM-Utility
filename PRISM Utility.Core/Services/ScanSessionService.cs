@@ -317,20 +317,20 @@ public class ScanSessionService : IScanSessionService
         }
     }
 
-    public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
         if (!IsConnected || _controlSession is null || _imageSession is null)
             return Task.FromResult(new ScanStartResult(false, "Scanner not connected. Click Connect Devices first.", null));
 
-        return _executionRunner.StartScanAsync(_controlSession, _imageSession, rows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
+        return _executionRunner.StartScanAsync(_controlSession, _imageSession, rows, ct, onStatus, onDiagnostic, onProgress, onRowsAvailable, expectedLineTimeUs);
     }
 
-    public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
         if (!IsConnected || _controlSession is null || _imageSession is null)
             return Task.FromResult(new ScanStartResult(false, "Scanner not connected. Click Connect Devices first.", null));
 
-        return _executionRunner.StartSegmentedScanAsync(_controlSession, _imageSession, totalRows, SingleTransferMaxRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
+        return _executionRunner.StartSegmentedScanAsync(_controlSession, _imageSession, totalRows, SingleTransferMaxRows, ct, onStatus, onDiagnostic, onProgress, onRowsAvailable, expectedLineTimeUs);
     }
 
     public Task<ScanStopResult> StopScanAsync(CancellationToken ct)

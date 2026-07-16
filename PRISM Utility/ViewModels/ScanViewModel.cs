@@ -121,6 +121,7 @@ public partial class ScanViewModel : ObservableRecipient
     public partial string OutputGamma { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsManualWhitePointColorTemperatureEditingEnabled))]
     public partial string SelectedTargetWhitePointMode { get; set; }
 
     [ObservableProperty]
@@ -342,10 +343,18 @@ public partial class ScanViewModel : ObservableRecipient
     public partial string FirstBlockingCardId { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsManualWhitePointColorTemperatureEditingEnabled))]
     public partial bool IsSetupEditingEnabled { get; set; }
 
     [ObservableProperty]
     public partial bool IsOutputSettingsEnabled { get; set; }
+
+    public bool IsManualWhitePointColorTemperatureEditingEnabled =>
+        IsSetupEditingEnabled
+        && string.Equals(
+            SelectedTargetWhitePointMode,
+            nameof(ScanTargetWhitePointMode.ManualColorTemperature),
+            StringComparison.Ordinal);
 
     public ScanViewModel(
         IScannerDeviceSessionManager sessionManager,

@@ -26,7 +26,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         Action<ScanWorkflowProgress>? onProgress = null,
         Action<string>? onStatus = null,
         Action<string>? onDiagnostic = null,
-        Action<int, int>? onByteProgress = null)
+        Action<int, int>? onByteProgress = null,
+        ScanWorkflowRowsAvailableHandler? onRowsAvailable = null)
     {
         ValidateRequest(session, request);
 
@@ -99,7 +100,20 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                             var workflowTotalBytes = Math.Min(int.MaxValue, Math.Max(1L, (long)totalBytes * totalPasses));
                             var workflowTransferredBytes = Math.Min(workflowTotalBytes, Math.Max(0L, ((long)activePassIndex * totalBytes) + transferredBytes));
                             onByteProgress((int)workflowTransferredBytes, (int)workflowTotalBytes);
-                        });
+                        },
+                    onRowsAvailable is null
+                        ? null
+                        : (imageBytes, completedRows) => QueueWorkflowRowsAvailable(
+                            onRowsAvailable,
+                            new ScanWorkflowRowsAvailable(
+                                activePassIndex + 1,
+                                totalPasses,
+                                passIndex,
+                                ledIndex,
+                                directionPositive,
+                                passRole,
+                                imageBytes,
+                                completedRows)));
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {activePassIndex + 1} failed: {scanResult.Message}");
 
@@ -179,7 +193,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         CancellationToken ct,
         Action<string>? onStatus,
         Action<string>? onDiagnostic,
-        Action<int, int>? onByteProgress)
+        Action<int, int>? onByteProgress,
+        ScanRowsAvailableHandler? onRowsAvailable)
     {
         var useExtendedSingleRead = await ShouldUseFullStartReadPathAsync();
         if (rows > session.SingleTransferMaxRows && !useExtendedSingleRead)
@@ -190,6 +205,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onStatus,
                 onDiagnostic,
                 onByteProgress,
+                onRowsAvailable,
                 expectedLineTimeUs);
         }
 
@@ -199,7 +215,24 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             onStatus,
             onDiagnostic,
             onByteProgress,
+            onRowsAvailable,
             expectedLineTimeUs);
+    }
+
+    private static void QueueWorkflowRowsAvailable(ScanWorkflowRowsAvailableHandler callback, ScanWorkflowRowsAvailable snapshot)
+    {
+        ThreadPool.UnsafeQueueUserWorkItem(static state =>
+        {
+            var (handler, rowSnapshot) = ((ScanWorkflowRowsAvailableHandler Handler, ScanWorkflowRowsAvailable Snapshot))state!;
+            try
+            {
+                handler(rowSnapshot);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
+        }, (callback, snapshot));
     }
 
     private async Task<bool> ShouldUseFullStartReadPathAsync()

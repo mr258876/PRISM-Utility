@@ -3,6 +3,7 @@ using LibUsbDotNet.Info;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.WinUsb;
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Models;
 
 internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
 {
@@ -122,7 +123,7 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
         }, ct);
     }
 
-    public Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null)
+    public Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null)
     {
         if (expectedBytes <= 0)
             throw new ArgumentOutOfRangeException(nameof(expectedBytes));
@@ -152,12 +153,13 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
                 var exact = new byte[expectedBytes];
                 Buffer.BlockCopy(buffer, 0, exact, 0, expectedBytes);
                 onProgress?.Invoke(expectedBytes, expectedBytes);
+                ReportCompletedWholeRows(expectedBytes, 0, exact, onRowsAvailable);
                 return exact;
             }
         }, ct);
     }
 
-    public Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null)
+    public Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null)
     {
         if (expectedBytes <= 0)
             throw new ArgumentOutOfRangeException(nameof(expectedBytes));
@@ -178,7 +180,7 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
             lock (_readLock)
             {
                 _reader.Reset();
-                return ReadBulkInExactMultiBufferedCore(expectedBytes, transferSize, maxOutstandingTransfers, timeoutMs, rawIoEnabled, ct, onProgress);
+                return ReadBulkInExactMultiBufferedCore(expectedBytes, transferSize, maxOutstandingTransfers, timeoutMs, rawIoEnabled, ct, onProgress, onRowsAvailable);
             }
         }, ct);
     }
@@ -241,7 +243,7 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
             throw new ObjectDisposedException(nameof(UsbBulkDuplexSession));
     }
 
-    private byte[] ReadBulkInExactMultiBufferedCore(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress)
+    private byte[] ReadBulkInExactMultiBufferedCore(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress, ScanRowsAvailableHandler? onRowsAvailable)
     {
         var pipePolicies = TryConfigureWinUsbPipePolicies(timeoutMs, rawIoEnabled, out var maxTransferSize);
         var maxPacketSize = _reader?.EndpointInfo?.Descriptor?.MaxPacketSize ?? 512;
@@ -253,6 +255,7 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
         var completedTransfers = new Dictionary<long, CompletedTransfer>();
         var totalTransferred = 0;
         var bytesSubmitted = 0;
+        var reportedRows = 0;
         long nextSequenceToSubmit = 0;
         long nextSequenceToCommit = 0;
 
@@ -289,8 +292,13 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
                 if (ec != ErrorCode.None && ec != ErrorCode.Success && !(ec == ErrorCode.IoTimedOut && transferred > 0))
                     throw new IOException($"Read error: {ec}");
 
+                // Snapshot the completed transfer data BEFORE reusing the slot buffer.
+                // TrySubmitTransferSlot re-submits slot.Buffer for the next async USB transfer;
+                // the snapshot ensures the completed data remains stable regardless of when
+                // the new transfer overwrites slot.Buffer.
+                var snapshot = SnapshotTransferBytes(slot.Buffer, transferred);
+                completedTransfers[completedSequence] = new CompletedTransfer(snapshot, transferred, completedLogicalLength);
                 TrySubmitTransferSlot(slot, normalizedTransferSize, expectedBytes, ref bytesSubmitted, timeoutMs, nextSequenceToSubmit++, rawIoEnabled);
-                completedTransfers[completedSequence] = new CompletedTransfer(slot.Buffer, transferred, completedLogicalLength);
 
                 while (completedTransfers.Remove(nextSequenceToCommit, out var completed))
                 {
@@ -304,6 +312,7 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
                         Buffer.BlockCopy(completed.Buffer, 0, imageBytes, totalTransferred, completed.Transferred);
                         totalTransferred += completed.Transferred;
                         onProgress?.Invoke(totalTransferred, expectedBytes);
+                        reportedRows = ReportCompletedWholeRows(totalTransferred, reportedRows, imageBytes, onRowsAvailable);
                     }
 
                     nextSequenceToCommit++;
@@ -403,6 +412,35 @@ internal sealed class UsbBulkDuplexSession : IUsbBulkDuplexSession
             return value;
 
         return checked(value + (alignment - remainder));
+    }
+
+    internal static byte[] SnapshotTransferBytes(byte[] buffer, int transferred)
+    {
+        if (transferred < 0 || transferred > buffer.Length)
+            throw new ArgumentOutOfRangeException(nameof(transferred));
+
+        var snapshot = new byte[transferred];
+        if (transferred > 0)
+            Buffer.BlockCopy(buffer, 0, snapshot, 0, transferred);
+
+        return snapshot;
+    }
+
+    internal static int ReportCompletedWholeRows(int totalTransferred, int lastReportedRows, byte[] imageBytes, ScanRowsAvailableHandler? onRowsAvailable)
+    {
+        if (onRowsAvailable is null)
+            return lastReportedRows;
+
+        var completedRows = totalTransferred / ScanDebugConstants.BytesPerLine;
+        if (completedRows <= lastReportedRows)
+            return lastReportedRows;
+
+        // The imageBytes array is the live accumulating buffer. The callback MUST
+        // be lightweight (no blocking I/O, no synchronous decode, no synchronous
+        // UI dispatch) because this runs inside the USB read loop. Heavy work
+        // should be deferred to the dispatcher or a separate task.
+        onRowsAvailable(imageBytes, completedRows);
+        return completedRows;
     }
 
     private sealed class TransferSlot

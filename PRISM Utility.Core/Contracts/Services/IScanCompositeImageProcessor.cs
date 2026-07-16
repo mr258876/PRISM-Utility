@@ -12,4 +12,12 @@ public interface IScanCompositeImageProcessor
         ScanColorManagementOptions colorManagement,
         out ScanCompositePixelBuffer? frame,
         out string error);
+
+    bool TryBuildPartialRgbComposite(
+        ScanWorkflowResult result,
+        ScanChannelAssignment assignment,
+        ScanColorManagementOptions colorManagement,
+        IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole,
+        out ScanCompositePixelBuffer? frame,
+        out string error);
 }

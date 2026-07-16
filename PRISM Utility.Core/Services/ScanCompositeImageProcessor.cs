@@ -73,6 +73,19 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
     }
 
     public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, out ScanCompositePixelBuffer? frame, out string error)
+        => TryBuildRgbCompositeCore(result, assignment, colorManagement, null, requireAllRgbRoles: true, out frame, out error);
+
+    public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, out ScanCompositePixelBuffer? frame, out string error)
+        => TryBuildRgbCompositeCore(result, assignment, colorManagement, availableRowsByRole, requireAllRgbRoles: false, out frame, out error);
+
+    private bool TryBuildRgbCompositeCore(
+        ScanWorkflowResult result,
+        ScanChannelAssignment assignment,
+        ScanColorManagementOptions colorManagement,
+        IReadOnlyDictionary<string, ScanRowAvailability>? availableRowsByRole,
+        bool requireAllRgbRoles,
+        out ScanCompositePixelBuffer? frame,
+        out string error)
     {
         frame = null;
         error = string.Empty;
@@ -83,13 +96,13 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return false;
         }
 
-        if (!TryValidateRgbAssignment(assignment, out error))
+        if (!TryValidateRgbAssignment(assignment, requireAllRgbRoles, out error))
             return false;
 
         if (!TryValidateColorManagement(colorManagement, out error))
             return false;
 
-        var passByRole = BuildRoleMap(result, assignment);
+        var passByRole = BuildRoleMap(result, assignment, availableRowsByRole, rows: result.Rows);
         var width = _decoder.GetDecodedPixelsPerLine();
         var rows = result.Rows;
         if (width <= 0 || rows <= 0)
@@ -141,7 +154,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
                 pixelBytes[pixelIndex] = displayColor.Blue;
                 pixelBytes[pixelIndex + 1] = displayColor.Green;
                 pixelBytes[pixelIndex + 2] = displayColor.Red;
-                pixelBytes[pixelIndex + 3] = 255;
+                pixelBytes[pixelIndex + 3] = IsAnyRgbRoleAvailable(passByRole, y) ? (byte)255 : (byte)0;
             }
         }
 
@@ -149,9 +162,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         return true;
     }
 
-    private Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)> BuildRoleMap(ScanWorkflowResult result, ScanChannelAssignment assignment)
+    private Dictionary<string, RoleCaptureEntry> BuildRoleMap(ScanWorkflowResult result, ScanChannelAssignment assignment, IReadOnlyDictionary<string, ScanRowAvailability>? availableRowsByRole, int rows)
     {
-        var map = new Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, RoleCaptureEntry>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < result.Passes.Count && index < assignment.Roles.Count; index++)
         {
             var role = assignment.Roles[index];
@@ -159,29 +172,37 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
                 continue;
 
             if (!map.ContainsKey(role))
-                map[role] = (result.Passes[index], assignment.ReversedFlags[index]);
+            {
+                var availability = availableRowsByRole is not null && availableRowsByRole.TryGetValue(role, out var explicitAvailability)
+                    ? ClampAvailability(explicitAvailability, rows)
+                    : new ScanRowAvailability(0, rows);
+                map[role] = new RoleCaptureEntry(result.Passes[index], assignment.ReversedFlags[index], availability);
+            }
         }
 
         return map;
     }
 
-    private ushort GetRoleSample(Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)> passByRole, string role, int x, int y, int rows)
+    private ushort GetRoleSample(Dictionary<string, RoleCaptureEntry> passByRole, string role, int x, int y, int rows)
     {
         if (!passByRole.TryGetValue(role, out var entry))
+            return 0;
+
+        if (!entry.Availability.Contains(y))
             return 0;
 
         var sampleY = ResolveSampleRow(entry.Capture, y, rows, entry.ManuallyReversed);
         return _decoder.TryGetSample16(entry.Capture.ImageBytes, rows, x, sampleY, out var sample) ? sample : (ushort)0;
     }
 
-    private static bool TryValidateRgbAssignment(ScanChannelAssignment assignment, out string error)
+    private static bool TryValidateRgbAssignment(ScanChannelAssignment assignment, bool requireAllRgbRoles, out string error)
     {
         var roles = assignment.Roles;
         var rgbRoles = new[] { "Red", "Green", "Blue" };
         foreach (var role in rgbRoles)
         {
             var count = roles.Count(selected => string.Equals(selected, role, StringComparison.OrdinalIgnoreCase));
-            if (count == 0)
+            if (count == 0 && requireAllRgbRoles)
             {
                 error = $"RGB Composite requires exactly one {role} channel assignment.";
                 return false;
@@ -244,7 +265,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
 
     private bool TryBuildColorTransform(
         ScanColorManagementOptions options,
-        Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)> passByRole,
+        Dictionary<string, RoleCaptureEntry> passByRole,
         int width,
         int rows,
         out RgbDisplayColorTransform? transform,
@@ -281,22 +302,49 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
     }
 
     private ChannelScale BuildChannelScale(
-        Dictionary<string, (ScanPassCapture Capture, bool ManuallyReversed)> passByRole,
+        Dictionary<string, RoleCaptureEntry> passByRole,
         string role,
         int width,
         int rows)
     {
-        var values = new double[width * rows];
+        if (!passByRole.TryGetValue(role, out var entry) || entry.Availability.RowCount <= 0)
+            return new ChannelScale(0.0, MaxSampleValue);
+
+        var values = new List<double>(width * entry.Availability.RowCount);
         for (var y = 0; y < rows; y++)
         {
+            if (!entry.Availability.Contains(y))
+                continue;
+
             for (var x = 0; x < width; x++)
-                values[(y * width) + x] = GetRoleSample(passByRole, role, x, y, rows);
+                values.Add(GetRoleSample(passByRole, role, x, y, rows));
         }
 
-        var low = ComputePercentile(values, ChannelScaleLowPercentile);
-        var high = ComputePercentile(values, ChannelScaleHighPercentile);
+        if (values.Count == 0)
+            return new ChannelScale(0.0, MaxSampleValue);
+
+        var percentileValues = values.ToArray();
+        var low = ComputePercentile(percentileValues, ChannelScaleLowPercentile);
+        var high = ComputePercentile(percentileValues, ChannelScaleHighPercentile);
         return high > low ? new ChannelScale(low, high) : new ChannelScale(0.0, MaxSampleValue);
     }
+
+    private static bool IsAnyRgbRoleAvailable(Dictionary<string, RoleCaptureEntry> passByRole, int row)
+        => IsRoleAvailable(passByRole, "Red", row)
+            || IsRoleAvailable(passByRole, "Green", row)
+            || IsRoleAvailable(passByRole, "Blue", row);
+
+    private static bool IsRoleAvailable(Dictionary<string, RoleCaptureEntry> passByRole, string role, int row)
+        => passByRole.TryGetValue(role, out var entry) && entry.Availability.Contains(row);
+
+    private static ScanRowAvailability ClampAvailability(ScanRowAvailability availability, int rows)
+    {
+        var startRow = Math.Clamp(availability.StartRow, 0, rows);
+        var endRow = Math.Clamp(availability.EndExclusive, startRow, rows);
+        return new ScanRowAvailability(startRow, endRow - startRow);
+    }
+
+    private sealed record RoleCaptureEntry(ScanPassCapture Capture, bool ManuallyReversed, ScanRowAvailability Availability);
 
     private static XyzColor ResolveTargetWhitePoint(ScanColorManagementOptions options)
         => options.TargetWhitePointMode switch

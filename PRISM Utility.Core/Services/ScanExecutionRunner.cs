@@ -17,7 +17,7 @@ internal sealed class ScanExecutionRunner
         _ackChannel = ackChannel;
     }
 
-    public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
         var targetBytes = rows * ScanDebugConstants.BytesPerLine;
         await _transferSettings.InitializeAsync();
@@ -48,6 +48,7 @@ internal sealed class ScanExecutionRunner
                 onStatus,
                 onDiagnostic,
                 onProgress,
+                onRowsAvailable,
                 targetBytes,
                 expectedLineTimeUs,
                 null);
@@ -68,10 +69,10 @@ internal sealed class ScanExecutionRunner
         }
     }
 
-    public async Task<ScanStartResult> StartSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, uint? expectedLineTimeUs = null)
+    public async Task<ScanStartResult> StartSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
         if (totalRows <= singleTransferMaxRows)
-            return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress, expectedLineTimeUs);
+            return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress, onRowsAvailable, expectedLineTimeUs);
 
         var totalTargetBytes = totalRows * ScanDebugConstants.BytesPerLine;
         onProgress?.Invoke(0, totalTargetBytes);
@@ -95,6 +96,7 @@ internal sealed class ScanExecutionRunner
             var bufferOffset = 0;
             var totalTransferMs = 0L;
             var totalAckWaitMs = 0L;
+            var reportedRows = 0;
             for (var segmentIndex = 1; segmentIndex <= segmentCount; segmentIndex++)
             {
                 ct.ThrowIfCancellationRequested();
@@ -115,6 +117,7 @@ internal sealed class ScanExecutionRunner
                     status => onStatus?.Invoke($"[{segmentIndex}/{segmentCount}] {status}"),
                     onDiagnostic,
                     (segmentTransferred, _) => onProgress?.Invoke(segmentBaseOffset + segmentTransferred, totalTargetBytes),
+                    null,
                     segmentTargetBytes,
                     expectedLineTimeUs,
                     $"Segment {segmentIndex}/{segmentCount}");
@@ -127,6 +130,7 @@ internal sealed class ScanExecutionRunner
                 bufferOffset += segmentTargetBytes;
 
                 completedRows += segmentRows;
+                reportedRows = UsbBulkDuplexSession.ReportCompletedWholeRows(bufferOffset, reportedRows, buffer, onRowsAvailable);
                 var segmentElapsedMs = Math.Max(1L, segmentWatch.ElapsedMilliseconds);
                 var transferPercent = (segmentResult.TransferMs * 100.0) / segmentElapsedMs;
                 var ackWaitPercent = (segmentResult.AckWaitMs * 100.0) / segmentElapsedMs;
@@ -169,6 +173,7 @@ internal sealed class ScanExecutionRunner
         Action<string>? onStatus,
         Action<string>? onDiagnostic,
         Action<int, int>? onProgress,
+        ScanRowsAvailableHandler? onRowsAvailable,
         int targetBytes,
         uint? expectedLineTimeUs,
         string? segmentLabel)
@@ -183,7 +188,7 @@ internal sealed class ScanExecutionRunner
         onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}SET_SCAN_LINES ACK received for {rows} rows");
 
         var readMode = transferSettings.ReadMode;
-        var imageReadTask = await ArmImageReadAsync(imageSession, targetBytes, transferSettings, ct, runId, scanWatch, onDiagnostic, onProgress);
+        var imageReadTask = await ArmImageReadAsync(imageSession, targetBytes, transferSettings, ct, runId, scanWatch, onDiagnostic, onProgress, onRowsAvailable);
         onDiagnostic?.Invoke($"[ScanDebug][run={runId}][{scanWatch.ElapsedMilliseconds,6} ms] {segmentPrefix}619C {(readMode == ScanBulkInReadMode.MultiBuffered ? "multi-buffer" : "single-request")} read armed for {targetBytes} bytes");
 
         onStatus?.Invoke("Sending START_SCAN...");
@@ -304,14 +309,14 @@ internal sealed class ScanExecutionRunner
         return drained;
     }
 
-    private static async Task<Task<byte[]>> ArmImageReadAsync(IUsbBulkDuplexSession imageSession, int expectedBytes, ScanBulkInTransferOptions transferSettings, CancellationToken ct, string runId, Stopwatch scanWatch, Action<string>? onDiagnostic, Action<int, int>? onProgress)
+    private static async Task<Task<byte[]>> ArmImageReadAsync(IUsbBulkDuplexSession imageSession, int expectedBytes, ScanBulkInTransferOptions transferSettings, CancellationToken ct, string runId, Stopwatch scanWatch, Action<string>? onDiagnostic, Action<int, int>? onProgress, ScanRowsAvailableHandler? onRowsAvailable)
     {
         var readMode = transferSettings.ReadMode;
         for (var attempt = 1; attempt <= ScanDebugConstants.ImageReadArmMaxAttempts; attempt++)
         {
             var task = readMode == ScanBulkInReadMode.MultiBuffered
-                ? imageSession.ReadBulkInExactMultiBufferedAsync(expectedBytes, transferSettings.RequestBytes, transferSettings.OutstandingReads, transferSettings.TimeoutMs, transferSettings.RawIoEnabled, ct, onProgress)
-                : imageSession.ReadBulkInExactAsync(expectedBytes, transferSettings.TimeoutMs, ct, onProgress);
+                ? imageSession.ReadBulkInExactMultiBufferedAsync(expectedBytes, transferSettings.RequestBytes, transferSettings.OutstandingReads, transferSettings.TimeoutMs, transferSettings.RawIoEnabled, ct, onProgress, onRowsAvailable)
+                : imageSession.ReadBulkInExactAsync(expectedBytes, transferSettings.TimeoutMs, ct, onProgress, onRowsAvailable);
 
             await Task.Delay(ScanDebugConstants.ImageReadArmDelayMs, ct);
             if (!task.IsCompleted)

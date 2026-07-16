@@ -108,10 +108,10 @@ public sealed class ScanSessionServiceUsbRefreshTests
         public Task<(int transferred, byte[] data)> ReadBulkInOnceAsync(int bufferSize, int timeoutMs, CancellationToken ct)
             => throw new NotSupportedException();
 
-        public Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null)
+        public Task<byte[]> ReadBulkInExactAsync(int expectedBytes, int timeoutMs, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null)
             => throw new NotSupportedException();
 
-        public Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null)
+        public Task<byte[]> ReadBulkInExactMultiBufferedAsync(int expectedBytes, int transferSize, int maxOutstandingTransfers, int timeoutMs, bool rawIoEnabled, CancellationToken ct, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null)
             => throw new NotSupportedException();
 
         public int? GetBulkInMaxTransferSize() => 4096;
