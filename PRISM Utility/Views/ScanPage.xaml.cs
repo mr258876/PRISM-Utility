@@ -2,12 +2,13 @@
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PRISM_Utility.Contracts.ViewModels;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.ViewModels;
 
 namespace PRISM_Utility.Views;
 
-public sealed partial class ScanPage : Page
+public sealed partial class ScanPage : Page, IPageViewModelHost<ScanViewModel>
 {
     public ScanViewModel ViewModel
     {

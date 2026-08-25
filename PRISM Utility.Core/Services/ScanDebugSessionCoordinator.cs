@@ -78,7 +78,7 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
 
         return _sessionManager.UseConnectedSessionAsync(
             CreateOwner(ScannerSessionOperation.Diagnostics),
-            session => ExecuteWithSessionTokenAsync(session, action, ct),
+            action,
             ct);
     }
 
@@ -92,7 +92,7 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
         return _sessionManager.RunConnectedSessionStateAsync(
             CreateOwner(ScannerSessionOperation.Diagnostics),
             state,
-            session => ExecuteWithSessionTokenAsync(session, action, ct),
+            action,
             ct,
             waitForAvailability);
     }
@@ -120,9 +120,4 @@ public sealed class ScanDebugSessionCoordinator : IScanDebugSessionCoordinator
         => !string.IsNullOrWhiteSpace(message)
            && message.Contains("already owned", StringComparison.OrdinalIgnoreCase);
 
-    private static async Task<TResult> ExecuteWithSessionTokenAsync<TResult>(IScanSessionService session, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
-    {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, session.ConnectionToken);
-        return await action(session, linkedCts.Token);
-    }
 }

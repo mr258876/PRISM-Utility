@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
@@ -246,7 +247,7 @@ public partial class ShellViewModel : ObservableRecipient
 
     [RelayCommand]
     private void NavigateToDeviceConfiguration()
-        => NavigationService.NavigateTo(typeof(DeviceConfigurationViewModel).FullName!);
+        => NavigationService.NavigateTo(AppRoute.DeviceConfiguration);
 
     private static string GetNavigationViewItemHeader(object? item)
         => item is ContentControl contentControl

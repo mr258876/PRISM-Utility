@@ -1,0 +1,9 @@
+{
+  "SchemaVersion": 5,
+  "ProfileName": "Mixed invalid",
+  "SavedAtUtc": "2026-01-01T00:00:00+00:00",
+  "ChannelProfiles": {
+    "Blue": { "Parameters": { "ExposureTicks": 1, "Adc1Offset": 0, "Adc1Gain": 1, "Adc2Offset": 0, "Adc2Gain": 1, "SysClockKhz": 30000 } },
+    "Invalid": { "Parameters": { "ExposureTicks": 1, "Adc1Offset": 999, "Adc1Gain": 1, "Adc2Offset": 0, "Adc2Gain": 1, "SysClockKhz": 1 } }
+  }
+}

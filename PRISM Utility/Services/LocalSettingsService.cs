@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Helpers;
@@ -10,39 +11,43 @@ namespace PRISM_Utility.Services;
 
 public class LocalSettingsService : ILocalSettingsService
 {
-    private const string _defaultApplicationDataFolder = "PRISM Utility/ApplicationData";
-    private const string _defaultLocalSettingsFile = "LocalSettings.json";
-
     private readonly IFileService _fileService;
+    private readonly IAtomicFileWriter _atomicFileWriter;
     private readonly LocalSettingsOptions _options;
 
-    private readonly string _localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     private readonly string _applicationDataFolder;
     private readonly string _localsettingsFile;
 
     private IDictionary<string, object> _settings;
+    private readonly SemaphoreSlim _settingsGate = new(1, 1);
 
     private bool _isInitialized;
 
-    public LocalSettingsService(IFileService fileService, IOptions<LocalSettingsOptions> options)
+    public LocalSettingsService(
+        IFileService fileService,
+        IAtomicFileWriter atomicFileWriter,
+        IOptions<LocalSettingsOptions> options)
     {
         _fileService = fileService;
+        _atomicFileWriter = atomicFileWriter;
         _options = options.Value;
 
-        _applicationDataFolder = Path.Combine(_localApplicationData, _options.ApplicationDataFolder ?? _defaultApplicationDataFolder);
-        _localsettingsFile = _options.LocalSettingsFile ?? _defaultLocalSettingsFile;
+        var paths = ApplicationDataPathResolver.Resolve(_options.ApplicationDataFolder, _options.LocalSettingsFile);
+        _applicationDataFolder = paths.RootPath;
+        _localsettingsFile = paths.LocalSettingsFileName;
 
         _settings = new Dictionary<string, object>();
     }
 
-    private async Task InitializeAsync()
+    private async Task InitializeUnderGateAsync()
     {
-        if (!_isInitialized)
-        {
-            _settings = await Task.Run(() => _fileService.Read<IDictionary<string, object>>(_applicationDataFolder, _localsettingsFile)) ?? new Dictionary<string, object>();
+        if (_isInitialized)
+            return;
 
-            _isInitialized = true;
-        }
+        _settings = await Task.Run(
+                () => _fileService.Read<IDictionary<string, object>>(_applicationDataFolder, _localsettingsFile))
+            ?? new Dictionary<string, object>();
+        _isInitialized = true;
     }
 
     public async Task<T?> ReadSettingAsync<T>(string key)
@@ -56,11 +61,17 @@ public class LocalSettingsService : ILocalSettingsService
         }
         else
         {
-            await InitializeAsync();
-
-            if (_settings != null && _settings.TryGetValue(key, out var obj))
+            await _settingsGate.WaitAsync();
+            try
             {
-                return await Json.ToObjectAsync<T>((string)obj);
+                await InitializeUnderGateAsync();
+
+                if (_settings.TryGetValue(key, out var obj))
+                    return await Json.ToObjectAsync<T>((string)obj);
+            }
+            finally
+            {
+                _settingsGate.Release();
             }
         }
 
@@ -75,11 +86,35 @@ public class LocalSettingsService : ILocalSettingsService
         }
         else
         {
-            await InitializeAsync();
+            await _settingsGate.WaitAsync();
+            try
+            {
+                await InitializeUnderGateAsync();
 
-            _settings[key] = await Json.StringifyAsync(value);
+                var serializedValue = await Json.StringifyAsync(value);
+                var hadPreviousValue = _settings.TryGetValue(key, out var previousValue);
+                _settings[key] = serializedValue;
 
-            await Task.Run(() => _fileService.Save(_applicationDataFolder, _localsettingsFile, _settings));
+                try
+                {
+                    var serializedSnapshot = JsonConvert.SerializeObject(new Dictionary<string, object>(_settings));
+                    await Task.Run(
+                        () => _atomicFileWriter.Write(_applicationDataFolder, _localsettingsFile, serializedSnapshot));
+                }
+                catch
+                {
+                    if (hadPreviousValue)
+                        _settings[key] = previousValue!;
+                    else
+                        _settings.Remove(key);
+
+                    throw;
+                }
+            }
+            finally
+            {
+                _settingsGate.Release();
+            }
         }
     }
 }

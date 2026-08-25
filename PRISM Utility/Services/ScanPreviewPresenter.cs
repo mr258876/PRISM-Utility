@@ -27,6 +27,9 @@ public sealed class ScanPreviewPresenter : IScanPreviewPresenter
         if (!TryGetGamma(options, out var gamma, out error))
             return false;
 
+        if (!TryValidateWaterfallRows(options, rows, out error))
+            return false;
+
         frame = options.IsWaterfallEnabled
             ? RenderWaterfallPreviewFrame(lineBuffer, rows, options, gamma)
             : RenderFramePreviewFrame(lineBuffer, rows, options, gamma, reusableFrame);
@@ -39,6 +42,9 @@ public sealed class ScanPreviewPresenter : IScanPreviewPresenter
         error = string.Empty;
 
         if (!TryGetGamma(options, out var gamma, out error))
+            return false;
+
+        if (!TryValidateWaterfallRows(options, rows, out error))
             return false;
 
         bitmap = options.IsWaterfallEnabled
@@ -169,6 +175,16 @@ public sealed class ScanPreviewPresenter : IScanPreviewPresenter
             return true;
 
         error = "Gamma must be a number greater than 0.";
+        return false;
+    }
+
+    private static bool TryValidateWaterfallRows(ScanPreviewRenderOptions options, int rows, out string error)
+    {
+        error = string.Empty;
+        if (!options.IsWaterfallEnabled || rows > 0)
+            return true;
+
+        error = "Waterfall rows must be greater than zero.";
         return false;
     }
 

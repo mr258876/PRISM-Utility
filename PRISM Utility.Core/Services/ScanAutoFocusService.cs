@@ -48,10 +48,9 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
                 current.Metrics.RightSharpness,
                 current.Metrics.TiltImbalance);
         }
-        catch
+        finally
         {
             await TryStopFocusMotorsAsync(session);
-            throw;
         }
     }
 

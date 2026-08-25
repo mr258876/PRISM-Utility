@@ -42,9 +42,19 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         var captures = new List<ScanPassCapture>(totalPasses);
         var motionStarted = false;
         var enabledMotorForWorkflow = false;
+        var warmUpEnabledForWorkflow = false;
 
         try
         {
+            if (request.WarmUpEnabled)
+            {
+                var enableWarmUpResult = await session.SetWarmUpEnabledAsync(true, ct);
+                if (!enableWarmUpResult.Success)
+                    throw new IOException($"Scan workflow warm-up enable failed: {enableWarmUpResult.Message}");
+
+                warmUpEnabledForWorkflow = true;
+            }
+
             if (request.EnableMotorTransport && (originalMotorState is null || !originalMotorState.Enabled))
             {
                 onStatus?.Invoke($"Enabling Motor{request.ScanMotorId + 1} for scan transport...");
@@ -147,6 +157,20 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         }
         finally
         {
+            if (warmUpEnabledForWorkflow)
+            {
+                try
+                {
+                    var disableWarmUpResult = await session.SetWarmUpEnabledAsync(false, CancellationToken.None);
+                    if (!disableWarmUpResult.Success)
+                        ReportWarmUpCleanupDiagnostic(onDiagnostic, $"Scan workflow warm-up cleanup failed: {disableWarmUpResult.Message}");
+                }
+                catch (Exception ex)
+                {
+                    ReportWarmUpCleanupDiagnostic(onDiagnostic, $"Scan workflow warm-up cleanup failed: {ex.Message}");
+                }
+            }
+
             if (motionStarted)
             {
                 try
@@ -183,6 +207,18 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                     onDiagnostic?.Invoke($"Scan workflow motor restore failed: {ex.Message}");
                 }
             }
+        }
+    }
+
+    private static void ReportWarmUpCleanupDiagnostic(Action<string>? onDiagnostic, string message)
+    {
+        try
+        {
+            onDiagnostic?.Invoke(message);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Scan workflow warm-up cleanup diagnostic delivery failed: {ex}");
         }
     }
 

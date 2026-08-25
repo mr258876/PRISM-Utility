@@ -3,12 +3,16 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWinUI>true</UseWinUI>
     <IsPackable>false</IsPackable>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
@@ -23,6 +27,43 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PRISM Utility.Core\PrismUtility.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PRISM Utility\Contracts\Navigation\AppRoute.cs" Link="Contracts\Navigation\AppRoute.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Navigation\NavigationLifecycleDispatcher.cs" Link="Contracts\Navigation\NavigationLifecycleDispatcher.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Navigation\NavigationTransitionDecision.cs" Link="Contracts\Navigation\NavigationTransitionDecision.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Navigation\NavigationViewRouteResolver.cs" Link="Contracts\Navigation\NavigationViewRouteResolver.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IPageService.cs" Link="Services\IPageService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputMirrorService.cs" Link="Services\IDebugOutputMirrorService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputSettingsService.cs" Link="Services\IDebugOutputSettingsService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\ILanguageSelectorService.cs" Link="Services\ILanguageSelectorService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IThemeSelectorService.cs" Link="Services\IThemeSelectorService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IUiDispatcher.cs" Link="Services\IUiDispatcher.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\ViewModels\INavigationAware.cs" Link="ViewModels\INavigationAware.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\ViewModels\IPageViewModelHost.cs" Link="ViewModels\IPageViewModelHost.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\FrameExtensions.cs" Link="Helpers\FrameExtensions.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\ResourceExtensions.cs" Link="Helpers\ResourceExtensions.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\RuntimeHelper.cs" Link="Helpers\RuntimeHelper.cs" />
+    <Compile Include="..\PRISM Utility\Models\AppLanguageOption.cs" Link="Models\AppLanguageOption.cs" />
+    <Compile Include="..\PRISM Utility\Models\LocalSettingsOptions.cs" Link="Models\LocalSettingsOptions.cs" />
+    <Compile Include="..\PRISM Utility\Services\DebugOutputMirrorService.cs" Link="Services\DebugOutputMirrorService.cs" />
+    <Compile Include="..\PRISM Utility\Services\DebugOutputSettingsService.cs" Link="Services\DebugOutputSettingsService.cs" />
+    <Compile Include="..\PRISM Utility\Services\LanguageSelectorService.cs" Link="Services\LanguageSelectorService.cs" />
+    <Compile Include="..\PRISM Utility\Services\LocalSettingsService.cs" Link="Services\LocalSettingsService.cs" />
+    <Compile Include="..\PRISM Utility\Services\LocalSettingsScanCalibrationProfileStorage.cs" Link="Services\LocalSettingsScanCalibrationProfileStorage.cs" />
+    <Compile Include="..\PRISM Utility\Services\PageService.cs" Link="Services\PageService.cs" />
+    <Compile Include="..\PRISM Utility\Services\ThemeSelectorService.cs" Link="Services\ThemeSelectorService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PRISM Utility\ViewModels\SettingsViewModel.cs" Link="ViewModels\SettingsViewModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Fixtures\FilmProfile\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

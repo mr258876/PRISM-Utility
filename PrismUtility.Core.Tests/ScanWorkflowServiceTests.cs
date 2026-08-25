@@ -8,6 +8,153 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanWorkflowServiceTests
 {
     [Fact]
+    public async Task ExecuteAsync_WarmUpDisabled_PreservesExistingPassOrderWithoutWarmUpCalls()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var result = await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: false),
+            CancellationToken.None);
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.DoesNotContain(log, entry => entry.StartsWith("WarmUp:", StringComparison.Ordinal));
+        Assert.Equal(
+            ["Scan:0", "Scan:1", "Scan:2", "Scan:3"],
+            log.Where(entry => entry.StartsWith("Scan:", StringComparison.Ordinal)).ToArray());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpEnabled_EnablesBeforeFirstCapture()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None);
+
+        var enableIndex = log.IndexOf("WarmUp:True");
+        var firstCaptureIndex = log.IndexOf("Scan:0");
+        Assert.True(enableIndex >= 0, "Warm-up should be enabled.");
+        Assert.True(firstCaptureIndex > enableIndex, "Warm-up should be enabled before the first capture.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpEnabled_DisablesAfterSuccessfulWorkflow()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var result = await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None);
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+        Assert.False(session.WarmUpCalls.Single(call => !call.Enabled).TokenCanBeCanceled);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpEnabled_DisablesAfterCancellationWithCleanupSafeToken()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        using var cts = new CancellationTokenSource();
+        var session = new RecordingScanSession(log) { CancellationSourceToCancelOnScan = cts };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            cts.Token));
+
+        Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+        Assert.False(session.WarmUpCalls.Single(call => !call.Enabled).TokenCanBeCanceled);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpEnabled_DisablesAfterCaptureFailureWithCleanupSafeToken()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log) { ScanFailureMessage = "Capture command failed." };
+
+        var exception = await Assert.ThrowsAsync<IOException>(() => service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None));
+
+        Assert.Contains("Pass 1 failed", exception.Message, StringComparison.Ordinal);
+        Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+        Assert.False(session.WarmUpCalls.Single(call => !call.Enabled).TokenCanBeCanceled);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpEnableFailure_AbortsBeforeCaptureWithClearFailure()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log) { WarmUpEnableFailureMessage = "Controller rejected warm-up." };
+
+        var exception = await Assert.ThrowsAsync<IOException>(() => service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None));
+
+        Assert.Equal("Scan workflow warm-up enable failed: Controller rejected warm-up.", exception.Message);
+        Assert.Equal([true], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+        Assert.DoesNotContain(log, entry => entry.StartsWith("Scan:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpDisableFailure_ReportsDiagnosticWithoutConvertingSuccessfulWorkflow()
+    {
+        var log = new List<string>();
+        var diagnostics = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log) { WarmUpDisableFailureMessage = "Stop command rejected." };
+
+        var result = await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None,
+            onDiagnostic: diagnostics.Add);
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+        Assert.Contains("Scan workflow warm-up cleanup failed: Stop command rejected.", diagnostics);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WarmUpDisableFailure_DiagnosticCallbackFailureDoesNotConvertSuccessfulWorkflow()
+    {
+        var log = new List<string>();
+        var diagnosticCalls = 0;
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log) { WarmUpDisableFailureMessage = "Stop command rejected." };
+
+        var result = await service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
+            CancellationToken.None,
+            onDiagnostic: _ =>
+            {
+                diagnosticCalls++;
+                throw new InvalidOperationException("Diagnostic observer failed.");
+            });
+
+        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.Equal(1, diagnosticCalls);
+        Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_NonAlternatingDirection_TurnsOffIlluminationBeforeEveryReturn()
     {
         var log = new List<string>();
@@ -135,7 +282,7 @@ public sealed class ScanWorkflowServiceTests
         Assert.Equal(1, log.Count(entry => entry == "IlluminationOff"));
     }
 
-    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true)
+    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true, bool warmUpEnabled = false)
     {
         var profiles = Enumerable.Range(0, ScanDebugConstants.IlluminationChannelCount)
             .Select(_ => new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz))
@@ -143,7 +290,7 @@ public sealed class ScanWorkflowServiceTests
 
         return new ScanWorkflowRequest(
             1,
-            false,
+            warmUpEnabled,
             [100, 100, 100, 100],
             ["Blue", "Green", "Red", "IR"],
             profiles,
@@ -281,18 +428,20 @@ public sealed class ScanWorkflowServiceTests
 
         public ScanBulkInTransferOptions Settings => DefaultSettings;
 
-        public Task InitializeAsync()
+        public Task InitializeAsync(CancellationToken cancellationToken = default)
         {
             _ = BulkInReadModeChanged;
             return Task.CompletedTask;
         }
 
-        public Task SetBulkInReadModeAsync(ScanBulkInReadMode mode)
+        public Task SetBulkInReadModeAsync(ScanBulkInReadMode mode, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task SetSettingsAsync(ScanBulkInTransferOptions settings)
+        public Task SetSettingsAsync(ScanBulkInTransferOptions settings, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }
+
+    private sealed record WarmUpCall(bool Enabled, bool TokenCanBeCanceled);
 
     private sealed class RecordingScanSession(List<string> log) : IScanSessionService
     {
@@ -305,6 +454,11 @@ public sealed class ScanWorkflowServiceTests
         public bool IsConnected => true;
         public int SingleTransferMaxRows => ScanDebugConstants.MaxRows;
         public CancellationToken ConnectionToken => CancellationToken.None;
+        public List<WarmUpCall> WarmUpCalls { get; } = [];
+        public CancellationTokenSource? CancellationSourceToCancelOnScan { get; init; }
+        public string? ScanFailureMessage { get; init; }
+        public string? WarmUpEnableFailureMessage { get; init; }
+        public string? WarmUpDisableFailureMessage { get; init; }
 
         public void RefreshTargets()
         {
@@ -367,11 +521,26 @@ public sealed class ScanWorkflowServiceTests
             => Task.CompletedTask;
 
         public Task<ScanOperationResult> SetWarmUpEnabledAsync(bool enabled, CancellationToken ct)
-            => Task.FromResult(new ScanOperationResult(true, string.Empty));
+        {
+            log.Add($"WarmUp:{enabled}");
+            WarmUpCalls.Add(new WarmUpCall(enabled, ct.CanBeCanceled));
+            if (enabled && WarmUpEnableFailureMessage is not null)
+                return Task.FromResult(new ScanOperationResult(false, WarmUpEnableFailureMessage));
+
+            if (!enabled && WarmUpDisableFailureMessage is not null)
+                return Task.FromResult(new ScanOperationResult(false, WarmUpDisableFailureMessage));
+
+            return Task.FromResult(new ScanOperationResult(true, string.Empty));
+        }
 
         public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
         {
             log.Add($"Scan:{_scanIndex++}");
+            CancellationSourceToCancelOnScan?.Cancel();
+            ct.ThrowIfCancellationRequested();
+            if (ScanFailureMessage is not null)
+                return Task.FromResult(new ScanStartResult(false, ScanFailureMessage, null));
+
             var imageBytes = new byte[rows * ScanDebugConstants.BytesPerLine];
             onRowsAvailable?.Invoke(imageBytes, rows);
             return Task.FromResult(new ScanStartResult(true, string.Empty, imageBytes));

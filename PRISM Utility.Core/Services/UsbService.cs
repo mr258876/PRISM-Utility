@@ -41,37 +41,43 @@ public class UsbService : IUsbService
 
     public async Task StartBulkInAsync(string deviceId, byte configId, byte interfaceId, byte altId, byte endpointAddress, int bufferSize, IProgress<(int transferred, byte[] data)> progress, CancellationToken ct)
     {
-        RaiseBulkInStatus(BulkInState.Starting);
+        using var session = OpenBulkDuplexSession(deviceId, configId, interfaceId, altId, endpointAddress, null);
+        await RunBulkInLoopAsync(session, bufferSize, progress, state => RaiseBulkInStatus(state), ct);
+    }
+
+    internal static async Task RunBulkInLoopAsync(
+        IUsbBulkDuplexSession session,
+        int bufferSize,
+        IProgress<(int transferred, byte[] data)> progress,
+        Action<BulkInState> onStateChanged,
+        CancellationToken ct)
+    {
+        onStateChanged(BulkInState.Starting);
 
         try
         {
-            using var session = OpenBulkDuplexSession(deviceId, configId, interfaceId, altId, endpointAddress, null);
-
             await Task.Run(() =>
             {
-                RaiseBulkInStatus(BulkInState.Running);
+                onStateChanged(BulkInState.Running);
 
                 while (!ct.IsCancellationRequested)
                 {
                     var chunk = session.ReadBulkInOnceAsync(bufferSize, 2000, ct).GetAwaiter().GetResult();
                     if (chunk.transferred > 0)
-                    {
                         progress.Report(chunk);
-                    }
                 }
 
-                RaiseBulkInStatus(BulkInState.Stopping);
+                onStateChanged(BulkInState.Stopping);
             }, ct);
         }
         catch (OperationCanceledException)
         {
-            RaiseBulkInStatus(BulkInState.Stopping);
+            onStateChanged(BulkInState.Stopping);
         }
         finally
         {
-            RaiseBulkInStatus(BulkInState.Stopped);
+            onStateChanged(BulkInState.Stopped);
         }
-
     }
 
     public async Task<int> SendBulkOutAsync(string deviceId, byte configId, byte interfaceId, byte altId, byte endpointAddress, byte[] data, CancellationToken ct)
@@ -96,8 +102,6 @@ public class UsbService : IUsbService
 
         return new UsbBulkDuplexSession(_catalog.GetRegistry(deviceId), configId, interfaceId, altId, inEndpointAddress, outEndpointAddress);
     }
-
-    public void StopBulkIn() => throw new NotImplementedException();
 
     private void RaiseBulkInStatus(BulkInState state, string? err = null)
         => BulkInStateChanged?.Invoke(this, new BulkInStateChangedEventArgs(state, err));

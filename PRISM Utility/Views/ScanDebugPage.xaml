@@ -87,6 +87,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel VerticalAlignment="Center"
@@ -143,6 +144,14 @@
                 Maximum="{x:Bind ViewModel.ScanReadProgressMaximum, Mode=OneWay}"
                 Value="{x:Bind ViewModel.ScanReadProgressValue, Mode=OneWay}"
                 Visibility="{x:Bind ViewModel.ScanReadProgressVisibility, Mode=OneWay}"/>
+            <InfoBar
+                Grid.Row="2"
+                Grid.ColumnSpan="2"
+                x:Uid="ScanDebug_DngAlignmentWarningInfoBar"
+                IsOpen="True"
+                Message="{x:Bind ViewModel.DngAlignmentWarningMessage, Mode=OneWay}"
+                Severity="Warning"
+                Visibility="{x:Bind ViewModel.DngAlignmentWarningVisibility, Mode=OneWay}"/>
         </Grid>
 
         <Grid
@@ -323,109 +332,55 @@
                         <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
                             <TextBlock x:Uid="ScanDebug_ParamsTitle"
                                        Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                            <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
-                                <TextBlock x:Uid="ScanDebug_ProfileConfigTitle"
+                            <TextBlock x:Uid="ScanDebug_FilmProfileWorkspaceSummaryTitle"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock x:Uid="ScanDebug_FilmProfileWorkspaceSummaryHelpText"
+                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                            <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                  RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                     <Grid.RowDefinitions>
+                                         <RowDefinition Height="Auto"/>
+                                         <RowDefinition Height="Auto"/>
+                                         <RowDefinition Height="Auto"/>
+                                         <RowDefinition Height="Auto"/>
+                                     </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="0"
+                                           x:Uid="ScanDebug_FilmProfileWorkspaceNameLabel"
                                            Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-
-                                    <TextBox
-                                        Grid.Row="0"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        x:Uid="ScanDebug_FilmProfileNameTextBox"
-                                        Text="{x:Bind ViewModel.FilmProfileName, Mode=TwoWay}"/>
-                                    <Grid Grid.Row="1"
-                                          Grid.Column="0"
-                                          Grid.ColumnSpan="2"
-                                          ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                          RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-
-                                        <Button Grid.Row="0"
-                                                Grid.Column="0"
-                                                x:Uid="ScanDebug_SaveJsonButton"
-                                                Command="{x:Bind ViewModel.SaveFilmProfileJsonCommand}"/>
-                                        <Button Grid.Row="0"
-                                                Grid.Column="1"
-                                                x:Uid="ScanDebug_LoadJsonButton"
-                                                Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
-                                    </Grid>
-                                    <ComboBox Grid.Row="2"
-                                              Grid.Column="0"
-                                              x:Uid="ScanDebug_ProfileAlignmentModeComboBox"
-                                              ItemsSource="{x:Bind ViewModel.AlignmentModeOptions, Mode=OneWay}"
-                                              ItemTemplate="{StaticResource ScanAlignmentModeOptionTemplate}"
-                                              SelectedItem="{x:Bind ViewModel.SelectedProfileAlignmentMode, Mode=TwoWay}"/>
-                                    <ComboBox Grid.Row="2"
-                                              Grid.Column="1"
-                                              x:Uid="ScanDebug_ProfileDngExportModeComboBox"
-                                              ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
-                                              ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
-                                              SelectedItem="{x:Bind ViewModel.SelectedProfileDngExportMode, Mode=TwoWay}"/>
-
-                                    <ToggleSwitch Grid.Row="3"
-                                                  Grid.Column="0"
-                                                  Grid.ColumnSpan="2"
-                                                  x:Uid="ScanDebug_CurrentChannelReverseToggleSwitch"
-                                                  IsOn="{x:Bind ViewModel.CurrentCalibrationChannelReversed, Mode=TwoWay}"/>
-                                    <ToggleSwitch Grid.Row="3"
-                                                  Grid.Column="1"
-                                                  Grid.ColumnSpan="2"
-                                                  x:Uid="Scan_ColorManagementToggleSwitch"
-                                                  IsOn="{x:Bind ViewModel.IsScanRecipeColorManagementEnabled, Mode=TwoWay}"/>
-                                    <TextBox Grid.Row="4"
-                                             Grid.Column="0"
-                                             x:Uid="Scan_RedWavelengthTextBox"
-                                             Text="{x:Bind ViewModel.ScanRecipeRedWavelengthNm, Mode=TwoWay}"/>
-                                    <TextBox Grid.Row="4"
-                                             Grid.Column="1"
-                                             x:Uid="Scan_GreenWavelengthTextBox"
-                                             Text="{x:Bind ViewModel.ScanRecipeGreenWavelengthNm, Mode=TwoWay}"/>
-                                    <TextBox Grid.Row="5"
-                                             Grid.Column="0"
-                                             x:Uid="Scan_BlueWavelengthTextBox"
-                                             Text="{x:Bind ViewModel.ScanRecipeBlueWavelengthNm, Mode=TwoWay}"/>
-                                    <TextBox Grid.Row="5"
-                                             Grid.Column="1"
-                                             x:Uid="Scan_OutputGammaTextBox"
-                                             Text="{x:Bind ViewModel.ScanRecipeOutputGamma, Mode=TwoWay}"/>
-                                    <ComboBox Grid.Row="6"
-                                              Grid.Column="0"
-                                              x:Uid="Scan_TargetWhitePointComboBox"
-                                              SelectedValuePath="Tag"
-                                              SelectedValue="{x:Bind ViewModel.SelectedScanRecipeTargetWhitePointMode, Mode=TwoWay}">
-                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointD65ComboBoxItem" Tag="D65"/>
-                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointD50ComboBoxItem" Tag="D50"/>
-                                        <ComboBoxItem x:Uid="Scan_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature"/>
-                                    </ComboBox>
-                                     <TextBox Grid.Row="6"
-                                              Grid.Column="1"
-                                              x:Uid="Scan_ManualWhitePointColorTemperatureTextBox"
-                                              IsEnabled="{x:Bind ViewModel.IsScanRecipeManualWhitePointColorTemperatureEnabled, Mode=OneWay}"
-                                              Text="{x:Bind ViewModel.ScanRecipeManualWhitePointColorTemperatureK, Mode=TwoWay}"/>
-                                </Grid>
-                            </StackPanel>
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="1"
+                                           Text="{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}"
+                                           TextWrapping="WrapWholeWords"/>
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="0"
+                                           x:Uid="ScanDebug_FilmProfileWorkspaceDirtyLabel"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
+                                           TextWrapping="WrapWholeWords"/>
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="0"
+                                           x:Uid="ScanDebug_FilmProfileWorkspaceValidationLabel"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="1"
+                                           Text="{x:Bind ViewModel.FilmProfileValidationSummary, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                            </Grid>
+                            <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                <Button x:Uid="ScanDebug_SaveJsonButton"
+                                        Command="{x:Bind ViewModel.SaveFilmProfileJsonCommand}"/>
+                                <Button x:Uid="ScanDebug_LoadJsonButton"
+                                        Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
+                            </controls:WrapPanel>
                         </StackPanel>
                     </Border>
 
@@ -468,14 +423,20 @@
                                         Text="{x:Bind ViewModel.CalibrationChannelStatusText, Mode=OneWay}"
                                         Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
 
-                                    <Button Grid.Row="2"
-                                            Grid.Column="0"
-                                            x:Uid="ScanDebug_SaveChannelButton"
-                                            Command="{x:Bind ViewModel.SaveChannelProfileCommand}"/>
-                                    <Button Grid.Row="2"
-                                            Grid.Column="1"
-                                            x:Uid="ScanDebug_ClearChannelButton"
-                                            Command="{x:Bind ViewModel.ClearChannelProfileCommand}"/>
+                                     <ToggleSwitch Grid.Row="2"
+                                                   Grid.Column="0"
+                                                   Grid.ColumnSpan="2"
+                                                   x:Uid="ScanDebug_CurrentChannelReverseToggleSwitch"
+                                                   IsOn="{x:Bind ViewModel.CurrentCalibrationChannelReversed, Mode=TwoWay}"/>
+
+                                     <Button Grid.Row="3"
+                                             Grid.Column="0"
+                                             x:Uid="ScanDebug_SaveChannelButton"
+                                             Command="{x:Bind ViewModel.SaveChannelProfileCommand}"/>
+                                     <Button Grid.Row="3"
+                                             Grid.Column="1"
+                                             x:Uid="ScanDebug_ClearChannelButton"
+                                             Command="{x:Bind ViewModel.ClearChannelProfileCommand}"/>
                                 </Grid>
 
                                 <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
@@ -495,7 +456,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_SysClockKhzTextBox"
-                                            Text="{x:Bind ViewModel.SysClockKhz, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.SysClockKhz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <TextBlock Text="{x:Bind ViewModel.SysClockMhzDisplay, Mode=OneWay}"
                                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                     </StackPanel>
@@ -505,7 +466,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_ExposureTextBox"
-                                            Text="{x:Bind ViewModel.ExposureTicks, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.ExposureTicks, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <TextBlock
                                             Text="{x:Bind ViewModel.ExposureTimeDisplay, Mode=OneWay}"
                                             Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
@@ -516,7 +477,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_Adc1OffsetTextBox"
-                                            Text="{x:Bind ViewModel.Adc1Offset, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.Adc1Offset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <Border
                                             Padding="8,4"
                                             CornerRadius="6"
@@ -535,7 +496,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_Adc1GainTextBox"
-                                            Text="{x:Bind ViewModel.Adc1Gain, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.Adc1Gain, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <Border
                                             Padding="8,4"
                                             CornerRadius="6"
@@ -554,7 +515,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_Adc2OffsetTextBox"
-                                            Text="{x:Bind ViewModel.Adc2Offset, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.Adc2Offset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <Border
                                             Padding="8,4"
                                             CornerRadius="6"
@@ -573,7 +534,7 @@
                                                 Spacing="4">
                                         <TextBox
                                             x:Uid="ScanDebug_Adc2GainTextBox"
-                                            Text="{x:Bind ViewModel.Adc2Gain, Mode=TwoWay}"/>
+                                            Text="{x:Bind ViewModel.Adc2Gain, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <Border
                                             Padding="8,4"
                                             CornerRadius="6"

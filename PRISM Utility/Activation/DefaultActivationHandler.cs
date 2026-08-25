@@ -1,7 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
-using PRISM_Utility.ViewModels;
 
 namespace PRISM_Utility.Activation;
 
@@ -22,7 +22,7 @@ public class DefaultActivationHandler : ActivationHandler<LaunchActivatedEventAr
 
     protected async override Task HandleInternalAsync(LaunchActivatedEventArgs args)
     {
-        _navigationService.NavigateTo(typeof(MainViewModel).FullName!, args.Arguments);
+        _navigationService.NavigateTo(AppRoute.Main, args.Arguments);
 
         await Task.CompletedTask;
     }

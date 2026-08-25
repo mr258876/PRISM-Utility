@@ -1,9 +1,9 @@
 using System.Globalization;
 
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Helpers;
-using PRISM_Utility.ViewModels;
 using PRISM_Utility.Views;
 
 using Microsoft.Windows.Globalization;
@@ -17,6 +17,7 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
     private const string SystemLanguageOptionTag = "system";
     private const string DefaultLanguageTag = "en-US";
     private const string SimplifiedChineseLanguageTag = "zh-CN";
+    private static readonly TimeSpan LanguageUiCommitTimeout = TimeSpan.FromSeconds(2);
 
     private static readonly string[] SupportedLanguageTags =
     [
@@ -26,28 +27,35 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly IThemeSelectorService _themeSelectorService;
+    private readonly IUiDispatcher _uiDispatcher;
+    private readonly Func<Task>? _refreshShellAsync;
+    private readonly Func<CancellationToken, Task>? _refreshShellWithCancellationAsync;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private bool _isInitialized;
 
     public string CurrentLanguage { get; private set; } = SystemLanguageOptionTag;
 
-    public LanguageSelectorService(ILocalSettingsService localSettingsService, IThemeSelectorService themeSelectorService)
+    public LanguageSelectorService(ILocalSettingsService localSettingsService, IThemeSelectorService themeSelectorService, IUiDispatcher uiDispatcher, Func<Task>? refreshShellAsync = null, Func<CancellationToken, Task>? refreshShellWithCancellationAsync = null)
     {
         _localSettingsService = localSettingsService;
         _themeSelectorService = themeSelectorService;
+        _uiDispatcher = uiDispatcher;
+        _refreshShellAsync = refreshShellAsync;
+        _refreshShellWithCancellationAsync = refreshShellWithCancellationAsync;
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         if (_isInitialized)
             return;
 
-        await _initializeGate.WaitAsync();
+        await _initializeGate.WaitAsync(cancellationToken);
         try
         {
             if (_isInitialized)
                 return;
 
+            cancellationToken.ThrowIfCancellationRequested();
             CurrentLanguage = NormalizeLanguageTag(await _localSettingsService.ReadSettingAsync<string>(LanguageSettingsKey));
             _isInitialized = true;
         }
@@ -57,24 +65,45 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
         }
     }
 
-    public async Task ApplyLanguageAsync()
+    public async Task ApplyLanguageAsync(CancellationToken cancellationToken = default)
     {
-        await InitializeAsync();
+        await InitializeAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         ApplyLanguage(ResolveEffectiveLanguageTag(CurrentLanguage));
     }
 
-    public async Task SetLanguageAsync(string languageTag)
+    public async Task SetLanguageAsync(string languageTag, CancellationToken cancellationToken = default)
     {
-        await InitializeAsync();
+        await InitializeAsync(cancellationToken);
 
         var normalizedLanguageTag = NormalizeLanguageTag(languageTag);
         if (string.Equals(CurrentLanguage, normalizedLanguageTag, StringComparison.OrdinalIgnoreCase))
             return;
 
+        var previousLanguageTag = CurrentLanguage;
+        cancellationToken.ThrowIfCancellationRequested();
+        await _localSettingsService.SaveSettingAsync(LanguageSettingsKey, normalizedLanguageTag);
         CurrentLanguage = normalizedLanguageTag;
+        try
+        {
+            ApplyLanguage(ResolveEffectiveLanguageTag(CurrentLanguage));
+            using var uiCommitTimeout = new CancellationTokenSource(LanguageUiCommitTimeout);
+            await RefreshShellOnUiAsync(uiCommitTimeout.Token);
+        }
+        catch
+        {
+            await RollBackLanguageAsync(previousLanguageTag);
+            throw;
+        }
+    }
+
+    private async Task RollBackLanguageAsync(string previousLanguageTag)
+    {
+        using var rollbackTimeout = new CancellationTokenSource(LanguageUiCommitTimeout);
+        await _localSettingsService.SaveSettingAsync(LanguageSettingsKey, previousLanguageTag);
+        CurrentLanguage = previousLanguageTag;
         ApplyLanguage(ResolveEffectiveLanguageTag(CurrentLanguage));
-        await _localSettingsService.SaveSettingAsync(LanguageSettingsKey, CurrentLanguage);
-        await RefreshShellAsync();
+        await RefreshShellOnUiAsync(rollbackTimeout.Token);
     }
 
     private static string NormalizeLanguageTag(string? languageTag)
@@ -118,7 +147,8 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
 
     private static void ApplyLanguage(string languageTag)
     {
-        ApplicationLanguages.PrimaryLanguageOverride = languageTag;
+        if (!AppContext.TryGetSwitch("PRISM.Utility.SkipWinGlobalizationApply", out var skipWinGlobalizationApply) || !skipWinGlobalizationApply)
+            ApplicationLanguages.PrimaryLanguageOverride = languageTag;
 
         var culture = CultureInfo.GetCultureInfo(languageTag);
         CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -128,17 +158,49 @@ public sealed class LanguageSelectorService : ILanguageSelectorService
         ResourceExtensions.ResetResourceLoader();
     }
 
-    private async Task RefreshShellAsync()
+    private Task RefreshShellOnUiAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_refreshShellWithCancellationAsync is not null)
+            return _refreshShellWithCancellationAsync(cancellationToken).WaitAsync(cancellationToken);
+
+        if (_refreshShellAsync is not null)
+            return _refreshShellAsync().WaitAsync(cancellationToken);
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_uiDispatcher.TryEnqueue(async () =>
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await RefreshShellAsync(cancellationToken);
+                completion.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        }))
+        {
+            throw new InvalidOperationException("Unable to dispatch language shell refresh to the UI thread.");
+        }
+
+        return completion.Task.WaitAsync(cancellationToken);
+    }
+
+    private async Task RefreshShellAsync(CancellationToken cancellationToken)
     {
         if (App.MainWindow.Content is null)
             return;
 
+        cancellationToken.ThrowIfCancellationRequested();
         App.MainWindow.Content = App.GetService<ShellPage>();
         App.MainWindow.Title = "AppDisplayName".GetLocalized();
-        await _themeSelectorService.SetRequestedThemeAsync();
+        await _themeSelectorService.SetRequestedThemeAsync(cancellationToken);
 
         var navigationService = App.GetService<INavigationService>();
-        navigationService.NavigateTo(typeof(SettingsViewModel).FullName!, clearNavigation: true);
+        navigationService.NavigateTo(AppRoute.Settings, clearNavigation: true);
         App.MainWindow.Activate();
     }
 }

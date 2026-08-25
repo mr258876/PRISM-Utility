@@ -21,17 +21,18 @@ public sealed class DebugOutputSettingsService : IDebugOutputSettingsService
         _localSettingsService = localSettingsService;
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         if (_isInitialized)
             return;
 
-        await _initializeGate.WaitAsync();
+        await _initializeGate.WaitAsync(cancellationToken);
         try
         {
             if (_isInitialized)
                 return;
 
+            cancellationToken.ThrowIfCancellationRequested();
             IsDebugConsoleEnabled = await _localSettingsService.ReadSettingAsync<bool?>(DebugConsoleEnabledKey) ?? false;
             IsFileLogEnabled = await _localSettingsService.ReadSettingAsync<bool?>(FileLogEnabledKey) ?? false;
             _isInitialized = true;
@@ -42,23 +43,25 @@ public sealed class DebugOutputSettingsService : IDebugOutputSettingsService
         }
     }
 
-    public async Task SetDebugConsoleEnabledAsync(bool enabled)
+    public async Task SetDebugConsoleEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
     {
-        await InitializeAsync();
+        await InitializeAsync(cancellationToken);
         if (IsDebugConsoleEnabled == enabled)
             return;
 
-        IsDebugConsoleEnabled = enabled;
+        cancellationToken.ThrowIfCancellationRequested();
         await _localSettingsService.SaveSettingAsync(DebugConsoleEnabledKey, enabled);
+        IsDebugConsoleEnabled = enabled;
     }
 
-    public async Task SetFileLogEnabledAsync(bool enabled)
+    public async Task SetFileLogEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
     {
-        await InitializeAsync();
+        await InitializeAsync(cancellationToken);
         if (IsFileLogEnabled == enabled)
             return;
 
-        IsFileLogEnabled = enabled;
+        cancellationToken.ThrowIfCancellationRequested();
         await _localSettingsService.SaveSettingAsync(FileLogEnabledKey, enabled);
+        IsFileLogEnabled = enabled;
     }
 }

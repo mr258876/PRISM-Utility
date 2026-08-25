@@ -14,10 +14,7 @@ public sealed record ScanWorkflowRequest(
     uint SysClockKhz,
     ScanFilmAcquisitionSettings? AcquisitionSettings = null,
     bool EnableMotorTransport = true,
-    bool EnableLedAutoControl = true)
-{
-    public uint MotorIntervalUs => MotorIntervalNs;
-}
+    bool EnableLedAutoControl = true);
 
 public sealed record ScanPassCapture(
     int PassIndex,
@@ -33,10 +30,7 @@ public sealed record ScanWorkflowResult(
     uint ComputedMotorStepsPerPass,
     uint MotorIntervalNs,
     ushort ExposureTicks,
-    uint SysClockKhz)
-{
-    public uint MotorIntervalUs => MotorIntervalNs;
-}
+    uint SysClockKhz);
 
 public sealed record ScanWorkflowProgress(
     int CurrentPass,

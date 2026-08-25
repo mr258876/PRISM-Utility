@@ -1,0 +1,27 @@
+{
+  "SchemaVersion": 5,
+  "ProfileName": "Null Optional Settings",
+  "SavedAtUtc": "2026-07-16T12:34:56+00:00",
+  "ChannelProfiles": {
+    "Red": {
+      "Parameters": {
+        "ExposureTicks": 2,
+        "Adc1Offset": 0,
+        "Adc1Gain": 0,
+        "Adc2Offset": 0,
+        "Adc2Gain": 0,
+        "SysClockKhz": 30000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 128, "EndInclusive": 7577 },
+        "ShieldRange": { "Start": 26, "EndInclusive": 115 },
+        "FocusLeftRange": { "Start": 1200, "EndInclusive": 2800 },
+        "FocusRightRange": { "Start": 4600, "EndInclusive": 6200 },
+        "FocusOverallRange": { "Start": 1200, "EndInclusive": 6200 }
+      }
+    }
+  },
+  "SelectedCalibrationChannel": "Red",
+  "AcquisitionSettings": null,
+  "ScanRecipeSettings": null
+}

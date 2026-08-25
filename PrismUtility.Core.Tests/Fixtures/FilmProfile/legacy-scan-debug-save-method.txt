@@ -1,0 +1,7 @@
+[RelayCommand]
+private async Task SaveFilmProfileJson()
+{
+    await SaveSelectedCalibrationProfileAsync(snapshot);
+    var exported = await _channelProfiles.ExportProfilesAsync(profile);
+    HasUnsavedProfileChanges = false;
+}

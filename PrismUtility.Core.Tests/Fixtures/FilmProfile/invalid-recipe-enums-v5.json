@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": 5,
+  "ProfileName": "Invalid recipe enums",
+  "SavedAtUtc": "2026-07-17T00:00:00+00:00",
+  "ChannelProfiles": {
+    "Blue": {
+      "Parameters": {
+        "ExposureTicks": 1234,
+        "Adc1Offset": 0,
+        "Adc1Gain": 12,
+        "Adc2Offset": 0,
+        "Adc2Gain": 15,
+        "SysClockKhz": 48000
+      }
+    }
+  },
+  "SelectedCalibrationChannel": "Blue",
+  "ScanRecipeSettings": {
+    "AlignmentMode": 99,
+    "DngExportMode": 99
+  }
+}

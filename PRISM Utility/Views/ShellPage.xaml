@@ -101,22 +101,22 @@
                 TODO: Update item icons by updating FontIcon.Glyph properties.
                 https://docs.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font#icon-list
                 -->
-                <NavigationViewItem x:Uid="Shell_Main" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.MainViewModel">
+                <NavigationViewItem x:Uid="Shell_Main" helpers:NavigationHelper.NavigateTo="Main">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Uid="Shell_Log" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.LogViewModel">
+                <NavigationViewItem x:Uid="Shell_Log" helpers:NavigationHelper.NavigateTo="Log">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF0E3;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Uid="Shell_Scan" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.ScanViewModel">
+                <NavigationViewItem x:Uid="Shell_Scan" helpers:NavigationHelper.NavigateTo="Scan">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FE;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Uid="Shell_ScanDebug" helpers:NavigationHelper.NavigateTo="PRISM_Utility.ViewModels.ScanDebugViewModel">
+                <NavigationViewItem x:Uid="Shell_ScanDebug" helpers:NavigationHelper.NavigateTo="ScanDebug">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEC7A;"/>
                     </NavigationViewItem.Icon>

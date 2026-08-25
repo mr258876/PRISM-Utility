@@ -97,9 +97,6 @@ public static class ScanTimingMath
         return true;
     }
 
-    public static bool TryConvertMillimetersPerSecondToMotorIntervalUs(double millimetersPerSecond, ScanMotorMechanicalSettings settings, uint minIntervalUs, out uint intervalUs)
-        => TryConvertMillimetersPerSecondToMotorIntervalNs(millimetersPerSecond, settings, minIntervalUs, out intervalUs);
-
     public static double ConvertMotorIntervalToLineDistanceMillimeters(uint intervalNs, ushort exposureTicks, uint sysClockKhz, ScanMotorMechanicalSettings settings)
     {
         var lineTimeNs = ExposureTicksToNanoseconds(exposureTicks, sysClockKhz);
@@ -120,9 +117,6 @@ public static class ScanTimingMath
         var speedMmPerSecond = (lineDistanceMillimeters * NanosecondsPerSecond) / lineTimeNs;
         return TryConvertMillimetersPerSecondToMotorIntervalNs(speedMmPerSecond, settings, minIntervalNs, out intervalNs);
     }
-
-    public static bool TryConvertLineDistanceMillimetersToMotorIntervalUs(double lineDistanceMillimeters, ushort exposureTicks, uint sysClockKhz, ScanMotorMechanicalSettings settings, uint minIntervalUs, out uint intervalUs)
-        => TryConvertLineDistanceMillimetersToMotorIntervalNs(lineDistanceMillimeters, exposureTicks, sysClockKhz, settings, minIntervalUs, out intervalUs);
 
     public static double ExposureNanosecondsToReciprocalSeconds(double exposureNanoseconds)
         => NanosecondsPerSecond / Math.Max(exposureNanoseconds, double.Epsilon);

@@ -75,6 +75,9 @@ public class ScanImageDecoder : IScanImageDecoder
 
     public void DecodeWaterfallStripToBgra(byte[] lineBuffer, int rows, byte[] destination, bool applyGammaCorrection, double gamma, bool applyWhiteLevel, ushort whiteLevel)
     {
+        if (rows <= 0)
+            throw new ArgumentOutOfRangeException(nameof(rows), rows, "Rows must be greater than zero.");
+
         var width = GetDecodedPixelsPerLine();
         if (width <= 0)
             throw new InvalidOperationException("Decoded preview width is invalid.");

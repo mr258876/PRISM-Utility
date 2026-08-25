@@ -2,9 +2,9 @@ using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.UI.Xaml.Controls;
 
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Helpers;
-using PRISM_Utility.ViewModels;
 
 namespace PRISM_Utility.Services;
 
@@ -57,17 +57,13 @@ public class NavigationViewService : INavigationViewService
 
     private void OnItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (args.IsSettingsInvoked)
-        {
-            _navigationService.NavigateTo(typeof(SettingsViewModel).FullName!);
-        }
-        else
-        {
-            var selectedItem = args.InvokedItemContainer as NavigationViewItem;
-
-            if (selectedItem?.GetValue(NavigationHelper.NavigateToProperty) is string pageKey)
-                _navigationService.NavigateTo(pageKey);
-        }
+        var selectedItem = args.InvokedItemContainer as NavigationViewItem;
+        var itemRoute = selectedItem is null ? null : NavigationHelper.GetNavigateTo(selectedItem);
+        var resolution = NavigationViewRouteResolver.Resolve(args.IsSettingsInvoked, itemRoute);
+        if (resolution.ShouldNavigate)
+            _navigationService.NavigateTo(resolution.Route!.Value);
+        else if (resolution.Diagnostic is not null)
+            NavigationTimingLogger.Write(resolution.Diagnostic);
     }
 
     private NavigationViewItem? GetSelectedItem(IEnumerable<object> menuItems, Type pageType)
@@ -91,9 +87,10 @@ public class NavigationViewService : INavigationViewService
 
     private bool IsMenuItemForPageType(NavigationViewItem menuItem, Type sourcePageType)
     {
-        if (menuItem.GetValue(NavigationHelper.NavigateToProperty) is string pageKey)
+        var route = NavigationHelper.GetNavigateTo(menuItem);
+        if (route.HasValue)
         {
-            return _pageService.GetPageType(pageKey) == sourcePageType;
+            return _pageService.GetPageType(route.Value) == sourcePageType;
         }
 
         return false;

@@ -6,16 +6,23 @@ namespace PRISM_Utility.Helpers;
 
 public static class ResourceExtensions
 {
+    private const string ResourceFallbackSwitch = "PRISM.Utility.UseResourceFallbacks";
     private static readonly object ResourceLoaderGate = new();
-    private static ResourceLoader ResourceLoader = new();
+    private static ResourceLoader? ResourceLoader;
 
     public static void ResetResourceLoader()
     {
         lock (ResourceLoaderGate)
         {
-            ResourceLoader = new ResourceLoader();
+            ResourceLoader = null;
         }
     }
+
+    private static bool UseResourceFallbacks()
+        => AppContext.TryGetSwitch(ResourceFallbackSwitch, out var enabled) && enabled;
+
+    private static ResourceLoader GetResourceLoader()
+        => ResourceLoader ??= new ResourceLoader();
 
     private static string GetMissingResourceFallback(string resourceKey)
     {
@@ -31,12 +38,15 @@ public static class ResourceExtensions
         if (string.IsNullOrWhiteSpace(resourceKey))
             return fallback;
 
+        if (UseResourceFallbacks())
+            return fallback;
+
         try
         {
             string localized;
             lock (ResourceLoaderGate)
             {
-                localized = ResourceLoader.GetString(resourceKey);
+                localized = GetResourceLoader().GetString(resourceKey);
             }
             if (!string.IsNullOrEmpty(localized))
                 return localized;
@@ -63,12 +73,15 @@ public static class ResourceExtensions
         if (string.IsNullOrWhiteSpace(resourceKey))
             throw new ArgumentException("Resource key cannot be null or whitespace.", nameof(resourceKey));
 
+        if (UseResourceFallbacks())
+            return GetMissingResourceFallback(resourceKey);
+
         try
         {
             string localized;
             lock (ResourceLoaderGate)
             {
-                localized = ResourceLoader.GetString(resourceKey);
+                localized = GetResourceLoader().GetString(resourceKey);
             }
             if (!string.IsNullOrEmpty(localized))
                 return localized;

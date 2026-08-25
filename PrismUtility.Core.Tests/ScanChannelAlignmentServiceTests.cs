@@ -23,9 +23,10 @@ public sealed class ScanChannelAlignmentServiceTests
         var result = BuildResult(EncodeSamples(shiftedSamples), EncodeSamples(referenceSamples), EncodeSamples(referenceSamples));
         var assignment = new ScanChannelAssignment("Red", "Green", "Blue", "Unused", false, false, false, false);
 
-        var success = service.TryBuildAlignedNormalizedPassBuffers(result, assignment, alignmentMode, out var alignedBuffers, out var error);
+        var alignmentResult = service.BuildAlignedNormalizedPassBuffers(result, assignment, alignmentMode, CancellationToken.None);
 
-        Assert.True(success, error);
+        Assert.Equal(ScanChannelAlignmentStatus.Aligned, alignmentResult.Status);
+        var alignedBuffers = alignmentResult.AlignedPassBuffers;
         var beforeDifference = ComputeMeanAbsoluteDifference(shiftedSamples, referenceSamples);
         var alignedSamples = DecodeSamples(alignedBuffers[0]);
         var afterDifference = ComputeMeanAbsoluteDifference(alignedSamples, referenceSamples);
@@ -42,9 +43,10 @@ public sealed class ScanChannelAlignmentServiceTests
         var result = BuildResult(originalBuffer, EncodeSamples(referenceSamples), EncodeSamples(referenceSamples));
         var assignment = new ScanChannelAssignment("Red", "Green", "Blue", "Unused", false, false, false, false);
 
-        var success = service.TryBuildAlignedNormalizedPassBuffers(result, assignment, (ScanChannelAlignmentMode)999, out var alignedBuffers, out var error);
+        var alignmentResult = service.BuildAlignedNormalizedPassBuffers(result, assignment, (ScanChannelAlignmentMode)999, CancellationToken.None);
 
-        Assert.True(success, error);
+        Assert.Equal(ScanChannelAlignmentStatus.Fallback, alignmentResult.Status);
+        var alignedBuffers = alignmentResult.AlignedPassBuffers;
         Assert.Equal(originalBuffer, alignedBuffers[0]);
     }
 
@@ -171,13 +173,13 @@ public sealed class ScanChannelAlignmentServiceTests
 
     private sealed class PassthroughCompositeImageProcessor : IScanCompositeImageProcessor
     {
-        public byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse)
+        public byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse, CancellationToken cancellationToken)
             => (byte[])capture.ImageBytes.Clone();
 
-        public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, out ScanCompositePixelBuffer? frame, out string error)
+        public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, CancellationToken cancellationToken, out ScanCompositePixelBuffer? frame, out string error)
             => throw new NotSupportedException();
 
-        public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, out ScanCompositePixelBuffer? frame, out string error)
+        public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, CancellationToken cancellationToken, out ScanCompositePixelBuffer? frame, out string error)
             => throw new NotSupportedException();
     }
 

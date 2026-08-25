@@ -57,7 +57,8 @@ public partial class ScanViewModel : ObservableRecipient
     private readonly IScanChannelImageService _channelImages;
     private readonly IScanDeviceSettingsService _deviceSettings;
     private readonly IScanColorManagementSettingsService _colorManagementSettings;
-    private readonly IScanChannelParameterProfileService _channelProfiles;
+    private readonly IScanCalibrationProfileRepository _calibrationProfiles;
+    private readonly IScanFilmProfileFileCoordinator _filmProfileFiles;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly IUiDispatcher _dispatcher;
     private readonly CancellationTokenSource _uiLifetimeCts = new();
@@ -366,7 +367,8 @@ public partial class ScanViewModel : ObservableRecipient
         IScanChannelImageService channelImages,
         IScanDeviceSettingsService deviceSettings,
         IScanColorManagementSettingsService colorManagementSettings,
-        IScanChannelParameterProfileService channelProfiles,
+        IScanCalibrationProfileRepository calibrationProfiles,
+        IScanFilmProfileFileCoordinator filmProfileFiles,
         IUsbUsageCoordinator usbUsageCoordinator,
         IUiDispatcher dispatcher)
     {
@@ -381,7 +383,8 @@ public partial class ScanViewModel : ObservableRecipient
         _channelImages = channelImages;
         _deviceSettings = deviceSettings;
         _colorManagementSettings = colorManagementSettings;
-        _channelProfiles = channelProfiles;
+        _calibrationProfiles = calibrationProfiles;
+        _filmProfileFiles = filmProfileFiles;
         _usbUsageCoordinator = usbUsageCoordinator;
         _dispatcher = dispatcher;
         _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
@@ -414,7 +417,7 @@ public partial class ScanViewModel : ObservableRecipient
         ExecutionConfigSummaryText = string.Empty;
         MotorDistancePerLineValue = string.Empty;
         MotorDistancePerLineUnit = MotorDistanceUnitMillimeters;
-        MotorIntervalUs = ScanDebugConstants.MotionDefaultIntervalUs.ToString();
+        MotorIntervalUs = FormatMotorIntervalInput(ScanDebugConstants.MotionDefaultIntervalNs);
         Pass1DirectionText = ForwardDirection;
         Pass2DirectionText = ReverseDirection;
         Pass3DirectionText = ForwardDirection;
@@ -965,8 +968,8 @@ public partial class ScanViewModel : ObservableRecipient
         {
             await _deviceSettingsInitializationTask;
             var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
-            if (!TryGetEffectiveMotorIntervalUs(motorSettings, out _))
-                blockers.Add(new(ScanWorkflowBlockerIds.Execution, "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs)));
+            if (!TryGetEffectiveMotorIntervalNs(motorSettings, out _))
+                blockers.Add(new(ScanWorkflowBlockerIds.Execution, "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs))));
         }
 
         if (blockers.Count > 0)
@@ -1093,7 +1096,7 @@ public partial class ScanViewModel : ObservableRecipient
         try
         {
             await _transferSettings.InitializeAsync();
-            await _channelProfiles.InitializeAsync();
+            await _calibrationProfiles.InitializeAsync(CancellationToken.None);
             await _deviceSettings.InitializeAsync();
             OnChannelAssignmentChanged();
 
@@ -1145,7 +1148,7 @@ public partial class ScanViewModel : ObservableRecipient
         try
         {
             await _transferSettings.InitializeAsync();
-            await _channelProfiles.InitializeAsync();
+            await _calibrationProfiles.InitializeAsync(CancellationToken.None);
             await _deviceSettings.InitializeAsync();
             OnChannelAssignmentChanged();
 
@@ -1322,8 +1325,8 @@ public partial class ScanViewModel : ObservableRecipient
     private void MirrorOutput(string source, string message)
         => _debugOutputMirror.Mirror(source, message);
 
-    [RelayCommand(CanExecute = nameof(CanSaveRgbImage))]
-    private async Task SaveRgbImage()
+    [RelayCommand(CanExecute = nameof(CanSaveRgbImage), IncludeCancelCommand = true)]
+    private async Task SaveRgbImage(CancellationToken cancellationToken)
     {
         if (_lastResult is null)
         {
@@ -1348,10 +1351,14 @@ public partial class ScanViewModel : ObservableRecipient
 
             IsOutputOperationRunning = true;
             StatusText = "Scan_Runtime_StatusRgbSaving".GetLocalized();
-            var buffer = await _channelImages.BuildRgbCompositeBufferAsync(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, _channelProfiles.Profiles, true);
-            await _channelImages.SaveRgbImageAsync(file, buffer);
+            var buffer = await _channelImages.BuildRgbCompositeBufferAsync(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, _calibrationProfiles.Snapshot.Profiles, true, cancellationToken);
+            await _channelImages.SaveRgbImageAsync(file, buffer, cancellationToken);
             StatusText = "Scan_Runtime_StatusRgbSaved".GetLocalizedFormat(file.Path);
             ClearTopRiskBanner();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            StatusText = "Scan_Runtime_StatusRgbSaveCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
@@ -1364,8 +1371,8 @@ public partial class ScanViewModel : ObservableRecipient
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanExportDngChannels))]
-    private async Task ExportDngChannels()
+    [RelayCommand(CanExecute = nameof(CanExportDngChannels), IncludeCancelCommand = true)]
+    private async Task ExportDngChannels(CancellationToken cancellationToken)
     {
         if (_lastResult is null)
         {
@@ -1375,6 +1382,7 @@ public partial class ScanViewModel : ObservableRecipient
 
         try
         {
+            ClearTopRiskBanner();
             var folder = await _channelImages.PickDngExportFolderAsync();
             if (folder is null)
             {
@@ -1383,9 +1391,25 @@ public partial class ScanViewModel : ObservableRecipient
             }
 
             IsOutputOperationRunning = true;
-            await _channelImages.ExportDngChannelsAsync(folder, _lastResult, BuildChannelAssignment(), SelectedAlignmentMode, SelectedDngExportMode);
-            StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
-            ClearTopRiskBanner();
+            var exportResult = await _channelImages.ExportDngChannelsAsync(folder, _lastResult, BuildChannelAssignment(), SelectedAlignmentMode, SelectedDngExportMode, cancellationToken: cancellationToken);
+            if (exportResult.HasAlignmentWarning)
+            {
+                var affectedChannels = FormatDngAffectedChannelRoles(exportResult);
+                StatusText = "Scan_Runtime_StatusDngExportedWithAlignmentWarning".GetLocalizedFormat(folder.Path, affectedChannels);
+                ShowTopRiskBanner(
+                    "Scan_Runtime_DngAlignmentWarningTitle".GetLocalized(),
+                    "Scan_Runtime_DngAlignmentWarningText".GetLocalizedFormat(affectedChannels),
+                    InfoBarSeverity.Warning);
+            }
+            else
+            {
+                StatusText = "Scan_Runtime_StatusDngExported".GetLocalizedFormat(folder.Path);
+                ClearTopRiskBanner();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            StatusText = "Scan_Runtime_StatusDngExportCanceled".GetLocalized();
         }
         catch (Exception ex)
         {
@@ -1403,25 +1427,38 @@ public partial class ScanViewModel : ObservableRecipient
     {
         try
         {
-            await _channelProfiles.InitializeAsync();
+            await _calibrationProfiles.InitializeAsync(CancellationToken.None);
 
-            var imported = await _channelProfiles.ImportProfilesAsync();
-            if (imported is null)
+            var imported = await _filmProfileFiles.ImportAsync(CancellationToken.None);
+            if (imported.WasCanceled)
             {
                 StatusText = "Scan_Runtime_StatusLoadConfigProfileCanceled".GetLocalized();
                 return;
             }
 
-            await _channelProfiles.ReplaceProfilesAsync(imported);
+            if (imported.Profile is null)
+            {
+                var validationIssue = imported.Validation?.Issues.FirstOrDefault();
+                var validationMessage = validationIssue is null
+                    ? "Invalid configuration profile."
+                    : FilmProfileValidationTextPresenter.GetValidationIssueText(validationIssue);
+                StatusText = "Scan_Runtime_StatusLoadConfigProfileFailed".GetLocalizedFormat(validationMessage);
+                return;
+            }
+
+            var profile = imported.Profile;
+            await _calibrationProfiles.ReplaceAsync(
+                new ScanCalibrationProfileRepositorySnapshot(profile.ChannelProfiles, profile.SelectedCalibrationChannel),
+                CancellationToken.None);
             _isConfigProfileLoaded = true;
             StartScanCommand.NotifyCanExecuteChanged();
-            SelectedConfigProfileName = imported.ProfileName;
-            _selectedConfigAcquisitionSettings = imported.AcquisitionSettings?.Normalize();
+            SelectedConfigProfileName = profile.ProfileName;
+            _selectedConfigAcquisitionSettings = profile.AcquisitionSettings?.Normalize();
 
             if (_selectedConfigAcquisitionSettings is not null)
                 ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);
 
-            ApplyScanRecipeSettings(imported.ScanRecipeSettings);
+            ApplyScanRecipeSettings(profile.ScanRecipeSettings);
             RefreshLoadedScanRecipeSummary();
             UpdateExecutionConfigSummary();
             UpdateReadinessSummaries();
@@ -1430,7 +1467,7 @@ public partial class ScanViewModel : ObservableRecipient
             StatusText = (_selectedConfigAcquisitionSettings is null
                     ? "Scan_Runtime_StatusConfigProfileLoadedLegacy"
                     : "Scan_Runtime_StatusConfigProfileLoaded")
-                .GetLocalizedFormat(imported.ProfileName);
+                .GetLocalizedFormat(profile.ProfileName);
         }
         catch (Exception ex)
         {
@@ -1518,7 +1555,7 @@ public partial class ScanViewModel : ObservableRecipient
                 return;
             }
 
-            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, PreviewImage, out var frame, out var error, _channelProfiles.Profiles, true) && frame is not null)
+            if (_channelImages.TryBuildRgbComposite(_lastResult, BuildChannelAssignment(), colorManagement, SelectedAlignmentMode, PreviewImage, out var frame, out var error, _calibrationProfiles.Snapshot.Profiles, true) && frame is not null)
             {
                 PreviewImage = frame.Bitmap;
                 PreviewDescriptionText = "Scan_Runtime_PreviewCompositeDescription".GetLocalizedFormat(GetPreviewModeDisplayName(SelectedPreviewMode), GetAlignmentModeDisplayName(SelectedAlignmentMode), IsColorManagementEnabled ? "Scan_Runtime_PreviewCompositeModeSpectral".GetLocalized() : "Scan_Runtime_PreviewCompositeModeGamma".GetLocalized());
@@ -1613,16 +1650,16 @@ public partial class ScanViewModel : ObservableRecipient
         }
 
         var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
-        if (!TryGetEffectiveMotorIntervalUs(motorSettings, out var intervalUs))
+        if (!TryGetEffectiveMotorIntervalNs(motorSettings, out var intervalNs))
         {
-            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
+            ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
             return;
         }
 
-        var computedSteps = ScanTimingMath.ComputeMotorStepsPerPass(rows, _loadedExposureTicks, _loadedSysClockKhz, intervalUs);
+        var computedSteps = ScanTimingMath.ComputeMotorStepsPerPass(rows, _loadedExposureTicks, _loadedSysClockKhz, intervalNs);
         var distanceMm = ScanTimingMath.ConvertMotorStepsToMillimeters(computedSteps, motorSettings);
-        var speedMmPerSecond = ScanTimingMath.ConvertMotorIntervalToMillimetersPerSecond(intervalUs, motorSettings);
-        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorSummary".GetLocalizedFormat(GetMotorDisplayIndex(), computedSteps, intervalUs, rows, distanceMm.ToString("0.###", CultureInfo.InvariantCulture), speedMmPerSecond.ToString("0.###", CultureInfo.InvariantCulture));
+        var speedMmPerSecond = ScanTimingMath.ConvertMotorIntervalToMillimetersPerSecond(intervalNs, motorSettings);
+        ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorSummary".GetLocalizedFormat(GetMotorDisplayIndex(), computedSteps, FormatMotorIntervalInput(intervalNs), rows, distanceMm.ToString("0.###", CultureInfo.InvariantCulture), speedMmPerSecond.ToString("0.###", CultureInfo.InvariantCulture));
     }
 
     private bool TryBuildWorkflowRequest(out ScanWorkflowRequest request, out string error)
@@ -1646,22 +1683,32 @@ public partial class ScanViewModel : ObservableRecipient
         _deviceSettingsInitializationTask.GetAwaiter().GetResult();
 
         var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
-        if (!TryGetEffectiveMotorIntervalUs(motorSettings, out var intervalUs))
+        if (!TryGetEffectiveMotorIntervalNs(motorSettings, out var intervalNs))
         {
-            error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanDebugConstants.MotionMinIntervalUs);
+            error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
             return false;
         }
 
-        if (!HasLoadedScannerParameters() || _loadedSnapshot is not { } fallbackSnapshot)
+        if (!HasLoadedScannerParameters() || _loadedSnapshot is null)
         {
             error = "Scan_Runtime_ErrorParametersNotLoaded".GetLocalized();
             return false;
         }
+
         var passRoles = GetEffectiveDeviceChannelRoles();
-        var passProfiles = passRoles
-            .Select(role => _channelProfiles.TryGetProfile(role, out var profile) ? profile.Parameters : fallbackSnapshot)
-            .ToArray();
-        var acquisitionSettings = BuildWorkflowAcquisitionSettings(intervalUs);
+        var passProfiles = new ScanParameterSnapshot[passRoles.Length];
+        for (var passIndex = 0; passIndex < passRoles.Length; passIndex++)
+        {
+            if (!_calibrationProfiles.TryGetProfile(passRoles[passIndex], out var profile))
+            {
+                error = "Scan_Runtime_ErrorConfigProfileRequired".GetLocalizedOrFallback("Load a scan configuration with profiles for every configured scanner channel before starting.");
+                return false;
+            }
+
+            passProfiles[passIndex] = profile.Parameters;
+        }
+
+        var acquisitionSettings = BuildWorkflowAcquisitionSettings(intervalNs);
 
         request = new ScanWorkflowRequest(
             rows,
@@ -1670,7 +1717,7 @@ public partial class ScanViewModel : ObservableRecipient
             passRoles,
             passProfiles,
             motorId,
-            intervalUs,
+            intervalNs,
             string.Equals(SelectedStartingDirection, ForwardDirection, StringComparison.OrdinalIgnoreCase),
             IsAlternateMotorDirectionEnabled,
             _loadedExposureTicks,
@@ -1704,7 +1751,7 @@ public partial class ScanViewModel : ObservableRecipient
     private void ApplyAcquisitionSettingsToInputs(ScanFilmAcquisitionSettings settings)
     {
         var normalized = settings.Normalize();
-        MotorIntervalUs = normalized.MotorIntervalUs.ToString(CultureInfo.InvariantCulture);
+        MotorIntervalUs = FormatMotorIntervalInput(normalized.MotorIntervalNs);
         _isMotorDistanceDerivedFromInterval = true;
         RefreshDerivedMotorDistanceFromCurrentInterval();
     }
@@ -1754,13 +1801,13 @@ public partial class ScanViewModel : ObservableRecipient
             colorMode);
     }
 
-    private bool TryGetEffectiveMotorIntervalUs(ScanMotorMechanicalSettings motorSettings, out uint intervalUs)
+    private bool TryGetEffectiveMotorIntervalNs(ScanMotorMechanicalSettings motorSettings, out uint intervalNs)
     {
-        intervalUs = 0;
+        intervalNs = 0;
 
         if (_isMotorDistanceDerivedFromInterval)
-            return uint.TryParse(MotorIntervalUs, NumberStyles.Integer, CultureInfo.InvariantCulture, out intervalUs)
-                && intervalUs >= ScanDebugConstants.MotionMinIntervalUs;
+            return ScanMotorIntervalText.TryParseMicroseconds(MotorIntervalUs, out intervalNs)
+                && intervalNs >= ScanDebugConstants.MotionMinIntervalNs;
 
         if (_loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz)
             return false;
@@ -1768,10 +1815,13 @@ public partial class ScanViewModel : ObservableRecipient
         if (!ScanMotorDistanceText.TryParseMillimeters(MotorDistancePerLineValue, MotorDistancePerLineUnit, motorSettings, out var lineDistanceMm))
             return false;
 
-        if (!ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalUs(lineDistanceMm, _loadedExposureTicks, _loadedSysClockKhz, motorSettings, ScanDebugConstants.MotionMinIntervalUs, out intervalUs))
+        if (!ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalNs(lineDistanceMm, _loadedExposureTicks, _loadedSysClockKhz, motorSettings, ScanDebugConstants.MotionMinIntervalNs, out intervalNs))
             return false;
 
-        MotorIntervalUs = intervalUs.ToString(CultureInfo.InvariantCulture);
+        MotorIntervalUs = FormatMotorIntervalInput(intervalNs);
+        if (string.IsNullOrEmpty(MotorIntervalUs))
+            return false;
+
         return true;
     }
 
@@ -1780,8 +1830,8 @@ public partial class ScanViewModel : ObservableRecipient
         if (!_isMotorDistanceDerivedFromInterval)
             return;
 
-        if (!uint.TryParse(MotorIntervalUs, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intervalUs)
-            || intervalUs < ScanDebugConstants.MotionMinIntervalUs
+        if (!ScanMotorIntervalText.TryParseMicroseconds(MotorIntervalUs, out var intervalNs)
+            || intervalNs < ScanDebugConstants.MotionMinIntervalNs
             || _loadedSysClockKhz < ScanDebugConstants.MinSysClockKhz
             || !TryParseSelectedMotor(out var motorId, out _))
         {
@@ -1789,7 +1839,7 @@ public partial class ScanViewModel : ObservableRecipient
             return;
         }
 
-        var lineDistanceMm = ScanTimingMath.ConvertMotorIntervalToLineDistanceMillimeters(intervalUs, _loadedExposureTicks, _loadedSysClockKhz, _deviceSettings.Settings.GetMotorSettings(motorId));
+        var lineDistanceMm = ScanTimingMath.ConvertMotorIntervalToLineDistanceMillimeters(intervalNs, _loadedExposureTicks, _loadedSysClockKhz, _deviceSettings.Settings.GetMotorSettings(motorId));
         if (!ScanMotorDistanceText.TryFormatDisplayValue(lineDistanceMm, MotorDistancePerLineUnit, _deviceSettings.Settings.GetMotorSettings(motorId), out var displayValue))
         {
             ApplyDerivedMotorDistance(string.Empty);
@@ -1815,7 +1865,7 @@ public partial class ScanViewModel : ObservableRecipient
     private ScanMotorMechanicalSettings GetCurrentMotorSettings()
         => TryParseSelectedMotor(out var motorId, out _) ? _deviceSettings.Settings.GetMotorSettings(motorId) : ScanMotorMechanicalSettings.CreateDefault();
 
-    private ScanFilmAcquisitionSettings BuildWorkflowAcquisitionSettings(uint motorIntervalUs)
+    private ScanFilmAcquisitionSettings BuildWorkflowAcquisitionSettings(uint motorIntervalNs)
     {
         var source = (_selectedConfigAcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize();
         return new ScanFilmAcquisitionSettings(
@@ -1829,8 +1879,11 @@ public partial class ScanViewModel : ObservableRecipient
             source.Led2PulseClock,
             source.Led3PulseClock,
             source.Led4PulseClock,
-            motorIntervalUs).Normalize();
+            motorIntervalNs).Normalize();
     }
+
+    private static string FormatMotorIntervalInput(uint intervalNs)
+        => ScanMotorIntervalText.TryFormatMicroseconds(intervalNs, out var intervalUs) ? intervalUs : string.Empty;
 
     private bool CanRunExtendedScan()
         => _transferSettings.Settings.ReadMode == ScanBulkInReadMode.MultiBuffered && _transferSettings.Settings.RawIoEnabled;
@@ -1984,6 +2037,11 @@ public partial class ScanViewModel : ObservableRecipient
             "Unused" => "Scan_Runtime_ChannelRoleUnused".GetLocalized(),
             _ => role
         };
+
+    private static string FormatDngAffectedChannelRoles(ScanDngExportResult exportResult)
+        => exportResult.AffectedChannelRoles.Count == 0
+            ? "Scan_Runtime_DngAlignmentWarningUnknownChannels".GetLocalized()
+            : string.Join(", ", exportResult.AffectedChannelRoles.Select(GetChannelRoleDisplayName));
 
     private string NormalizePreviewMode(string? previewMode)
         => string.IsNullOrWhiteSpace(previewMode) ? PreviewModes[0] : previewMode;

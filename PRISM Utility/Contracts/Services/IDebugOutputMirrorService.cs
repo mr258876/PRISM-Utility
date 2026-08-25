@@ -10,5 +10,9 @@ public interface IDebugOutputMirrorService
 
     void Mirror(string source, string message);
 
+    Task FlushAsync();
+
+    Task ShutdownAsync(CancellationToken ct = default);
+
     void ClearRecentEntries();
 }

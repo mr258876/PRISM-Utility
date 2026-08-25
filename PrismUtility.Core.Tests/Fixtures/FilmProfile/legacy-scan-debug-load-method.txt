@@ -1,0 +1,8 @@
+[RelayCommand]
+private async Task LoadFilmProfileJson()
+{
+    var imported = await _channelProfiles.ImportProfilesAsync();
+    await _channelProfiles.ReplaceProfilesAsync(imported);
+    FilmProfileName = imported.ProfileName;
+    await LoadSelectedCalibrationProfileAsync(channelToLoad, ++_profileLoadVersion);
+}

@@ -101,8 +101,6 @@ public static class ScanDebugConstants
     public const int MotionSingleMotorPayloadLength = 1;
     public const uint MotionMinIntervalNs = 750;
     public const uint MotionDefaultIntervalNs = 500_000;
-    public const uint MotionMinIntervalUs = MotionMinIntervalNs;
-    public const uint MotionDefaultIntervalUs = MotionDefaultIntervalNs;
 
     public static int DecodedPixelsPerLine
     {
@@ -156,10 +154,7 @@ public sealed record ScanMotorState(
     bool Direction,
     byte Diag,
     uint IntervalNs,
-    uint RemainingSteps)
-{
-    public uint IntervalUs => IntervalNs;
-}
+    uint RemainingSteps);
 
 public sealed record ScanParameterDisplays(string ExposureTimeDisplay, string Adc1OffsetMvDisplay, string Adc2OffsetMvDisplay, string Adc1GainVvDisplay, string Adc2GainVvDisplay, string SysClockMhzDisplay);
 
@@ -412,10 +407,7 @@ public sealed record ScanAutofocusRequest(
     bool TiltPositiveDirection,
     int MaxTiltIterations,
     int MaxZIterations,
-    ScanCalibrationRoiSettings RoiSettings)
-{
-    public uint MotorIntervalUs => MotorIntervalNs;
-}
+    ScanCalibrationRoiSettings RoiSettings);
 
 public sealed record ScanAutofocusResult(
     int SampleRows,

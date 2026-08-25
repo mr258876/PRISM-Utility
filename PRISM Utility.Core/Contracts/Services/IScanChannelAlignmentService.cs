@@ -4,10 +4,9 @@ namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface IScanChannelAlignmentService
 {
-    bool TryBuildAlignedNormalizedPassBuffers(
+    ScanChannelAlignmentResult BuildAlignedNormalizedPassBuffers(
         ScanWorkflowResult result,
         ScanChannelAssignment assignment,
         ScanChannelAlignmentMode alignmentMode,
-        out byte[][] alignedPassBuffers,
-        out string error);
+        CancellationToken cancellationToken);
 }

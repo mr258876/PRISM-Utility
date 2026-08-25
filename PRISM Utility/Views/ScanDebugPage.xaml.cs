@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using PRISM_Utility.Contracts.ViewModels;
 using PRISM_Utility.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.ViewModels;
@@ -17,7 +18,7 @@ using Windows.Graphics.DirectX;
 
 namespace PRISM_Utility.Views;
 
-public sealed partial class ScanDebugPage : Page
+public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugViewModel>
 {
     private const double AxisMarginLeft = 48;
     private const double AxisMarginTop = 28;

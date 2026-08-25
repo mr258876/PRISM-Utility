@@ -4,9 +4,9 @@ public interface ILanguageSelectorService
 {
     string CurrentLanguage { get; }
 
-    Task InitializeAsync();
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
-    Task ApplyLanguageAsync();
+    Task ApplyLanguageAsync(CancellationToken cancellationToken = default);
 
-    Task SetLanguageAsync(string languageTag);
+    Task SetLanguageAsync(string languageTag, CancellationToken cancellationToken = default);
 }

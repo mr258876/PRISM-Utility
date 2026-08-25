@@ -156,6 +156,27 @@
   <data name="Settings_Scanner.Text" xml:space="preserve">
     <value>Scanner</value>
   </data>
+  <data name="Settings_PersistenceErrorInfoBar.Title" xml:space="preserve">
+    <value>Settings were not saved</value>
+  </data>
+  <data name="Settings_PersistenceSaveFailedFormat" xml:space="preserve">
+    <value>Could not save {0}: {1}</value>
+  </data>
+  <data name="Settings_PersistenceScopeTheme" xml:space="preserve">
+    <value>theme</value>
+  </data>
+  <data name="Settings_PersistenceScopeLanguage" xml:space="preserve">
+    <value>language</value>
+  </data>
+  <data name="Settings_PersistenceScopeDebugOutput" xml:space="preserve">
+    <value>debug output settings</value>
+  </data>
+  <data name="Settings_PersistenceScopeTransfer" xml:space="preserve">
+    <value>scan transfer settings</value>
+  </data>
+  <data name="Settings_PersistenceScopeColor" xml:space="preserve">
+    <value>color management settings</value>
+  </data>
   <data name="DeviceConfiguration_Header" xml:space="preserve">
     <value>Device configuration</value>
   </data>
@@ -830,9 +851,6 @@
   </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>Exposure time = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
-  </data>
-  <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve">
-    <value>Film profile name</value>
   </data>
   <data name="ScanDebug_ProfileAlignmentModeComboBox.Header" xml:space="preserve">
     <value>Alignment mode</value>
@@ -1625,6 +1643,18 @@
   </data>
   <data name="Scan_Runtime_StatusDngExported" xml:space="preserve">
     <value>DNG channel files exported to {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusDngExportedWithAlignmentWarning" xml:space="preserve">
+    <value>DNG channel files exported to {0}; alignment fell back for {1}.</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningTitle" xml:space="preserve">
+    <value>DNG exported with alignment warning</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningText" xml:space="preserve">
+    <value>DNG was exported, but alignment fell back to normalized source data for {0}. Retry alignment or rescan if fully aligned channels are required. Details are available in Scanner Log.</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningUnknownChannels" xml:space="preserve">
+    <value>unknown channels</value>
   </data>
   <data name="ScanDebug_Runtime_StatusMonochromeDngExported" xml:space="preserve">
     <value>Monochrome DNG exported to {0}</value>
@@ -2511,6 +2541,12 @@
   <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve">
     <value>Save film profile canceled.</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileInvalid" xml:space="preserve">
+    <value>Film profile settings are invalid.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary" xml:space="preserve">
+    <value>Film profile settings are invalid: {0}</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve">
     <value>Save film profile failed: {0}</value>
   </data>
@@ -3147,6 +3183,9 @@
   <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve">
     <value>Output blocker</value>
   </data>
+  <data name="ScanDebug_DngAlignmentWarningInfoBar.Title" xml:space="preserve">
+    <value>Alignment warning</value>
+  </data>
   <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve">
     <value>Output</value>
   </data>
@@ -3177,4 +3216,28 @@
   <data name="ScanDebug_ChannelParamsTitle.Text" xml:space="preserve">
     <value>Channel Parameters</value>
   </data>
-</root>
+  <data name="FilmProfile_Validation_DocumentMissing" xml:space="preserve"><value>Open a film profile document before saving or applying changes.</value></data>
+  <data name="FilmProfile_Validation_ChannelProfilesMissing" xml:space="preserve"><value>Add at least one channel profile before saving.</value></data>
+  <data name="FilmProfile_Validation_MalformedJson" xml:space="preserve"><value>Select a readable film profile JSON file and try opening it again.</value></data>
+  <data name="FilmProfile_Validation_SchemaVersionMissing" xml:space="preserve"><value>Export the file with schema version 5 before importing it here.</value></data>
+  <data name="FilmProfile_Validation_SchemaVersionUnsupported" xml:space="preserve"><value>Convert the file to the current film profile schema before importing.</value></data>
+  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>Enter a profile name before saving.</value></data>
+  <data name="FilmProfile_Validation_ProfileNameInvalid" xml:space="preserve"><value>Enter a non-empty profile name before saving.</value></data>
+  <data name="FilmProfile_Validation_SavedAtUtcInvalid" xml:space="preserve"><value>Use a valid saved-at timestamp in the imported profile file.</value></data>
+  <data name="FilmProfile_Validation_ChannelRoleInvalid" xml:space="preserve"><value>Use a non-empty channel role for this channel profile.</value></data>
+  <data name="FilmProfile_Validation_ChannelRoleDuplicate" xml:space="preserve"><value>Keep each channel role unique before saving.</value></data>
+  <data name="FilmProfile_Validation_ChannelParametersInvalid" xml:space="preserve"><value>Correct the selected channel calibration parameters before saving.</value></data>
+  <data name="FilmProfile_Validation_AcquisitionInputInvalid" xml:space="preserve"><value>Correct the acquisition settings before saving or applying the film profile.</value></data>
+  <data name="FilmProfile_Validation_RoiInputInvalid" xml:space="preserve"><value>Correct the selected channel ROI range before saving.</value></data>
+  <data name="FilmProfile_Validation_NoValidChannelProfiles" xml:space="preserve"><value>Add or repair one valid channel profile before saving.</value></data>
+  <data name="FilmProfile_Validation_ColorManagementInvalid" xml:space="preserve"><value>Enter positive color-management wavelength and gamma values.</value></data>
+  <data name="FilmProfile_Validation_ScanRecipeInputInvalid" xml:space="preserve"><value>Correct the scan recipe settings before saving or applying the film profile.</value></data>
+  <data name="FilmProfile_Validation_AlignmentModeInvalid" xml:space="preserve"><value>Choose a supported alignment mode.</value></data>
+  <data name="FilmProfile_Validation_DngExportModeInvalid" xml:space="preserve"><value>Choose a supported DNG export mode.</value></data>
+  <data name="FilmProfile_Validation_GenericInputInvalid" xml:space="preserve"><value>Review this film profile setting and try again.</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceSummaryTitle.Text" xml:space="preserve"><value>Film profile workspace</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceSummaryHelpText.Text" xml:space="preserve"><value>Film-level name, file import/export, and recipe validation are managed in this workspace.</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceNameLabel.Text" xml:space="preserve"><value>Profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceDirtyLabel.Text" xml:space="preserve"><value>State</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
+  </root>

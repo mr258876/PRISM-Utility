@@ -8,14 +8,23 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 {
     private static readonly TimeSpan DefaultShutdownCleanupTimeout = TimeSpan.FromSeconds(10);
 
+    [ThreadStatic]
+    private static ScannerDeviceSessionManager? _snapshotDispatchingManager;
+
     private readonly object _stateGate = new();
     private readonly SemaphoreSlim _mutationGate = new(1, 1);
     private readonly IScanSessionServiceFactory _sessionFactory;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly TimeSpan _shutdownCleanupTimeout;
+    private readonly Queue<ScannerDeviceSessionSnapshot> _pendingSnapshotNotifications = [];
 
     private ScannerDeviceSessionSnapshot _snapshot = ScannerDeviceSessionSnapshot.Disconnected(DateTimeOffset.UtcNow);
+    private MutationPhase _mutationPhase;
+    private TaskCompletionSource? _mutationPhaseCompletion;
     private OwnershipContext? _ownership;
+    private ActiveOperationContext? _activeOperation;
+    private TaskCompletionSource? _teardownCompletion;
+    private Task? _disposeCleanup;
     private PendingReconnectContext? _pendingReconnect;
     private IScanSessionService? _session;
     private bool _disposed;
@@ -246,40 +255,42 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         if (string.IsNullOrWhiteSpace(leaseId))
             throw new ArgumentException("Lease id is required.", nameof(leaseId));
 
-        var mutation = await TryBeginMutationAsync(ct);
+        var mutation = await TryBeginMutationAsync(ct, allowActiveOperation: true);
         if (mutation is null)
             return BusyOperationResult("Disconnect");
 
+        ActiveOperationContext? operation;
         await using (mutation)
         {
             ThrowIfDisposed();
             if (!TryEnsureOwnedLease(leaseId, out _))
                 return new ScanOperationResult(false, "Scanner session is not owned by the supplied lease.");
 
-            await DisconnectAndReleaseAsync(releaseOwnership: true, ct);
-            ClearPendingReconnect();
-            PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, Snapshot.Fault, ScannerReconnectPromptState.None));
-            return new ScanOperationResult(true, "Scanner disconnected.");
+            if (!TryBeginTeardown(out operation))
+                return BusyOperationResult("Disconnect");
         }
+
+        return await CompleteDisconnectAsync(operation, ct);
     }
 
     public async Task<ScanOperationResult> DisconnectAsync(CancellationToken ct)
     {
-        var mutation = await TryBeginMutationAsync(ct);
+        var mutation = await TryBeginMutationAsync(ct, allowActiveOperation: true);
         if (mutation is null)
             return BusyOperationResult("Disconnect");
 
+        ActiveOperationContext? operation;
         await using (mutation)
         {
             ThrowIfDisposed();
             if (Snapshot.State != ScannerSessionState.Connected || TryGetConnectedSession() is null)
                 return new ScanOperationResult(false, "Scanner can disconnect only when the scanner is connected and idle.");
 
-            await DisconnectAndReleaseAsync(releaseOwnership: true, ct);
-            ClearPendingReconnect();
-            PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, Snapshot.Fault, ScannerReconnectPromptState.None));
-            return new ScanOperationResult(true, "Scanner disconnected.");
+            if (!TryBeginTeardown(out operation))
+                return BusyOperationResult("Disconnect");
         }
+
+        return await CompleteDisconnectAsync(operation, ct);
     }
 
     public async Task<ScanOperationResult> ShutdownAsync(CancellationToken ct)
@@ -462,158 +473,243 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         }
     }
 
-    public async Task<TResult> UseSessionAsync<TResult>(string leaseId, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
+    public Task<TResult> UseSessionAsync<TResult>(string leaseId, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
     {
-        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(action);
+        return UseSessionAsync(leaseId, (session, _) => action(session), ct);
+    }
+
+    public Task<TResult> UseSessionAsync<TResult>(string leaseId, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
+    {
         if (string.IsNullOrWhiteSpace(leaseId))
             throw new ArgumentException("Lease id is required.", nameof(leaseId));
-        ArgumentNullException.ThrowIfNull(action);
-        ct.ThrowIfCancellationRequested();
 
-        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true);
-        if (mutation is null)
-            throw new InvalidOperationException("Scanner session action could not acquire the mutation gate.");
-
-        await using (mutation)
-        {
-            var session = EnsureOwnedConnectedSession(leaseId);
-            var owner = CreateOperationOwner(ScannerSessionOperation.Diagnostics);
-            PublishSnapshot(UpdateSnapshot(Snapshot.State, ResolveDeviceId(session.Targets), owner, null, ScannerReconnectPromptState.None));
-
-            try
-            {
-                return await action(session);
-            }
-            catch (TimeoutException ex)
-            {
-                await HandleFaultAsync(ScannerSessionFaultCode.TransferFailed, ex.Message, GetActiveOwner(), Snapshot.State, ResolveDeviceId(session.Targets), false, CancellationToken.None);
-                throw;
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                await HandleFaultAsync(ClassifyOperationCancellation(session), "Scanner session action was canceled because the device session ended unexpectedly.", GetActiveOwner(), Snapshot.State, ResolveDeviceId(session.Targets), true, CancellationToken.None);
-                throw;
-            }
-            finally
-            {
-                if (IsActiveOwner(owner))
-                    PublishSnapshot(UpdateSnapshot(session.IsConnected ? ScannerSessionState.Connected : ScannerSessionState.Disconnected, ResolveDeviceId(session.Targets), null, Snapshot.Fault, Snapshot.ReconnectPrompt));
-            }
-        }
+        return ExecuteConnectedOperationAsync(
+            () => EnsureOwnedConnectedSession(leaseId),
+            () => CreateOperationOwner(ScannerSessionOperation.Diagnostics),
+            () => Snapshot.State,
+            action,
+            ct,
+            waitForAvailability: true);
     }
 
-    public async Task<TResult> UseConnectedSessionAsync<TResult>(ScannerSessionOwner owner, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
+    public Task<TResult> UseConnectedSessionAsync<TResult>(ScannerSessionOwner owner, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
     {
-        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
-        ct.ThrowIfCancellationRequested();
-
-        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true);
-        if (mutation is null)
-            throw new InvalidOperationException("Scanner session action could not acquire the mutation gate.");
-
-        await using (mutation)
-        {
-            var session = EnsureConnectedSession();
-            PublishSnapshot(UpdateSnapshot(Snapshot.State, ResolveDeviceId(session.Targets), owner, null, ScannerReconnectPromptState.None));
-
-            try
-            {
-                return await action(session);
-            }
-            catch (TimeoutException ex)
-            {
-                await HandleFaultAsync(ScannerSessionFaultCode.TransferFailed, ex.Message, owner, Snapshot.State, ResolveDeviceId(session.Targets), false, CancellationToken.None);
-                throw;
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                await HandleFaultAsync(ClassifyOperationCancellation(session), "Scanner session action was canceled because the device session ended unexpectedly.", owner, Snapshot.State, ResolveDeviceId(session.Targets), true, CancellationToken.None);
-                throw;
-            }
-            finally
-            {
-                if (IsActiveOwner(owner))
-                    PublishSnapshot(UpdateSnapshot(session.IsConnected ? ScannerSessionState.Connected : ScannerSessionState.Disconnected, ResolveDeviceId(session.Targets), null, Snapshot.Fault, Snapshot.ReconnectPrompt));
-            }
-        }
+        return UseConnectedSessionAsync(owner, (session, _) => action(session), ct);
     }
 
-    public async Task<TResult> RunWithSessionStateAsync<TResult>(string leaseId, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
+    public Task<TResult> UseConnectedSessionAsync<TResult>(ScannerSessionOwner owner, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
+        => ExecuteConnectedOperationAsync(() => EnsureConnectedSession(), () => owner, () => Snapshot.State, action, ct, waitForAvailability: true);
+
+    public Task<TResult> RunWithSessionStateAsync<TResult>(string leaseId, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct)
     {
-        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(action);
+        return RunWithSessionStateAsync(leaseId, state, (session, _) => action(session), ct);
+    }
+
+    public Task<TResult> RunWithSessionStateAsync<TResult>(string leaseId, ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct)
+    {
         if (string.IsNullOrWhiteSpace(leaseId))
             throw new ArgumentException("Lease id is required.", nameof(leaseId));
-        ArgumentNullException.ThrowIfNull(action);
-        ct.ThrowIfCancellationRequested();
 
-        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true);
-        if (mutation is null)
-            throw new InvalidOperationException("Scanner session action could not acquire the mutation gate.");
-
-        await using (mutation)
-        {
-            var session = EnsureOwnedConnectedSession(leaseId);
-            var owner = CreateOperationOwner(state == ScannerSessionState.Running ? ScannerSessionOperation.Scan : ScannerSessionOperation.Diagnostics);
-            if (session.IsConnected)
-                PublishSnapshot(UpdateSnapshot(state, ResolveDeviceId(session.Targets), owner, null, ScannerReconnectPromptState.None));
-
-            try
-            {
-                return await action(session);
-            }
-            catch (TimeoutException ex)
-            {
-                await HandleFaultAsync(ScannerSessionFaultCode.TransferFailed, ex.Message, owner, state, ResolveDeviceId(session.Targets), false, CancellationToken.None);
-                throw;
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                await HandleFaultAsync(ClassifyOperationCancellation(session), "Scanner operation was canceled because the device session ended unexpectedly.", owner, state, ResolveDeviceId(session.Targets), true, CancellationToken.None);
-                throw;
-            }
-            finally
-            {
-                if (owner is not null && IsActiveOwner(owner))
-                    PublishSnapshot(UpdateSnapshot(session.IsConnected ? ScannerSessionState.Connected : ScannerSessionState.Disconnected, ResolveDeviceId(session.Targets), null, Snapshot.Fault, Snapshot.ReconnectPrompt));
-            }
-        }
+        return ExecuteConnectedOperationAsync(
+            () => EnsureOwnedConnectedSession(leaseId),
+            () => CreateOperationOwner(state == ScannerSessionState.Running ? ScannerSessionOperation.Scan : ScannerSessionOperation.Diagnostics),
+            () => state,
+            action,
+            ct,
+            waitForAvailability: true);
     }
 
-    public async Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionOwner owner, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true)
+    public Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionOwner owner, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return RunConnectedSessionStateAsync(owner, state, (session, _) => action(session), ct, waitForAvailability);
+    }
+
+    public Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionOwner owner, ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true)
+        => ExecuteConnectedOperationAsync(() => EnsureConnectedSession(), () => owner, () => state, action, ct, waitForAvailability);
+
+    private async Task<TResult> ExecuteConnectedOperationAsync<TResult>(
+        Func<IScanSessionService> sessionResolver,
+        Func<ScannerSessionOwner?> ownerResolver,
+        Func<ScannerSessionState> stateResolver,
+        Func<IScanSessionService, CancellationToken, Task<TResult>> action,
+        CancellationToken ct,
+        bool waitForAvailability)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
         ct.ThrowIfCancellationRequested();
 
-        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: waitForAvailability);
-        if (mutation is null)
-            throw new InvalidOperationException("Scanner session is busy. Wait for the current scanner operation to finish before starting another scan.");
+        var operation = await BeginOperationAsync(sessionResolver, ownerResolver, stateResolver, ct, waitForAvailability);
+        try
+        {
+            return await action(operation.Session, operation.CancellationToken);
+        }
+        catch (TimeoutException ex)
+        {
+            await HandleOperationFaultAsync(operation, ScannerSessionFaultCode.TransferFailed, ex.Message, false);
+            throw;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && !operation.CancellationRequestedByTeardown)
+        {
+            await HandleOperationFaultAsync(operation, ClassifyOperationCancellation(operation.Session), "Scanner session action was canceled because the device session ended unexpectedly.", true);
+            throw;
+        }
+        finally
+        {
+            await CompleteOperationAsync(operation);
+        }
+    }
+
+    private async Task<ActiveOperationContext> BeginOperationAsync(
+        Func<IScanSessionService> sessionResolver,
+        Func<ScannerSessionOwner?> ownerResolver,
+        Func<ScannerSessionState> stateResolver,
+        CancellationToken ct,
+        bool waitForAvailability)
+    {
+        while (true)
+        {
+            var mutation = await TryBeginMutationAsync(ct, waitForAvailability, allowActiveOperation: true);
+            if (mutation is null)
+                throw new InvalidOperationException("Scanner session is busy. Wait for the current scanner operation to finish before starting another scan.");
+
+            ActiveOperationContext? operation = null;
+            Task? availability = null;
+            await using (mutation)
+            {
+                lock (_stateGate)
+                {
+                    if (_activeOperation is null && _teardownCompletion is null)
+                    {
+                        var session = sessionResolver();
+                        var owner = ownerResolver();
+                        var ownership = _ownership ?? throw new InvalidOperationException("Scanner session ownership is unavailable.");
+                        operation = new ActiveOperationContext(session, owner, ct, session.ConnectionToken, ownership.UsbLease.CancellationToken);
+                        _activeOperation = operation;
+                    }
+                    else
+                    {
+                        availability = _activeOperation?.Completion.Task ?? _teardownCompletion?.Task;
+                    }
+                }
+
+                if (operation is not null)
+                {
+                    PublishSnapshot(UpdateSnapshot(stateResolver(), ResolveDeviceId(operation.Session.Targets), operation.Owner, null, ScannerReconnectPromptState.None));
+                    return operation;
+                }
+            }
+
+            if (!waitForAvailability || availability is null || !await WaitForAvailabilityAsync(availability, ct))
+                throw new InvalidOperationException("Scanner session is busy. Wait for the current scanner operation to finish before starting another scan.");
+        }
+    }
+
+    private async Task HandleOperationFaultAsync(ActiveOperationContext operation, ScannerSessionFaultCode code, string message, bool allowReconnectPromptOnRedetection)
+    {
+        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
 
         await using (mutation)
         {
-            var session = EnsureConnectedSession();
-            PublishSnapshot(UpdateSnapshot(state, ResolveDeviceId(session.Targets), owner, null, ScannerReconnectPromptState.None));
+            if (!ReferenceEquals(_activeOperation, operation))
+                return;
 
-            try
+            await HandleFaultAsync(code, message, operation.Owner, Snapshot.State, ResolveDeviceId(operation.Session.Targets), allowReconnectPromptOnRedetection, CancellationToken.None);
+        }
+    }
+
+    private async Task CompleteOperationAsync(ActiveOperationContext operation)
+    {
+        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
+
+        try
+        {
+            await using (mutation)
             {
-                return await action(session);
+                var publishTerminalState = false;
+                lock (_stateGate)
+                {
+                    if (ReferenceEquals(_activeOperation, operation))
+                    {
+                        _activeOperation = null;
+                        publishTerminalState = true;
+                    }
+                }
+
+                if (publishTerminalState && IsActiveOwner(operation.Owner))
+                    PublishSnapshot(UpdateSnapshot(operation.Session.IsConnected ? ScannerSessionState.Connected : ScannerSessionState.Disconnected, ResolveDeviceId(operation.Session.Targets), null, Snapshot.Fault, Snapshot.ReconnectPrompt));
             }
-            catch (TimeoutException ex)
+        }
+        finally
+        {
+            operation.Complete();
+        }
+    }
+
+    private async Task<bool> WaitForAvailabilityAsync(Task availability, CancellationToken ct, bool bounded = true)
+    {
+        if (!bounded)
+        {
+            await availability.WaitAsync(ct);
+            return true;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(_shutdownCleanupTimeout);
+        try
+        {
+            await availability.WaitAsync(timeout.Token);
+            return true;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    private bool TryBeginTeardown(out ActiveOperationContext? operation)
+    {
+        lock (_stateGate)
+        {
+            if (_teardownCompletion is not null)
             {
-                await HandleFaultAsync(ScannerSessionFaultCode.TransferFailed, ex.Message, owner, state, ResolveDeviceId(session.Targets), false, CancellationToken.None);
-                throw;
+                operation = null;
+                return false;
             }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+
+            _teardownCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            operation = _activeOperation;
+            operation?.CancelForTeardown();
+            return true;
+        }
+    }
+
+    private async Task<ScanOperationResult> CompleteDisconnectAsync(ActiveOperationContext? operation, CancellationToken ct)
+    {
+        try
+        {
+            if (operation is not null && !await WaitForAvailabilityAsync(operation.Completion.Task, ct))
+                return new ScanOperationResult(false, $"Scanner disconnect timed out after {_shutdownCleanupTimeout.TotalSeconds:0} seconds while waiting for the active operation.");
+
+            var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true, allowDisposed: true, allowActiveOperation: true);
+            if (mutation is null)
+                return BusyOperationResult("Disconnect");
+
+            await using (mutation)
             {
-                await HandleFaultAsync(ClassifyOperationCancellation(session), "Scanner session action was canceled because the device session ended unexpectedly.", owner, state, ResolveDeviceId(session.Targets), true, CancellationToken.None);
-                throw;
+                await DisconnectAndReleaseAsync(releaseOwnership: true, ct);
+                ClearPendingReconnect();
+                PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, Snapshot.Fault, ScannerReconnectPromptState.None));
+                return new ScanOperationResult(true, "Scanner disconnected.");
             }
-            finally
-            {
-                if (IsActiveOwner(owner))
-                    PublishSnapshot(UpdateSnapshot(session.IsConnected ? ScannerSessionState.Connected : ScannerSessionState.Disconnected, ResolveDeviceId(session.Targets), null, Snapshot.Fault, Snapshot.ReconnectPrompt));
-            }
+        }
+        finally
+        {
+            CompleteTeardown();
         }
     }
 
@@ -633,21 +729,105 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
-            return;
-
-        _disposed = true;
-        var mutation = await TryBeginMutationAsync(CancellationToken.None, allowDisposed: true);
-        if (mutation is not null)
+        Task cleanup;
+        TaskCompletionSource? cleanupCompletion = null;
+        lock (_stateGate)
         {
-            await using (mutation)
+            if (_disposeCleanup is null)
             {
-                await DisconnectAndReleaseAsync(releaseOwnership: true, CancellationToken.None);
-                PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, null, ScannerReconnectPromptState.None));
+                _disposed = true;
+                cleanupCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                cleanup = cleanupCompletion.Task;
+                _disposeCleanup = cleanup;
+            }
+            else
+            {
+                cleanup = _disposeCleanup;
             }
         }
 
-        _mutationGate.Dispose();
+        if (cleanupCompletion is not null)
+            _ = CompleteDisposeCleanupAsync(cleanupCompletion);
+
+        if (await WaitForAvailabilityAsync(cleanup, CancellationToken.None))
+            await cleanup;
+    }
+
+    private async Task CompleteDisposeCleanupAsync(TaskCompletionSource cleanupCompletion)
+    {
+        try
+        {
+            await DisposeCleanupWorkerAsync();
+            cleanupCompletion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            cleanupCompletion.TrySetException(ex);
+        }
+    }
+
+    private async Task DisposeCleanupWorkerAsync()
+    {
+        while (true)
+        {
+            var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
+            ActiveOperationContext? operation = null;
+            Task? activeTeardown = null;
+            await using (mutation)
+            {
+                lock (_stateGate)
+                {
+                    if (_teardownCompletion is not null)
+                    {
+                        activeTeardown = _teardownCompletion.Task;
+                    }
+                    else
+                    {
+                        _teardownCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        operation = _activeOperation;
+                        operation?.CancelForTeardown();
+                    }
+                }
+            }
+
+            if (activeTeardown is not null)
+            {
+                await activeTeardown;
+                continue;
+            }
+
+            try
+            {
+                if (operation is not null)
+                    await operation.Completion.Task;
+
+                mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
+                await using (mutation)
+                {
+                    Exception? cleanupException = null;
+                    try
+                    {
+                        await DisconnectAndReleaseAsync(releaseOwnership: true, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanupException = ex;
+                    }
+
+                    ClearPendingReconnect();
+                    PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, Snapshot.Fault, ScannerReconnectPromptState.None));
+
+                    if (cleanupException is not null)
+                        throw cleanupException;
+                }
+
+                return;
+            }
+            finally
+            {
+                CompleteTeardown();
+            }
+        }
     }
 
     private async Task HandleTargetsChangedAsync(IScanSessionService session)
@@ -867,72 +1047,156 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
     private async ValueTask<bool> ReleaseLeaseAsync(OwnershipContext context, CancellationToken ct)
     {
-        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true);
+        var mutation = await TryBeginMutationAsync(ct, waitForAvailability: true, allowActiveOperation: true);
         if (mutation is null)
             return false;
 
+        ActiveOperationContext? operation;
         await using (mutation)
         {
-            if (!context.TryBeginRelease())
+            if (!ReferenceEquals(_ownership, context) || !TryBeginTeardown(out operation))
+                return false;
+        }
+
+        try
+        {
+            if (operation is not null && !await WaitForAvailabilityAsync(operation.Completion.Task, ct))
                 return false;
 
-            var shouldDisconnect = false;
-            lock (_stateGate)
-            {
-                if (ReferenceEquals(_ownership, context))
-                {
-                    shouldDisconnect = true;
-                    _ownership = null;
-                }
-            }
+            mutation = await TryBeginMutationAsync(ct, waitForAvailability: true, allowDisposed: true, allowActiveOperation: true);
+            if (mutation is null)
+                return false;
 
-            try
+            await using (mutation)
             {
-                if (shouldDisconnect)
+                if (!context.TryBeginRelease())
+                    return false;
+
+                var shouldDisconnect = false;
+                lock (_stateGate)
                 {
-                    Exception? cleanupException = null;
-                    try
+                    if (ReferenceEquals(_ownership, context))
                     {
-                        await DisconnectAndReleaseAsync(releaseOwnership: false, CancellationToken.None);
+                        shouldDisconnect = true;
+                        _ownership = null;
                     }
-                    catch (Exception ex)
+                }
+
+                try
+                {
+                    if (shouldDisconnect)
                     {
-                        cleanupException = ex;
+                        Exception? cleanupException = null;
+                        try
+                        {
+                            await DisconnectAndReleaseAsync(releaseOwnership: false, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            cleanupException = ex;
+                        }
+
+                        await context.UsbLease.ReleaseAsync(CancellationToken.None);
+                        PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, null, ScannerReconnectPromptState.None));
+
+                        if (cleanupException is not null)
+                            throw cleanupException;
+
+                        return true;
                     }
 
                     await context.UsbLease.ReleaseAsync(CancellationToken.None);
-                    PublishSnapshot(UpdateSnapshot(ScannerSessionState.Disconnected, Snapshot.DeviceId, null, null, ScannerReconnectPromptState.None));
-
-                    if (cleanupException is not null)
-                        throw cleanupException;
-
                     return true;
                 }
-
-                await context.UsbLease.ReleaseAsync(CancellationToken.None);
-                return true;
+                finally
+                {
+                    context.MarkReleased();
+                }
             }
-            finally
-            {
-                context.MarkReleased();
-            }
+        }
+        finally
+        {
+            CompleteTeardown();
         }
     }
 
-    private async ValueTask<MutationLease?> TryBeginMutationAsync(CancellationToken ct, bool waitForAvailability = false, bool allowDisposed = false)
+    private async ValueTask<MutationLease?> TryBeginMutationAsync(
+        CancellationToken ct,
+        bool waitForAvailability = false,
+        bool allowDisposed = false,
+        bool allowActiveOperation = false,
+        bool boundedAvailability = true)
     {
         if (!allowDisposed)
             ThrowIfDisposed();
 
-        if (waitForAvailability)
+        while (true)
         {
-            await _mutationGate.WaitAsync(ct);
-            return new MutationLease(_mutationGate);
-        }
+            if (waitForAvailability)
+                await _mutationGate.WaitAsync(ct);
+            else if (!await _mutationGate.WaitAsync(0, ct))
+                return null;
 
-        return await _mutationGate.WaitAsync(0, ct)
-            ? new MutationLease(_mutationGate)
-            : null;
+            Task? phaseAvailability;
+            Task? availability;
+            var isDispatchReentrant = false;
+            lock (_stateGate)
+            {
+                if (_mutationPhase == MutationPhase.Idle)
+                {
+                    _mutationPhase = MutationPhase.Mutating;
+                    _mutationPhaseCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    phaseAvailability = null;
+                    availability = allowActiveOperation
+                        ? null
+                        : _activeOperation?.Completion.Task ?? _teardownCompletion?.Task;
+                }
+                else if (_mutationPhase == MutationPhase.DispatchingSnapshots
+                    && ReferenceEquals(_snapshotDispatchingManager, this))
+                {
+                    phaseAvailability = null;
+                    availability = null;
+                    isDispatchReentrant = true;
+                }
+                else
+                {
+                    phaseAvailability = _mutationPhaseCompletion?.Task;
+                    availability = null;
+                }
+            }
+
+            if (phaseAvailability is not null)
+            {
+                _mutationGate.Release();
+                if (!waitForAvailability || !await WaitForAvailabilityAsync(phaseAvailability, ct, boundedAvailability))
+                    return null;
+
+                continue;
+            }
+
+            var mutation = new MutationLease(this, isDispatchReentrant);
+            if (availability is null)
+                return mutation;
+
+            await mutation.DisposeAsync();
+            if (!waitForAvailability || !await WaitForAvailabilityAsync(availability, ct, boundedAvailability))
+                return null;
+        }
+    }
+
+    private async ValueTask<MutationLease> BeginInternalMutationAsync(bool allowActiveOperation)
+    {
+        while (true)
+        {
+            var mutation = await TryBeginMutationAsync(
+                CancellationToken.None,
+                waitForAvailability: true,
+                allowDisposed: true,
+                allowActiveOperation: allowActiveOperation,
+                boundedAvailability: false);
+            if (mutation is not null)
+                return mutation;
+        }
     }
 
     private ScannerDeviceSessionSnapshot UpdateSnapshot(
@@ -973,11 +1237,103 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         return current.TransitionTo(state, updatedAtUtc, deviceId, activeOwner, fault, reconnectPrompt);
     }
 
-    private static void PublishSnapshot(ScannerDeviceSessionSnapshot snapshot, EventHandler<ScannerDeviceSessionSnapshot>? handler)
-        => handler?.Invoke(null, snapshot);
-
     private void PublishSnapshot(ScannerDeviceSessionSnapshot snapshot)
-        => SnapshotChanged?.Invoke(this, snapshot);
+    {
+        var dispatchNow = false;
+        lock (_stateGate)
+        {
+            _pendingSnapshotNotifications.Enqueue(snapshot);
+            if (_mutationPhase == MutationPhase.Idle)
+            {
+                _mutationPhase = MutationPhase.DispatchingSnapshots;
+                _mutationPhaseCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                dispatchNow = true;
+            }
+        }
+
+        if (dispatchNow)
+            DispatchPendingSnapshots();
+    }
+
+    private void CompleteMutation(bool isDispatchReentrant)
+    {
+        if (isDispatchReentrant)
+        {
+            _mutationGate.Release();
+            return;
+        }
+
+        lock (_stateGate)
+        {
+            if (_mutationPhase != MutationPhase.Mutating)
+                throw new InvalidOperationException("Scanner mutation phase is not active.");
+
+            _mutationPhase = MutationPhase.DispatchingSnapshots;
+        }
+
+        _mutationGate.Release();
+        DispatchPendingSnapshots();
+    }
+
+    private void DispatchPendingSnapshots()
+    {
+        while (true)
+        {
+            List<ScannerDeviceSessionSnapshot>? pending = null;
+            TaskCompletionSource? phaseCompletion = null;
+            lock (_stateGate)
+            {
+                if (_pendingSnapshotNotifications.Count == 0)
+                {
+                    _mutationPhase = MutationPhase.Idle;
+                    phaseCompletion = _mutationPhaseCompletion;
+                    _mutationPhaseCompletion = null;
+                }
+                else
+                {
+                    pending = [.. _pendingSnapshotNotifications];
+                    _pendingSnapshotNotifications.Clear();
+                }
+            }
+
+            if (phaseCompletion is not null)
+            {
+                phaseCompletion.TrySetResult();
+                return;
+            }
+
+            if (pending is not null)
+            {
+                foreach (var snapshot in pending)
+                    DispatchSnapshot(snapshot);
+            }
+        }
+    }
+
+    private void DispatchSnapshot(ScannerDeviceSessionSnapshot snapshot)
+    {
+        var handlers = SnapshotChanged;
+        if (handlers is null)
+            return;
+
+        foreach (EventHandler<ScannerDeviceSessionSnapshot> handler in handlers.GetInvocationList())
+        {
+            var previousDispatchingManager = _snapshotDispatchingManager;
+            _snapshotDispatchingManager = this;
+            try
+            {
+                handler(this, snapshot);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Scanner session snapshot subscriber failed: {ex}");
+            }
+            finally
+            {
+                _snapshotDispatchingManager = previousDispatchingManager;
+            }
+        }
+    }
 
     private static ScanOperationResult BusyOperationResult(string operation)
         => new(false, $"Scanner manager is busy running another mutating command. {operation} was rejected.");
@@ -1088,12 +1444,65 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
             throw new ObjectDisposedException(nameof(ScannerDeviceSessionManager));
     }
 
+    private void CompleteTeardown()
+    {
+        TaskCompletionSource? teardown;
+        lock (_stateGate)
+        {
+            teardown = _teardownCompletion;
+            _teardownCompletion = null;
+        }
+
+        teardown?.TrySetResult();
+    }
+
+    private enum MutationPhase
+    {
+        Idle,
+        Mutating,
+        DispatchingSnapshots
+    }
+
     private sealed record OwnershipResolution(OwnershipContext Context, bool Created);
 
     private sealed record PendingReconnectContext(
         ScannerSessionFault Fault,
         ScannerSessionOwner? PreviousOwner,
         ScannerSessionOperation PreviousOperation);
+
+    private sealed class ActiveOperationContext
+    {
+        private readonly CancellationTokenSource _cancellationSource;
+
+        public ActiveOperationContext(IScanSessionService session, ScannerSessionOwner? owner, CancellationToken callerToken, CancellationToken sessionToken, CancellationToken releaseToken)
+        {
+            Session = session;
+            Owner = owner;
+            _cancellationSource = CancellationTokenSource.CreateLinkedTokenSource(callerToken, sessionToken, releaseToken);
+        }
+
+        public IScanSessionService Session { get; }
+
+        public ScannerSessionOwner? Owner { get; }
+
+        public TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CancellationToken CancellationToken => _cancellationSource.Token;
+
+        public bool CancellationRequestedByTeardown { get; private set; }
+
+        public void CancelForTeardown()
+        {
+            CancellationRequestedByTeardown = true;
+            _cancellationSource.Cancel();
+        }
+
+        public void Complete()
+        {
+            Completion.TrySetResult();
+            _cancellationSource.Dispose();
+        }
+    }
 
     private sealed class OwnershipContext
     {
@@ -1143,21 +1552,20 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
     private sealed class MutationLease : IAsyncDisposable
     {
-        private readonly SemaphoreSlim _gate;
-        private bool _released;
+        private readonly ScannerDeviceSessionManager _manager;
+        private readonly bool _isDispatchReentrant;
+        private int _released;
 
-        public MutationLease(SemaphoreSlim gate)
+        public MutationLease(ScannerDeviceSessionManager manager, bool isDispatchReentrant = false)
         {
-            _gate = gate;
+            _manager = manager;
+            _isDispatchReentrant = isDispatchReentrant;
         }
 
         public ValueTask DisposeAsync()
         {
-            if (!_released)
-            {
-                _released = true;
-                _gate.Release();
-            }
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+                _manager.CompleteMutation(_isDispatchReentrant);
 
             return ValueTask.CompletedTask;
         }

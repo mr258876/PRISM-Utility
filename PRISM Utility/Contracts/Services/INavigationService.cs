@@ -1,6 +1,8 @@
 ﻿using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
+using PRISM_Utility.Contracts.Navigation;
+
 namespace PRISM_Utility.Contracts.Services;
 
 public interface INavigationService
@@ -17,7 +19,7 @@ public interface INavigationService
         get; set;
     }
 
-    bool NavigateTo(string pageKey, object? parameter = null, bool clearNavigation = false);
+    bool NavigateTo(AppRoute route, object? parameter = null, bool clearNavigation = false);
 
     bool GoBack();
 

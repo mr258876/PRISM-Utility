@@ -38,11 +38,19 @@ public interface IScannerDeviceSessionManager
 
     Task<TResult> UseSessionAsync<TResult>(string leaseId, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct);
 
+    Task<TResult> UseSessionAsync<TResult>(string leaseId, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
+
     Task<TResult> UseConnectedSessionAsync<TResult>(ScannerSessionOwner owner, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct);
+
+    Task<TResult> UseConnectedSessionAsync<TResult>(ScannerSessionOwner owner, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
 
     Task<TResult> RunWithSessionStateAsync<TResult>(string leaseId, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct);
 
+    Task<TResult> RunWithSessionStateAsync<TResult>(string leaseId, ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
+
     Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionOwner owner, ScannerSessionState state, Func<IScanSessionService, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true);
+
+    Task<TResult> RunConnectedSessionStateAsync<TResult>(ScannerSessionOwner owner, ScannerSessionState state, Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct, bool waitForAvailability = true);
 
     ScannerSessionObserverPermission GrantObserverPermission(
         string observerId,

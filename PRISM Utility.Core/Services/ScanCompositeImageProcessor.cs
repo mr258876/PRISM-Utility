@@ -54,8 +54,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         _decoder = decoder;
     }
 
-    public byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse)
+    public byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var shouldReverse = !capture.DirectionPositive ^ manuallyReverse;
         if (!shouldReverse)
             return capture.ImageBytes;
@@ -64,6 +65,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         var rowBytes = ScanDebugConstants.BytesPerLine;
         for (var y = 0; y < capture.Rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var sourceOffset = y * rowBytes;
             var destinationOffset = (capture.Rows - 1 - y) * rowBytes;
             Buffer.BlockCopy(capture.ImageBytes, sourceOffset, normalized, destinationOffset, rowBytes);
@@ -72,11 +74,11 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         return normalized;
     }
 
-    public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, out ScanCompositePixelBuffer? frame, out string error)
-        => TryBuildRgbCompositeCore(result, assignment, colorManagement, null, requireAllRgbRoles: true, out frame, out error);
+    public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, CancellationToken cancellationToken, out ScanCompositePixelBuffer? frame, out string error)
+        => TryBuildRgbCompositeCore(result, assignment, colorManagement, null, requireAllRgbRoles: true, cancellationToken, out frame, out error);
 
-    public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, out ScanCompositePixelBuffer? frame, out string error)
-        => TryBuildRgbCompositeCore(result, assignment, colorManagement, availableRowsByRole, requireAllRgbRoles: false, out frame, out error);
+    public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<string, ScanRowAvailability> availableRowsByRole, CancellationToken cancellationToken, out ScanCompositePixelBuffer? frame, out string error)
+        => TryBuildRgbCompositeCore(result, assignment, colorManagement, availableRowsByRole, requireAllRgbRoles: false, cancellationToken, out frame, out error);
 
     private bool TryBuildRgbCompositeCore(
         ScanWorkflowResult result,
@@ -84,9 +86,11 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         ScanColorManagementOptions colorManagement,
         IReadOnlyDictionary<string, ScanRowAvailability>? availableRowsByRole,
         bool requireAllRgbRoles,
+        CancellationToken cancellationToken,
         out ScanCompositePixelBuffer? frame,
         out string error)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         frame = null;
         error = string.Empty;
 
@@ -111,7 +115,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return false;
         }
 
-        if (!TryBuildColorTransform(colorManagement, passByRole, width, rows, out var colorTransform, out error) || colorTransform is null)
+        if (!TryBuildColorTransform(colorManagement, passByRole, width, rows, cancellationToken, out var colorTransform, out error) || colorTransform is null)
             return false;
 
         var pixelCount = width * rows;
@@ -123,6 +127,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         {
             for (var y = 0; y < rows; y++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var x = 0; x < width; x++)
                 {
                     var red = GetRoleSample(passByRole, "Red", x, y, rows);
@@ -135,11 +140,12 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
                 }
             }
 
-            colorTransform.SetLuminanceScale(ComputePositivePercentile(luminanceValues, LuminanceScalePercentile));
+            colorTransform.SetLuminanceScale(ComputePositivePercentile(luminanceValues, LuminanceScalePercentile, cancellationToken));
         }
 
         for (var y = 0; y < rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             for (var x = 0; x < width; x++)
             {
                 var pixelOffset = (y * width) + x;
@@ -158,6 +164,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         frame = new ScanCompositePixelBuffer(pixelBytes, width, rows);
         return true;
     }
@@ -268,6 +275,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         Dictionary<string, RoleCaptureEntry> passByRole,
         int width,
         int rows,
+        CancellationToken cancellationToken,
         out RgbDisplayColorTransform? transform,
         out string error)
     {
@@ -294,9 +302,9 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             greenPrimary,
             bluePrimary,
             gains,
-            BuildChannelScale(passByRole, "Red", width, rows),
-            BuildChannelScale(passByRole, "Green", width, rows),
-            BuildChannelScale(passByRole, "Blue", width, rows),
+            BuildChannelScale(passByRole, "Red", width, rows, cancellationToken),
+            BuildChannelScale(passByRole, "Green", width, rows, cancellationToken),
+            BuildChannelScale(passByRole, "Blue", width, rows, cancellationToken),
             options.OutputGamma);
         return true;
     }
@@ -305,7 +313,8 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         Dictionary<string, RoleCaptureEntry> passByRole,
         string role,
         int width,
-        int rows)
+        int rows,
+        CancellationToken cancellationToken)
     {
         if (!passByRole.TryGetValue(role, out var entry) || entry.Availability.RowCount <= 0)
             return new ChannelScale(0.0, MaxSampleValue);
@@ -313,6 +322,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         var values = new List<double>(width * entry.Availability.RowCount);
         for (var y = 0; y < rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!entry.Availability.Contains(y))
                 continue;
 
@@ -324,8 +334,8 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return new ChannelScale(0.0, MaxSampleValue);
 
         var percentileValues = values.ToArray();
-        var low = ComputePercentile(percentileValues, ChannelScaleLowPercentile);
-        var high = ComputePercentile(percentileValues, ChannelScaleHighPercentile);
+        var low = ComputePercentile(percentileValues, ChannelScaleLowPercentile, cancellationToken);
+        var high = ComputePercentile(percentileValues, ChannelScaleHighPercentile, cancellationToken);
         return high > low ? new ChannelScale(low, high) : new ChannelScale(0.0, MaxSampleValue);
     }
 
@@ -468,19 +478,22 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
         return (byte)Math.Clamp((int)Math.Round(encoded * byte.MaxValue), 0, byte.MaxValue);
     }
 
-    private static double ComputePositivePercentile(double[] values, double percentile)
+    private static double ComputePositivePercentile(double[] values, double percentile, CancellationToken cancellationToken)
     {
-        var result = ComputePercentile(values, percentile);
+        var result = ComputePercentile(values, percentile, cancellationToken);
         return result > Epsilon ? result : 1.0;
     }
 
-    private static double ComputePercentile(double[] values, double percentile)
+    private static double ComputePercentile(double[] values, double percentile, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (values.Length == 0)
             return 0.0;
 
         var sorted = (double[])values.Clone();
+        cancellationToken.ThrowIfCancellationRequested();
         Array.Sort(sorted);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var rank = Math.Clamp(percentile, 0.0, 100.0) / 100.0 * (sorted.Length - 1);
         var lowerIndex = (int)Math.Floor(rank);

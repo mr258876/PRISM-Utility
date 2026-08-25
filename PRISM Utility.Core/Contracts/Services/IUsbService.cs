@@ -54,8 +54,6 @@ public interface IUsbService : IDisposable
         byte altId,
         byte? inEndpointAddress,
         byte? outEndpointAddress);
-
-    void StopBulkIn();
 }
 
 public interface IUsbBulkDuplexSession : IDisposable

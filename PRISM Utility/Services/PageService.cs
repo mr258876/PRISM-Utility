@@ -1,8 +1,8 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using Microsoft.UI.Xaml.Controls;
 
-using Microsoft.UI.Xaml.Controls;
-
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
+using PRISM_Utility.Contracts.ViewModels;
 using PRISM_Utility.ViewModels;
 using PRISM_Utility.Views;
 
@@ -10,51 +10,72 @@ namespace PRISM_Utility.Services;
 
 public class PageService : IPageService
 {
-    private readonly Dictionary<string, Type> _pages = new();
+    private static readonly PageRouteRegistration[] RouteRegistrations =
+    [
+        Configure<MainPage, MainViewModel>(AppRoute.Main),
+        Configure<LogPage, LogViewModel>(AppRoute.Log),
+        Configure<ScanPage, ScanViewModel>(AppRoute.Scan),
+        Configure<ScanDebugPage, ScanDebugViewModel>(AppRoute.ScanDebug),
+        Configure<SettingsPage, SettingsViewModel>(AppRoute.Settings),
+        Configure<DeviceConfigurationPage, DeviceConfigurationViewModel>(AppRoute.DeviceConfiguration)
+    ];
+
+    private readonly Dictionary<AppRoute, Type> _pages = new();
 
     public PageService()
     {
-        Configure<MainViewModel, MainPage>();
-        Configure<LogViewModel, LogPage>();
-        Configure<ScanViewModel, ScanPage>();
-        Configure<ScanDebugViewModel, ScanDebugPage>();
-        Configure<SettingsViewModel, SettingsPage>();
-        Configure<DeviceConfigurationViewModel, DeviceConfigurationPage>();
+        foreach (var registration in RouteRegistrations)
+            Configure(registration);
+
+        ValidateExhaustiveRoutes();
     }
 
-    public Type GetPageType(string key)
+    public Type GetPageType(AppRoute route)
     {
         Type? pageType;
         lock (_pages)
         {
-            if (!_pages.TryGetValue(key, out pageType))
+            if (!_pages.TryGetValue(route, out pageType))
             {
-                throw new ArgumentException($"Page not found: {key}. Did you forget to call PageService.Configure?");
+                throw new ArgumentException($"Page not found: {route}. Did you forget to call PageService.Configure?");
             }
         }
 
         return pageType;
     }
 
-    private void Configure<VM, V>()
-        where VM : ObservableObject
-        where V : Page
+    private static PageRouteRegistration Configure<TPage, TViewModel>(AppRoute route)
+        where TPage : Page, IPageViewModelHost<TViewModel>
+        where TViewModel : notnull
+        => new(route, typeof(TPage), typeof(TViewModel));
+
+    private void Configure(PageRouteRegistration registration)
     {
+        var route = registration.Route;
+        var type = registration.PageType;
+
         lock (_pages)
         {
-            var key = typeof(VM).FullName!;
-            if (_pages.ContainsKey(key))
+            if (_pages.ContainsKey(route))
             {
-                throw new ArgumentException($"The key {key} is already configured in PageService");
+                throw new ArgumentException($"The route {route} is already configured in PageService");
             }
 
-            var type = typeof(V);
             if (_pages.ContainsValue(type))
             {
-                throw new ArgumentException($"This type is already configured with key {_pages.First(p => p.Value == type).Key}");
+                throw new ArgumentException($"This type is already configured with route {_pages.First(p => p.Value == type).Key}");
             }
 
-            _pages.Add(key, type);
+            _pages.Add(route, type);
         }
     }
+
+    private void ValidateExhaustiveRoutes()
+    {
+        var missingRoutes = Enum.GetValues<AppRoute>().Except(_pages.Keys).ToArray();
+        if (missingRoutes.Length > 0)
+            throw new ArgumentException($"Missing page route registrations: {string.Join(", ", missingRoutes)}");
+    }
+
+    private sealed record PageRouteRegistration(AppRoute Route, Type PageType, Type ViewModelType);
 }

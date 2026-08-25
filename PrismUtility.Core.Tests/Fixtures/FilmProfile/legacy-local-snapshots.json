@@ -1,0 +1,26 @@
+{
+  " Blue ": {
+    "ExposureTicks": 10,
+    "Adc1Offset": -2,
+    "Adc1Gain": 3,
+    "Adc2Offset": 4,
+    "Adc2Gain": 5,
+    "SysClockKhz": 30000
+  },
+  "BrokenSnapshot": {
+    "ExposureTicks": 10,
+    "Adc1Offset": 999,
+    "Adc1Gain": 3,
+    "Adc2Offset": 4,
+    "Adc2Gain": 5,
+    "SysClockKhz": 1
+  },
+  " ": {
+    "ExposureTicks": 10,
+    "Adc1Offset": -2,
+    "Adc1Gain": 3,
+    "Adc2Offset": 4,
+    "Adc2Gain": 5,
+    "SysClockKhz": 30000
+  }
+}

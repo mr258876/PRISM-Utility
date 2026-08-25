@@ -6,6 +6,7 @@ using CommunityToolkit.WinUI.Animations;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
+using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Contracts.ViewModels;
 using PRISM_Utility.Helpers;
@@ -44,7 +45,14 @@ public class NavigationService : INavigationService
     }
 
     [MemberNotNullWhen(true, nameof(Frame), nameof(_frame))]
-    public bool CanGoBack => Frame != null && Frame.CanGoBack;
+    public bool CanGoBack
+    {
+        get
+        {
+            var frame = Frame;
+            return NavigationTransitionDecider.CanGoBack(frame is not null, frame?.CanGoBack == true);
+        }
+    }
 
     public NavigationService(IPageService pageService)
     {
@@ -69,14 +77,12 @@ public class NavigationService : INavigationService
 
     public bool GoBack()
     {
-        if (CanGoBack)
+        var frame = _frame;
+        if (frame is not null && NavigationTransitionDecider.CanGoBack(hasFrame: true, frame.CanGoBack))
         {
-            var vmBeforeNavigation = _frame.GetPageViewModel();
-            _frame.GoBack();
-            if (vmBeforeNavigation is INavigationAware navigationAware)
-            {
-                navigationAware.OnNavigatedFrom();
-            }
+            var vmBeforeNavigation = NavigationLifecycleDispatcher.CaptureNavigationAware(frame.Content);
+            frame.GoBack();
+            NavigationLifecycleDispatcher.NotifyNavigatedFromAfterFrameResult(vmBeforeNavigation, succeeded: true);
 
             return true;
         }
@@ -84,29 +90,27 @@ public class NavigationService : INavigationService
         return false;
     }
 
-    public bool NavigateTo(string pageKey, object? parameter = null, bool clearNavigation = false)
+    public bool NavigateTo(AppRoute route, object? parameter = null, bool clearNavigation = false)
     {
-        var pageType = _pageService.GetPageType(pageKey);
+        var pageType = _pageService.GetPageType(route);
+        var decision = NavigationTransitionDecider.Decide(_frame?.Content?.GetType(), pageType, parameter, _lastParameterUsed, clearNavigation);
 
-        if (_frame != null && (_frame.Content?.GetType() != pageType || (parameter != null && !parameter.Equals(_lastParameterUsed))))
+        if (_frame != null && decision.ShouldNavigate)
         {
             var currentPageName = _frame.Content?.GetType().Name ?? "(none)";
             var targetPageName = pageType.Name;
             var totalStopwatch = Stopwatch.StartNew();
             NavigationTimingLogger.Write($"Start {currentPageName} -> {targetPageName}, clearNavigation={clearNavigation}, hasParameter={parameter is not null}");
 
-            _frame.Tag = clearNavigation;
-            var vmBeforeNavigation = _frame.GetPageViewModel();
+            _frame.Tag = decision.ClearNavigation;
+            var vmBeforeNavigation = NavigationLifecycleDispatcher.CaptureNavigationAware(_frame.Content);
             var frameNavigateStopwatch = Stopwatch.StartNew();
-            var navigated = _frame.Navigate(pageType, parameter);
+            var navigated = _frame.Navigate(pageType, decision.Parameter);
             frameNavigateStopwatch.Stop();
             if (navigated)
             {
-                _lastParameterUsed = parameter;
-                if (vmBeforeNavigation is INavigationAware navigationAware)
-                {
-                    navigationAware.OnNavigatedFrom();
-                }
+                _lastParameterUsed = decision.ApplyNavigationResult(navigated, _lastParameterUsed);
+                NavigationLifecycleDispatcher.NotifyNavigatedFromAfterFrameResult(vmBeforeNavigation, succeeded: true);
             }
 
             totalStopwatch.Stop();
@@ -123,18 +127,12 @@ public class NavigationService : INavigationService
         if (sender is Frame frame)
         {
             var stopwatch = Stopwatch.StartNew();
-            var clearNavigation = (bool)frame.Tag;
-            if (clearNavigation)
+            if (NavigationTransitionDecider.ShouldClearBackStack(frame.Tag))
             {
                 frame.BackStack.Clear();
             }
 
-            if (frame.GetPageViewModel() is INavigationAware navigationAware)
-            {
-                navigationAware.OnNavigatedTo(e.Parameter);
-            }
-
-            Navigated?.Invoke(sender, e);
+            NavigationLifecycleDispatcher.NotifyNavigatedToThenPublish(frame.Content, e.Parameter, () => Navigated?.Invoke(sender, e));
             stopwatch.Stop();
             var pageName = frame.Content?.GetType().Name ?? "(unknown)";
             NavigationTimingLogger.Write($"OnNavigated {pageName}, callback={stopwatch.Elapsed.TotalMilliseconds:0.0} ms");

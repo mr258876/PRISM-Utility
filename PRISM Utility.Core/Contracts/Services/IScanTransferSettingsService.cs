@@ -10,8 +10,8 @@ public interface IScanTransferSettingsService
     ScanBulkInTransferOptions DefaultSettings { get; }
     ScanBulkInTransferOptions Settings { get; }
 
-    Task InitializeAsync();
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
-    Task SetBulkInReadModeAsync(ScanBulkInReadMode mode);
-    Task SetSettingsAsync(ScanBulkInTransferOptions settings);
+    Task SetBulkInReadModeAsync(ScanBulkInReadMode mode, CancellationToken cancellationToken = default);
+    Task SetSettingsAsync(ScanBulkInTransferOptions settings, CancellationToken cancellationToken = default);
 }

@@ -11,6 +11,7 @@ The repository currently contains two interactive tools:
 
 - `PRISM Utility/` - WinUI 3 desktop application, pages, view models, packaging files, and app resources
 - `PRISM Utility.Core/` - shared services, models, file helpers, and USB abstractions
+- `docs/architecture/` - [Architecture documentation](docs/architecture/README.md)
 
 ## Requirements
 

@@ -1,0 +1,38 @@
+{
+  "SchemaVersion": 5,
+  "ProfileName": "Invalid Profile Entries",
+  "SavedAtUtc": "2026-07-16T12:34:56+00:00",
+  "ChannelProfiles": {
+    " Blue ": {
+      "Parameters": {
+        "ExposureTicks": 10,
+        "Adc1Offset": 0,
+        "Adc1Gain": 1,
+        "Adc2Offset": 0,
+        "Adc2Gain": 1,
+        "SysClockKhz": 30000
+      }
+    },
+    "BrokenSnapshot": {
+      "Parameters": {
+        "ExposureTicks": 10,
+        "Adc1Offset": 999,
+        "Adc1Gain": 1,
+        "Adc2Offset": 0,
+        "Adc2Gain": 1,
+        "SysClockKhz": 1
+      }
+    },
+    " ": {
+      "Parameters": {
+        "ExposureTicks": 10,
+        "Adc1Offset": 0,
+        "Adc1Gain": 1,
+        "Adc2Offset": 0,
+        "Adc2Gain": 1,
+        "SysClockKhz": 30000
+      }
+    }
+  },
+  "SelectedCalibrationChannel": "Missing"
+}

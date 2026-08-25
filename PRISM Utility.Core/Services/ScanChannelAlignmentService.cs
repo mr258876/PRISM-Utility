@@ -6,7 +6,6 @@ namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
 {
-    private const MotionTypes MotionModel = MotionTypes.Translation;
     private const int CoarseEccMaxIterations = 50;
     private const int FineEccMaxIterations = 30;
     private const double EccMinIncrement = 1e-3;
@@ -26,142 +25,320 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
 
     private readonly IScanCompositeImageProcessor _processor;
     private readonly IScanImageDecoder _decoder;
+    private readonly IScanChannelAlignmentBackend _backend;
 
-    public ScanChannelAlignmentService(IScanCompositeImageProcessor processor, IScanImageDecoder decoder)
+    public ScanChannelAlignmentService(IScanCompositeImageProcessor processor, IScanImageDecoder decoder, IScanChannelAlignmentBackend? backend = null)
     {
         _processor = processor;
         _decoder = decoder;
+        _backend = backend ?? new OpenCvScanChannelAlignmentBackend();
     }
 
-    public bool TryBuildAlignedNormalizedPassBuffers(
+    public ScanChannelAlignmentResult BuildAlignedNormalizedPassBuffers(
         ScanWorkflowResult result,
         ScanChannelAssignment assignment,
         ScanChannelAlignmentMode alignmentMode,
-        out byte[][] alignedPassBuffers,
-        out string error)
+        CancellationToken cancellationToken)
     {
-        alignedPassBuffers = Array.Empty<byte[]>();
-        error = string.Empty;
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (result.Passes.Count == 0)
-        {
-            error = "No scan passes are available for channel alignment.";
-            return false;
-        }
+            return CreateFailedResult("No scan passes are available for channel alignment.");
 
         var width = _decoder.GetDecodedPixelsPerLine();
         if (width <= 0 || result.Rows <= 0)
-        {
-            error = "Scan dimensions are invalid for channel alignment.";
-            return false;
-        }
+            return CreateFailedResult("Scan dimensions are invalid for channel alignment.");
 
-        var normalizedPasses = BuildNormalizedPassBuffers(result, assignment);
+        var emptyInputIndex = FindEmptyPassIndex(result.Passes);
+        if (emptyInputIndex >= 0)
+            return CreateFailedResult("A scan pass has no image data.", emptyInputIndex, GetChannelRole(assignment, emptyInputIndex));
+
+        var normalizedPasses = BuildNormalizedPassBuffers(result, assignment, cancellationToken);
+        var emptyNormalizedIndex = Array.FindIndex(normalizedPasses, static buffer => buffer.Length == 0);
+        if (emptyNormalizedIndex >= 0)
+            return CreateFailedResult("A normalized scan pass has no image data.", emptyNormalizedIndex, GetChannelRole(assignment, emptyNormalizedIndex));
+
         var greenIndex = FindSingleRoleIndex(assignment, "Green");
         if (greenIndex < 0 || greenIndex >= normalizedPasses.Length)
-        {
-            alignedPassBuffers = normalizedPasses;
-            return true;
-        }
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Disabled,
+                normalizedPasses,
+                assignment,
+                ScanChannelAlignmentDiagnosticKind.MissingUniqueGreen,
+                "Alignment is disabled because the channel assignment does not contain exactly one Green channel.");
 
         var effectiveRange = _decoder.GetEffectivePixelRange();
-        if (effectiveRange.EndInclusive < effectiveRange.Start)
-        {
-            alignedPassBuffers = normalizedPasses;
-            return true;
-        }
+        if (effectiveRange.Start < 0 || effectiveRange.EndInclusive < effectiveRange.Start || effectiveRange.EndInclusive >= width)
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Fallback,
+                normalizedPasses,
+                assignment,
+                ScanChannelAlignmentDiagnosticKind.InvalidRoi,
+                "The effective alignment ROI is empty or outside decoded scan bounds.");
 
-        alignedPassBuffers = new byte[normalizedPasses.Length][];
-        Array.Copy(normalizedPasses, alignedPassBuffers, normalizedPasses.Length);
-
-        using var referenceMat = BuildSampledRoiMat(
-            normalizedPasses[greenIndex],
-            result.Rows,
-            effectiveRange.Start,
-            0,
-            effectiveRange.EndInclusive - effectiveRange.Start + 1,
-            result.Rows,
-            CoarseMaxDimension,
-            out var scale);
-        if (referenceMat.Empty())
-            return true;
+        var effectiveWidth = effectiveRange.EndInclusive - effectiveRange.Start + 1;
+        if (!TryCreateRoi(width, result.Rows, effectiveRange.Start, 0, effectiveWidth, result.Rows, out var coarseRoi))
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Fallback,
+                normalizedPasses,
+                assignment,
+                ScanChannelAlignmentDiagnosticKind.InvalidRoi,
+                "The effective alignment ROI is empty or outside decoded scan bounds.");
 
         var fineWindow = BuildFineWindow(effectiveRange.Start, effectiveRange.EndInclusive, result.Rows);
-        using var fineReferenceMat = BuildSampledRoiMat(
-            normalizedPasses[greenIndex],
-            result.Rows,
-            fineWindow.StartX,
-            fineWindow.StartY,
-            fineWindow.Width,
-            fineWindow.Height,
-            0,
-            out _);
+        if (!TryCreateRoi(width, result.Rows, fineWindow.StartX, fineWindow.StartY, fineWindow.Width, fineWindow.Height, out var fineRoi))
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Fallback,
+                normalizedPasses,
+                assignment,
+                ScanChannelAlignmentDiagnosticKind.InvalidRoi,
+                "The fine alignment ROI is empty or outside decoded scan bounds.");
 
-        for (var channelIndex = 0; channelIndex < normalizedPasses.Length; channelIndex++)
+        try
         {
-            if (channelIndex == greenIndex)
-                continue;
+            using var referenceMat = BuildSampledRoiMat(normalizedPasses[greenIndex], result.Rows, coarseRoi, CoarseMaxDimension, cancellationToken, out var scale);
+            if (referenceMat.Empty())
+                return CreateUniformOutcome(
+                    ScanChannelAlignmentStatus.Fallback,
+                    normalizedPasses,
+                    assignment,
+                    ScanChannelAlignmentDiagnosticKind.EmptyInput,
+                    "The Green alignment reference is empty.");
 
-            try
+            using var fineReferenceMat = BuildSampledRoiMat(normalizedPasses[greenIndex], result.Rows, fineRoi, 0, cancellationToken, out _);
+            var alignedPassBuffers = (byte[][])normalizedPasses.Clone();
+            var outcomes = CreateAlignedOutcomes(assignment, normalizedPasses.Length);
+            var diagnostics = new List<ScanChannelAlignmentDiagnostic>();
+
+            for (var channelIndex = 0; channelIndex < normalizedPasses.Length; channelIndex++)
             {
-                using var movingMat = BuildSampledRoiMat(
-                    normalizedPasses[channelIndex],
-                    result.Rows,
-                    effectiveRange.Start,
-                    0,
-                    effectiveRange.EndInclusive - effectiveRange.Start + 1,
-                    result.Rows,
-                    CoarseMaxDimension,
-                    out _);
-                if (movingMat.Empty())
+                cancellationToken.ThrowIfCancellationRequested();
+                if (channelIndex == greenIndex)
                     continue;
 
-                using var fineMovingMat = !fineReferenceMat.Empty()
-                    ? BuildSampledRoiMat(
-                        normalizedPasses[channelIndex],
-                        result.Rows,
-                        fineWindow.StartX,
-                        fineWindow.StartY,
-                        fineWindow.Width,
-                        fineWindow.Height,
-                        0,
-                        out _)
-                    : new Mat();
+                try
+                {
+                    using var movingMat = BuildSampledRoiMat(normalizedPasses[channelIndex], result.Rows, coarseRoi, CoarseMaxDimension, cancellationToken, out _);
+                    if (movingMat.Empty())
+                    {
+                        AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, ScanChannelAlignmentDiagnosticKind.EmptyInput, "The channel alignment input is empty.");
+                        continue;
+                    }
 
-                var (shiftX, shiftY) = EstimateTranslation(
-                    referenceMat,
-                    movingMat,
-                    fineReferenceMat,
-                    fineMovingMat,
-                    scale,
-                    alignmentMode);
+                    using var fineMovingMat = fineReferenceMat.Empty()
+                        ? new Mat()
+                        : BuildSampledRoiMat(normalizedPasses[channelIndex], result.Rows, fineRoi, 0, cancellationToken, out _);
 
-                if (Math.Abs(shiftX) < MinimumMeaningfulShift && Math.Abs(shiftY) < MinimumMeaningfulShift)
-                    continue;
+                    var translation = EstimateTranslation(referenceMat, movingMat, fineReferenceMat, fineMovingMat, scale, alignmentMode, cancellationToken);
+                    if (translation.EccFallback is { } eccFallback)
+                        AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, eccFallback);
 
-                var sourceSamples = DecodeToSampleGrid(normalizedPasses[channelIndex], result.Rows, width);
-                var alignedSamples = ApplyTranslation(sourceSamples, width, result.Rows, shiftX, shiftY);
-                alignedPassBuffers[channelIndex] = EncodeSampleGrid(normalizedPasses[channelIndex], alignedSamples, width, result.Rows);
+                    var shiftX = translation.ShiftX;
+                    var shiftY = translation.ShiftY;
+                    if (Math.Abs(shiftX) < MinimumMeaningfulShift && Math.Abs(shiftY) < MinimumMeaningfulShift)
+                        continue;
+
+                    var sourceSamples = DecodeToSampleGrid(normalizedPasses[channelIndex], result.Rows, width, cancellationToken);
+                    var alignedSamples = ApplyTranslation(sourceSamples, width, result.Rows, shiftX, shiftY, cancellationToken);
+                    alignedPassBuffers[channelIndex] = EncodeSampleGrid(normalizedPasses[channelIndex], alignedSamples, width, result.Rows, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (EccThenMutualInformationFailureException exception)
+                {
+                    AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, exception.EccFailure);
+                    AddFallbackDiagnostic(diagnostics, channelIndex, assignment, exception.MutualInformationFailure);
+                }
+                catch (OpenCVException exception)
+                {
+                    AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, ClassifyOpenCvFailure(exception), exception.ErrMsg, exception);
+                }
+                catch (OpenCvSharpException exception)
+                {
+                    AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, ClassifyOpenCvFailure(exception), exception.Message, exception);
+                }
+                catch (InvalidOperationException exception)
+                {
+                    var kind = Enum.IsDefined(alignmentMode)
+                        ? ScanChannelAlignmentDiagnosticKind.AlignmentUnavailable
+                        : ScanChannelAlignmentDiagnosticKind.UnsupportedMode;
+                    AddFallbackOutcome(outcomes, diagnostics, channelIndex, assignment, kind, exception.Message);
+                }
             }
-            catch (Exception ex) when (ex is OpenCVException or InvalidOperationException)
-            {
-                alignedPassBuffers[channelIndex] = normalizedPasses[channelIndex];
-            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var status = diagnostics.Count == 0 ? ScanChannelAlignmentStatus.Aligned : ScanChannelAlignmentStatus.Fallback;
+            return new ScanChannelAlignmentResult(status, alignedPassBuffers, outcomes, diagnostics);
         }
-
-        return true;
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OpenCVException exception)
+        {
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Fallback,
+                normalizedPasses,
+                assignment,
+                ClassifyOpenCvFailure(exception),
+                exception.ErrMsg,
+                exception);
+        }
+        catch (OpenCvSharpException exception)
+        {
+            return CreateUniformOutcome(
+                ScanChannelAlignmentStatus.Fallback,
+                normalizedPasses,
+                assignment,
+                ClassifyOpenCvFailure(exception),
+                exception.Message,
+                exception);
+        }
     }
 
-    private byte[][] BuildNormalizedPassBuffers(ScanWorkflowResult result, ScanChannelAssignment assignment)
+    private byte[][] BuildNormalizedPassBuffers(ScanWorkflowResult result, ScanChannelAssignment assignment, CancellationToken cancellationToken)
     {
         var normalizedPasses = new byte[result.Passes.Count][];
         for (var index = 0; index < result.Passes.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var shouldReverse = index < assignment.ReversedFlags.Count && assignment.ReversedFlags[index];
-            normalizedPasses[index] = _processor.NormalizePassBuffer(result.Passes[index], shouldReverse);
+            normalizedPasses[index] = _processor.NormalizePassBuffer(result.Passes[index], shouldReverse, cancellationToken);
         }
 
         return normalizedPasses;
+    }
+
+    private static int FindEmptyPassIndex(IReadOnlyList<ScanPassCapture> passes)
+    {
+        for (var index = 0; index < passes.Count; index++)
+        {
+            if (passes[index].ImageBytes is null || passes[index].ImageBytes.Length == 0)
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static string GetChannelRole(ScanChannelAssignment assignment, int channelIndex)
+        => channelIndex >= 0 && channelIndex < assignment.Roles.Count && !string.IsNullOrWhiteSpace(assignment.Roles[channelIndex])
+            ? assignment.Roles[channelIndex]
+            : $"Pass {channelIndex}";
+
+    private static ScanChannelAlignmentResult CreateFailedResult(string message, int? channelIndex = null, string? channelRole = null)
+    {
+        var diagnostic = new ScanChannelAlignmentDiagnostic(
+            ScanChannelAlignmentDiagnosticKind.EmptyInput,
+            channelIndex,
+            channelRole,
+            message);
+        var outcomes = channelIndex is int index
+            ? new[] { new ScanChannelAlignmentChannelOutcome(index, channelRole ?? $"Pass {index}", ScanChannelAlignmentStatus.Failed, diagnostic) }
+            : Array.Empty<ScanChannelAlignmentChannelOutcome>();
+        return new ScanChannelAlignmentResult(ScanChannelAlignmentStatus.Failed, Array.Empty<byte[]>(), outcomes, new[] { diagnostic });
+    }
+
+    private static ScanChannelAlignmentResult CreateUniformOutcome(
+        ScanChannelAlignmentStatus status,
+        byte[][] normalizedPasses,
+        ScanChannelAssignment assignment,
+        ScanChannelAlignmentDiagnosticKind kind,
+        string message,
+        Exception? exception = null)
+    {
+        var outcomes = new List<ScanChannelAlignmentChannelOutcome>(normalizedPasses.Length);
+        var diagnostics = new List<ScanChannelAlignmentDiagnostic>(normalizedPasses.Length);
+        for (var channelIndex = 0; channelIndex < normalizedPasses.Length; channelIndex++)
+        {
+            var diagnostic = CreateDiagnostic(kind, channelIndex, GetChannelRole(assignment, channelIndex), message, exception);
+            diagnostics.Add(diagnostic);
+            outcomes.Add(new ScanChannelAlignmentChannelOutcome(channelIndex, diagnostic.ChannelRole ?? $"Pass {channelIndex}", status, diagnostic));
+        }
+
+        return new ScanChannelAlignmentResult(status, normalizedPasses, outcomes, diagnostics);
+    }
+
+    private static List<ScanChannelAlignmentChannelOutcome> CreateAlignedOutcomes(ScanChannelAssignment assignment, int channelCount)
+    {
+        var outcomes = new List<ScanChannelAlignmentChannelOutcome>(channelCount);
+        for (var channelIndex = 0; channelIndex < channelCount; channelIndex++)
+            outcomes.Add(new ScanChannelAlignmentChannelOutcome(channelIndex, GetChannelRole(assignment, channelIndex), ScanChannelAlignmentStatus.Aligned));
+
+        return outcomes;
+    }
+
+    private static void AddFallbackOutcome(
+        List<ScanChannelAlignmentChannelOutcome> outcomes,
+        List<ScanChannelAlignmentDiagnostic> diagnostics,
+        int channelIndex,
+        ScanChannelAssignment assignment,
+        ScanChannelAlignmentDiagnosticKind kind,
+        string message,
+        Exception? exception = null)
+    {
+        var diagnostic = CreateDiagnostic(kind, channelIndex, GetChannelRole(assignment, channelIndex), message, exception);
+        outcomes[channelIndex] = new ScanChannelAlignmentChannelOutcome(channelIndex, diagnostic.ChannelRole ?? $"Pass {channelIndex}", ScanChannelAlignmentStatus.Fallback, diagnostic);
+        diagnostics.Add(diagnostic);
+    }
+
+    private static void AddFallbackOutcome(
+        List<ScanChannelAlignmentChannelOutcome> outcomes,
+        List<ScanChannelAlignmentDiagnostic> diagnostics,
+        int channelIndex,
+        ScanChannelAssignment assignment,
+        AlignmentFailure failure)
+    {
+        var diagnostic = CreateDiagnostic(failure.Kind, channelIndex, GetChannelRole(assignment, channelIndex), failure.Message, failure.Exception);
+        outcomes[channelIndex] = new ScanChannelAlignmentChannelOutcome(channelIndex, diagnostic.ChannelRole ?? $"Pass {channelIndex}", ScanChannelAlignmentStatus.Fallback, diagnostic);
+        diagnostics.Add(diagnostic);
+    }
+
+    private static void AddFallbackDiagnostic(
+        List<ScanChannelAlignmentDiagnostic> diagnostics,
+        int channelIndex,
+        ScanChannelAssignment assignment,
+        AlignmentFailure failure)
+        => diagnostics.Add(CreateDiagnostic(failure.Kind, channelIndex, GetChannelRole(assignment, channelIndex), failure.Message, failure.Exception));
+
+    private static ScanChannelAlignmentDiagnostic CreateDiagnostic(
+        ScanChannelAlignmentDiagnosticKind kind,
+        int? channelIndex,
+        string? channelRole,
+        string message,
+        Exception? exception = null)
+    {
+        if (exception is not OpenCVException nativeException)
+            return new ScanChannelAlignmentDiagnostic(kind, channelIndex, channelRole, message);
+
+        return new ScanChannelAlignmentDiagnostic(
+            kind,
+            channelIndex,
+            channelRole,
+            string.IsNullOrWhiteSpace(nativeException.ErrMsg) ? message : nativeException.ErrMsg,
+            (int)nativeException.Status,
+            nativeException.FuncName,
+            nativeException.FileName,
+            nativeException.Line);
+    }
+
+    private static ScanChannelAlignmentDiagnosticKind ClassifyOpenCvFailure(Exception exception)
+        => exception.Message.Contains("converg", StringComparison.OrdinalIgnoreCase)
+            ? ScanChannelAlignmentDiagnosticKind.NonConverged
+            : ScanChannelAlignmentDiagnosticKind.OpenCvFailure;
+
+    private static bool TryCreateRoi(int sourceWidth, int sourceRows, int x, int y, int width, int height, out Rect roi)
+    {
+        roi = default;
+        if (sourceWidth <= 0 || sourceRows <= 0 || x < 0 || y < 0 || width <= 0 || height <= 0)
+            return false;
+
+        if ((long)x + width > sourceWidth || (long)y + height > sourceRows)
+            return false;
+
+        roi = new Rect(x, y, width, height);
+        return true;
     }
 
     private static int FindSingleRoleIndex(ScanChannelAssignment assignment, string role)
@@ -181,85 +358,135 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         return matchedIndex;
     }
 
-    private Mat BuildSampledRoiMat(byte[] buffer, int rows, int startX, int startY, int width, int height, int maxDimension, out double scale)
+    private Mat BuildSampledRoiMat(byte[] buffer, int rows, Rect roi, int maxDimension, CancellationToken cancellationToken, out double scale)
     {
-        var roiWidth = Math.Max(0, width);
-        var roiHeight = Math.Max(0, height);
-        if (roiWidth == 0 || roiHeight == 0 || rows <= 0)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (buffer.Length == 0 || roi.Width <= 0 || roi.Height <= 0 || rows <= 0)
         {
             scale = 1.0;
             return new Mat();
         }
 
         scale = maxDimension > 0
-            ? Math.Min(1.0, maxDimension / (double)Math.Max(roiWidth, roiHeight))
+            ? Math.Min(1.0, maxDimension / (double)Math.Max(roi.Width, roi.Height))
             : 1.0;
-        var sampledWidth = Math.Max(1, (int)Math.Round(roiWidth * scale));
-        var sampledHeight = Math.Max(1, (int)Math.Round(roiHeight * scale));
+        var sampledWidth = Math.Max(1, (int)Math.Round(roi.Width * scale));
+        var sampledHeight = Math.Max(1, (int)Math.Round(roi.Height * scale));
 
         var mat = new Mat(sampledHeight, sampledWidth, MatType.CV_32FC1);
+        var hasSample = false;
         for (var y = 0; y < sampledHeight; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var sourceYOffset = sampledHeight == 1
                 ? 0
-                : (int)Math.Round(y * (roiHeight - 1d) / Math.Max(sampledHeight - 1d, 1d));
-            var sourceY = startY + sourceYOffset;
+                : (int)Math.Round(y * (roi.Height - 1d) / Math.Max(sampledHeight - 1d, 1d));
+            var sourceY = roi.Y + sourceYOffset;
 
             for (var x = 0; x < sampledWidth; x++)
             {
                 var sourceXOffset = sampledWidth == 1
                     ? 0
-                    : (int)Math.Round(x * (roiWidth - 1d) / Math.Max(sampledWidth - 1d, 1d));
-                var sourceX = startX + sourceXOffset;
+                    : (int)Math.Round(x * (roi.Width - 1d) / Math.Max(sampledWidth - 1d, 1d));
+                var sourceX = roi.X + sourceXOffset;
                 if (!_decoder.TryGetSample16(buffer, rows, sourceX, sourceY, out var sample))
                     sample = 0;
+                else
+                    hasSample = true;
 
                 mat.Set(y, x, sample / (float)ushort.MaxValue);
             }
         }
 
+        if (!hasSample)
+        {
+            mat.Dispose();
+            return new Mat();
+        }
+
         return mat;
     }
 
-    private static (double ShiftX, double ShiftY) EstimateTranslation(
+    private TranslationEstimate EstimateTranslation(
         Mat coarseReference,
         Mat coarseMoving,
         Mat fineReference,
         Mat fineMoving,
         double coarseScale,
-        ScanChannelAlignmentMode alignmentMode)
+        ScanChannelAlignmentMode alignmentMode,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (alignmentMode == ScanChannelAlignmentMode.EccThenMutualInformation)
         {
+            AlignmentFailure? eccFailure = null;
+            double eccShiftX;
+            double eccShiftY;
             try
             {
-                var (eccShiftX, eccShiftY) = EstimateEccTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale);
-                return EstimateMutualInformationTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, eccShiftX, eccShiftY);
+                (eccShiftX, eccShiftY) = EstimateEccTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, cancellationToken);
             }
-            catch (OpenCVException)
+            catch (OpenCVException exception)
             {
-                return EstimateMutualInformationTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, 0.0, 0.0);
+                eccFailure = CreateOpenCvFailure(exception);
+                eccShiftX = 0.0;
+                eccShiftY = 0.0;
+            }
+            catch (OpenCvSharpException exception)
+            {
+                eccFailure = CreateOpenCvFailure(exception);
+                eccShiftX = 0.0;
+                eccShiftY = 0.0;
+            }
+
+            try
+            {
+                var (shiftX, shiftY) = EstimateMutualInformationTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, eccShiftX, eccShiftY, cancellationToken);
+                return new TranslationEstimate(shiftX, shiftY, eccFailure);
+            }
+            catch (OpenCVException exception) when (eccFailure is { } capturedEccFailure)
+            {
+                throw new EccThenMutualInformationFailureException(capturedEccFailure, CreateOpenCvFailure(exception));
+            }
+            catch (OpenCvSharpException exception) when (eccFailure is { } capturedEccFailure)
+            {
+                throw new EccThenMutualInformationFailureException(capturedEccFailure, CreateOpenCvFailure(exception));
+            }
+            catch (InvalidOperationException exception) when (eccFailure is { } capturedEccFailure)
+            {
+                throw new EccThenMutualInformationFailureException(
+                    capturedEccFailure,
+                    new AlignmentFailure(ScanChannelAlignmentDiagnosticKind.AlignmentUnavailable, exception.Message, exception));
             }
         }
 
-        return alignmentMode switch
+        var translation = alignmentMode switch
         {
-            ScanChannelAlignmentMode.Ecc => EstimateEccTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale),
-            ScanChannelAlignmentMode.MutualInformation => EstimateMutualInformationTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, 0.0, 0.0),
+            ScanChannelAlignmentMode.Ecc => EstimateEccTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, cancellationToken),
+            ScanChannelAlignmentMode.MutualInformation => EstimateMutualInformationTranslation(coarseReference, coarseMoving, fineReference, fineMoving, coarseScale, 0.0, 0.0, cancellationToken),
             _ => throw new InvalidOperationException($"Unsupported scan channel alignment mode '{alignmentMode}'.")
         };
+        return new TranslationEstimate(translation.ShiftX, translation.ShiftY, null);
     }
 
-    private static (double ShiftX, double ShiftY) EstimateEccTranslation(Mat coarseReference, Mat coarseMoving, Mat fineReference, Mat fineMoving, double coarseScale)
+    private static AlignmentFailure CreateOpenCvFailure(Exception exception)
+        => new(ClassifyOpenCvFailure(exception), exception.Message, exception);
+
+    private (double ShiftX, double ShiftY) EstimateEccTranslation(Mat coarseReference, Mat coarseMoving, Mat fineReference, Mat fineMoving, double coarseScale, CancellationToken cancellationToken)
     {
-        var (shiftX, shiftY) = EstimateEccTranslationCore(coarseReference, coarseMoving, coarseScale, 0.0, 0.0, CoarseEccMaxIterations);
+        cancellationToken.ThrowIfCancellationRequested();
+        var (shiftX, shiftY) = EstimateEccTranslationCore(coarseReference, coarseMoving, coarseScale, 0.0, 0.0, CoarseEccMaxIterations, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!fineReference.Empty() && !fineMoving.Empty())
-            (shiftX, shiftY) = EstimateEccTranslationCore(fineReference, fineMoving, 1.0, shiftX, shiftY, FineEccMaxIterations);
+        {
+            (shiftX, shiftY) = EstimateEccTranslationCore(fineReference, fineMoving, 1.0, shiftX, shiftY, FineEccMaxIterations, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
 
         return (shiftX, shiftY);
     }
 
-    private static (double ShiftX, double ShiftY) EstimateMutualInformationTranslation(Mat coarseReference, Mat coarseMoving, Mat fineReference, Mat fineMoving, double coarseScale, double initialShiftX, double initialShiftY)
+    private static (double ShiftX, double ShiftY) EstimateMutualInformationTranslation(Mat coarseReference, Mat coarseMoving, Mat fineReference, Mat fineMoving, double coarseScale, double initialShiftX, double initialShiftY, CancellationToken cancellationToken)
     {
         var (shiftX, shiftY) = EstimateMutualInformationTranslationCore(
             coarseReference,
@@ -268,7 +495,8 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
             initialShiftX,
             initialShiftY,
             CoarseMutualInformationSearchRadius,
-            MutualInformationCoarseGridStep);
+            MutualInformationCoarseGridStep,
+            cancellationToken);
 
         if (!fineReference.Empty() && !fineMoving.Empty())
         {
@@ -279,21 +507,24 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
                 shiftX,
                 shiftY,
                 FineMutualInformationSearchRadius,
-                MutualInformationFineGridStep);
+                MutualInformationFineGridStep,
+                cancellationToken);
         }
 
         return (shiftX, shiftY);
     }
 
-    private static (double ShiftX, double ShiftY) EstimateEccTranslationCore(Mat reference, Mat moving, double scale, double initialShiftX, double initialShiftY, int maxIterations)
+    private (double ShiftX, double ShiftY) EstimateEccTranslationCore(Mat reference, Mat moving, double scale, double initialShiftX, double initialShiftY, int maxIterations, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var warpMatrix = new Mat(2, 3, MatType.CV_32FC1, Scalar.All(0));
         warpMatrix.Set(0, 0, 1f);
         warpMatrix.Set(1, 1, 1f);
         warpMatrix.Set(0, 2, (float)(scale * initialShiftX));
         warpMatrix.Set(1, 2, (float)(scale * initialShiftY));
         var criteria = new TermCriteria(CriteriaTypes.Count | CriteriaTypes.Eps, maxIterations, EccMinIncrement);
-        Cv2.FindTransformECC(reference, moving, warpMatrix, MotionModel, criteria, null, EccGaussianFilterSize);
+        _backend.FindTransformEcc(reference, moving, warpMatrix, criteria, EccGaussianFilterSize);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var shiftX = warpMatrix.At<float>(0, 2);
         var shiftY = warpMatrix.At<float>(1, 2);
@@ -310,24 +541,27 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         double initialShiftX,
         double initialShiftY,
         double searchRadius,
-        double gridStep)
+        double gridStep,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (reference.Empty() || moving.Empty())
             throw new InvalidOperationException("Mutual-information alignment requires non-empty images.");
 
         var bestShiftX = initialShiftX;
         var bestShiftY = initialShiftY;
-        var bestScore = ComputeMutualInformation(reference, moving, scale, bestShiftX, bestShiftY);
+        var bestScore = ComputeMutualInformation(reference, moving, scale, bestShiftX, bestShiftY, cancellationToken);
         var radius = Math.Max(searchRadius, gridStep);
         var step = Math.Max(gridStep, MutualInformationMinStep);
 
         for (var offsetY = -radius; offsetY <= radius; offsetY += step)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             for (var offsetX = -radius; offsetX <= radius; offsetX += step)
             {
                 var candidateShiftX = initialShiftX + offsetX;
                 var candidateShiftY = initialShiftY + offsetY;
-                var candidateScore = ComputeMutualInformation(reference, moving, scale, candidateShiftX, candidateShiftY);
+                var candidateScore = ComputeMutualInformation(reference, moving, scale, candidateShiftX, candidateShiftY, cancellationToken);
                 if (candidateScore > bestScore)
                 {
                     bestScore = candidateScore;
@@ -340,9 +574,11 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         var refinementStep = Math.Max(step / 2.0, MutualInformationMinStep);
         while (refinementStep >= MutualInformationMinStep)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var improved = false;
             for (var deltaY = -refinementStep; deltaY <= refinementStep; deltaY += refinementStep)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var deltaX = -refinementStep; deltaX <= refinementStep; deltaX += refinementStep)
                 {
                     if (Math.Abs(deltaX) < double.Epsilon && Math.Abs(deltaY) < double.Epsilon)
@@ -350,7 +586,7 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
 
                     var candidateShiftX = bestShiftX + deltaX;
                     var candidateShiftY = bestShiftY + deltaY;
-                    var candidateScore = ComputeMutualInformation(reference, moving, scale, candidateShiftX, candidateShiftY);
+                    var candidateScore = ComputeMutualInformation(reference, moving, scale, candidateShiftX, candidateShiftY, cancellationToken);
                     if (candidateScore > bestScore)
                     {
                         bestScore = candidateScore;
@@ -371,8 +607,9 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         return (bestShiftX, bestShiftY);
     }
 
-    private static double ComputeMutualInformation(Mat reference, Mat moving, double scale, double shiftX, double shiftY)
+    private static double ComputeMutualInformation(Mat reference, Mat moving, double scale, double shiftX, double shiftY, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var scaledShiftX = scale * shiftX;
         var scaledShiftY = scale * shiftY;
         var rows = reference.Rows;
@@ -389,6 +626,7 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
 
         for (var y = 0; y < rows; y += stride)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             for (var x = 0; x < cols; x += stride)
             {
                 if (!TrySampleNormalized(moving, x + scaledShiftX, y + scaledShiftY, out var movingValue))
@@ -453,11 +691,12 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         return true;
     }
 
-    private ushort[] DecodeToSampleGrid(byte[] buffer, int rows, int width)
+    private ushort[] DecodeToSampleGrid(byte[] buffer, int rows, int width, CancellationToken cancellationToken)
     {
         var samples = new ushort[checked(width * rows)];
         for (var y = 0; y < rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var rowOffset = y * width;
             for (var x = 0; x < width; x++)
             {
@@ -469,11 +708,12 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         return samples;
     }
 
-    private static ushort[] ApplyTranslation(ushort[] sourceSamples, int width, int rows, double shiftX, double shiftY)
+    private static ushort[] ApplyTranslation(ushort[] sourceSamples, int width, int rows, double shiftX, double shiftY, CancellationToken cancellationToken)
     {
         var destinationSamples = new ushort[sourceSamples.Length];
         for (var y = 0; y < rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var sourceY = y + shiftY;
             var y0 = (int)Math.Floor(sourceY);
             var y1 = y0 + 1;
@@ -512,11 +752,12 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
     private static double Lerp(double start, double end, double t)
         => start + ((end - start) * t);
 
-    private static byte[] EncodeSampleGrid(byte[] sourceBuffer, ushort[] samples, int width, int rows)
+    private static byte[] EncodeSampleGrid(byte[] sourceBuffer, ushort[] samples, int width, int rows, CancellationToken cancellationToken)
     {
         var buffer = (byte[])sourceBuffer.Clone();
         for (var y = 0; y < rows; y++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var rowStart = y * ScanDebugConstants.BytesPerLine;
             var groupStart = rowStart + ScanDebugConstants.LineBufferMarginLeft;
             for (var x = 0; x < width; x += ScanDebugConstants.PackedGroupPixels)
@@ -543,6 +784,22 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         var startX = effectiveStartX + Math.Max(0, (roiWidth - width) / 2);
         var startY = Math.Max(0, (rows - height) / 2);
         return new FineWindow(startX, startY, width, height);
+    }
+
+    private readonly record struct TranslationEstimate(double ShiftX, double ShiftY, AlignmentFailure? EccFallback);
+
+    private readonly record struct AlignmentFailure(
+        ScanChannelAlignmentDiagnosticKind Kind,
+        string Message,
+        Exception Exception);
+
+    private sealed class EccThenMutualInformationFailureException(
+        AlignmentFailure eccFailure,
+        AlignmentFailure mutualInformationFailure) : Exception
+    {
+        public AlignmentFailure EccFailure { get; } = eccFailure;
+
+        public AlignmentFailure MutualInformationFailure { get; } = mutualInformationFailure;
     }
 
     private readonly record struct FineWindow(int StartX, int StartY, int Width, int Height);

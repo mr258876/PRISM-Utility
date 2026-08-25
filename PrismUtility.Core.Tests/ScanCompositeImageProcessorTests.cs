@@ -29,7 +29,7 @@ public sealed class ScanCompositeImageProcessorTests
         var assignment = new ScanChannelAssignment("Red", "Green", "Blue", "Unused", false, false, false, false);
         var colorManagement = ScanColorManagementOptions.CreateDefault();
 
-        var success = processor.TryBuildRgbComposite(result, assignment, colorManagement, out var frame, out var error);
+        var success = processor.TryBuildRgbComposite(result, assignment, colorManagement, CancellationToken.None, out var frame, out var error);
 
         Assert.True(success, error);
         Assert.NotNull(frame);
@@ -61,7 +61,7 @@ public sealed class ScanCompositeImageProcessorTests
             ManualWhitePointColorTemperatureK = 1000.0
         };
 
-        var success = processor.TryBuildRgbComposite(result, assignment, colorManagement, out var frame, out var error);
+        var success = processor.TryBuildRgbComposite(result, assignment, colorManagement, CancellationToken.None, out var frame, out var error);
 
         Assert.False(success);
         Assert.Null(frame);
@@ -91,7 +91,7 @@ public sealed class ScanCompositeImageProcessorTests
             ["Red"] = new(0, Rows)
         };
 
-        var success = processor.TryBuildPartialRgbComposite(result, assignment, colorManagement, availableRows, out var frame, out var error);
+        var success = processor.TryBuildPartialRgbComposite(result, assignment, colorManagement, availableRows, CancellationToken.None, out var frame, out var error);
 
         Assert.True(success, error);
         Assert.NotNull(frame);
@@ -125,7 +125,7 @@ public sealed class ScanCompositeImageProcessorTests
             ["Red"] = new(0, 1)
         };
 
-        var success = processor.TryBuildPartialRgbComposite(result, assignment, colorManagement, availableRows, out var frame, out var error);
+        var success = processor.TryBuildPartialRgbComposite(result, assignment, colorManagement, availableRows, CancellationToken.None, out var frame, out var error);
 
         Assert.True(success, error);
         Assert.NotNull(frame);

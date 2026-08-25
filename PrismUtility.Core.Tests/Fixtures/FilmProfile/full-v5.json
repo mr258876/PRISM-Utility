@@ -1,0 +1,86 @@
+{
+  "SchemaVersion": 5,
+  "ProfileName": "Kodak Portra 400",
+  "SavedAtUtc": "2026-07-16T12:34:56+00:00",
+  "ChannelProfiles": {
+    "Blue": {
+      "Parameters": {
+        "ExposureTicks": 1234,
+        "Adc1Offset": -17,
+        "Adc1Gain": 12,
+        "Adc2Offset": 21,
+        "Adc2Gain": 15,
+        "SysClockKhz": 48000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 128, "EndInclusive": 7577 },
+        "ShieldRange": { "Start": 26, "EndInclusive": 115 },
+        "FocusLeftRange": { "Start": 1200, "EndInclusive": 2800 },
+        "FocusRightRange": { "Start": 4600, "EndInclusive": 6200 },
+        "FocusOverallRange": { "Start": 1200, "EndInclusive": 6200 }
+      },
+      "BlackLevel": 345,
+      "WhiteLevel": 60000
+    },
+    "Green": {
+      "Parameters": {
+        "ExposureTicks": 1300,
+        "Adc1Offset": -10,
+        "Adc1Gain": 11,
+        "Adc2Offset": 18,
+        "Adc2Gain": 14,
+        "SysClockKhz": 48000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 128, "EndInclusive": 7577 },
+        "ShieldRange": { "Start": 26, "EndInclusive": 115 },
+        "FocusLeftRange": { "Start": 1250, "EndInclusive": 2850 },
+        "FocusRightRange": { "Start": 4550, "EndInclusive": 6150 },
+        "FocusOverallRange": { "Start": 1250, "EndInclusive": 6150 }
+      },
+      "BlackLevel": 321,
+      "WhiteLevel": 61000
+    }
+  },
+  "SelectedCalibrationChannel": "Green",
+  "AcquisitionSettings": {
+    "Led1Level": 101,
+    "Led2Level": 202,
+    "Led3Level": 303,
+    "Led4Level": 404,
+    "SteadyMask": 5,
+    "SyncMask": 10,
+    "Led1PulseClock": 1000,
+    "Led2PulseClock": 1100,
+    "Led3PulseClock": 1200,
+    "Led4PulseClock": 1300,
+    "MotorIntervalNs": 1500,
+    "Led1ChannelColor": "Blue",
+    "Led2ChannelColor": "White",
+    "Led3ChannelColor": "Red",
+    "Led4ChannelColor": "Green"
+  },
+  "ScanRecipeSettings": {
+    "ChannelAssignment": {
+      "Channel1Role": "Blue",
+      "Channel2Role": "White",
+      "Channel3Role": "Red",
+      "Channel4Role": "Green",
+      "Channel1Reversed": false,
+      "Channel2Reversed": true,
+      "Channel3Reversed": false,
+      "Channel4Reversed": true
+    },
+    "ColorManagement": {
+      "IsEnabled": true,
+      "RedWavelengthNm": 680.5,
+      "GreenWavelengthNm": 525.5,
+      "BlueWavelengthNm": 450.5,
+      "OutputGamma": 2.2,
+      "TargetWhitePointMode": 1,
+      "ManualWhitePointColorTemperatureK": 5000.0
+    },
+    "AlignmentMode": 2,
+    "DngExportMode": 1
+  }
+}

@@ -156,6 +156,27 @@
   <data name="Settings_Scanner.Text" xml:space="preserve">
     <value>扫描仪</value>
   </data>
+  <data name="Settings_PersistenceErrorInfoBar.Title" xml:space="preserve">
+    <value>设置未保存</value>
+  </data>
+  <data name="Settings_PersistenceSaveFailedFormat" xml:space="preserve">
+    <value>无法保存{0}：{1}</value>
+  </data>
+  <data name="Settings_PersistenceScopeTheme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Settings_PersistenceScopeLanguage" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_PersistenceScopeDebugOutput" xml:space="preserve">
+    <value>调试输出设置</value>
+  </data>
+  <data name="Settings_PersistenceScopeTransfer" xml:space="preserve">
+    <value>扫描传输设置</value>
+  </data>
+  <data name="Settings_PersistenceScopeColor" xml:space="preserve">
+    <value>色彩管理设置</value>
+  </data>
   <data name="DeviceConfiguration_Header" xml:space="preserve">
     <value>设备配置</value>
   </data>
@@ -830,9 +851,6 @@
   </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>曝光时间 = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
-  </data>
-  <data name="ScanDebug_FilmProfileNameTextBox.Header" xml:space="preserve">
-    <value>胶片配置名称</value>
   </data>
   <data name="ScanDebug_ProfileAlignmentModeComboBox.Header" xml:space="preserve">
     <value>对齐模式</value>
@@ -1625,6 +1643,18 @@
   </data>
   <data name="Scan_Runtime_StatusDngExported" xml:space="preserve">
     <value>DNG 通道文件已导出到 {0}</value>
+  </data>
+  <data name="Scan_Runtime_StatusDngExportedWithAlignmentWarning" xml:space="preserve">
+    <value>DNG 通道文件已导出到 {0}；{1} 的对齐已回退。</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningTitle" xml:space="preserve">
+    <value>DNG 已导出，但存在对齐警告</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningText" xml:space="preserve">
+    <value>DNG 已导出，但 {0} 的对齐回退为归一化源数据。如果需要完全对齐的通道，请重试对齐或重新扫描。详细信息可在 Scanner Log 中查看。</value>
+  </data>
+  <data name="Scan_Runtime_DngAlignmentWarningUnknownChannels" xml:space="preserve">
+    <value>未知通道</value>
   </data>
   <data name="ScanDebug_Runtime_StatusMonochromeDngExported" xml:space="preserve">
     <value>单色 DNG 已导出到 {0}</value>
@@ -2511,6 +2541,12 @@
   <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve">
     <value>保存胶片配置已取消。</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileInvalid" xml:space="preserve">
+    <value>胶片配置设置无效。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary" xml:space="preserve">
+    <value>胶片配置设置无效：{0}</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusSaveFilmProfileFailed" xml:space="preserve">
     <value>保存胶片配置失败：{0}</value>
   </data>
@@ -3147,6 +3183,9 @@
   <data name="Scan_OutputBlockerInfoBar.Title" xml:space="preserve">
     <value>输出阻塞项</value>
   </data>
+  <data name="ScanDebug_DngAlignmentWarningInfoBar.Title" xml:space="preserve">
+    <value>对齐警告</value>
+  </data>
   <data name="Scan_OutputWorkflowTitle.Text" xml:space="preserve">
     <value>输出</value>
   </data>
@@ -3177,4 +3216,28 @@
   <data name="ScanDebug_ChannelParamsTitle.Text" xml:space="preserve">
     <value>通道参数</value>
   </data>
-</root>
+  <data name="FilmProfile_Validation_DocumentMissing" xml:space="preserve"><value>保存或应用更改前，请先打开胶片配置文档。</value></data>
+  <data name="FilmProfile_Validation_ChannelProfilesMissing" xml:space="preserve"><value>保存前请至少添加一个通道配置。</value></data>
+  <data name="FilmProfile_Validation_MalformedJson" xml:space="preserve"><value>请选择可读取的胶片配置 JSON 文件后重试。</value></data>
+  <data name="FilmProfile_Validation_SchemaVersionMissing" xml:space="preserve"><value>导入前请使用架构版本 5 重新导出该文件。</value></data>
+  <data name="FilmProfile_Validation_SchemaVersionUnsupported" xml:space="preserve"><value>导入前请将文件转换为当前胶片配置架构。</value></data>
+  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>保存前请输入配置名称。</value></data>
+  <data name="FilmProfile_Validation_ProfileNameInvalid" xml:space="preserve"><value>保存前请输入非空配置名称。</value></data>
+  <data name="FilmProfile_Validation_SavedAtUtcInvalid" xml:space="preserve"><value>请在导入的配置文件中使用有效保存时间戳。</value></data>
+  <data name="FilmProfile_Validation_ChannelRoleInvalid" xml:space="preserve"><value>请为此通道配置使用非空通道角色。</value></data>
+  <data name="FilmProfile_Validation_ChannelRoleDuplicate" xml:space="preserve"><value>保存前请确保每个通道角色唯一。</value></data>
+  <data name="FilmProfile_Validation_ChannelParametersInvalid" xml:space="preserve"><value>保存前请修正所选通道校准参数。</value></data>
+  <data name="FilmProfile_Validation_AcquisitionInputInvalid" xml:space="preserve"><value>保存或应用胶片配置前，请修正采集设置。</value></data>
+  <data name="FilmProfile_Validation_RoiInputInvalid" xml:space="preserve"><value>保存前请修正所选通道 ROI 范围。</value></data>
+  <data name="FilmProfile_Validation_NoValidChannelProfiles" xml:space="preserve"><value>保存前请添加或修复一个有效通道配置。</value></data>
+  <data name="FilmProfile_Validation_ColorManagementInvalid" xml:space="preserve"><value>请输入正数色彩管理波长和伽马值。</value></data>
+  <data name="FilmProfile_Validation_ScanRecipeInputInvalid" xml:space="preserve"><value>保存或应用胶片配置前，请修正扫描配方设置。</value></data>
+  <data name="FilmProfile_Validation_AlignmentModeInvalid" xml:space="preserve"><value>请选择受支持的对齐模式。</value></data>
+  <data name="FilmProfile_Validation_DngExportModeInvalid" xml:space="preserve"><value>请选择受支持的 DNG 导出模式。</value></data>
+  <data name="FilmProfile_Validation_GenericInputInvalid" xml:space="preserve"><value>请检查此胶片配置设置后重试。</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceSummaryTitle.Text" xml:space="preserve"><value>胶片配置工作区</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceSummaryHelpText.Text" xml:space="preserve"><value>胶片级名称、文件导入导出和配方验证都在此工作区中管理。</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceNameLabel.Text" xml:space="preserve"><value>配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceDirtyLabel.Text" xml:space="preserve"><value>状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
+  </root>

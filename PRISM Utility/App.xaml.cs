@@ -18,7 +18,10 @@ namespace PRISM_Utility;
 // To learn more about WinUI 3, see https://docs.microsoft.com/windows/apps/winui/winui3/.
 public partial class App : Application
 {
+    private static readonly TimeSpan MirrorShutdownTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan SettingsShutdownTimeout = TimeSpan.FromSeconds(2);
     private readonly IScannerDeviceSessionManager _scannerDeviceSessionManager;
+    private readonly SettingsSaveCoordinator _settingsSaveCoordinator;
     private int _scannerShutdownCleanupStarted;
 
     // The .NET Generic Host provides dependency injection, configuration, logging, and other services.
@@ -71,7 +74,13 @@ public partial class App : Application
             services.AddSingleton<IScanDeviceSettingsService, ScanDeviceSettingsService>();
             services.AddSingleton<IScanColorManagementSettingsService, ScanColorManagementSettingsService>();
             services.AddSingleton<IScanDngGeometrySettingsService, ScanDngGeometrySettingsService>();
-            services.AddSingleton<IScanChannelParameterProfileService, ScanChannelParameterProfileService>();
+            services.AddSingleton<SettingsSaveCoordinator>();
+            services.AddSingleton<IScanCalibrationProfileStorage, LocalSettingsScanCalibrationProfileStorage>();
+            services.AddSingleton<IScanCalibrationProfileRepository, ScanCalibrationProfileRepository>();
+            services.AddSingleton<IScanFilmProfileFileGateway, ScanFilmProfileFileGateway>();
+            services.AddSingleton<IScanFilmProfileDocumentService, ScanFilmProfileDocumentService>();
+            services.AddSingleton<IScanFilmProfileFileCoordinator, ScanFilmProfileFileCoordinator>();
+            services.AddSingleton<IScanFilmProfileWorkspace, ScanFilmProfileWorkspace>();
             services.AddSingleton<ILanguageSelectorService, LanguageSelectorService>();
             services.AddSingleton<IThemeSelectorService, ThemeSelectorService>();
             services.AddSingleton<IUsbService, UsbService>();
@@ -103,6 +112,7 @@ public partial class App : Application
 
             // Core Services
             services.AddSingleton<IFileService, FileService>();
+            services.AddSingleton<IAtomicFileWriter, AtomicFileWriter>();
 
             // Views and ViewModels
             services.AddTransient<SettingsViewModel>();
@@ -126,6 +136,7 @@ public partial class App : Application
         Build();
 
         _scannerDeviceSessionManager = Host.Services.GetRequiredService<IScannerDeviceSessionManager>();
+        _settingsSaveCoordinator = Host.Services.GetRequiredService<SettingsSaveCoordinator>();
         InitializeComponent();
 
         UnhandledException += App_UnhandledException;
@@ -133,8 +144,11 @@ public partial class App : Application
 
     private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        // TODO: Log and handle exceptions as appropriate.
-        // https://docs.microsoft.com/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.application.unhandledexception.
+        UnhandledExceptionReporter.Report(
+            e.Exception,
+            (source, message) => GetService<IDebugOutputMirrorService>().Mirror(source, message),
+            message => Debug.WriteLine(message),
+            message => Trace.WriteLine(message));
     }
 
     protected async override void OnLaunched(LaunchActivatedEventArgs args)
@@ -155,8 +169,35 @@ public partial class App : Application
         if (Interlocked.Exchange(ref _scannerShutdownCleanupStarted, 1) != 0)
             return;
 
-        var result = await _scannerDeviceSessionManager.ShutdownAsync(CancellationToken.None);
-        if (!result.Success)
-            Debug.WriteLine($"Scanner shutdown cleanup incomplete: {result.Message}");
+        try
+        {
+            _settingsSaveCoordinator.CancelPendingOperations();
+            try
+            {
+                using var settingsShutdownTimeout = new CancellationTokenSource(SettingsShutdownTimeout);
+                await _settingsSaveCoordinator.WhenIdleAsync().WaitAsync(settingsShutdownTimeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("Settings persistence shutdown flush timed out.");
+            }
+
+            var result = await _scannerDeviceSessionManager.ShutdownAsync(CancellationToken.None);
+            if (!result.Success)
+                Debug.WriteLine($"Scanner shutdown cleanup incomplete: {result.Message}");
+        }
+        finally
+        {
+            _settingsSaveCoordinator.Dispose();
+            using var mirrorShutdownTimeout = new CancellationTokenSource(MirrorShutdownTimeout);
+            try
+            {
+                await GetService<IDebugOutputMirrorService>().ShutdownAsync(mirrorShutdownTimeout.Token);
+            }
+            catch (OperationCanceledException) when (mirrorShutdownTimeout.IsCancellationRequested)
+            {
+                Debugger.Log(0, "DebugOutputMirror", "Timed out waiting for debug output mirror shutdown.\n");
+            }
+        }
     }
 }

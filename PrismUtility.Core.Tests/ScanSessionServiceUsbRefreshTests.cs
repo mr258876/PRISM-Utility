@@ -94,10 +94,6 @@ public sealed class ScanSessionServiceUsbRefreshTests
             return new FakeUsbBulkDuplexSession();
         }
 
-        public void StopBulkIn()
-        {
-        }
-
         public void Dispose()
         {
         }
@@ -132,16 +128,16 @@ public sealed class ScanSessionServiceUsbRefreshTests
         public ScanBulkInTransferOptions DefaultSettings => ScanTransferDefaults.Settings;
         public ScanBulkInTransferOptions Settings => ScanTransferDefaults.Settings;
 
-        public Task InitializeAsync()
+        public Task InitializeAsync(CancellationToken cancellationToken = default)
         {
             _ = BulkInReadModeChanged;
             return Task.CompletedTask;
         }
 
-        public Task SetBulkInReadModeAsync(ScanBulkInReadMode mode)
+        public Task SetBulkInReadModeAsync(ScanBulkInReadMode mode, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task SetSettingsAsync(ScanBulkInTransferOptions settings)
+        public Task SetSettingsAsync(ScanBulkInTransferOptions settings, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }
 }

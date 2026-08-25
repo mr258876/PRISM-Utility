@@ -9,9 +9,9 @@ public interface IThemeSelectorService
         get;
     }
 
-    Task InitializeAsync();
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
-    Task SetThemeAsync(ElementTheme theme);
+    Task SetThemeAsync(ElementTheme theme, CancellationToken cancellationToken = default);
 
-    Task SetRequestedThemeAsync();
+    Task SetRequestedThemeAsync(CancellationToken cancellationToken = default);
 }

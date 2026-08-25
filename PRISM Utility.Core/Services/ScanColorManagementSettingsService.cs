@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
 
@@ -5,6 +6,8 @@ namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanColorManagementSettingsService : IScanColorManagementSettingsService
 {
+    private const int SchemaVersion = 1;
+    private const string DocumentKey = "ScanColorManagementSettingsDocument";
     private const string EnabledKey = "ScanColorManagementEnabled";
     private const string RedWavelengthNmKey = "ScanColorManagementRedWavelengthNm";
     private const string GreenWavelengthNmKey = "ScanColorManagementGreenWavelengthNm";
@@ -13,8 +16,10 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
     private const string TargetWhitePointModeKey = "ScanColorManagementTargetWhitePointMode";
     private const string ManualWhitePointColorTemperatureKKey = "ScanColorManagementManualWhitePointColorTemperatureK";
 
+    private static readonly string[] LegacyKeys = [EnabledKey, RedWavelengthNmKey, GreenWavelengthNmKey, BlueWavelengthNmKey, OutputGammaKey, TargetWhitePointModeKey, ManualWhitePointColorTemperatureKKey];
+
     private readonly ILocalSettingsService _localSettingsService;
-    private readonly SemaphoreSlim _initializeGate = new(1, 1);
+    private readonly SemaphoreSlim _settingsGate = new(1, 1);
     private bool _isInitialized;
 
     public ScanColorManagementOptions DefaultSettings => ScanColorManagementOptions.CreateDefault();
@@ -26,60 +31,158 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
         _localSettingsService = localSettingsService;
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         if (_isInitialized)
             return;
 
-        await _initializeGate.WaitAsync();
+        await _settingsGate.WaitAsync(cancellationToken);
         try
         {
-            if (_isInitialized)
-                return;
-
-            var enabled = await _localSettingsService.ReadSettingAsync<bool?>(EnabledKey);
-            var redWavelength = await _localSettingsService.ReadSettingAsync<double?>(RedWavelengthNmKey);
-            var greenWavelength = await _localSettingsService.ReadSettingAsync<double?>(GreenWavelengthNmKey);
-            var blueWavelength = await _localSettingsService.ReadSettingAsync<double?>(BlueWavelengthNmKey);
-            var outputGamma = await _localSettingsService.ReadSettingAsync<double?>(OutputGammaKey);
-            var targetWhitePointMode = await _localSettingsService.ReadSettingAsync<ScanTargetWhitePointMode?>(TargetWhitePointModeKey);
-            var manualWhitePointColorTemperature = await _localSettingsService.ReadSettingAsync<double?>(ManualWhitePointColorTemperatureKKey);
-
-            Settings = Settings with
-            {
-                IsEnabled = enabled ?? Settings.IsEnabled,
-                RedWavelengthNm = IsVisibleWavelength(redWavelength) ? redWavelength.Value : Settings.RedWavelengthNm,
-                GreenWavelengthNm = IsVisibleWavelength(greenWavelength) ? greenWavelength.Value : Settings.GreenWavelengthNm,
-                BlueWavelengthNm = IsVisibleWavelength(blueWavelength) ? blueWavelength.Value : Settings.BlueWavelengthNm,
-                OutputGamma = outputGamma is >= 0.1 ? outputGamma.Value : Settings.OutputGamma,
-                TargetWhitePointMode = IsSupportedTargetWhitePointMode(targetWhitePointMode) ? targetWhitePointMode.Value : Settings.TargetWhitePointMode,
-                ManualWhitePointColorTemperatureK = IsSupportedColorTemperature(manualWhitePointColorTemperature) ? manualWhitePointColorTemperature.Value : Settings.ManualWhitePointColorTemperatureK
-            };
-
-            _isInitialized = true;
+            cancellationToken.ThrowIfCancellationRequested();
+            await InitializeUnderGateAsync();
         }
         finally
         {
-            _initializeGate.Release();
+            _settingsGate.Release();
         }
     }
 
-    public async Task SetSettingsAsync(ScanColorManagementOptions settings)
+    public async Task SetSettingsAsync(ScanColorManagementOptions settings, CancellationToken cancellationToken = default)
     {
-        await InitializeAsync();
-        if (Settings == settings)
+        await _settingsGate.WaitAsync(cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await InitializeUnderGateAsync();
+            var normalized = NormalizeOrDefault(settings);
+            if (Settings == normalized)
+                return;
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await SaveDocumentAsync(normalized);
+            Settings = normalized;
+        }
+        finally
+        {
+            _settingsGate.Release();
+        }
+    }
+
+    private async Task InitializeUnderGateAsync()
+    {
+        if (_isInitialized)
             return;
 
-        Settings = settings;
+        VersionedSettingsDocument<ScanColorManagementOptions>? document;
+        try
+        {
+            document = await _localSettingsService.ReadSettingAsync<VersionedSettingsDocument<ScanColorManagementOptions>>(DocumentKey);
+        }
+        catch (Exception ex)
+        {
+            WriteDiagnostic($"Failed to read versioned color settings: {ex}");
+            _isInitialized = true;
+            return;
+        }
 
-        await _localSettingsService.SaveSettingAsync(EnabledKey, settings.IsEnabled);
-        await _localSettingsService.SaveSettingAsync(RedWavelengthNmKey, settings.RedWavelengthNm);
-        await _localSettingsService.SaveSettingAsync(GreenWavelengthNmKey, settings.GreenWavelengthNm);
-        await _localSettingsService.SaveSettingAsync(BlueWavelengthNmKey, settings.BlueWavelengthNm);
-        await _localSettingsService.SaveSettingAsync(OutputGammaKey, settings.OutputGamma);
-        await _localSettingsService.SaveSettingAsync(TargetWhitePointModeKey, settings.TargetWhitePointMode);
-        await _localSettingsService.SaveSettingAsync(ManualWhitePointColorTemperatureKKey, settings.ManualWhitePointColorTemperatureK);
+        if (document is not null)
+        {
+            var payload = document.Payload;
+            if (document.SchemaVersion != SchemaVersion || payload is null || !IsValidDocumentPayload(payload))
+            {
+                WriteDiagnostic($"Ignoring color settings document schema {document.SchemaVersion}.");
+                _isInitialized = true;
+                return;
+            }
+
+            Settings = payload;
+            _isInitialized = true;
+            return;
+        }
+
+        var legacy = await ReadLegacySettingsAsync();
+        await SaveDocumentAsync(legacy.Settings);
+        if (legacy.HasValues)
+            await CleanupLegacySettingsAsync();
+
+        Settings = legacy.Settings;
+        _isInitialized = true;
     }
+
+    private async Task<(ScanColorManagementOptions Settings, bool HasValues)> ReadLegacySettingsAsync()
+    {
+        var enabled = await ReadLegacyAsync<bool?>(EnabledKey);
+        var redWavelength = await ReadLegacyAsync<double?>(RedWavelengthNmKey);
+        var greenWavelength = await ReadLegacyAsync<double?>(GreenWavelengthNmKey);
+        var blueWavelength = await ReadLegacyAsync<double?>(BlueWavelengthNmKey);
+        var outputGamma = await ReadLegacyAsync<double?>(OutputGammaKey);
+        var targetWhitePointMode = await ReadLegacyAsync<ScanTargetWhitePointMode?>(TargetWhitePointModeKey);
+        var manualWhitePointColorTemperature = await ReadLegacyAsync<double?>(ManualWhitePointColorTemperatureKKey);
+        var hasValues = enabled.HasValue || redWavelength.HasValue || greenWavelength.HasValue || blueWavelength.HasValue || outputGamma.HasValue || targetWhitePointMode.HasValue || manualWhitePointColorTemperature.HasValue;
+        return (NormalizeOrDefault(new ScanColorManagementOptions(
+            enabled ?? DefaultSettings.IsEnabled,
+            redWavelength ?? DefaultSettings.RedWavelengthNm,
+            greenWavelength ?? DefaultSettings.GreenWavelengthNm,
+            blueWavelength ?? DefaultSettings.BlueWavelengthNm,
+            outputGamma ?? DefaultSettings.OutputGamma,
+            targetWhitePointMode ?? DefaultSettings.TargetWhitePointMode,
+            manualWhitePointColorTemperature ?? DefaultSettings.ManualWhitePointColorTemperatureK)), hasValues);
+    }
+
+    private async Task<T?> ReadLegacyAsync<T>(string key)
+    {
+        try
+        {
+            return await _localSettingsService.ReadSettingAsync<T>(key);
+        }
+        catch (Exception ex)
+        {
+            WriteDiagnostic($"Ignoring malformed color legacy setting '{key}': {ex}");
+            return default;
+        }
+    }
+
+    private Task SaveDocumentAsync(ScanColorManagementOptions settings)
+        => _localSettingsService.SaveSettingAsync(DocumentKey, new VersionedSettingsDocument<ScanColorManagementOptions>(SchemaVersion, settings));
+
+    private async Task CleanupLegacySettingsAsync()
+    {
+        if (_localSettingsService is not ILocalSettingsLegacyCleanupService cleaner)
+            return;
+
+        try
+        {
+            await cleaner.RemoveSettingsAsync(LegacyKeys);
+        }
+        catch (Exception ex)
+        {
+            WriteDiagnostic($"Color legacy cleanup failed after document commit: {ex}");
+        }
+    }
+
+    private ScanColorManagementOptions NormalizeOrDefault(ScanColorManagementOptions? settings)
+    {
+        var candidate = settings ?? DefaultSettings;
+        return new ScanColorManagementOptions(
+            candidate.IsEnabled,
+            IsVisibleWavelength(candidate.RedWavelengthNm) ? candidate.RedWavelengthNm : DefaultSettings.RedWavelengthNm,
+            IsVisibleWavelength(candidate.GreenWavelengthNm) ? candidate.GreenWavelengthNm : DefaultSettings.GreenWavelengthNm,
+            IsVisibleWavelength(candidate.BlueWavelengthNm) ? candidate.BlueWavelengthNm : DefaultSettings.BlueWavelengthNm,
+            candidate.OutputGamma >= 0.1 && double.IsFinite(candidate.OutputGamma) ? candidate.OutputGamma : DefaultSettings.OutputGamma,
+            IsSupportedTargetWhitePointMode(candidate.TargetWhitePointMode) ? candidate.TargetWhitePointMode : DefaultSettings.TargetWhitePointMode,
+            IsSupportedColorTemperature(candidate.ManualWhitePointColorTemperatureK) ? candidate.ManualWhitePointColorTemperatureK : DefaultSettings.ManualWhitePointColorTemperatureK);
+    }
+
+    private static bool IsValidDocumentPayload(ScanColorManagementOptions? settings)
+        => settings is not null
+            && IsVisibleWavelength(settings.RedWavelengthNm)
+            && IsVisibleWavelength(settings.GreenWavelengthNm)
+            && IsVisibleWavelength(settings.BlueWavelengthNm)
+            && settings.OutputGamma >= 0.1
+            && double.IsFinite(settings.OutputGamma)
+            && IsSupportedTargetWhitePointMode(settings.TargetWhitePointMode)
+            && IsSupportedColorTemperature(settings.ManualWhitePointColorTemperatureK);
 
     private static bool IsVisibleWavelength(double? wavelengthNm)
         => wavelengthNm is >= 380.0 and <= 780.0;
@@ -89,4 +192,10 @@ public sealed class ScanColorManagementSettingsService : IScanColorManagementSet
 
     private static bool IsSupportedColorTemperature(double? colorTemperatureK)
         => colorTemperatureK is >= 1667.0 and <= 25000.0;
+
+    private static void WriteDiagnostic(string message)
+    {
+        Debug.WriteLine($"[ScanColorManagementSettingsService] {message}");
+        Trace.WriteLine($"[ScanColorManagementSettingsService] {message}");
+    }
 }

@@ -17,8 +17,6 @@ public sealed record ScanFilmAcquisitionSettings(
     string Led3ChannelColor = "Red",
     string Led4ChannelColor = "Green")
 {
-    public uint MotorIntervalUs => MotorIntervalNs;
-
     public static ScanFilmAcquisitionSettings CreateDefault()
         => new(
             0,

@@ -19,6 +19,14 @@
         <Grid>
             <StackPanel
                 x:Name="ContentArea">
+                <InfoBar
+                    x:Uid="Settings_PersistenceErrorInfoBar"
+                    Margin="{StaticResource SmallTopBottomMargin}"
+                    HorizontalAlignment="Stretch"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasSettingsPersistenceError, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.SettingsPersistenceErrorMessage, Mode=OneWay}"
+                    Severity="Error" />
             <TextBlock x:Uid="Settings_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}" />
               <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
                 <TextBlock x:Uid="Settings_Theme" />

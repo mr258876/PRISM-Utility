@@ -6,9 +6,9 @@ public interface IDebugOutputSettingsService
 
     bool IsFileLogEnabled { get; }
 
-    Task InitializeAsync();
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
-    Task SetDebugConsoleEnabledAsync(bool enabled);
+    Task SetDebugConsoleEnabledAsync(bool enabled, CancellationToken cancellationToken = default);
 
-    Task SetFileLogEnabledAsync(bool enabled);
+    Task SetFileLogEnabledAsync(bool enabled, CancellationToken cancellationToken = default);
 }

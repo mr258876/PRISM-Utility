@@ -7,6 +7,6 @@ public interface IScanColorManagementSettingsService
     ScanColorManagementOptions DefaultSettings { get; }
     ScanColorManagementOptions Settings { get; }
 
-    Task InitializeAsync();
-    Task SetSettingsAsync(ScanColorManagementOptions settings);
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+    Task SetSettingsAsync(ScanColorManagementOptions settings, CancellationToken cancellationToken = default);
 }
