@@ -81,6 +81,23 @@ public sealed class ScanFilmProfileFileCoordinatorTests
         Assert.Equal(SerializeTrackingDocumentService.SerializedDocument, gateway.Text);
     }
 
+    [Fact]
+    public async Task Todo4_FullV5Fixture_FileCoordinatorExportAndImportPreserveEveryField()
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var source = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(ReadFixture("full-v5.json")).Document);
+        var exportGateway = new FakeGateway { Write = new(false) };
+
+        var exported = await new ScanFilmProfileFileCoordinator(exportGateway, documents).ExportAsync(source, CancellationToken.None);
+        var imported = await new ScanFilmProfileFileCoordinator(
+            new FakeGateway { Read = new(false, Assert.IsType<string>(exportGateway.Text)) },
+            documents).ImportAsync(CancellationToken.None);
+
+        Assert.True(exported);
+        Assert.False(imported.WasCanceled);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(source, Assert.IsType<ScanFilmParameterProfileSet>(imported.Profile));
+    }
+
     private sealed class FakeGateway : IScanFilmProfileFileGateway
     {
         public ScanFilmProfileFileReadResult Read { get; init; } = new(true, null);
@@ -110,5 +127,12 @@ public sealed class ScanFilmProfileFileCoordinatorTests
             SerializeCalls++;
             return SerializedDocument;
         }
+    }
+
+    private static string ReadFixture(string fileName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "FilmProfile", fileName);
+        Assert.True(File.Exists(path), $"Expected copied fixture at '{path}'.");
+        return File.ReadAllText(path);
     }
 }

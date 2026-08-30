@@ -10,13 +10,12 @@ PageMapping: LogPage -> LogViewModel
 PageMapping: DeviceConfigurationPage -> DeviceConfigurationViewModel
 PageMapping: ScanPage -> ScanViewModel
 PageMapping: ScanDebugPage -> ScanDebugViewModel
-PageMapping: FilmProfileEditorPage -> FilmProfileEditorViewModel
 
 ## Functionality
 
-UI 层采用直接页面构造注入模式。每个 Page 在构造函数中通过 `App.GetService<TViewModel>()` 解析自己的 ViewModel，再调用 `InitializeComponent()`。注册关系集中在 `Host Software/PRISM Utility/Services/PageService.cs`，七条 `AppRoute` registration 定义 typed route 到 Page 类型的映射，并通过 `IPageViewModelHost<TViewModel>` 固定 Page 到 ViewModel 的编译期配对。
+UI 层采用直接页面构造注入模式。每个 Page 在构造函数中通过 `App.GetService<TViewModel>()` 解析自己的 ViewModel，再调用 `InitializeComponent()`。注册关系集中在 `Host Software/PRISM Utility/Services/PageService.cs`，六条 `AppRoute` registration 定义 typed route 到 Page 类型的映射，并通过 `IPageViewModelHost<TViewModel>` 固定 Page 到 ViewModel 的编译期配对。
 
-七个 Page 到 ViewModel 的职责如下。
+六个 Page 到 ViewModel 的职责如下。
 
 | Page | ViewModel | XAML 绑定职责 | code-behind 边界 |
 | --- | --- | --- | --- |
@@ -25,8 +24,7 @@ UI 层采用直接页面构造注入模式。每个 Page 在构造函数中通�
 | `Host Software/PRISM Utility/Views/LogPage.xaml` | `LogViewModel` | `Entries`、`StatusText`、`EmptyStateVisibility` 和 `ClearCommand` 驱动日志列表 | `LogPage.xaml.cs` 在 Unloaded 调用 `ViewModel.Dispose()` |
 | `Host Software/PRISM Utility/Views/DeviceConfigurationPage.xaml` | `DeviceConfigurationViewModel` | 电机机械参数、通道角色和 DNG 几何设置双向绑定 | `DeviceConfigurationPage.xaml.cs` 只解析 ViewModel 和初始化组件 |
 | `Host Software/PRISM Utility/Views/ScanPage.xaml` | `ScanViewModel` | 扫描工作流卡片、状态提示、预览、输出和命令绑定 | `ScanPage.xaml.cs` 负责 Loaded/Unloaded 生命周期、PropertyChanged 订阅和滚动到阻塞卡片 |
-| `Host Software/PRISM Utility/Views/ScanDebugPage.xaml` | `ScanDebugViewModel` | 扫描调试、校准、ROI、预览画布、DNG 导出和胶片档案快捷操作 | `ScanDebugPage.xaml.cs` 负责 Canvas 绘制、缩放、ROI 鼠标交互、对话框和 ViewModel 事件订阅 |
-| `Host Software/PRISM Utility/Views/FilmProfileEditorPage.xaml` | `FilmProfileEditorViewModel` | 胶片档案草稿、导入暂存、校验、保存和响应式表单绑定 | `FilmProfileEditorPage.xaml.cs` 负责布局 VisualState、表单列数、SizeChanged 订阅和 Dispose |
+| `Host Software/PRISM Utility/Views/ScanDebugPage.xaml` | `ScanDebugViewModel` | 扫描调试、校准、ROI、预览画布、DNG 导出和胶片档案 workspace；包括 New、Open JSON、Validate、Save JSON、staged review Apply/Discard、current/staged validation 和 dirty-state 投影 | `ScanDebugPage.xaml.cs` 负责 Canvas 绘制、缩放、ROI 鼠标交互、discard confirmation 与其他对话框，以及 ViewModel 事件订阅 |
 
 ## Key entry points
 
@@ -34,7 +32,7 @@ UI 层采用直接页面构造注入模式。每个 Page 在构造函数中通�
 
 | 入口 | 作用 |
 | --- | --- |
-| `Host Software/PRISM Utility/Services/PageService.cs` | 七个 `AppRoute` registration 建立 typed route 到 Page 类型的唯一映射，约束 exact Page/ViewModel host pair，并校验 enum 闭集 |
+| `Host Software/PRISM Utility/Services/PageService.cs` | 六个 `AppRoute` registration 建立 typed route 到 Page 类型的唯一映射，约束 exact Page/ViewModel host pair，并校验 enum 闭集 |
 | `Host Software/PRISM Utility/Services/NavigationService.cs` | `NavigateTo(AppRoute, ...)` 获取 Page 类型，Frame 导航成功后调用旧 ViewModel 的 `OnNavigatedFrom()` 和新 ViewModel 的 `OnNavigatedTo()` |
 | `Host Software/PRISM Utility/Views/ScanPage.xaml` | `NavigationCacheMode="Enabled"` 让扫描页实例可被 Frame 缓存 |
 | `Host Software/PRISM Utility/Views/ScanDebugPage.xaml` | `NavigationCacheMode="Enabled"` 让调试页实例可被 Frame 缓存 |
@@ -45,13 +43,13 @@ UI 层采用直接页面构造注入模式。每个 Page 在构造函数中通�
 
 页面绑定主要使用 `x:Bind ViewModel.Property` 和 `x:Bind ViewModel.Command`。这让 XAML 编译期知道 ViewModel 类型。Page 持有 ViewModel 不是反射约定，而是 `IPageViewModelHost<TViewModel>` 契约入口；非泛型 `IPageViewModelHost` 提供导航层直接读取 object ViewModel 的统一面。简单页面不处理业务事件，复杂页面只处理 WinUI 控件层无法自然放入 ViewModel 的行为。
 
-`PageService.Configure<TPage, TViewModel>` 要求 `TPage : Page, IPageViewModelHost<TViewModel>`。因为 `IPageViewModelHost<TViewModel>` 是不变泛型，缺少 host、Page host 的 ViewModel 类型和 registration 的 ViewModel 类型不一致、或用 derived host 代替 base host 都不能通过 compile harness。当前七个真实页面 `MainPage`、`LogPage`、`ScanPage`、`ScanDebugPage`、`FilmProfileEditorPage`、`SettingsPage` 和 `DeviceConfigurationPage` 均声明精确 host pair。
+`PageService.Configure<TPage, TViewModel>` 要求 `TPage : Page, IPageViewModelHost<TViewModel>`。因为 `IPageViewModelHost<TViewModel>` 是不变泛型，缺少 host、Page host 的 ViewModel 类型和 registration 的 ViewModel 类型不一致、或用 derived host 代替 base host 都不能通过 compile harness。当前六个真实页面 `MainPage`、`LogPage`、`ScanPage`、`ScanDebugPage`、`SettingsPage` 和 `DeviceConfigurationPage` 均声明精确 host pair。
 
 Main、Settings、DeviceConfiguration 和 Log 的 code-behind 很薄。Main、Settings、DeviceConfiguration 只解析 ViewModel。Log 额外在卸载时释放 `LogViewModel`，因为 `LogViewModel` 订阅了 `IDebugOutputMirrorService.EntryMirrored`。
 
 Scan 和 ScanDebug 的 code-behind 是 UI 编排边界，不是硬件边界。`ScanPage.xaml.cs` 订阅 `ScanViewModel.PropertyChanged`，当 `FirstBlockingCardId` 改变时把对应卡片滚入视图。`ScanDebugPage.xaml.cs` 处理 Win2D Canvas bitmap、预览缩放、ROI overlay、TextBox 同步和 ContentDialog，底层扫描执行仍由 `ScanDebugViewModel` 调用 Core 服务完成。
 
-FilmProfileEditor 的 code-behind 处理自适应布局。`FilmProfileEditorPage.xaml.cs` 在构造函数订阅 `SizeChanged`、多个 Grid 的 `SizeChanged` 和 ViewModel `PropertyChanged`，在 Unloaded 统一解绑并调用 `ViewModel.Dispose()`。档案解析、校验、暂存和保存都留在 `FilmProfileEditorViewModel` 及 Core workspace 服务中。
+ScanDebug 的胶片档案 workspace 现在留在同一 Page 和 ViewModel 中。`ScanDebugViewModel` 通过 `IScanFilmProfileWorkspace` 投影 current draft、baseline、dirty state 和 staged import；通过 `IScanFilmProfileFileCoordinator` 执行 JSON Open/Save；通过 `IScanFilmProfileDocumentService` 和 workspace validation 分离 current profile 与 staged import 的校验摘要。Open JSON 只暂存导入并显示 `StagedFilmProfileImportReview`，Apply 才替换当前 workspace，Discard 清除 staged import。New 会在有未保存更改时请求 discard confirmation dialog。
 
 ```mermaid
 flowchart TD
@@ -63,17 +61,15 @@ flowchart TD
     Frame --> DevicePage[DeviceConfigurationPage]
     Frame --> ScanPage[ScanPage NavigationCache]
     Frame --> ScanDebugPage[ScanDebugPage NavigationCache]
-    Frame --> FilmEditorPage[FilmProfileEditorPage]
     MainPage --> MainVm[MainViewModel]
     SettingsPage --> SettingsVm[SettingsViewModel]
     LogPage --> LogVm[LogViewModel]
     DevicePage --> DeviceVm[DeviceConfigurationViewModel]
     ScanPage --> ScanVm[ScanViewModel]
     ScanDebugPage --> ScanDebugVm[ScanDebugViewModel]
-    FilmEditorPage --> FilmEditorVm[FilmProfileEditorViewModel]
     ScanVm --> CoreServices[Core scan and session services]
     ScanDebugVm --> CoreServices
-    FilmEditorVm --> ProfileWorkspace[ScanFilmProfileWorkspace]
+    ScanDebugVm --> ProfileWorkspace[ScanFilmProfileWorkspace]
 ```
 
 ## Control and data flow
@@ -100,23 +96,23 @@ ScanDebug 的 Page 事件形成额外 UI 循环。`PreviewCanvasControl_Draw` �
 
 UI 线程边界有两种。ViewModel 侧通过 `IUiDispatcher.TryEnqueue()` 处理服务回调，例如 `ScanViewModel.OnSessionSnapshotChanged()` 和 `LogViewModel.OnEntryMirrored()`。Page 侧直接使用 `DispatcherQueue.TryEnqueue()`，例如 `ScanDebugPage.OnViewModelPropertyChanged()` 更新 Canvas 和 ROI overlay。
 
-当前状态重复主要集中在两个区域。第一，Scan 和 ScanDebug 都持有扫描参数、色彩管理、DNG 导出模式、预览状态和会话状态的 UI 副本，源分别是设置服务、session manager、workflow result 和用户输入。第二，FilmProfileEditor 同时有 `CurrentDraft`、`ProfileName`、`AcquisitionEditor`、`RecipeEditor`、`SelectedChannelEditor` 和 `_inputValidationIssues`，依靠 `_isProjecting` 和 `_preserveEditorsOnNextProjection` 防止投影时把用户编辑误写回 workspace。
+当前状态重复主要集中在两个区域。第一，Scan 和 ScanDebug 都持有扫描参数、色彩管理、DNG 导出模式、预览状态和会话状态的 UI 副本，源分别是设置服务、session manager、workflow result 和用户输入。第二，ScanDebug 胶片档案 workspace 同时投影 `FilmProfileName`、acquisition/recipe/channel 输入、current validation、staged validation、dirty state 和 `_lastProjectedFilmProfileDraft`/`_lastProjectedStagedFilmProfileImport`，依靠 `_isSynchronizingFilmProfileWorkspace` 防止外部 snapshot 投影和用户编辑互相回写。
 
-体量风险有源码支撑。当前 `ScanViewModel.cs` 有 2042 行，`ScanDebugViewModel.cs` 有 6395 行，`FilmProfileEditorViewModel.cs` 有 594 行。这里的结论是可维护性风险，不是说这些 ViewModel 直接实现硬件协议。硬件协议仍在 Core 服务中。
+体量风险有源码支撑。当前 `ScanViewModel.cs` 有 2042 行，`ScanDebugViewModel.cs` 有 6395 行。这里的结论是可维护性风险，不是说这些 ViewModel 直接实现硬件协议。硬件协议仍在 Core 服务中。
 
 ## Error handling
 
 多数简单绑定页没有 Page 级异常处理。Settings 保存不再是未观察 fire-and-forget: language、theme、debug、transfer 和 color 五个 family, 包括 restore/default, 都由 `SettingsSaveCoordinator` 返回 result；latest failure 先写 Debug mirror diagnostic, 再经 UI dispatcher rollback visible state 并显示既有 Settings persistence InfoBar。DeviceConfiguration 的保存路径仍使用 fire-and-forget `_ = Save...Async()`，异常路径需要依赖服务层或全局异常处理记录。Log 的 `Dispose()` 防重复释放，避免多次 Unloaded 重复解绑。
 
-ScanDebugPage 的两个 dialog 事件处理器捕获异常并写入 `TaskCompletionSource`，避免 ViewModel 等待的交互任务永久悬挂。FilmProfileEditorViewModel 的 `RunAsync()` 捕获操作异常并设置失败 message key，但没有把异常细节暴露到 UI 文档层。
+ScanDebugPage 的 dialog 事件处理器捕获异常并写入 `TaskCompletionSource`，避免 ViewModel 等待的交互任务永久悬挂。胶片档案 New 的 discard confirmation、校准 prompt 和 notice dialog 都在 ScanDebugPage code-behind 边界完成，ViewModel 通过 operation message、severity 和 validation summary 暴露用户可见状态。
 
 ## Test coverage
 
-结构正确性由 `Host Software/docs/architecture/validate-docs.ps1` 的 Full 模式验证，覆盖必需章节、源码路径、链接和 Mermaid fenced block。UI-002 focused 16 个 tests 两次通过。UI-003 focused 8 个 tests 两次通过，覆盖 `IPageViewModelHost<TViewModel>`、`PageService` exact route/Page/ViewModel constraint、七个真实 Page host 声明、negative compile missing host、wrong pairing 和 invariance、real app metadata probe、direct `FrameExtensions` retrieval 和 nonhost failure、production navigation 无反射以及 lifecycle callback order。UI-002+UI-003 focused 24 个 tests 通过；real-app harness、fresh seven-route/back/same-route UIA 和 dual visual QA 均记录导航行为 GOOD，其中 DeviceConfiguration 经 footer flyout 进入。SET-005 focused 29 个 tests 两次通过, combined managed suite 为 487/487, 覆盖 Settings coordinator owner、per-scope errors、five settings families、restore/default、commit/rollback、UI dispatcher、bounded page/app teardown 和 existing InfoBar source contract。normal/recovery en/zh visual captures clean；rendered failure InfoBar/accessibility evidence 为 `HARNESS_BLOCKED`, 不是 visual pass。VM-001 todo 18 记录为 blocked evidence: 4 个 focused characterization tests 两次、source caller graph 和 Oracle `CONFIRMED_BLOCKED`；该结论只支持 `EXTRACTION_BLOCKED`，不证明运行时安全。UI-006 characterization 记录 15 个 focused source tests 两次通过，full managed suite 520/520 通过，Core/app builds 通过且只保留既有 app warning。覆盖范围限于 ScanViewModel 执行、预览、settings/profile 投影、cached state ownership 和 no-extraction source contract；没有生产 extraction，也没有证明 leave/return runtime 安全。Task 20 historical broad-filter characterization 记录 19 个 source/Core tests 两次通过，regression subset 9 个 tests 通过，full managed suite 534/534 通过，Core build 和 x64 app build 通过且只保留既有 app warning。覆盖范围限于 ScanDebug code-behind Canvas/ROI/display/pointer/overlay/dialog/text sync ownership、ViewModel/XAML ROI binding surface、Core `ScanColumnRange.Clamp` 和 `ScanCalibrationRoiSettings.Clamp` edge cases、no production geometry/display extraction 和 no code-behind hardware service calls；没有 runtime WinUI pointer、Canvas render、dialog 或 dispatcher smoke。其它测试集中在 Core 服务和胶片档案行为，对真实 WinUI Page code-behind 的事件订阅、NavigationCache 复用和 Canvas 交互没有直接自动化覆盖。
+结构正确性由 `Host Software/docs/architecture/validate-docs.ps1` 的 Full 模式验证，覆盖必需章节、源码路径、链接和 Mermaid fenced block。UI-002 focused 16 个 tests 两次通过。UI-003 focused 8 个 tests 两次通过，覆盖 `IPageViewModelHost<TViewModel>`、`PageService` exact route/Page/ViewModel constraint、六个真实 Page host 声明、negative compile missing host、wrong pairing 和 invariance、real app metadata probe、direct `FrameExtensions` retrieval 和 nonhost failure、production navigation 无反射以及 lifecycle callback order。UI-002+UI-003 focused 24 个 tests 通过；older seven-route UIA artifacts are historical inventory only, while current source defines six routes. SET-005 focused 29 个 tests 两次通过, combined managed suite 为 487/487, 覆盖 Settings coordinator owner、per-scope errors、five settings families、restore/default、commit/rollback、UI dispatcher、bounded page/app teardown 和 existing InfoBar source contract。normal/recovery en/zh visual captures clean；rendered failure InfoBar/accessibility evidence 为 `HARNESS_BLOCKED`, 不是 visual pass。VM-001 todo 18 记录为 blocked evidence: 4 个 focused characterization tests 两次、source caller graph 和 Oracle `CONFIRMED_BLOCKED`；该结论只支持 `EXTRACTION_BLOCKED`，不证明运行时安全。UI-006 characterization 记录 15 个 focused source tests 两次通过，full managed suite 520/520 通过，Core/app builds 通过且只保留既有 app warning。覆盖范围限于 ScanViewModel 执行、预览、settings/profile 投影、cached state ownership 和 no-extraction source contract；没有生产 extraction，也没有证明 leave/return runtime 安全。Task 20 historical broad-filter characterization 记录 19 个 source/Core tests 两次通过，regression subset 9 个 tests 通过，full managed suite 534/534 通过，Core build 和 x64 app build 通过且只保留既有 app warning。覆盖范围限于 ScanDebug code-behind Canvas/ROI/display/pointer/overlay/dialog/text sync ownership、ViewModel/XAML ROI binding surface、Core `ScanColumnRange.Clamp` 和 `ScanCalibrationRoiSettings.Clamp` edge cases、no production geometry/display extraction 和 no code-behind hardware service calls；没有 runtime WinUI pointer、Canvas render、dialog 或 dispatcher smoke。当前胶片档案 source contracts 覆盖 ScanDebug film-profile orchestration、source/localization/accessibility contract 和 workspace 行为；对真实 WinUI Page code-behind 的事件订阅、NavigationCache 复用和 Canvas 交互没有直接自动化覆盖。
 
 VM-002 characterization 记录 16 个 focused source/projection tests 两次通过，UI007/UI006/VM001 regression subset 23/23 通过，FilmProfile regression 204/204 通过，final full managed suite 540/540 通过。覆盖范围限于当前 `ScanDebugViewModel` public binding surface、commands、events、preview、ROI、calibration、film profile projection、session/workflow orchestration、lifecycle calls 和 no-split source contract；没有生产责任拆分，也不证明 runtime WinUI safety。
 
-TEST-002 仍为 `BLOCKED`。当前可维护的自动化层是 source contracts 和 managed fakes: UI-002/UI-003 typed route and host filters pass, VM-001/UI-006 lifecycle and workspace characterization pass, UI-007/VM-002 geometry and ScanDebug surface characterization pass, and SET-005 save-result logic passes. Existing native UIA route, Settings normal/recovery, Film Profile Editor, ScanDebug external projection, CJK and export picker captures are task-specific inventory. They do not prove NavigationCache leave/return safety, ScanDebug pointer/ROI runtime interaction, Canvas rendering, file picker cancel/success coverage, Settings save-error InfoBar accessibility, language switch state retention, window-close teardown or hardware-driven pages.
+TEST-002 仍为 `BLOCKED`。当前可维护的自动化层是 source contracts 和 managed fakes: UI-002/UI-003 typed route and host filters pass, VM-001/UI-006 lifecycle and workspace characterization pass, UI-007/VM-002 geometry and ScanDebug surface characterization pass, ScanDebug film-profile source/localization/orchestration filters pass, workspace tests pass, and SET-005 save-result logic passes. Existing native UIA route, Settings normal/recovery, old editor, ScanDebug external projection, CJK and export picker captures are historical task-specific inventory. They do not prove NavigationCache leave/return safety, ScanDebug pointer/ROI runtime interaction, Canvas rendering, file picker cancel/success coverage, Settings save-error InfoBar accessibility, language switch state retention, window-close teardown or hardware-driven pages.
 
 ## Known issues and solutions
 
@@ -127,10 +123,10 @@ Issue-ID: UI-MVVM-002
 问题：`ScanDebugPage.xaml.cs` 同时承担 Canvas bitmap、display sizing、zoom/pan pointer、ROI drag pointer、cursor sample text、axis and ROI overlay drawing、ContentDialog completion 和当前校准照明 TextBox/ComboBox sync。ROI selection、overlay visibility、ROI input TextBox 和 apply/reset command 仍由 XAML/ViewModel 绑定面承担。UI-007 task 20 当前为 `EXTRACTION_BLOCKED`，因为 VM-001 和 UI-006 hard blockers 仍未解除；task 21 必须走 blocked branch，不能假定 geometry/display 已提取。短期方案是保持 code-behind 只做 UI 编排，不新增硬件调用，不调用 scan session、workflow、calibration、autofocus、illumination、channel image、parameter service 或 DNG export/picker。长期方案是在 lifecycle gate 解除后，把可测试的几何和显示状态计算迁出 Page。Task 20 historical broad-filter 19 个 characterization tests 两次、9 个 regression tests、534/534 full managed suite、Core build 和 x64 app build 只证明 source-only ownership 和 Core clamp 行为，不证明 runtime pointer、Canvas render、dialog 或 dispatcher 安全。
 
 Issue-ID: UI-MVVM-003
-事实: SET-005 已关闭 Settings 保存缺口。SettingsViewModel 现在用 owner-scoped `SettingsSaveCoordinator` 管理 language、theme、debug、transfer 和 color 五个 family 的属性保存与 restore/default 命令；latest failure 会先 mirror diagnostic, 再通过 UI dispatcher rollback visible state 并显示既有 Settings persistence InfoBar；页面和 app teardown 都有 bounded flush/cancel。DeviceConfiguration 和 FilmProfileEditor 仍有双向文本输入到 typed state 的重复状态。短期方案是继续用 loading/projecting guard 防止回写循环。长期方案是提取共享的输入投影和校验模型，减少 TextBox 字符串状态和 typed settings 的漂移。
+事实: SET-005 已关闭 Settings 保存缺口。SettingsViewModel 现在用 owner-scoped `SettingsSaveCoordinator` 管理 language、theme、debug、transfer 和 color 五个 family 的属性保存与 restore/default 命令；latest failure 会先 mirror diagnostic, 再通过 UI dispatcher rollback visible state 并显示既有 Settings persistence InfoBar；页面和 app teardown 都有 bounded flush/cancel。DeviceConfiguration 和 ScanDebug film-profile workspace 仍有双向文本输入到 typed state 的重复状态。短期方案是继续使用各设置 loading guard 和 ScanDebug 的 `_isSynchronizingFilmProfileWorkspace` 防止回写循环。长期方案是提取共享的输入投影和校验模型，减少 TextBox 字符串状态和 typed settings 的漂移。
 
 Issue-ID: UI-MVVM-004
-问题：`ScanDebugViewModel` 当前仍是未拆分的扫描调试编排类。绑定面包括 start/stop/export commands、acquisition rows、motor、preview、waterfall、DNG mode、calibration channel/actions、autofocus、illumination、motion、ROI edit/reset/apply commands 和 film-profile capture/open shortcuts。事件面仍是 `CalibrationPromptRequested`、`NoticeRequested` 和 `CalibrationSectionRequested`。生命周期仍由 ScanDebugPage Loaded 调用 `AttachRuntimeBindings()`，Unloaded 调用 `DeactivateAsync()`；ViewModel 内部继续拥有 session target、transfer setting 和 film profile workspace 订阅，`CleanupAsync()` 只调用 `DeactivateAsync()`。协作者仍包括 scan debug session coordinator、workflow service、calibration/autofocus services、channel image service、parameter service、film profile workspace、UI dispatcher 和 navigation service。task 21 outcome 是 `SPLIT_BLOCKED`，不是 closed；没有生产 preview、ROI、calibration 或 profile presenter/workspace split。source-contract tests 只冻结当前 public bindings、commands、events、state transitions 和 blocker evidence，不证明 runtime safety。短期方案是保持 Attach/Deactivate/Cleanup、dialog event 和 workspace projection 边界稳定，并继续把 CAL-001、DNG-001 作为 P3 测试缺口推进，不假定 VM-002 已拆分。
+问题：`ScanDebugViewModel` 当前仍是未拆分的扫描调试编排类。绑定面包括 start/stop/export commands、acquisition rows、motor、preview、waterfall、DNG mode、calibration channel/actions、autofocus、illumination、motion、ROI edit/reset/apply commands，以及 film-profile New/Open JSON/Validate/Save JSON/Apply staged/Discard staged workspace commands。事件面仍是 `CalibrationPromptRequested`、`NoticeRequested`、`CalibrationSectionRequested` 和 film-profile discard confirmation request。生命周期仍由 ScanDebugPage Loaded 调用 `AttachRuntimeBindings()`，Unloaded 调用 `DeactivateAsync()`；ViewModel 内部继续拥有 session target、transfer setting 和 film profile workspace 订阅，`CleanupAsync()` 只调用 `DeactivateAsync()`。协作者仍包括 scan debug session coordinator、workflow service、calibration/autofocus services、channel image service、parameter service、film profile workspace、file coordinator、document service和 UI dispatcher。task 21 outcome 是 `SPLIT_BLOCKED`，不是 closed；没有生产 preview、ROI、calibration 或 profile presenter/workspace split。source-contract tests 只冻结当前 public bindings、commands、events、state transitions 和 blocker evidence，不证明 runtime safety。短期方案是保持 Attach/Deactivate/Cleanup、dialog event 和 workspace projection 边界稳定，并继续把 CAL-001、DNG-001 作为 P3 测试缺口推进，不假定 VM-002 已拆分。
 
 Registry links: UI-MVVM-001 -> [UI-006](issues-and-remediation.md#ui-006); UI-MVVM-002 -> [UI-007](issues-and-remediation.md#ui-007); UI-MVVM-003 -> [SET-005](issues-and-remediation.md#set-005); UI-MVVM-004 -> [VM-002](issues-and-remediation.md#vm-002).
 
@@ -185,9 +181,3 @@ Registry links: UI-MVVM-001 -> [UI-006](issues-and-remediation.md#ui-006); UI-MV
 `Host Software/PRISM Utility/Views/ScanDebugPage.xaml.cs`
 
 `Host Software/PRISM Utility/ViewModels/ScanDebugViewModel.cs`
-
-`Host Software/PRISM Utility/Views/FilmProfileEditorPage.xaml`
-
-`Host Software/PRISM Utility/Views/FilmProfileEditorPage.xaml.cs`
-
-`Host Software/PRISM Utility/ViewModels/FilmProfileEditorViewModel.cs`

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
@@ -37,6 +38,11 @@ public sealed class ScanCalibrationPromptRequest
     }
 }
 
+public sealed class ScanFilmProfileDiscardConfirmationRequest
+{
+    public TaskCompletionSource<bool> CompletionSource { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
 public sealed class ScanNoticeRequest
 {
     public ScanNoticeRequest(string title, string content, string closeButtonText)
@@ -54,6 +60,66 @@ public sealed class ScanNoticeRequest
     public string CloseButtonText { get; }
 
     public TaskCompletionSource CompletionSource { get; }
+}
+
+public enum CalibrationChannelStatusKind
+{
+    Saved,
+    Unconfigured,
+    Invalid
+}
+
+public sealed class ScanDebugCalibrationChannelItemViewModel : ObservableObject
+{
+    private readonly ScanDebugViewModel _owner;
+    private readonly string _role;
+
+    public ScanDebugCalibrationChannelItemViewModel(ScanDebugViewModel owner, string role)
+    {
+        _owner = owner;
+        _role = role;
+    }
+
+    public string Role => _role;
+
+    public string DisplayName => ScanDebugViewModel.GetCalibrationChannelDisplayName(_role);
+
+    public CalibrationChannelStatusKind StatusKind => _owner.GetCalibrationChannelStatusKind(_role);
+
+    public string StatusText => _owner.GetCalibrationChannelStatusText(_role);
+
+    public string StatusIconGlyph => StatusKind switch
+    {
+        CalibrationChannelStatusKind.Saved => "\uE930",
+        CalibrationChannelStatusKind.Invalid => "\uE7BA",
+        CalibrationChannelStatusKind.Unconfigured => "\uE946",
+        _ => "\uE946"
+    };
+
+    public string LedMappingText => "ScanDebug_ChannelLedBindingItem".GetLocalizedFormat(DisplayName, _owner.GetBoundLedName(_role));
+
+    public bool IsSelected => string.Equals(_role, _owner.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase);
+
+    public string SelectionText => IsSelected
+        ? "ScanDebug_Runtime_ChannelStatusSelected".GetLocalized()
+        : "ScanDebug_Runtime_ChannelStatusNotSelected".GetLocalized();
+
+    public string AccessibilityText => "ScanDebug_Runtime_ChannelStatusAccessibility".GetLocalizedFormat(
+        DisplayName,
+        StatusText,
+        LedMappingText,
+        SelectionText);
+
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(StatusKind));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(StatusIconGlyph));
+        OnPropertyChanged(nameof(LedMappingText));
+        OnPropertyChanged(nameof(IsSelected));
+        OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(AccessibilityText));
+    }
 }
 
 public sealed class ScanDebugIlluminationChannelViewModel : ObservableObject
@@ -318,12 +384,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _isFilmProfileWorkspaceSubscribed;
     private ScanFilmProfileDraft? _lastProjectedFilmProfileDraft;
     private ScanFilmProfileStagedImport? _lastProjectedStagedFilmProfileImport;
+    private bool _isNewFilmProfilePendingExport;
     private bool _isMultiBufferedBulkInEnabled;
     private bool _suppressWarmUpToggleCommand;
     private bool _isUpdatingRoiInputs;
     private bool _isSynchronizingFilmProfileWorkspace;
     private bool _hasInvalidFilmProfileInput;
-    private IReadOnlyList<ScanFilmProfileValidationIssue> _filmProfileInputIssues = Array.Empty<ScanFilmProfileValidationIssue>();
     private string? _calibrationChannelBeforeSelectionChange;
     private bool _isApplyingDerivedMotorSpeed;
     private bool _isMotor1SpeedDerivedFromInterval = true;
@@ -357,6 +423,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public ObservableCollection<ScanDebugIlluminationChannelViewModel> ActiveIlluminationChannels { get; } = new();
 
     public ObservableCollection<ScanDebugAcquisitionChannelViewModel> AcquisitionChannels { get; } = new();
+
+    public ObservableCollection<ScanDebugCalibrationChannelItemViewModel> CalibrationChannelItems { get; } = new();
 
     public ObservableCollection<string> DirectionOptions { get; } = new(DirectionLabels);
 
@@ -467,6 +535,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial bool IsChannel4Reversed { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsScanRecipeManualWhitePointColorTemperatureEnabled))]
     public partial bool IsScanRecipeColorManagementEnabled { get; set; }
 
     [ObservableProperty]
@@ -489,7 +558,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial string ScanRecipeManualWhitePointColorTemperatureK { get; set; }
 
     public bool IsScanRecipeManualWhitePointColorTemperatureEnabled =>
-        string.Equals(
+        IsScanRecipeColorManagementEnabled
+        && string.Equals(
             SelectedScanRecipeTargetWhitePointMode,
             nameof(ScanTargetWhitePointMode.ManualColorTemperature),
             StringComparison.Ordinal);
@@ -498,6 +568,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial ScanChannelAlignmentMode SelectedProfileAlignmentMode { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedProfileDngExportModeAccessibleText))]
     public partial ScanDngExportMode SelectedProfileDngExportMode { get; set; }
 
     [ObservableProperty]
@@ -506,22 +577,112 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string CalibrationChannelStatusText { get; set; }
 
+    public ScanDebugCalibrationChannelItemViewModel? SelectedCalibrationChannelItem
+    {
+        get => CalibrationChannelItems.FirstOrDefault(channel => string.Equals(channel.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value is null || string.Equals(value.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            SelectedCalibrationChannel = value.Role;
+            OnPropertyChanged();
+        }
+    }
+
     [ObservableProperty]
     public partial string FilmProfileName { get; set; }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveFilmProfileJsonCommand))]
     public partial bool HasUnsavedProfileChanges { get; set; }
+
+    [ObservableProperty]
+    public partial string FilmProfileOperationMessage { get; set; } = "ScanDebug_FilmProfileWorkbenchOperationReady".GetLocalized();
+
+    [ObservableProperty]
+    public partial InfoBarSeverity FilmProfileOperationSeverity { get; set; } = InfoBarSeverity.Informational;
+
+    [ObservableProperty]
+    public partial Visibility FilmProfileOperationVisibility { get; set; } = Visibility.Collapsed;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NewFilmProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadFilmProfileJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ValidateFilmProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveFilmProfileJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyStagedFilmProfileImportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DiscardStagedFilmProfileImportCommand))]
+    [NotifyPropertyChangedFor(nameof(CanApplyStagedFilmProfileImport))]
+    public partial bool IsFilmProfileOperationRunning { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentFilmProfileValidationSummary))]
+    [NotifyPropertyChangedFor(nameof(IsCurrentFilmProfileValidationValid))]
+    [NotifyPropertyChangedFor(nameof(CurrentFilmProfileValidationSeverity))]
+    [NotifyCanExecuteChangedFor(nameof(SaveFilmProfileJsonCommand))]
+    public partial IReadOnlyList<ScanFilmProfileValidationIssue> CurrentFilmProfileValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
+
+    public string CurrentFilmProfileValidationSummary => FormatFilmProfileValidationIssues(CurrentFilmProfileValidationIssues);
+
+    public bool IsCurrentFilmProfileValidationValid => new ScanFilmProfileValidationResult(CurrentFilmProfileValidationIssues).IsValid;
+
+    public InfoBarSeverity CurrentFilmProfileValidationSeverity => CurrentFilmProfileValidationIssues.Any(issue => issue.Severity == ScanFilmProfileValidationSeverity.Error)
+        ? InfoBarSeverity.Error
+        : CurrentFilmProfileValidationIssues.Count > 0
+            ? InfoBarSeverity.Warning
+            : InfoBarSeverity.Success;
+
+    public string SelectedProfileDngExportModeAccessibleText => ScanSelectorDisplayNameConverter.GetDngExportModeDisplayName(SelectedProfileDngExportMode);
 
     [ObservableProperty]
     public partial IReadOnlyList<ScanFilmProfileValidationIssue> FilmProfileValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
 
-    public string FilmProfileValidationSummary => string.Join(Environment.NewLine, FilmProfileValidationIssues.Select(FilmProfileValidationTextPresenter.GetValidationIssueText));
+    public string FilmProfileValidationSummary => FormatFilmProfileValidationIssues(FilmProfileValidationIssues);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyStagedFilmProfileImport))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyStagedFilmProfileImportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DiscardStagedFilmProfileImportCommand))]
     public partial bool HasStagedFilmProfileImport { get; set; }
 
     [ObservableProperty]
     public partial string StagedFilmProfileImportSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StagedFilmProfileImportValidationSummary))]
+    [NotifyPropertyChangedFor(nameof(IsStagedFilmProfileImportValid))]
+    [NotifyPropertyChangedFor(nameof(CanApplyStagedFilmProfileImport))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyStagedFilmProfileImportCommand))]
+    public partial IReadOnlyList<ScanFilmProfileValidationIssue> StagedFilmProfileImportValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
+
+    public string StagedFilmProfileImportDisplayNameText => HasStagedFilmProfileImport
+        ? StagedFilmProfileImportSummary
+        : "ScanDebug_FilmProfileWorkbenchStagedImportNone".GetLocalized();
+
+    public string StagedFilmProfileImportChannelCountText => _filmProfileWorkspace.Snapshot.StagedImport is { } staged
+        ? "ScanDebug_FilmProfileWorkbenchStagedImportChannelCount".GetLocalizedFormat(staged.Draft.ChannelProfiles.Count)
+        : "ScanDebug_FilmProfileWorkbenchStagedImportNoChannels".GetLocalized();
+
+    public Visibility StagedFilmProfileImportReviewVisibility => HasStagedFilmProfileImport
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public InfoBarSeverity StagedFilmProfileImportSeverity => IsStagedFilmProfileImportValid ? InfoBarSeverity.Informational : InfoBarSeverity.Error;
+
+    public string StagedFilmProfileDirtyReplacementWarningText => HasStagedFilmProfileImport && HasUnsavedProfileChanges
+        ? "ScanDebug_FilmProfileWorkbenchStagedImportDirtyWarning".GetLocalized()
+        : string.Empty;
+
+    public Visibility StagedFilmProfileDirtyReplacementWarningVisibility => string.IsNullOrWhiteSpace(StagedFilmProfileDirtyReplacementWarningText)
+        ? Visibility.Collapsed
+        : Visibility.Visible;
+
+    public string StagedFilmProfileImportValidationSummary => FormatFilmProfileValidationIssues(StagedFilmProfileImportValidationIssues);
+
+    public bool IsStagedFilmProfileImportValid => new ScanFilmProfileValidationResult(StagedFilmProfileImportValidationIssues).IsValid;
+
+    public bool CanApplyStagedFilmProfileImport => HasStagedFilmProfileImport && IsStagedFilmProfileImportValid && !IsFilmProfileOperationRunning;
 
     [ObservableProperty]
     public partial string SelectedRoiSelection { get; set; }
@@ -654,6 +815,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
             : IsDevicesPresent
                 ? "ScanDebug_Runtime_DeviceStateDetected".GetLocalized()
                 : "ScanDebug_Runtime_DeviceStateWaiting".GetLocalized();
+
+    public string FilmProfileDeviceStatusText => IsConnected
+        ? "ScanDebug_FilmProfileWorkbenchDeviceConnected".GetLocalized()
+        : "ScanDebug_FilmProfileWorkbenchDeviceDisconnected".GetLocalized();
+
+    public string FilmProfileHardwareUnavailableReasonText => IsConnected
+        ? string.Empty
+        : "ScanDebug_DisabledReasonConnectDevice".GetLocalized();
 
     [ObservableProperty]
     public partial bool IsScanReadProgressVisible { get; set; }
@@ -1052,6 +1221,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public event EventHandler<ScanCalibrationPromptRequest>? CalibrationPromptRequested;
 
+    public event EventHandler<ScanFilmProfileDiscardConfirmationRequest>? FilmProfileDiscardConfirmationRequested;
+
     public event EventHandler<ScanNoticeRequest>? NoticeRequested;
 
     public event EventHandler? CalibrationSectionRequested;
@@ -1099,6 +1270,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         MotorIntervalUs = FormatMotorIntervalInput(ScanDebugConstants.MotionDefaultIntervalNs);
         ComputedMotorSummaryText = "Scan_Runtime_ComputedMotorUnavailableUntilParametersLoaded".GetLocalized();
         SelectedCalibrationChannel = CalibrationChannelOptions[0];
+        InitializeCalibrationChannelItems();
         IsScanRecipeColorManagementEnabled = true;
         ScanRecipeRedWavelengthNm = "680";
         ScanRecipeGreenWavelengthNm = "525";
@@ -1228,6 +1400,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         UpdateComputedParameterDisplays();
         RefreshDerivedMotorDistanceFromCurrentInterval();
         UpdateComputedMotorSummary();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1235,6 +1408,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         UpdateComputedParameterDisplays();
         RefreshLimitBlockBindings();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1242,6 +1416,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         UpdateComputedParameterDisplays();
         RefreshLimitBlockBindings();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1249,6 +1424,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         UpdateComputedParameterDisplays();
         RefreshLimitBlockBindings();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1256,6 +1432,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         UpdateComputedParameterDisplays();
         RefreshLimitBlockBindings();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1264,6 +1441,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         UpdateComputedParameterDisplays();
         RefreshDerivedMotorDistanceFromCurrentInterval();
         UpdateComputedMotorSummary();
+        RefreshCalibrationChannelItems();
         SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -1302,6 +1480,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsWarmUpEnabledChanged(bool value)
     {
+        SynchronizeFilmProfileDraftFromInputs();
+
         if (_suppressWarmUpToggleCommand)
             return;
 
@@ -1313,6 +1493,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RefreshPreviewSelectionState();
         NotifyActionAvailabilityChanged();
         UpdateComputedMotorSummary();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnIsMultiChannelScanEnabledChanged(bool value)
@@ -1349,7 +1530,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     partial void OnHasUnsavedProfileChangesChanged(bool value)
-        => NotifyProfileStateChanged();
+    {
+        NotifyProfileStateChanged();
+        NotifyStagedFilmProfileImportStateChanged();
+    }
 
     partial void OnMotorDistancePerLineValueChanged(string value)
     {
@@ -1361,6 +1545,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         _isMotorDistanceDerivedFromInterval = false;
         UpdateComputedMotorSummary();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnMotorDistancePerLineUnitChanged(string value)
@@ -1379,6 +1564,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             RefreshDerivedMotorDistanceFromCurrentInterval();
             UpdateComputedMotorSummary();
+            SynchronizeFilmProfileDraftFromInputs();
             return;
         }
 
@@ -1390,6 +1576,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         UpdateComputedMotorSummary();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnMotorIntervalUsChanged(string value)
@@ -1398,6 +1585,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
             RefreshDerivedMotorDistanceFromCurrentInterval();
 
         UpdateComputedMotorSummary();
+        SynchronizeFilmProfileDraftFromInputs();
+    }
+
+    partial void OnSelectedStartingDirectionChanged(string value)
+    {
+        NotifyAcquisitionPlanChanged();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnSelectedScanMotorChanged(string value)
@@ -1406,6 +1600,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             RefreshDerivedMotorDistanceFromCurrentInterval();
 
         UpdateComputedMotorSummary();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnIsWhiteLevelPreviewEnabledChanged(bool value)
@@ -1426,6 +1621,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _calibrationChannelBeforeSelectionChange = null;
         NotifyAcquisitionPlanChanged();
         OnPropertyChanged(nameof(CurrentCalibrationChannelSummaryText));
+        OnPropertyChanged(nameof(SelectedCalibrationChannelItem));
+        RefreshCalibrationChannelItems();
         NotifyCurrentCalibrationIlluminationChannelChanged();
         OnPropertyChanged(nameof(CurrentCalibrationChannelReversed));
         NotifyPreviewStatePropertiesChanged();
@@ -1526,16 +1723,34 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RefreshColumnSampleStatus();
     }
 
+    partial void OnHasStagedFilmProfileImportChanged(bool value)
+        => NotifyStagedFilmProfileImportStateChanged();
+
+    partial void OnStagedFilmProfileImportSummaryChanged(string value)
+        => NotifyStagedFilmProfileImportStateChanged();
+
+    partial void OnStagedFilmProfileImportValidationIssuesChanged(IReadOnlyList<ScanFilmProfileValidationIssue> value)
+        => NotifyStagedFilmProfileImportStateChanged();
+
+    partial void OnIsFilmProfileOperationRunningChanged(bool value)
+        => NotifyStagedFilmProfileImportStateChanged();
+
     partial void OnRoiStartInputChanged(string value)
     {
         if (!_isUpdatingRoiInputs)
+        {
             RoiInputStatusText = "ScanDebug_Runtime_RoiRangeChanged".GetLocalized();
+            RefreshCalibrationChannelItems();
+        }
     }
 
     partial void OnRoiEndInputChanged(string value)
     {
         if (!_isUpdatingRoiInputs)
+        {
             RoiInputStatusText = "ScanDebug_Runtime_RoiRangeChanged".GetLocalized();
+            RefreshCalibrationChannelItems();
+        }
     }
 
     partial void OnIsRunningChanged(bool value)
@@ -1559,6 +1774,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     partial void OnIsConnectedChanged(bool value)
     {
         OnPropertyChanged(nameof(DeviceStateText));
+        OnPropertyChanged(nameof(FilmProfileDeviceStatusText));
+        OnPropertyChanged(nameof(FilmProfileHardwareUnavailableReasonText));
         NotifyDeviceActionAvailabilityChanged();
         NotifyPreviewStatePropertiesChanged();
     }
@@ -1620,6 +1837,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             ClearPreview();
         else if (_hasValidScanBuffer && _previewRows > 0 && !IsPreviewForcedOffForRows(_previewRows))
             RenderPreview(_previewRows);
+
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     partial void OnIsWaterfallEnabledChanged(bool value)
@@ -1933,15 +2152,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
         HasStagedFilmProfileImport = snapshot.StagedImport is not null;
         StagedFilmProfileImportSummary = snapshot.StagedImport?.Draft.ProfileName ?? string.Empty;
 
+        if (stagedImportChanged)
+        {
+            if (snapshot.StagedImport is null)
+                ClearStagedFilmProfileImportValidation();
+            else
+                SetStagedFilmProfileImportValidation(snapshot.StagedImport.Validation);
+        }
+
         if (currentDraftChanged)
         {
             ApplyDraftToFields(snapshot.CurrentDraft);
-            SetFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);
+            SetCurrentFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);
             return;
         }
-
-        if (stagedImportChanged && snapshot.StagedImport is not null)
-            SetFilmProfileValidation(snapshot.StagedImport.Validation);
 
         RefreshFilmProfileWorkspaceProjection();
     }
@@ -2076,6 +2300,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
         !IsManualFocusing;
 
     private bool CanRunAutoFocus() => CanRunAutoCalibration();
+
+    private bool CanRunFilmProfileLifecycleOperation() => !IsFilmProfileOperationRunning;
+
+    private bool CanSaveFilmProfile() =>
+        CanRunFilmProfileLifecycleOperation()
+        && HasUnsavedProfileChanges
+        && IsCurrentFilmProfileValidationValid
+        && !_hasInvalidFilmProfileInput;
+
+    private bool CanDiscardStagedFilmProfileImport() => HasStagedFilmProfileImport && !IsFilmProfileOperationRunning;
 
     [RelayCommand(CanExecute = nameof(CanExportDng), IncludeCancelCommand = true)]
     private async Task ExportDng(CancellationToken cancellationToken)
@@ -2681,6 +2915,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         try
         {
+            var channelDisplayName = GetCalibrationChannelDisplayName(SelectedCalibrationChannel);
+            if (_calibrationProfiles.TryGetProfile(SelectedCalibrationChannel, out _)
+                && !await RequestCalibrationPromptAsync(new ScanCalibrationPrompt(
+                    "ScanDebug_ChannelCalibrationRemoveConfirmationTitle".GetLocalized(),
+                    "ScanDebug_ChannelCalibrationRemoveConfirmationMessage".GetLocalizedFormat(channelDisplayName),
+                    "ScanDebug_ChannelCalibrationRemoveConfirmationRemoveButton".GetLocalized(),
+                    "ScanDebug_ChannelCalibrationRemoveConfirmationCancelButton".GetLocalized())))
+            {
+                StatusText = "ScanDebug_Runtime_StatusCalibrationChannelRemoveCanceled".GetLocalizedFormat(channelDisplayName);
+                return;
+            }
+
             var removed = await _calibrationProfiles.ClearProfileAsync(SelectedCalibrationChannel, CancellationToken.None);
             if (removed)
             {
@@ -2693,8 +2939,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 ? "ScanDebug_Runtime_CalibrationChannel_ProfileCleared".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel))
                 : "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel));
             StatusText = removed
-                ? "ScanDebug_Runtime_StatusCalibrationChannelProfileCleared".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel))
-                : "ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel));
+                ? "ScanDebug_Runtime_StatusCalibrationChannelProfileCleared".GetLocalizedFormat(channelDisplayName)
+                : "ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile".GetLocalizedFormat(channelDisplayName);
+            RefreshCalibrationChannelItems();
             NotifyChannelProfileOverviewChanged();
         }
         catch (Exception ex)
@@ -2703,111 +2950,180 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSaveFilmProfile))]
     private async Task SaveFilmProfileJson()
     {
+        IsFilmProfileOperationRunning = true;
         try
         {
             if (!SynchronizeFilmProfileDraftFromInputs())
             {
-                StatusText = string.IsNullOrWhiteSpace(FilmProfileValidationSummary)
-                    ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
-                    : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", FilmProfileValidationSummary);
+                PublishFilmProfileOperation(
+                    string.IsNullOrWhiteSpace(FilmProfileValidationSummary)
+                        ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
+                        : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", FilmProfileValidationSummary),
+                    InfoBarSeverity.Error);
                 return;
             }
 
             var draft = _filmProfileWorkspace.Snapshot.CurrentDraft;
             var export = _filmProfileWorkspace.BuildExportDocument();
-            SetFilmProfileValidation(export.Document.Validation);
+            SetCurrentFilmProfileValidation(export.Document.Validation);
             if (!export.Document.CanApply)
             {
                 _hasInvalidFilmProfileInput = true;
                 RefreshFilmProfileWorkspaceProjection();
+                PublishFilmProfileOperation(
+                    string.IsNullOrWhiteSpace(CurrentFilmProfileValidationSummary)
+                        ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
+                        : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", CurrentFilmProfileValidationSummary),
+                    InfoBarSeverity.Error);
                 return;
             }
 
+            PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationBusy".GetLocalized(), InfoBarSeverity.Informational);
             var exported = await _filmProfileFiles.ExportAsync(export.Document.Document!, CancellationToken.None);
 
             if (!exported)
             {
                 RefreshFilmProfileWorkspaceProjection();
-                StatusText = "ScanDebug_Runtime_StatusFilmProfileExportCanceled".GetLocalizedOrFallback("Save film profile canceled.");
+                PublishFilmProfileOperation("ScanDebug_Runtime_StatusFilmProfileExportCanceled".GetLocalized(), InfoBarSeverity.Informational);
                 return;
             }
 
             _filmProfileWorkspace.MarkExported(export.Document.Document!);
+            _isNewFilmProfilePendingExport = false;
             RefreshFilmProfileWorkspaceProjection();
-            StatusText = "ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormatOrFallback("Film profile '{0}' exported.", draft.ProfileName);
+            PublishFilmProfileOperation("ScanDebug_Runtime_StatusFilmProfileExported".GetLocalizedFormat(draft.ProfileName), InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
             RefreshFilmProfileWorkspaceProjection();
-            StatusText = "ScanDebug_Runtime_StatusSaveFilmProfileFailed".GetLocalizedFormatOrFallback("Save film profile failed: {0}", ex.Message);
+            PublishFilmProfileOperation("ScanDebug_Runtime_StatusSaveFilmProfileFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
+        }
+        finally
+        {
+            IsFilmProfileOperationRunning = false;
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunFilmProfileLifecycleOperation))]
     private async Task LoadFilmProfileJson()
     {
+        IsFilmProfileOperationRunning = true;
         try
         {
+            PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationBusy".GetLocalized(), InfoBarSeverity.Informational);
             var imported = await _filmProfileFiles.ImportAsync(CancellationToken.None);
             if (imported.WasCanceled)
             {
-                StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileCanceled".GetLocalized();
+                PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileCanceled".GetLocalized(), InfoBarSeverity.Informational);
                 return;
             }
 
             if (imported.Profile is null)
             {
-                SetFilmProfileValidation(imported.Validation ?? new ScanFilmProfileValidationResult());
-                StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalized();
+                SetStagedFilmProfileImportValidation(imported.Validation ?? new ScanFilmProfileValidationResult());
+                PublishFilmProfileOperation("ScanDebug_Runtime_StatusFilmProfileImportInvalid".GetLocalized(), InfoBarSeverity.Error);
                 return;
             }
 
             var staged = _filmProfileWorkspace.StageImport(imported.Profile);
-            SetFilmProfileValidation(staged.Validation);
-            HasStagedFilmProfileImport = staged.Staged;
-            StagedFilmProfileImportSummary = staged.Staged ? imported.Profile.ProfileName : string.Empty;
-            StatusText = staged.Staged
-                ? "ScanDebug_Runtime_StatusFilmProfileLoaded".GetLocalizedFormat(imported.Profile.ProfileName)
-                : "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalized();
+            if (!staged.Staged)
+                SetStagedFilmProfileImportValidation(staged.Validation);
+            PublishFilmProfileOperation(
+                staged.Staged
+                    ? "ScanDebug_Runtime_StatusFilmProfileStaged".GetLocalizedFormat(imported.Profile.ProfileName)
+                    : "ScanDebug_Runtime_StatusFilmProfileImportInvalid".GetLocalized(),
+                staged.Staged ? InfoBarSeverity.Success : InfoBarSeverity.Error);
         }
         catch (Exception ex)
         {
-            StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message);
+            PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
         }
         finally
         {
             RefreshFilmProfileWorkspaceProjection();
+            IsFilmProfileOperationRunning = false;
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanApplyStagedFilmProfileImport))]
     private async Task ApplyStagedFilmProfileImport()
     {
-        var result = await _filmProfileWorkspace.ApplyStagedImportAsync(CancellationToken.None);
-        if (result.Status != ScanFilmProfileApplyStatus.Applied)
+        IsFilmProfileOperationRunning = true;
+        try
+        {
+            PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationBusy".GetLocalized(), InfoBarSeverity.Informational);
+            var result = await _filmProfileWorkspace.ApplyStagedImportAsync(CancellationToken.None);
+            if (result.Status != ScanFilmProfileApplyStatus.Applied)
+            {
+                RefreshFilmProfileWorkspaceProjection();
+                PublishFilmProfileOperation(
+                    result.Status == ScanFilmProfileApplyStatus.Canceled
+                        ? "ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized()
+                        : result.Error is null
+                            ? "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat("ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid."))
+                            : "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(result.Error.Message),
+                    result.Status == ScanFilmProfileApplyStatus.Canceled ? InfoBarSeverity.Informational : InfoBarSeverity.Error);
+                return;
+            }
+
+            _isNewFilmProfilePendingExport = false;
+            RefreshFilmProfileWorkspaceProjection();
+            PublishFilmProfileOperation("ScanDebug_Runtime_StatusFilmProfileApplied".GetLocalizedFormat(FilmProfileName), InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
         {
             RefreshFilmProfileWorkspaceProjection();
-            StatusText = "ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(result.Error?.Message ?? result.Status.ToString());
+            PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
+        }
+        finally
+        {
+            IsFilmProfileOperationRunning = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDiscardStagedFilmProfileImport))]
+    private void DiscardStagedFilmProfileImport()
+    {
+        if (HasStagedFilmProfileImport)
+            _filmProfileWorkspace.DiscardStagedImport();
+        ClearStagedFilmProfileImportValidation();
+        RefreshFilmProfileWorkspaceProjection();
+        PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationSucceeded".GetLocalized(), InfoBarSeverity.Success);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunFilmProfileLifecycleOperation))]
+    private async Task NewFilmProfile()
+    {
+        if (HasUnsavedProfileChanges && !await RequestFilmProfileDiscardConfirmationAsync())
+        {
+            PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
             return;
         }
 
-        ApplyDraftToFields(_filmProfileWorkspace.Snapshot.CurrentDraft);
-        HasStagedFilmProfileImport = false;
-        StagedFilmProfileImportSummary = string.Empty;
+        _filmProfileWorkspace.ResetToDefaultDraft();
+        _isNewFilmProfilePendingExport = true;
         RefreshFilmProfileWorkspaceProjection();
-        StatusText = "ScanDebug_Runtime_StatusFilmProfileLoaded".GetLocalizedFormat(FilmProfileName);
+        PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationSucceeded".GetLocalized(), InfoBarSeverity.Success);
     }
 
-    [RelayCommand]
-    private void DiscardStagedFilmProfileImport()
+    [RelayCommand(CanExecute = nameof(CanRunFilmProfileLifecycleOperation))]
+    private void ValidateFilmProfile()
     {
-        _filmProfileWorkspace.DiscardStagedImport();
-        HasStagedFilmProfileImport = false;
-        StagedFilmProfileImportSummary = string.Empty;
-        RefreshFilmProfileWorkspaceProjection();
+        var isValid = SynchronizeFilmProfileDraftFromInputs();
+        if (isValid)
+        {
+            PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationSucceeded".GetLocalized(), InfoBarSeverity.Success);
+            return;
+        }
+
+        PublishFilmProfileOperation(
+            string.IsNullOrWhiteSpace(FilmProfileValidationSummary)
+                ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
+                : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", FilmProfileValidationSummary),
+            InfoBarSeverity.Error);
     }
 
     [RelayCommand]
@@ -3663,31 +3979,45 @@ public partial class ScanDebugViewModel : ObservableRecipient
             IsChannel4Reversed);
     }
 
-    private bool TryBuildScanRecipeSettings(out ScanFilmScanRecipeSettings settings, out string error)
+    private bool TryBuildScanRecipeSettings(out ScanFilmScanRecipeSettings settings, List<ScanFilmProfileValidationIssue> issues)
     {
         settings = new ScanFilmScanRecipeSettings();
-        if (!TryParseColorDouble(ScanRecipeRedWavelengthNm, "Scan_Runtime_FieldRedWavelengthNm".GetLocalized(), out var redWavelength, out error)
-            || !TryParseColorDouble(ScanRecipeGreenWavelengthNm, "Scan_Runtime_FieldGreenWavelengthNm".GetLocalized(), out var greenWavelength, out error)
-            || !TryParseColorDouble(ScanRecipeBlueWavelengthNm, "Scan_Runtime_FieldBlueWavelengthNm".GetLocalized(), out var blueWavelength, out error)
-            || !TryParseColorDouble(ScanRecipeOutputGamma, "Scan_Runtime_FieldOutputGamma".GetLocalized(), out var outputGamma, out error)
-            || !TryParseColorDouble(ScanRecipeManualWhitePointColorTemperatureK, "Scan_Runtime_FieldManualWhitePointColorTemperatureK".GetLocalized(), out var manualWhitePointColorTemperature, out error))
-        {
-            return false;
-        }
+        var issueCount = issues.Count;
+        var redWavelength = ParseScanRecipeDouble(ScanRecipeRedWavelengthNm, "ScanRecipeSettings.ColorManagement.RedWavelengthNm", "Scan_Runtime_FieldRedWavelengthNm", issues);
+        var greenWavelength = ParseScanRecipeDouble(ScanRecipeGreenWavelengthNm, "ScanRecipeSettings.ColorManagement.GreenWavelengthNm", "Scan_Runtime_FieldGreenWavelengthNm", issues);
+        var blueWavelength = ParseScanRecipeDouble(ScanRecipeBlueWavelengthNm, "ScanRecipeSettings.ColorManagement.BlueWavelengthNm", "Scan_Runtime_FieldBlueWavelengthNm", issues);
+        var outputGamma = ParseScanRecipeDouble(ScanRecipeOutputGamma, "ScanRecipeSettings.ColorManagement.OutputGamma", "Scan_Runtime_FieldOutputGamma", issues);
+        var manualWhitePointColorTemperature = ParseScanRecipeDouble(ScanRecipeManualWhitePointColorTemperatureK, "ScanRecipeSettings.ColorManagement.ManualWhitePointColorTemperatureK", "Scan_Runtime_FieldManualWhitePointColorTemperatureK", issues);
 
         if (!TryParseTargetWhitePointMode(SelectedScanRecipeTargetWhitePointMode, out var targetWhitePointMode))
         {
-            error = "Scan_Runtime_FieldTargetWhitePoint".GetLocalizedOrFallback("Target white point");
-            return false;
+            issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidColorManagement, "ScanRecipeSettings.ColorManagement.TargetWhitePointMode", "FilmProfile.Validation.ScanRecipeInputInvalid"));
+            targetWhitePointMode = ScanTargetWhitePointMode.D65;
         }
+
+        if (issues.Count != issueCount)
+            return false;
 
         settings = new ScanFilmScanRecipeSettings(
             BuildAuthoredChannelAssignment(),
             new ScanColorManagementOptions(IsScanRecipeColorManagementEnabled, redWavelength, greenWavelength, blueWavelength, outputGamma, targetWhitePointMode, manualWhitePointColorTemperature),
             SelectedProfileAlignmentMode,
             SelectedProfileDngExportMode);
-        error = string.Empty;
         return true;
+    }
+
+    private static double ParseScanRecipeDouble(string text, string fieldPath, string fieldNameResourceKey, List<ScanFilmProfileValidationIssue> issues)
+    {
+        if (TryParseColorDouble(text, fieldNameResourceKey.GetLocalized(), out var value, out _))
+            return value;
+
+        issues.Add(new ScanFilmProfileValidationIssue(
+            ScanFilmProfileValidationCode.InvalidColorManagement,
+            fieldPath,
+            ScanFilmProfileValidationSeverity.Error,
+            "FilmProfile.Validation.NumberInvalid",
+            [fieldNameResourceKey.GetLocalized()]));
+        return 0;
     }
 
     private void ApplyScanRecipeSettings(ScanFilmScanRecipeSettings? settings)
@@ -3986,6 +4316,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             RefreshColumnSampleStatus();
             CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
             RefreshPreviewIfPossible();
+            RefreshCalibrationChannelItems();
             NotifyChannelProfileOverviewChanged();
             return;
         }
@@ -3993,6 +4324,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ApplyCalibrationProfileProjection(profile);
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
         RefreshPreviewIfPossible();
+        RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
     }
 
@@ -4026,6 +4358,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             CancellationToken.None);
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedAt".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel), DateTime.Now.ToString("HH:mm:ss"));
         RefreshColumnSampleStatus();
+        RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
     }
 
@@ -4043,6 +4376,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 whiteLevel),
             CancellationToken.None);
         CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedAt".GetLocalizedFormat(GetCalibrationChannelDisplayName(SelectedCalibrationChannel), DateTime.Now.ToString("HH:mm:ss"));
+        RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
     }
 
@@ -4077,16 +4411,48 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return SelectedCalibrationChannel;
     }
 
-    private bool TryBuildFilmAcquisitionSettings(out ScanFilmAcquisitionSettings settings, out string error)
+    private bool TryBuildFilmAcquisitionSettings(out ScanFilmAcquisitionSettings settings, out ScanFilmProfileValidationIssue? issue)
     {
         settings = ScanFilmAcquisitionSettings.CreateDefault();
 
-        if (!TryBuildIlluminationRequest(out var illuminationRequest, out error, clearUnusedInputs: false))
-            return false;
-
-        if (!TryBuildMotorIntervalFromInputs(1, Motor2SpeedValue, Motor2SpeedUnit, out var motorIntervalNs, out error))
+        if (!TryBuildIlluminationRequest(out var illuminationRequest, out var error, clearUnusedInputs: false))
         {
+            issue = CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.Illumination", "FilmProfile.Validation.AcquisitionInputInvalid");
             return false;
+        }
+
+        if (!TryParseRequestedRows(out _))
+        {
+            issue = CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.Rows", "FilmProfile.Validation.AcquisitionInputInvalid");
+            return false;
+        }
+
+        if (!TryParseSelectedScanMotor(out var motorId, out error))
+        {
+            issue = CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.ScanMotor", "FilmProfile.Validation.AcquisitionInputInvalid");
+            return false;
+        }
+
+        var motorSettings = _deviceSettings.Settings.GetMotorSettings(motorId);
+        uint motorIntervalNs;
+        if (!_isMotorDistanceDerivedFromInterval && !string.IsNullOrWhiteSpace(MotorDistancePerLineValue))
+        {
+            if (!ScanMotorDistanceText.TryParseMillimeters(MotorDistancePerLineValue, MotorDistancePerLineUnit, motorSettings, out var lineDistanceMm)
+                || !_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out _)
+                || !ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalNs(lineDistanceMm, snapshot.ExposureTicks, snapshot.SysClockKhz, motorSettings, ScanDebugConstants.MotionMinIntervalNs, out motorIntervalNs))
+            {
+                issue = CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.MotorDistancePerLine", "FilmProfile.Validation.AcquisitionInputInvalid");
+                return false;
+            }
+        }
+        else
+        {
+            var (_, _, _, speedValueText, speedUnitText) = GetMotorMoveInputs(motorId);
+            if (!TryBuildMotorIntervalFromInputs(motorId, speedValueText, speedUnitText, out motorIntervalNs, out error))
+            {
+                issue = CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.MotorIntervalNs", "FilmProfile.Validation.AcquisitionInputInvalid");
+                return false;
+            }
         }
 
         var existing = (_filmProfileWorkspace.Snapshot.CurrentDraft.AcquisitionSettings ?? _selectedFilmAcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize();
@@ -4106,7 +4472,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             existing.Led2ChannelColor,
             existing.Led3ChannelColor,
             existing.Led4ChannelColor).Normalize();
-        error = string.Empty;
+        issue = null;
         return true;
     }
 
@@ -4120,16 +4486,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out var snapshot, out var parameterError))
             issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidChannelParameters, "ChannelProfiles.Selected.Parameters", "FilmProfile.Validation.ChannelParametersInvalid"));
 
-        var hasAcquisition = TryBuildFilmAcquisitionSettings(out var acquisitionSettings, out var acquisitionError);
-        if (!hasAcquisition)
-            issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings", "FilmProfile.Validation.AcquisitionInputInvalid"));
+        var hasAcquisition = TryBuildFilmAcquisitionSettings(out var acquisitionSettings, out var acquisitionIssue);
+        if (!hasAcquisition && acquisitionIssue is not null)
+            issues.Add(acquisitionIssue);
+
+        if (!HasSelectedAcquisitionChannels())
+            issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "AcquisitionSettings.ChannelAssignment", "FilmProfile.Validation.AcquisitionInputInvalid"));
 
         if (!TryValidateRoiInputs())
             issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidRoiInput, "ChannelProfiles.Selected.RoiSettings", "FilmProfile.Validation.RoiInputInvalid"));
 
-        var hasRecipe = TryBuildScanRecipeSettings(out var recipeSettings, out var recipeError);
-        if (!hasRecipe)
-            issues.Add(CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode.InvalidColorManagement, "ScanRecipeSettings", "FilmProfile.Validation.ScanRecipeInputInvalid"));
+        TryBuildScanRecipeSettings(out var recipeSettings, issues);
 
         validation = new ScanFilmProfileValidationResult(issues);
         if (!validation.IsValid)
@@ -4150,9 +4517,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private ScanChannelCalibrationProfile BuildCurrentChannelPatch(ScanParameterSnapshot snapshot, string channelRole)
     {
-        var existing = _filmProfileWorkspace.Snapshot.CurrentDraft.ChannelProfiles.TryGetValue(channelRole, out var draftProfile)
-            ? draftProfile
-            : _calibrationProfiles.TryGetProfile(channelRole, out var profile) ? profile : null;
+        _filmProfileWorkspace.Snapshot.CurrentDraft.ChannelProfiles.TryGetValue(channelRole, out var existing);
         return new ScanChannelCalibrationProfile(snapshot, _roiSettings.Normalize(), existing?.BlackLevel, existing?.WhiteLevel);
     }
 
@@ -4164,20 +4529,25 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var isValid = TryBuildCurrentFilmProfileDraft(out var draft, out var validation, channelToPatch);
         if (isValid)
         {
-            _filmProfileInputIssues = Array.Empty<ScanFilmProfileValidationIssue>();
             _hasInvalidFilmProfileInput = false;
             _lastProjectedFilmProfileDraft = draft;
             _filmProfileWorkspace.SetCurrentDraft(draft);
         }
         else
         {
-            _filmProfileInputIssues = validation.Issues;
             _hasInvalidFilmProfileInput = true;
         }
 
-        SetFilmProfileValidation(validation);
+        SetCurrentFilmProfileValidation(validation);
         RefreshFilmProfileWorkspaceProjection();
         return isValid;
+    }
+
+    private void PublishFilmProfileOperation(string message, InfoBarSeverity severity)
+    {
+        FilmProfileOperationMessage = message;
+        FilmProfileOperationSeverity = severity;
+        FilmProfileOperationVisibility = Visibility.Visible;
     }
 
     private void RefreshFilmProfileWorkspaceProjection()
@@ -4185,8 +4555,60 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (_isSynchronizingFilmProfileWorkspace)
             return;
 
-        HasUnsavedProfileChanges = ScanFilmProfileDirtyState.IsDirty(_filmProfileWorkspace.Snapshot.IsDirty, _hasInvalidFilmProfileInput);
+        HasUnsavedProfileChanges = _isNewFilmProfilePendingExport
+            || ScanFilmProfileDirtyState.IsDirty(_filmProfileWorkspace.Snapshot.IsDirty, _hasInvalidFilmProfileInput);
+        RefreshCalibrationChannelItems();
     }
+
+    private void InitializeCalibrationChannelItems()
+    {
+        foreach (var role in CalibrationChannelOptions)
+            CalibrationChannelItems.Add(new ScanDebugCalibrationChannelItemViewModel(this, role));
+
+        OnPropertyChanged(nameof(SelectedCalibrationChannelItem));
+    }
+
+    private void RefreshCalibrationChannelItems()
+    {
+        foreach (var channel in CalibrationChannelItems)
+            channel.Refresh();
+
+        OnPropertyChanged(nameof(SelectedCalibrationChannelItem));
+    }
+
+    internal CalibrationChannelStatusKind GetCalibrationChannelStatusKind(string channelRole)
+    {
+        if (string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+            && HasCurrentCalibrationEditorValues()
+            && (!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz, out _, out _)
+                || !TryValidateRoiInputs()))
+        {
+            return CalibrationChannelStatusKind.Invalid;
+        }
+
+        return _calibrationProfiles.TryGetProfile(channelRole, out _)
+            ? CalibrationChannelStatusKind.Saved
+            : CalibrationChannelStatusKind.Unconfigured;
+    }
+
+    internal string GetCalibrationChannelStatusText(string channelRole)
+        => GetCalibrationChannelStatusKind(channelRole) switch
+        {
+            CalibrationChannelStatusKind.Saved => "ScanDebug_Runtime_ChannelStatusSaved".GetLocalized(),
+            CalibrationChannelStatusKind.Invalid => "ScanDebug_Runtime_ChannelStatusInvalid".GetLocalized(),
+            CalibrationChannelStatusKind.Unconfigured => "ScanDebug_Runtime_ChannelStatusUnconfigured".GetLocalized(),
+            _ => "ScanDebug_Runtime_ChannelStatusUnconfigured".GetLocalized()
+        };
+
+    private bool HasCurrentCalibrationEditorValues()
+        => !string.IsNullOrWhiteSpace(ExposureTicks)
+           || !string.IsNullOrWhiteSpace(Adc1Offset)
+           || !string.IsNullOrWhiteSpace(Adc1Gain)
+           || !string.IsNullOrWhiteSpace(Adc2Offset)
+           || !string.IsNullOrWhiteSpace(Adc2Gain)
+           || !string.IsNullOrWhiteSpace(SysClockKhz)
+           || !string.IsNullOrWhiteSpace(RoiStartInput)
+           || !string.IsNullOrWhiteSpace(RoiEndInput);
 
     private static ScanFilmProfileValidationIssue CreateFilmProfileValidationIssue(ScanFilmProfileValidationCode code, string fieldPath, string messageKey)
         => new(code, fieldPath, ScanFilmProfileValidationSeverity.Error, messageKey);
@@ -4200,11 +4622,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return false;
     }
 
-    private void SetFilmProfileValidation(ScanFilmProfileValidationResult validation)
+    private void SetCurrentFilmProfileValidation(ScanFilmProfileValidationResult validation)
     {
-        FilmProfileValidationIssues = new ScanFilmProfileValidationResult(validation.Issues.Concat(_filmProfileInputIssues).Distinct()).Issues;
+        CurrentFilmProfileValidationIssues = validation.Issues;
+        FilmProfileValidationIssues = validation.Issues;
         OnPropertyChanged(nameof(FilmProfileValidationSummary));
     }
+
+    private void SetStagedFilmProfileImportValidation(ScanFilmProfileValidationResult validation)
+        => StagedFilmProfileImportValidationIssues = validation.Issues;
+
+    private void ClearStagedFilmProfileImportValidation()
+        => SetStagedFilmProfileImportValidation(new ScanFilmProfileValidationResult());
+
+    private static string FormatFilmProfileValidationIssues(IReadOnlyList<ScanFilmProfileValidationIssue> issues)
+        => string.Join(Environment.NewLine, issues.Select(issue => string.IsNullOrWhiteSpace(issue.FieldPath)
+            ? FilmProfileValidationTextPresenter.GetValidationIssueText(issue)
+            : $"{issue.FieldPath}: {FilmProfileValidationTextPresenter.GetValidationIssueText(issue)}"));
 
     private void ApplyDraftToFields(ScanFilmProfileDraft draft)
     {
@@ -4212,7 +4646,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _isSynchronizingFilmProfileWorkspace = true;
         try
         {
-            FilmProfileName = draft.ProfileName;
+            FilmProfileName = string.IsNullOrWhiteSpace(draft.ProfileName)
+                ? "ScanDebug_Runtime_FilmProfileUntitled".GetLocalized()
+                : draft.ProfileName;
             _selectedFilmAcquisitionSettings = draft.AcquisitionSettings?.Normalize();
             if (_selectedFilmAcquisitionSettings is not null)
                 ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);
@@ -4227,18 +4663,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 draft.AcquisitionSettings,
                 draft.ScanRecipeSettings));
             SelectedCalibrationChannel = channel;
+            RefreshCalibrationChannelItems();
             if (draft.ChannelProfiles.TryGetValue(channel, out var profile))
             {
                 ApplySnapshotToInputs(profile.Parameters);
                 _roiSettings = profile.RoiSettings.Normalize();
                 RefreshRoiStatus();
                 RefreshColumnSampleStatus();
+                NotifyChannelProfileOverviewChanged();
             }
         }
         finally
         {
             _isSynchronizingFilmProfileWorkspace = wasSynchronizing;
-            _filmProfileInputIssues = Array.Empty<ScanFilmProfileValidationIssue>();
             _hasInvalidFilmProfileInput = false;
             RefreshFilmProfileWorkspaceProjection();
         }
@@ -4248,6 +4685,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         var request = new ScanCalibrationPromptRequest(prompt);
         CalibrationPromptRequested?.Invoke(this, request);
+        return request.CompletionSource.Task;
+    }
+
+    private Task<bool> RequestFilmProfileDiscardConfirmationAsync()
+    {
+        var handler = FilmProfileDiscardConfirmationRequested;
+        if (handler is null)
+            return Task.FromResult(false);
+
+        var request = new ScanFilmProfileDiscardConfirmationRequest();
+        handler(this, request);
         return request.CompletionSource.Task;
     }
 
@@ -4985,6 +5433,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(SaveProfileDisabledReasonText));
     }
 
+    private void NotifyStagedFilmProfileImportStateChanged()
+    {
+        OnPropertyChanged(nameof(StagedFilmProfileImportDisplayNameText));
+        OnPropertyChanged(nameof(StagedFilmProfileImportChannelCountText));
+        OnPropertyChanged(nameof(StagedFilmProfileImportReviewVisibility));
+        OnPropertyChanged(nameof(StagedFilmProfileImportSeverity));
+        OnPropertyChanged(nameof(StagedFilmProfileDirtyReplacementWarningText));
+        OnPropertyChanged(nameof(StagedFilmProfileDirtyReplacementWarningVisibility));
+        OnPropertyChanged(nameof(CanApplyStagedFilmProfileImport));
+        ApplyStagedFilmProfileImportCommand.NotifyCanExecuteChanged();
+        DiscardStagedFilmProfileImportCommand.NotifyCanExecuteChanged();
+    }
+
     private void NotifyAcquisitionPlanChanged()
     {
         if (GetSelectedAcquisitionChannelCount() > 1 && IsWaterfallEnabled)
@@ -5175,13 +5636,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RefreshDerivedMotorDistanceFromCurrentInterval();
         if (string.IsNullOrEmpty(MotorIntervalUs))
         {
-            Motor2IntervalNs = string.Empty;
-            SetMotorSpeedDerivedFromInterval(1, false);
+            if (TryParseSelectedScanMotor(out var selectedMotorId, out _))
+            {
+                ClearMotorIntervalInput(selectedMotorId);
+                SetMotorSpeedDerivedFromInterval(selectedMotorId, false);
+            }
+
             UpdateComputedMotorSummary();
             return;
         }
 
-        ApplyMotorSpeedFromIntervalNs(1, normalized.MotorIntervalNs);
+        if (TryParseSelectedScanMotor(out var motorId, out _))
+            ApplyMotorSpeedFromIntervalNs(motorId, normalized.MotorIntervalNs);
+
         UpdateComputedMotorSummary();
     }
 
@@ -5487,7 +5954,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private string[] GetEffectiveDeviceChannelRoles()
         => _deviceSettings.Settings.Normalize().ChannelRoles.ToArray();
 
-    private string GetBoundLedName(string channelRole)
+    internal string GetBoundLedName(string channelRole)
     {
         var roles = GetEffectiveDeviceChannelRoles();
         for (var index = 0; index < roles.Length; index++)
@@ -5728,6 +6195,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         RefreshActiveIlluminationChannelBindings();
+        RefreshCalibrationChannelItems();
         NotifyCurrentCalibrationIlluminationChannelChanged();
     }
 
@@ -5808,6 +6276,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     internal void SetAcquisitionChannelSelection(ScanDebugAcquisitionChannelViewModel channel, bool isSelected)
     {
         NotifyAcquisitionPlanChanged();
+        SynchronizeFilmProfileDraftFromInputs();
     }
 
     internal string GetAcquisitionChannelCalibrationStatusText(string role)
@@ -5890,7 +6359,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         SetMotorSpeedDerivedFromInterval(motorId, false);
-        if (motorId == 1)
+        if (TryParseSelectedScanMotor(out var selectedMotorId, out _) && motorId == selectedMotorId)
             SynchronizeFilmProfileDraftFromInputs();
     }
 
@@ -5927,6 +6396,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         SetMotorSpeedDerivedFromInterval(motorId, true);
+    }
+
+    private void ClearMotorIntervalInput(byte motorId)
+    {
+        switch (motorId)
+        {
+            case 0:
+                Motor1IntervalNs = string.Empty;
+                break;
+            case 1:
+                Motor2IntervalNs = string.Empty;
+                break;
+            case 2:
+                Motor3IntervalNs = string.Empty;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(motorId));
+        }
     }
 
     private bool TryGetDerivedMotorIntervalNs(byte motorId, out uint intervalNs)

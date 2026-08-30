@@ -22,6 +22,17 @@ public sealed class ScanFilmProfileDocumentServiceTests
     }
 
     [Fact]
+    public void Parse_InvalidSelectedChannel_FallsBackToFirstValidNormalizedProfile()
+    {
+        var source = ParseFullDocument() with { SelectedCalibrationChannel = "Missing" };
+
+        var result = Service.Parse(Service.Serialize(source));
+
+        Assert.True(result.CanApply);
+        Assert.Equal("Blue", result.Document?.SelectedCalibrationChannel);
+    }
+
+    [Fact]
     public void Parse_AllInvalidChannelProfiles_ReturnsNoDocument()
     {
         var result = Service.Parse(CreateChannelProfileJson("""
@@ -90,8 +101,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
     [Fact]
     public void RepositoryWideSchemaOwnership_UsesCoreServiceVersionMember()
     {
-        var hostRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        var scanDebugSource = File.ReadAllText(Path.Combine(hostRoot, "PRISM Utility", "ViewModels", "ScanDebugViewModel.cs"));
+        var scanDebugSource = FilmProfileContractSource.ReadAppText("ViewModels", "ScanDebugViewModel.cs");
 
         Assert.DoesNotContain("ExchangeSchemaVersion", scanDebugSource, StringComparison.Ordinal);
         Assert.Contains("ScanFilmProfileDocumentService.CurrentSchemaVersionValue", scanDebugSource, StringComparison.Ordinal);
@@ -160,6 +170,25 @@ public sealed class ScanFilmProfileDocumentServiceTests
         Assert.Equal(
             new[] { "SchemaVersion", "ProfileName", "SavedAtUtc", "ChannelProfiles", "SelectedCalibrationChannel", "AcquisitionSettings", "ScanRecipeSettings" },
             jsonDocument.RootElement.EnumerateObject().Select(property => property.Name));
+    }
+
+    [Fact]
+    public void Todo4Baseline_FullV5Fixture_BuildSerializeAndParsePreserveEveryExchangeField()
+    {
+        var source = ParseFullDocument();
+        var draft = ScanFilmProfileDraft.FromDocument(source).Draft;
+        var built = Service.Build(draft);
+        var exported = Assert.IsType<ScanFilmParameterProfileSet>(built.Document);
+        var serialized = Service.Serialize(exported);
+        var reparsed = Assert.IsType<ScanFilmParameterProfileSet>(Service.Parse(serialized).Document);
+
+        Assert.True(built.CanApply);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(source, exported);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(source, reparsed);
+        using var json = JsonDocument.Parse(serialized);
+        Assert.Equal(
+            new[] { "SchemaVersion", "ProfileName", "SavedAtUtc", "ChannelProfiles", "SelectedCalibrationChannel", "AcquisitionSettings", "ScanRecipeSettings" },
+            json.RootElement.EnumerateObject().Select(property => property.Name));
     }
 
     [Fact]

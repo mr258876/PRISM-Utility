@@ -496,7 +496,7 @@
     <value>PRISM device</value>
   </data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve">
-    <value>Scan Debugging</value>
+    <value>Film Profile and Calibration</value>
   </data>
   <data name="Scan_StartButton.Content" xml:space="preserve">
     <value>Start Scan</value>
@@ -849,6 +849,30 @@
   <data name="ScanDebug_ChannelProfileTitle.Text" xml:space="preserve">
     <value>Current channel calibration</value>
   </data>
+  <data name="ScanDebug_ChannelCalibrationStatusListTitle.Text" xml:space="preserve">
+    <value>Channel status</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
+    <value>All calibration channels are visible here. Select one to edit only that channel's calibration-library entry.</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
+    <value>Selected channel calibration library</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationLibraryHelpText.Text" xml:space="preserve">
+    <value>Save and Remove affect only the selected channel in the calibration library. They do not save the top film-profile JSON or any other channel.</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationTitle" xml:space="preserve">
+    <value>Remove channel calibration?</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationMessage" xml:space="preserve">
+    <value>Remove the saved calibration-library entry for {0}? This does not change other channels or the film-profile JSON.</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationRemoveButton" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationCancelButton" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>Exposure time = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
@@ -862,16 +886,16 @@
     <value>Calibration channel</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>Save Channel</value>
+    <value>Save channel calibration to library</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
-    <value>Clear Channel</value>
+    <value>Remove channel calibration from library</value>
   </data>
   <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve">
-    <value>Save JSON</value>
+    <value>Save profile JSON</value>
   </data>
   <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve">
-    <value>Load JSON</value>
+    <value>Open profile JSON</value>
   </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>Exposure Ticks</value>
@@ -1833,8 +1857,14 @@
   <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve">
     <value>Single file: 4-channel raw DNG</value>
   </data>
+  <data name="Scan_Runtime_ProfileDngExportModeLinearRaw4" xml:space="preserve">
+    <value>4-channel raw DNG</value>
+  </data>
   <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve">
     <value>Two files: RGB plus IR/W DNG</value>
+  </data>
+  <data name="Scan_Runtime_ProfileDngExportModeLinearRgbIrw" xml:space="preserve">
+    <value>RGB + IR/W DNG</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve">
     <value>ECC</value>
@@ -2012,6 +2042,24 @@
   </data>
   <data name="ScanDebug_ChannelLedBindingUnassigned" xml:space="preserve">
     <value>Unassigned</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusSaved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusUnconfigured" xml:space="preserve">
+    <value>Unconfigured</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusInvalid" xml:space="preserve">
+    <value>Invalid current edits</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusAccessibility" xml:space="preserve">
+    <value>{0}, {1}, {2}, {3}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusSelected" xml:space="preserve">
+    <value>selected</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusNotSelected" xml:space="preserve">
+    <value>not selected</value>
   </data>
   <data name="ScanDebug_DisabledReasonReady" xml:space="preserve">
     <value>Ready.</value>
@@ -2532,6 +2580,9 @@
   <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve">
     <value>Calibration channel '{0}' has no saved profile.</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelRemoveCanceled" xml:space="preserve">
+    <value>Remove canceled for {0}.</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusClearChannelProfileFailed" xml:space="preserve">
     <value>Clear channel profile failed: {0}</value>
   </data>
@@ -2555,6 +2606,15 @@
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileLoaded" xml:space="preserve">
     <value>Film profile '{0}' loaded.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileStaged" xml:space="preserve">
+    <value>Film profile '{0}' read and staged for review. Current settings are unchanged.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileApplied" xml:space="preserve">
+    <value>Film profile '{0}' applied.</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileImportInvalid" xml:space="preserve">
+    <value>The selected film profile could not be staged. Review the file and try again.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve">
     <value>Load film profile failed: {0}</value>
@@ -2929,13 +2989,13 @@
     <value>Selects the DNG mode for debug exports from the latest Scan Debug acquisition only. It does not change the authored scan configuration.</value>
   </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
-    <value>Hardware debug workspace: use it for temporary acquisition, calibration, ROI checks, and profile authoring before running formal scans on the Scan page.</value>
+    <value>Film Profile and Calibration workbench: author profile JSON, calibrate channels, preview temporary acquisitions, and release the scanner before USB Debug or formal Scan uses the same hardware.</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
-    <value>Scan Debug Workstation</value>
+    <value>Film Profile and Calibration</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>Hardware debug workspace: use it for temporary acquisition, calibration, ROI checks, and profile authoring before running formal scans on the Scan page. A connected debug session owns the USB device; disconnect here before opening USB Debug or starting a formal scan on the same hardware.</value>
+    <value>Film Profile and Calibration workbench: author profile JSON, calibrate channels, preview temporary acquisitions, and release the scanner before USB Debug or formal Scan uses the same hardware.</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>Status</value>
@@ -2944,10 +3004,10 @@
     <value>Details</value>
   </data>
   <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>Scan Debug details</value>
+    <value>Film Profile and Calibration details</value>
   </data>
   <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>Scan Debug details</value>
+    <value>Film Profile and Calibration details</value>
   </data>
   <data name="ScanDebug_UsbConflictGuidance.Text" xml:space="preserve">
     <value>A connected debug session owns the USB device. Disconnect here before opening USB Debug or starting a formal scan on the same hardware.</value>
@@ -3076,13 +3136,13 @@
     <value>Open Scan</value>
   </data>
   <data name="Main_ScanDebugCardTitle.Text" xml:space="preserve">
-    <value>Scan Debug</value>
+    <value>Film Profile and Calibration</value>
   </data>
   <data name="Main_ScanDebugCardText.Text" xml:space="preserve">
-    <value>Validate hardware, perform temporary acquisitions, tune calibration, and author scan profiles.</value>
+    <value>Author film profiles, calibrate channels, and run temporary acquisition checks before formal scans.</value>
   </data>
   <data name="Main_OpenScanDebugButton.Content" xml:space="preserve">
-    <value>Open Scan Debug</value>
+    <value>Open Film Profile and Calibration</value>
   </data>
   <data name="Main_SettingsCardTitle.Text" xml:space="preserve">
     <value>Settings</value>
@@ -3235,9 +3295,116 @@
   <data name="FilmProfile_Validation_AlignmentModeInvalid" xml:space="preserve"><value>Choose a supported alignment mode.</value></data>
   <data name="FilmProfile_Validation_DngExportModeInvalid" xml:space="preserve"><value>Choose a supported DNG export mode.</value></data>
   <data name="FilmProfile_Validation_GenericInputInvalid" xml:space="preserve"><value>Review this film profile setting and try again.</value></data>
+  <data name="FilmProfile_Validation_NumberInvalid" xml:space="preserve"><value>Enter a valid number for {0}.</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceSummaryTitle.Text" xml:space="preserve"><value>Film profile workspace</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceSummaryHelpText.Text" xml:space="preserve"><value>Film-level name, file import/export, and recipe validation are managed in this workspace.</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceNameLabel.Text" xml:space="preserve"><value>Profile</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceDirtyLabel.Text" xml:space="preserve"><value>State</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content" xml:space="preserve"><value>New film profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>New film profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>Open profile JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open profile JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content" xml:space="preserve"><value>Validate profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Validate profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>Save profile JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save profile JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>Save to calibration library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>Remove from calibration library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content" xml:space="preserve"><value>Apply staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Apply staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content" xml:space="preserve"><value>Discard staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Discard staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentConfigLabel.Text" xml:space="preserve"><value>Current config</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionMetadata.Text" xml:space="preserve"><value>1. Profile metadata</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisition.Text" xml:space="preserve"><value>2. Acquisition setup</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionRecipe.Text" xml:space="preserve"><value>3. Scan recipe</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibration.Text" xml:space="preserve"><value>4. Channel calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionReviewStatus.Text" xml:space="preserve"><value>5. Review and status</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionBasicInfo.Text" xml:space="preserve"><value>1. Basic info</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionBasicInfoComboBoxItem.Content" xml:space="preserve"><value>1. Basic info</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisitionPlan.Text" xml:space="preserve"><value>2. Acquisition plan</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisitionPlanComboBoxItem.Content" xml:space="preserve"><value>2. Acquisition plan</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibrationSelector.Text" xml:space="preserve"><value>3. Channel calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibrationComboBoxItem.Content" xml:space="preserve"><value>3. Channel calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionLiveCalibration.Text" xml:space="preserve"><value>4. Live calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionLiveCalibrationComboBoxItem.Content" xml:space="preserve"><value>4. Live calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringTools.Text" xml:space="preserve"><value>5. Engineering tools</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringToolsComboBoxItem.Content" xml:space="preserve"><value>5. Engineering tools</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title" xml:space="preserve"><value>Current profile validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>Staged import validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>Not validated</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>Valid</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationIssues" xml:space="preserve"><value>{0} validation issue(s)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationStatusTitle.Text" xml:space="preserve"><value>Operation status</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationInfoBar.Title" xml:space="preserve"><value>Operation status</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceStatusTitle.Text" xml:space="preserve"><value>Device status</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationBusy" xml:space="preserve"><value>Working...</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationSucceeded" xml:space="preserve"><value>Operation completed</value></data>
+   <data name="ScanDebug_FilmProfileWorkbenchOperationFailed" xml:space="preserve"><value>Operation failed: {0}</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationCanceled" xml:space="preserve"><value>Operation canceled.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceDisconnected" xml:space="preserve"><value>Scanner disconnected</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceConnected" xml:space="preserve"><value>Scanner connected</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportTitle.Text" xml:space="preserve"><value>Staged import review</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>Review the loaded JSON before applying it. Apply replaces the current workspace profile; Discard leaves current settings unchanged.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNameLabel.Text" xml:space="preserve"><value>Staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelsLabel.Text" xml:space="preserve"><value>Channels</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedValidationInfoBar.Title" xml:space="preserve"><value>Staged import validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNone" xml:space="preserve"><value>No staged profile</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelCount" xml:space="preserve"><value>{0} channel profile(s)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNoChannels" xml:space="preserve"><value>No staged channels</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportDirtyWarning" xml:space="preserve"><value>Applying this import replaces the current unsaved profile changes.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>Profile identity</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>Edit the film-level name and document output choices. Changes stay in the workspace until you save or apply.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>Color and scan recipe</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text" xml:space="preserve"><value>These values come from the active profile snapshot and update the draft immediately, even while the scanner is offline.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>Current save and validation state</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text" xml:space="preserve"><value>Validation lists exact field paths with actionable messages before Save or Apply can proceed.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header" xml:space="preserve"><value>Profile name</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText" xml:space="preserve"><value>e.g. 5207</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Profile name</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.Header" xml:space="preserve"><value>Use profile color management</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRedWavelengthTextBox.Header" xml:space="preserve"><value>Red wavelength (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicGreenWavelengthTextBox.Header" xml:space="preserve"><value>Green wavelength (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicBlueWavelengthTextBox.Header" xml:space="preserve"><value>Blue wavelength (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicOutputGammaTextBox.Header" xml:space="preserve"><value>Output gamma</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointComboBox.Header" xml:space="preserve"><value>Target white point</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointD65ComboBoxItem.Content" xml:space="preserve"><value>D65</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointD50ComboBoxItem.Content" xml:space="preserve"><value>D50</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointManualComboBoxItem.Content" xml:space="preserve"><value>Manual color temperature</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicManualWhitePointColorTemperatureTextBox.Header" xml:space="preserve"><value>Manual color temperature (K)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupTitle.Text" xml:space="preserve"><value>Acquisition setup</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupDescription.Text" xml:space="preserve"><value>Edit offline acquisition defaults for the authored film profile. Hardware-only live actions remain in Live calibration or Engineering tools.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusTitle.Text" xml:space="preserve"><value>Save and validation state</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>Rows, distance, channel enablement, and order changes update summaries immediately and block Save when invalid.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>Acquisition debug switches</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>Low-level scan flow toggles for engineering validation. Leave these off unless a hardware bring-up procedure explicitly asks for them.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>Live scan runtime controls</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>Interim home for scan start, stop, progress, and debug DNG export controls until the live calibration migration is completed.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>Progress appears here while a scan is running.</value></data>
+  <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Film profile lifecycle header</value></data>
+  <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Staged film profile import review</value></data>
+  <data name="ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Live calibration section</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeWorkspace" xml:space="preserve"><value>Current workspace</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>Profile JSON file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>Calibration library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeUnsaved" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusReady" xml:space="preserve"><value>{0}: ready</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusMissingCalibration" xml:space="preserve"><value>{0}: calibration missing</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusEmpty" xml:space="preserve"><value>{0}: empty</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusSavedAt" xml:space="preserve"><value>{0}: saved at {1}</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewEmptyTitle.Text" xml:space="preserve"><value>No calibration preview</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewEmptyDescription.Text" xml:space="preserve"><value>Open or capture a profile to preview calibration data.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewExpandCollapsed" xml:space="preserve"><value>Show preview details</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewExpandExpanded" xml:space="preserve"><value>Hide preview details</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationTitle.Text" xml:space="preserve"><value>Unsaved film profile changes</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationMessage.Text" xml:space="preserve"><value>Save or discard changes before opening another profile.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationStayButton.Content" xml:space="preserve"><value>Keep editing</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationDiscardButton.Content" xml:space="preserve"><value>Discard changes</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>Save profile JSON to file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>Save selected channel calibration to library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>Remove selected channel calibration from library</value></data>
   </root>

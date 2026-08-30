@@ -114,4 +114,36 @@ public sealed class ScanTimingMathTests
         Assert.True(ok);
         Assert.Equal(intervalNs, recoveredIntervalNs);
     }
+
+    [Fact]
+    public void ConvertLineDistanceMillimetersToMotorIntervalNs_UsesEachSelectedMotorSettings()
+    {
+        const double lineDistanceMm = 0.05;
+        const ushort exposureTicks = 1200;
+        const uint sysClockKhz = 96_000;
+        var motors = new[]
+        {
+            new ScanMotorMechanicalSettings(200, 16, 8.0),
+            new ScanMotorMechanicalSettings(200, 32, 8.0),
+            new ScanMotorMechanicalSettings(400, 16, 4.0)
+        };
+
+        var intervals = motors.Select(settings =>
+        {
+            var ok = ScanTimingMath.TryConvertLineDistanceMillimetersToMotorIntervalNs(
+                lineDistanceMm,
+                exposureTicks,
+                sysClockKhz,
+                settings,
+                ScanDebugConstants.MotionMinIntervalNs,
+                out var intervalNs);
+
+            Assert.True(ok);
+            return intervalNs;
+        }).ToArray();
+
+        Assert.Equal(3, intervals.Distinct().Count());
+        Assert.True(intervals[0] > intervals[1]);
+        Assert.True(intervals[1] > intervals[2]);
+    }
 }

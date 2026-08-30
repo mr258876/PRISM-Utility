@@ -10,6 +10,9 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
         if (parameter as string == "DngExportMode" && value is ScanDngExportMode exportMode)
             return GetDngExportModeDisplayName(exportMode);
 
+        if (parameter as string == "ProfileDngExportMode" && value is ScanDngExportMode profileExportMode)
+            return GetProfileDngExportModeDisplayName(profileExportMode);
+
         if (parameter as string == "AlignmentMode" && value is ScanChannelAlignmentMode alignmentMode)
             return GetAlignmentModeDisplayName(alignmentMode);
 
@@ -66,11 +69,19 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             _ => mode
         };
 
-    private static string GetDngExportModeDisplayName(ScanDngExportMode mode)
+    public static string GetDngExportModeDisplayName(ScanDngExportMode mode)
         => mode switch
         {
             ScanDngExportMode.LinearRaw4 => "Scan_Runtime_DngExportModeLinearRaw4".GetLocalized(),
             ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_DngExportModeLinearRgbIrw".GetLocalized(),
+            _ => mode.ToString()
+        };
+
+    public static string GetProfileDngExportModeDisplayName(ScanDngExportMode mode)
+        => mode switch
+        {
+            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_ProfileDngExportModeLinearRaw4".GetLocalized(),
+            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_ProfileDngExportModeLinearRgbIrw".GetLocalized(),
             _ => mode.ToString()
         };
 

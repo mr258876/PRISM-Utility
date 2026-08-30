@@ -65,7 +65,7 @@ public sealed class Scan007UnitContractsTests
         Assert.Contains("ScanMotorIntervalText.TryFormatMicroseconds", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("MotorIntervalUs = FormatMotorIntervalInput(normalized.MotorIntervalNs);", scanViewModel, StringComparison.Ordinal);
         Assert.Contains("MotorIntervalUs = FormatMotorIntervalInput(normalized.MotorIntervalNs);", scanDebugViewModel, StringComparison.Ordinal);
-        Assert.Contains("Motor2IntervalNs = string.Empty;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("ClearMotorIntervalInput(selectedMotorId);", scanDebugViewModel, StringComparison.Ordinal);
     }
 
     private static Type GetConversionType()

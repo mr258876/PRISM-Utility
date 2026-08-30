@@ -26,7 +26,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "Command=\"{x:Bind ViewModel.StopScanCommand}\"",
             "Command=\"{x:Bind ViewModel.ExportDngCommand}\"",
             "ItemsSource=\"{x:Bind ViewModel.RowOptions, Mode=OneWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedRows, Mode=TwoWay}\"",
+            "Text=\"{x:Bind ViewModel.SelectedRows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
             "IsOn=\"{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}\"",
             "IsOn=\"{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}\"",
             "ItemsSource=\"{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}\"",
@@ -170,7 +170,17 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("ReferenceEquals(snapshot.StagedImport, _lastProjectedStagedFilmProfileImport)", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("HasStagedFilmProfileImport = snapshot.StagedImport is not null;", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("ApplyDraftToFields(snapshot.CurrentDraft);", externalSnapshot, StringComparison.Ordinal);
-        Assert.Contains("SetFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("SetCurrentFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.StagedImport.Validation);", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("ClearStagedFilmProfileImportValidation();", externalSnapshot, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetFilmProfileValidation(", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentFilmProfileValidationIssues", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentFilmProfileValidationSummary", source, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentFilmProfileValidationValid", source, StringComparison.Ordinal);
+        Assert.Contains("StagedFilmProfileImportValidationIssues", source, StringComparison.Ordinal);
+        Assert.Contains("StagedFilmProfileImportValidationSummary", source, StringComparison.Ordinal);
+        Assert.Contains("IsStagedFilmProfileImportValid", source, StringComparison.Ordinal);
+        Assert.Contains("CanApplyStagedFilmProfileImport", source, StringComparison.Ordinal);
 
         Assert.Contains("SynchronizeFilmProfileDraftFromInputs", save, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.BuildExportDocument", save, StringComparison.Ordinal);
@@ -179,12 +189,14 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", save, StringComparison.Ordinal);
         Assert.Contains("_filmProfileFiles.ImportAsync(CancellationToken.None)", load, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.StageImport", load, StringComparison.Ordinal);
-        Assert.Contains("SetFilmProfileValidation(staged.Validation);", load, StringComparison.Ordinal);
+        Assert.Contains("SetStagedFilmProfileImportValidation", load, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetCurrentFilmProfileValidation", load, StringComparison.Ordinal);
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", load, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.ApplyStagedImportAsync", apply, StringComparison.Ordinal);
-        Assert.Contains("ApplyDraftToFields(_filmProfileWorkspace.Snapshot.CurrentDraft);", apply, StringComparison.Ordinal);
-        Assert.Contains("HasStagedFilmProfileImport = false;", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyDraftToFields", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasStagedFilmProfileImport = false;", apply, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.DiscardStagedImport();", discard, StringComparison.Ordinal);
+        Assert.Contains("ClearStagedFilmProfileImportValidation();", discard, StringComparison.Ordinal);
 
         Assert.Contains("TryBuildCurrentFilmProfileDraft", synchronize, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.SetCurrentDraft(draft);", synchronize, StringComparison.Ordinal);
@@ -193,6 +205,43 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);", applyDraft, StringComparison.Ordinal);
         Assert.Contains("ApplyScanRecipeSettings(draft.ScanRecipeSettings);", applyDraft, StringComparison.Ordinal);
         Assert.Contains("ApplySnapshotToInputs(profile.Parameters);", applyDraft, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo2Baseline_CalibrationPromptCompletionAndPageSubscription_AreSymmetric()
+    {
+        var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var page = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var request = ExtractMemberBodyAtDeclaration(viewModel, "private Task<bool> RequestCalibrationPromptAsync(");
+        var subscribe = ExtractMemberBodyAtDeclaration(page, "private void SubscribeViewModelEvents()");
+        var unsubscribe = ExtractMemberBodyAtDeclaration(page, "private void UnsubscribeViewModelEvents()");
+        var handler = ExtractMemberBodyAtDeclaration(page, "private async void OnCalibrationPromptRequested(");
+
+        Assert.Contains("new ScanCalibrationPromptRequest(prompt);", request, StringComparison.Ordinal);
+        Assert.Contains("CalibrationPromptRequested?.Invoke(this, request);", request, StringComparison.Ordinal);
+        Assert.Contains("return request.CompletionSource.Task;", request, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;", subscribe, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;", unsubscribe, StringComparison.Ordinal);
+        Assert.Contains("e.CompletionSource.TrySetResult", handler, StringComparison.Ordinal);
+        Assert.Contains("e.CompletionSource.TrySetException(ex);", handler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo2_FilmProfileDiscardConfirmation_HasDedicatedSymmetricCompletionSurface()
+    {
+        var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var page = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var subscribe = ExtractMemberBodyAtDeclaration(page, "private void SubscribeViewModelEvents()");
+        var unsubscribe = ExtractMemberBodyAtDeclaration(page, "private void UnsubscribeViewModelEvents()");
+        var handler = ExtractMemberBodyAtDeclaration(page, "private async void OnFilmProfileDiscardConfirmationRequested(");
+
+        Assert.Contains("public sealed class ScanFilmProfileDiscardConfirmationRequest", viewModel, StringComparison.Ordinal);
+        Assert.Contains("TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)", viewModel, StringComparison.Ordinal);
+        Assert.Contains("public event EventHandler<ScanFilmProfileDiscardConfirmationRequest>? FilmProfileDiscardConfirmationRequested;", viewModel, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.FilmProfileDiscardConfirmationRequested += OnFilmProfileDiscardConfirmationRequested;", subscribe, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.FilmProfileDiscardConfirmationRequested -= OnFilmProfileDiscardConfirmationRequested;", unsubscribe, StringComparison.Ordinal);
+        Assert.Contains("e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);", handler, StringComparison.Ordinal);
+        Assert.Contains("e.CompletionSource.TrySetException(ex);", handler, StringComparison.Ordinal);
     }
 
     [Fact]

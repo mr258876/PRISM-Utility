@@ -4,6 +4,7 @@ using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -24,6 +25,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private const double AxisMarginTop = 28;
     private const double AxisMarginRight = 16;
     private const double AxisMarginBottom = 36;
+    private const double WorkbenchSectionWideSelectorMinimumWidth = 960;
     private static readonly float[] ZoomLevels = { 0.1f, 0.125f, 0.2f, 0.25f, 0.5f, 0.75f, 1f, 2f, 3f, 4f, 6f, 8f, 12f, 16f, 20f };
     private const string RoiSelectionBwActive = "BW Active";
     private const string RoiSelectionBwShield = "BW Shield";
@@ -51,6 +53,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private ScanColumnRange _roiOriginalRange = new(0, 0);
     private bool _areViewModelEventsSubscribed;
     private bool _isUpdatingCurrentCalibrationIlluminationEditor;
+    private bool _isSynchronizingWorkbenchSection;
+    private int _activeWorkbenchSectionIndex = 4;
 
     public ScanDebugViewModel ViewModel
     {
@@ -66,6 +70,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         stepStopwatch.Restart();
         InitializeComponent();
+        SetActiveWorkbenchSection(_activeWorkbenchSectionIndex);
         InitializeCurrentCalibrationIlluminationEditor();
         NavigationTimingLogger.Write($"ScanDebugPage.ctor InitializeComponent={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
@@ -79,6 +84,108 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         if (sender.Tag is string contentName)
             FindName(contentName);
+    }
+
+    private void WorkbenchSectionSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (_isSynchronizingWorkbenchSection || !IsWorkbenchSectionUiReady())
+            return;
+
+        SetActiveWorkbenchSection(GetWorkbenchSectionSelectorIndex(sender.SelectedItem));
+    }
+
+    private void WorkbenchSectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isSynchronizingWorkbenchSection || !IsWorkbenchSectionUiReady())
+            return;
+
+        SetActiveWorkbenchSection(WorkbenchSectionComboBox.SelectedIndex);
+    }
+
+    private void ScanDebugRootGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+        if (!IsWorkbenchSectionUiReady())
+            return;
+
+        _ = DispatcherQueue.TryEnqueue(() => SetWorkbenchSectionSelectorMode(e.NewSize.Width));
+    }
+
+    private void SetWorkbenchSectionSelectorMode(double width)
+    {
+        if (!IsWorkbenchSectionUiReady())
+            return;
+
+        var isWideSelectorAvailable = width >= WorkbenchSectionWideSelectorMinimumWidth;
+        WorkbenchSectionSelectorBar.Visibility = isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
+        WorkbenchSectionComboBox.Visibility = isWideSelectorAvailable ? Visibility.Collapsed : Visibility.Visible;
+        SetWorkbenchContentSplitMode(isWideSelectorAvailable);
+    }
+
+    private void SetWorkbenchContentSplitMode(bool isWideSelectorAvailable)
+    {
+        WorkbenchEditorColumn.Width = isWideSelectorAvailable ? new GridLength(5, GridUnitType.Star) : new GridLength(1, GridUnitType.Star);
+        WorkbenchPreviewColumn.Width = isWideSelectorAvailable ? new GridLength(7, GridUnitType.Star) : new GridLength(0);
+        WorkbenchPreviewColumnContent.Visibility = isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool IsWorkbenchSectionUiReady()
+        => WorkbenchSectionSelectorBar is not null
+            && WorkbenchSectionComboBox is not null
+            && WorkbenchEditorColumn is not null
+            && WorkbenchPreviewColumn is not null
+            && WorkbenchPreviewColumnContent is not null
+            && BasicInfoSection is not null
+            && AcquisitionPlanSection is not null
+            && ChannelCalibrationSection is not null
+            && LiveCalibrationSection is not null
+            && EngineeringToolsSection is not null;
+
+    private int GetWorkbenchSectionSelectorIndex(SelectorBarItem? selectedItem)
+    {
+        for (var index = 0; index < WorkbenchSectionSelectorBar.Items.Count; index++)
+        {
+            if (ReferenceEquals(WorkbenchSectionSelectorBar.Items[index], selectedItem))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private void SetActiveWorkbenchSection(int index)
+    {
+        if ((uint)index >= 5)
+        {
+            SynchronizeWorkbenchSectionSelectors(_activeWorkbenchSectionIndex);
+            return;
+        }
+
+        _activeWorkbenchSectionIndex = index;
+        _isSynchronizingWorkbenchSection = true;
+        try
+        {
+            BasicInfoSection.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+            AcquisitionPlanSection.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+            ChannelCalibrationSection.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+            LiveCalibrationSection.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
+            EngineeringToolsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+            SynchronizeWorkbenchSectionSelectors(index);
+        }
+        finally
+        {
+            _isSynchronizingWorkbenchSection = false;
+        }
+    }
+
+    private void SynchronizeWorkbenchSectionSelectors(int index)
+    {
+        if ((uint)index >= 5)
+            return;
+
+        if (!ReferenceEquals(WorkbenchSectionSelectorBar.SelectedItem, WorkbenchSectionSelectorBar.Items[index]))
+            WorkbenchSectionSelectorBar.SelectedItem = WorkbenchSectionSelectorBar.Items[index];
+
+        if (WorkbenchSectionComboBox.SelectedIndex != index)
+            WorkbenchSectionComboBox.SelectedIndex = index;
     }
 
     private void InitializeCurrentCalibrationIlluminationEditor()
@@ -193,6 +300,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
+        ViewModel.FilmProfileDiscardConfirmationRequested += OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested += OnNoticeRequested;
         _areViewModelEventsSubscribed = true;
     }
@@ -204,6 +312,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;
+        ViewModel.FilmProfileDiscardConfirmationRequested -= OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested -= OnNoticeRequested;
         _areViewModelEventsSubscribed = false;
     }
@@ -278,6 +387,29 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
                 PrimaryButtonText = e.Prompt.PrimaryButtonText,
                 CloseButtonText = e.Prompt.CloseButtonText,
                 DefaultButton = ContentDialogButton.Primary
+            };
+
+            var result = await dialog.ShowAsync();
+            e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);
+        }
+        catch (Exception ex)
+        {
+            e.CompletionSource.TrySetException(ex);
+        }
+    }
+
+    private async void OnFilmProfileDiscardConfirmationRequested(object? sender, ScanFilmProfileDiscardConfirmationRequest e)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationTitle.Text".GetLocalized(),
+                Content = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationMessage.Text".GetLocalized(),
+                PrimaryButtonText = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationDiscardButton.Content".GetLocalized(),
+                CloseButtonText = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationStayButton.Content".GetLocalized(),
+                DefaultButton = ContentDialogButton.Close
             };
 
             var result = await dialog.ShowAsync();

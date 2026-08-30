@@ -496,7 +496,7 @@
     <value>PRISM 设备</value>
   </data>
   <data name="Shell_ScanDebug.Content" xml:space="preserve">
-    <value>扫描调试</value>
+    <value>胶片配置与校准</value>
   </data>
   <data name="Scan_StartButton.Content" xml:space="preserve">
     <value>开始扫描</value>
@@ -849,6 +849,30 @@
   <data name="ScanDebug_ChannelProfileTitle.Text" xml:space="preserve">
     <value>当前通道校准</value>
   </data>
+  <data name="ScanDebug_ChannelCalibrationStatusListTitle.Text" xml:space="preserve">
+    <value>通道状态</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
+    <value>此处显示所有校准通道。选择一个通道，只编辑该通道在校准库中的条目。</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
+    <value>所选通道校准库</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationLibraryHelpText.Text" xml:space="preserve">
+    <value>保存和移除只影响所选通道在校准库中的条目，不会保存顶层胶片配置 JSON，也不会影响其他通道。</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationTitle" xml:space="preserve">
+    <value>要移除通道校准吗？</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationMessage" xml:space="preserve">
+    <value>要移除 {0} 在校准库中已保存的条目吗？这不会更改其他通道或胶片配置 JSON。</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationRemoveButton" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="ScanDebug_ChannelCalibrationRemoveConfirmationCancelButton" xml:space="preserve">
+    <value>取消</value>
+  </data>
   <data name="ScanDebug_ExposureFormulaNote.Text" xml:space="preserve">
     <value>曝光时间 = (45827 + [ticks] * 6) * (1 / [sys_clk kHz]) * 10^6 ns</value>
   </data>
@@ -862,16 +886,16 @@
     <value>校准通道</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>保存通道</value>
+    <value>将通道校准保存到校准库</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
-    <value>清除通道</value>
+    <value>从校准库移除通道校准</value>
   </data>
   <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve">
-    <value>保存 JSON</value>
+    <value>保存配置 JSON</value>
   </data>
   <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve">
-    <value>加载 JSON</value>
+    <value>打开配置 JSON</value>
   </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>曝光 Tick</value>
@@ -1833,8 +1857,14 @@
   <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve">
     <value>单文件：4 通道原始 DNG</value>
   </data>
+  <data name="Scan_Runtime_ProfileDngExportModeLinearRaw4" xml:space="preserve">
+    <value>4 通道原始 DNG</value>
+  </data>
   <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve">
     <value>双文件：RGB 加 IR/W DNG</value>
+  </data>
+  <data name="Scan_Runtime_ProfileDngExportModeLinearRgbIrw" xml:space="preserve">
+    <value>RGB + IR/W DNG</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve">
     <value>ECC</value>
@@ -2012,6 +2042,24 @@
   </data>
   <data name="ScanDebug_ChannelLedBindingUnassigned" xml:space="preserve">
     <value>未分配</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusSaved" xml:space="preserve">
+    <value>已保存</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusUnconfigured" xml:space="preserve">
+    <value>未配置</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusInvalid" xml:space="preserve">
+    <value>当前编辑无效</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusAccessibility" xml:space="preserve">
+    <value>{0}，{1}，{2}，{3}</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusSelected" xml:space="preserve">
+    <value>已选择</value>
+  </data>
+  <data name="ScanDebug_Runtime_ChannelStatusNotSelected" xml:space="preserve">
+    <value>未选择</value>
   </data>
   <data name="ScanDebug_DisabledReasonReady" xml:space="preserve">
     <value>就绪。</value>
@@ -2532,6 +2580,9 @@
   <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve">
     <value>校准通道 '{0}' 没有已保存配置。</value>
   </data>
+  <data name="ScanDebug_Runtime_StatusCalibrationChannelRemoveCanceled" xml:space="preserve">
+    <value>已取消移除 {0}。</value>
+  </data>
   <data name="ScanDebug_Runtime_StatusClearChannelProfileFailed" xml:space="preserve">
     <value>清除通道配置失败：{0}</value>
   </data>
@@ -2555,6 +2606,15 @@
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileLoaded" xml:space="preserve">
     <value>胶片配置 '{0}' 已加载。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileStaged" xml:space="preserve">
+    <value>胶片配置 '{0}' 已读取并暂存以供审查。当前设置未更改。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileApplied" xml:space="preserve">
+    <value>胶片配置 '{0}' 已应用。</value>
+  </data>
+  <data name="ScanDebug_Runtime_StatusFilmProfileImportInvalid" xml:space="preserve">
+    <value>所选胶片配置无法暂存。请检查文件后重试。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusLoadFilmProfileFailed" xml:space="preserve">
     <value>加载胶片配置失败：{0}</value>
@@ -2929,13 +2989,13 @@
     <value>只选择最近一次扫描调试采集结果的 DNG 导出模式，不会修改所编写的扫描配置。</value>
   </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
-    <value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。</value>
+    <value>胶片配置与校准工作台：编写配置 JSON、校准通道、预览临时采集；若要让 USB 调试或正式扫描使用同一硬件，请先释放扫描仪。</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
-    <value>扫描调试工作台</value>
+    <value>胶片配置与校准</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>硬件调试工作区：用于临时采集、校准、ROI 检查和配置编写；正式扫描请回到扫描页执行。已连接的调试会话会占用 USB 设备；若要打开 USB 调试或在同一硬件上执行正式扫描，请先在此断开连接。</value>
+    <value>胶片配置与校准工作台：编写配置 JSON、校准通道、预览临时采集；若要让 USB 调试或正式扫描使用同一硬件，请先释放扫描仪。</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>状态</value>
@@ -2944,10 +3004,10 @@
     <value>详情</value>
   </data>
   <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>扫描调试详情</value>
+    <value>胶片配置与校准详情</value>
   </data>
   <data name="ScanDebug_WorkstationDetailsIconButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>扫描调试详情</value>
+    <value>胶片配置与校准详情</value>
   </data>
   <data name="ScanDebug_UsbConflictGuidance.Text" xml:space="preserve">
     <value>已连接的调试会话会占用 USB 设备。若要打开 USB 调试或在同一硬件上执行正式扫描，请先在此断开连接。</value>
@@ -3076,13 +3136,13 @@
     <value>进入扫描</value>
   </data>
   <data name="Main_ScanDebugCardTitle.Text" xml:space="preserve">
-    <value>扫描调试</value>
+    <value>胶片配置与校准</value>
   </data>
   <data name="Main_ScanDebugCardText.Text" xml:space="preserve">
-    <value>验证硬件、执行临时采集、调整校准并编写扫描配置。</value>
+    <value>在正式扫描前编写胶片配置、校准通道并执行临时采集检查。</value>
   </data>
   <data name="Main_OpenScanDebugButton.Content" xml:space="preserve">
-    <value>进入扫描调试</value>
+    <value>进入胶片配置与校准</value>
   </data>
   <data name="Main_SettingsCardTitle.Text" xml:space="preserve">
     <value>设置</value>
@@ -3235,9 +3295,116 @@
   <data name="FilmProfile_Validation_AlignmentModeInvalid" xml:space="preserve"><value>请选择受支持的对齐模式。</value></data>
   <data name="FilmProfile_Validation_DngExportModeInvalid" xml:space="preserve"><value>请选择受支持的 DNG 导出模式。</value></data>
   <data name="FilmProfile_Validation_GenericInputInvalid" xml:space="preserve"><value>请检查此胶片配置设置后重试。</value></data>
+  <data name="FilmProfile_Validation_NumberInvalid" xml:space="preserve"><value>请为 {0} 输入有效数字。</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceSummaryTitle.Text" xml:space="preserve"><value>胶片配置工作区</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceSummaryHelpText.Text" xml:space="preserve"><value>胶片级名称、文件导入导出和配方验证都在此工作区中管理。</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceNameLabel.Text" xml:space="preserve"><value>配置</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceDirtyLabel.Text" xml:space="preserve"><value>状态</value></data>
   <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content" xml:space="preserve"><value>新建胶片配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>新建胶片配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>打开配置 JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开配置 JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content" xml:space="preserve"><value>验证配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>验证配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>保存配置 JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存配置 JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>保存到校准库</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>从校准库移除</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content" xml:space="preserve"><value>应用暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>应用暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content" xml:space="preserve"><value>丢弃暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>丢弃暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentConfigLabel.Text" xml:space="preserve"><value>当前配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionMetadata.Text" xml:space="preserve"><value>1. 配置元数据</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisition.Text" xml:space="preserve"><value>2. 采集设置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionRecipe.Text" xml:space="preserve"><value>3. 扫描配方</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibration.Text" xml:space="preserve"><value>4. 通道校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionReviewStatus.Text" xml:space="preserve"><value>5. 审查与状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionBasicInfo.Text" xml:space="preserve"><value>1. 基本信息</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionBasicInfoComboBoxItem.Content" xml:space="preserve"><value>1. 基本信息</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisitionPlan.Text" xml:space="preserve"><value>2. 采集计划</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionAcquisitionPlanComboBoxItem.Content" xml:space="preserve"><value>2. 采集计划</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibrationSelector.Text" xml:space="preserve"><value>3. 通道校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionChannelCalibrationComboBoxItem.Content" xml:space="preserve"><value>3. 通道校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionLiveCalibration.Text" xml:space="preserve"><value>4. 实时校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionLiveCalibrationComboBoxItem.Content" xml:space="preserve"><value>4. 实时校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringTools.Text" xml:space="preserve"><value>5. 工程工具</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringToolsComboBoxItem.Content" xml:space="preserve"><value>5. 工程工具</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title" xml:space="preserve"><value>当前配置验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>暂存导入验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>尚未验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>有效</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationIssues" xml:space="preserve"><value>{0} 个验证问题</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationStatusTitle.Text" xml:space="preserve"><value>操作状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationInfoBar.Title" xml:space="preserve"><value>操作状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceStatusTitle.Text" xml:space="preserve"><value>设备状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationReady" xml:space="preserve"><value>就绪</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationBusy" xml:space="preserve"><value>正在处理...</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationSucceeded" xml:space="preserve"><value>操作已完成</value></data>
+   <data name="ScanDebug_FilmProfileWorkbenchOperationFailed" xml:space="preserve"><value>操作失败：{0}</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchOperationCanceled" xml:space="preserve"><value>操作已取消。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceDisconnected" xml:space="preserve"><value>扫描仪未连接</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDeviceConnected" xml:space="preserve"><value>扫描仪已连接</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportTitle.Text" xml:space="preserve"><value>暂存导入审查</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>应用前请审查已加载的 JSON。应用会替换当前工作区配置；丢弃会保留当前设置不变。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNameLabel.Text" xml:space="preserve"><value>暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelsLabel.Text" xml:space="preserve"><value>通道</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedValidationInfoBar.Title" xml:space="preserve"><value>暂存导入验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNone" xml:space="preserve"><value>没有暂存配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelCount" xml:space="preserve"><value>{0} 个通道配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportNoChannels" xml:space="preserve"><value>没有暂存通道</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportDirtyWarning" xml:space="preserve"><value>应用此导入会替换当前未保存的配置更改。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>配置身份</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>编辑胶片级名称和文档输出选项。更改会保留在工作区中，直到保存或应用。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>色彩与扫描配方</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text" xml:space="preserve"><value>这些值来自活动配置快照，并会立即更新草稿，即使扫描仪离线也是如此。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>当前保存与验证状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text" xml:space="preserve"><value>验证会列出准确字段路径和可操作消息，之后才能继续保存或应用。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header" xml:space="preserve"><value>配置名称</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText" xml:space="preserve"><value>例如 5207</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>配置名称</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.Header" xml:space="preserve"><value>使用配置色彩管理</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.OnContent" xml:space="preserve"><value>开</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.OffContent" xml:space="preserve"><value>关</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRedWavelengthTextBox.Header" xml:space="preserve"><value>红色波长 (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicGreenWavelengthTextBox.Header" xml:space="preserve"><value>绿色波长 (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicBlueWavelengthTextBox.Header" xml:space="preserve"><value>蓝色波长 (nm)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicOutputGammaTextBox.Header" xml:space="preserve"><value>输出伽马</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointComboBox.Header" xml:space="preserve"><value>目标白点</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointD65ComboBoxItem.Content" xml:space="preserve"><value>D65</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointD50ComboBoxItem.Content" xml:space="preserve"><value>D50</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointManualComboBoxItem.Content" xml:space="preserve"><value>手动色温</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicManualWhitePointColorTemperatureTextBox.Header" xml:space="preserve"><value>手动色温 (K)</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupTitle.Text" xml:space="preserve"><value>采集设置</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupDescription.Text" xml:space="preserve"><value>编辑所编写胶片配置的离线采集默认值。仅硬件实时操作仍位于实时校准或工程工具中。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusTitle.Text" xml:space="preserve"><value>保存与验证状态</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>行数、距离、通道启用和顺序更改会立即更新摘要，输入无效时会阻止保存。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>采集调试开关</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>用于工程验证的底层扫描流程开关。除非硬件调试流程明确要求，否则请保持关闭。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>实时扫描运行控件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>在实时校准迁移完成前，扫描开始、停止、进度和调试 DNG 导出控件暂时集中在这里。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>Progress / 进度会在扫描运行时显示在这里。</value></data>
+  <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>胶片配置生命周期页眉</value></data>
+  <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>暂存胶片配置导入审查</value></data>
+  <data name="ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>实时校准区域</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeWorkspace" xml:space="preserve"><value>当前工作区</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>配置 JSON 文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>校准库</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeUnsaved" xml:space="preserve"><value>未保存更改</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusReady" xml:space="preserve"><value>{0}：就绪</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusMissingCalibration" xml:space="preserve"><value>{0}：缺少校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusEmpty" xml:space="preserve"><value>{0}：为空</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchChannelStatusSavedAt" xml:space="preserve"><value>{0}：保存于 {1}</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewEmptyTitle.Text" xml:space="preserve"><value>暂无校准预览</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewEmptyDescription.Text" xml:space="preserve"><value>打开或捕获配置后预览校准数据。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewExpandCollapsed" xml:space="preserve"><value>显示预览详情</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPreviewExpandExpanded" xml:space="preserve"><value>隐藏预览详情</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationTitle.Text" xml:space="preserve"><value>胶片配置有未保存更改</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationMessage.Text" xml:space="preserve"><value>打开其他配置前请保存或丢弃更改。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationStayButton.Content" xml:space="preserve"><value>继续编辑</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchDirtyConfirmationDiscardButton.Content" xml:space="preserve"><value>丢弃更改</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>将配置 JSON 保存到文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>将所选通道校准保存到校准库</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>从校准库移除所选通道校准</value></data>
   </root>

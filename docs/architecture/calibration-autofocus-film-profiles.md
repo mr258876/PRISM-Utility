@@ -93,14 +93,14 @@ ServiceCoverage: ScanFilmProfileWorkspace
 | 胶片配置字符化 | `Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryCharacterizationTests.cs` | 角色名 trim 和大小写、黑位小于白位、旧格式迁移后的 ROI 默认值。 |
 | 文档服务 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs` | schema 5、无效通道、混合有效和无效通道、确定性序列化、稳定验证顺序。 |
 | 工作区 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` | 暂存和丢弃零写入、应用成功和失败、初始化并发、读取期间突变保护、导出补丁和时间戳。 |
-| 编辑器协作 | `Host Software/PrismUtility.Core.Tests/FilmProfileEditorViewModelTests.cs` | UI 视图模型对工作区快照、保存、导入和导出状态的投影。 |
+| ScanDebug 胶片档案 workspace | `Host Software/PrismUtility.Core.Tests/FilmProfileSourceContractTests.cs`, `Host Software/PrismUtility.Core.Tests/FilmProfileLocalizationAccessibilityContractTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanDebugFilmProfileOrchestrationSourceTests.cs` | ScanDebug 的 JSON New/Open/Validate/Save、staged review Apply/Discard、current/staged validation、dirty-state 投影和本地化/accessibility source contracts。 |
 | CAL-001 managed 校准和自动对焦 | `Host Software/PrismUtility.Core.Tests/Cal001AutoCalibrationAndFocusTests.cs` | 15 个 deterministic fake tests 覆盖 dark convergence、white convergence、black/white oscillation best restore、invalid decoded width、ROI clamp、scan failure、motion timeout、cancellation、warm-up cleanup、focus motor IDs 0/2 stop on success/failure/cancel/timeout，以及未归一化 Brenner sharpness。 |
 
 CAL-001 的 managed 测试缺口已关闭。当前证据是 `Cal001AutoCalibrationAndFocusTests.cs` 的 15 个 deterministic fake tests、full managed suite 555/555、Core build 和 app build 通过。P2 的 `EXTRACTION_BLOCKED`、`SPLIT_BLOCKED` 结果不影响这些 Core service tests, 因为它们直接验证 `ScanAutoCalibrationService`、`ScanAutoFocusService` 和 fake `IScanSessionService`/`IScanImageDecoder` 边界。
 
 剩余缺口只在环境面。真实 scanner、真实照明、真实焦点运动、物理 warm-up 和硬件 smoke 仍为 `ENVIRONMENT_BLOCKED`，不能写成通过。CAL-002 仍保持独立：自动对焦 sharpness 当前按未归一化 Brenner 能量记录，managed tests 只是锁定这个当前行为，不关闭或改变 CAL-002。
 
-VM-002 的 task 21 结果与胶片档案相关，但只作为回归保护使用。它确认 `ScanDebugViewModel` 仍拥有 film profile workspace subscription、external snapshot projection、`SaveFilmProfileJson`、`LoadFilmProfileJson`、`ApplyStagedFilmProfileImport`、`DiscardStagedFilmProfileImport`、`CaptureCurrentFilmProfileAndOpenEditor`、`OpenFilmProfileEditor`、`SynchronizeFilmProfileDraftFromInputs`、`RefreshFilmProfileWorkspaceProjection`、`ApplyDraftToFields`、validation issue projection 和 dirty-state projection。FilmProfile regression 204/204 通过，说明 characterization 没有破坏现有 profile workspace/editor contract；这不是 production split，也不关闭 VM-002。CAL-001 managed tests 已可在不假定 ScanDebugViewModel 拆分的情况下关闭 managed gap；DNG-001 仍可继续补 DNG 托管和原生错误路径测试。
+VM-002 的 task 21 结果与胶片档案相关，但只作为回归保护使用。它确认 `ScanDebugViewModel` 仍拥有 film profile workspace subscription、external snapshot projection、`NewFilmProfile`、`ValidateFilmProfile`、`SaveFilmProfileJson`、`LoadFilmProfileJson`、`ApplyStagedFilmProfileImport`、`DiscardStagedFilmProfileImport`、`SynchronizeFilmProfileDraftFromInputs`、`RefreshFilmProfileWorkspaceProjection`、`ApplyDraftToFields`、current/staged validation issue projection 和 dirty-state projection。FilmProfile regression 204/204 通过，说明 characterization 没有破坏现有 profile workspace contract；这不是 production split，也不关闭 VM-002。CAL-001 managed tests 已可在不假定 ScanDebugViewModel 拆分的情况下关闭 managed gap；DNG-001 仍可继续补 DNG 托管和原生错误路径测试。
 
 ## Known issues and solutions
 

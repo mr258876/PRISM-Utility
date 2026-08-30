@@ -42,6 +42,41 @@ public sealed class NavigationRouteContractTests
     }
 
     [Fact]
+    public void UI002_ScanDebugRouteIdentityRemainsInternalDuringDisplayRename()
+    {
+        var pageService = ReadAppSource("Services", "PageService.cs");
+        var shell = ReadAppSource("Views", "ShellPage.xaml");
+        var routeEnum = ReadAppSource("Contracts", "Navigation", "AppRoute.cs");
+        var pageCodeBehind = ReadAppSource("Views", "ScanDebugPage.xaml.cs");
+        var viewModel = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
+
+        Assert.Equal("ScanDebug", AppRoute.ScanDebug.ToString());
+        Assert.Contains("ScanDebug,", routeEnum, StringComparison.Ordinal);
+        Assert.DoesNotContain("FilmProfile", routeEnum, StringComparison.Ordinal);
+        Assert.Contains("Configure<ScanDebugPage, ScanDebugViewModel>(AppRoute.ScanDebug)", pageService, StringComparison.Ordinal);
+        Assert.Contains("x:Uid=\"Shell_ScanDebug\" helpers:NavigationHelper.NavigateTo=\"ScanDebug\"", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Class=\"PRISM_Utility.Views.ScanDebugPage\"", ReadAppSource("Views", "ScanDebugPage.xaml"), StringComparison.Ordinal);
+        Assert.Contains("class ScanDebugPage : Page, IPageViewModelHost<ScanDebugViewModel>", pageCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("public ScanDebugViewModel ViewModel", pageCodeBehind, StringComparison.Ordinal);
+        Assert.Contains("Scan_Runtime_", viewModel, StringComparison.Ordinal);
+        Assert.Contains("ScanDebug_Runtime_", viewModel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UI002_ScanDebugRouteIdentityContract_RejectsSyntheticMissingInternalTokens()
+    {
+        const string routeSources = """
+            public enum AppRoute { ScanDebug }
+            <NavigationViewItem helpers:NavigationHelper.NavigateTo="ScanDebug" />
+            Configure<ScanDebugPage, MissingViewModel>(AppRoute.ScanDebug)
+            """;
+
+        Assert.Equal(["ScanDebugViewModel"], FilmProfileContractSource.FindMissingTokens(
+            ["AppRoute.ScanDebug", "NavigateTo=\"ScanDebug\"", "ScanDebugPage", "ScanDebugViewModel"],
+            routeSources));
+    }
+
+    [Fact]
     public void UI002_ProductionNavigationDoesNotUseViewModelFullNameOrStringRouteKeys()
     {
         var productionFiles = new[]

@@ -10,7 +10,7 @@
 
 Host Software 的入口解决方案是 `Host Software/PRISM Utility.sln`。它包含 WinUI 应用 `PrismUtility`、核心库 `PrismUtility.Core`、xUnit 测试项目 `PrismUtility.Core.Tests` 和原生动态库项目 `DngSdkWarpper`。`Host Software/README.md` 记录了 Windows 10 1809 或更高版本、.NET 8 SDK、Visual Studio 2022 with WinUI and Windows App SDK tooling，以及兼容的命令行 MSBuild 环境。
 
-测试项目 `Host Software/PrismUtility.Core.Tests/PrismUtility.Core.Tests.csproj` 目标框架是 `net8.0-windows10.0.19041.0`，启用 nullable 和 preview 语言版本，引用 xUnit、Microsoft.NET.Test.Sdk、coverlet，并链接 WinUI 项目中的 `FilmProfileEditorModels.cs` 和 `FilmProfileEditorViewModel.cs`。胶片配置 fixture 会从 Fixtures\FilmProfile 下的 JSON 文件复制到输出目录。
+测试项目 `Host Software/PrismUtility.Core.Tests/PrismUtility.Core.Tests.csproj` 目标框架是 `net8.0-windows10.0.19041.0`，启用 nullable 和 preview 语言版本，引用 xUnit、Microsoft.NET.Test.Sdk、coverlet，并链接当前 source-contract tests 所需的导航、设置、本地化、PageService 和 helper 源。胶片配置 fixture 会从 Fixtures\FilmProfile 下的 JSON 文件复制到输出目录。
 
 文档验证器是 `Host Software/docs/architecture/validate-docs.ps1`。Partial 模式接收指定文件，Full 模式检查交付清单。主题文档必须有 scope、functionality、key entry points、implementation、control and data flow、dependencies、state and concurrency、error handling、test coverage、known issues and solutions、related source 等章节，并且除 README 外需要 Mermaid fenced block。验证器还检查本地链接、反引号中的源路径、重复 Issue ID，以及自测 fixture 是否能拒绝损坏文档。
 
@@ -24,7 +24,7 @@ Host Software 的入口解决方案是 `Host Software/PRISM Utility.sln`。它�
 
 ## Implementation mechanism
 
-测试覆盖主要集中在核心服务和源契约。测试项目没有引用 WinUI UI 自动化框架，也没有在测试中构建或加载 `DngSdkWarpper.dll`。因此测试能很好地保护扫描会话协调、USB 租约、工作流顺序、胶片配置状态、JSON schema、编辑器视图模型逻辑和 DNG 托管验证/status seam，但不能证明 WinUI 视觉交互、真实 USB 硬件、真实扫描电机运动或原生 DNG 写入都已通过。
+测试覆盖主要集中在核心服务和源契约。测试项目没有引用 WinUI UI 自动化框架，也没有在测试中构建或加载 `DngSdkWarpper.dll`。因此测试能很好地保护扫描会话协调、USB 租约、工作流顺序、胶片配置状态、JSON schema、ScanDebug film-profile source contracts、workspace 行为和 DNG 托管验证/status seam，但不能证明 WinUI 视觉交互、真实 USB 硬件、真实扫描电机运动或原生 DNG 写入都已通过。
 
 解决方案中的原生项目使用 Visual Studio 17 生成的 `.vcxproj`，每个 Debug 和 Release 配置都使用 `PlatformToolset` v143，平台包括 Win32、x64、ARM64。`.sln` 把 x86 映射到 Win32，把 x64 映射到 x64，把 arm64 映射到 ARM64。项目引用 Adobe DNG SDK、libjxl include 路径和 zlib 源路径，并排除 `dng_jxl`、`dng_validate`、`dng_update_meta` 等 SDK 源。没有这些 SDK 文件时，原生项目不能被当成普通可用构建路径。
 
@@ -78,7 +78,7 @@ Representative files in the current test project are listed below.
 
 | Area | Representative files | What they cover | Main gaps |
 | --- | --- | --- | --- |
-| Film profile editor | `Host Software/PrismUtility.Core.Tests/FilmProfileEditorViewModelTests.cs`, `Host Software/PrismUtility.Core.Tests/FilmProfileEditorSourceContractTests.cs`, `Host Software/PrismUtility.Core.Tests/FilmProfileEditorLocalizationAccessibilityContractTests.cs` | Editor commands, source contracts, localization and accessibility contracts. | Real WinUI rendering, keyboard focus and visual QA. |
+| Film profile ScanDebug workspace | `Host Software/PrismUtility.Core.Tests/FilmProfileSourceContractTests.cs`, `Host Software/PrismUtility.Core.Tests/FilmProfileLocalizationAccessibilityContractTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanDebugFilmProfileOrchestrationSourceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` | ScanDebug JSON New/Open/Validate/Save command surface, staged review Apply/Discard, source contracts, localization/accessibility contracts and workspace transitions. | Real WinUI rendering, keyboard focus, file picker UI and visual QA. |
 | Film profile services | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryTests.cs` | Schema 5 parsing, malformed and future documents, workspace dirty state, import staging, repository migration and write failures. | Hardware produced calibration values and full UI file picker flow. |
 | CAL-001 calibration and autofocus | `Host Software/PrismUtility.Core.Tests/Cal001AutoCalibrationAndFocusTests.cs` | 15 deterministic fake tests cover dark/white convergence, black/white oscillation best restore, invalid decoded width, ROI clamp, scan failures, motion timeout, cancellation, warm-up cleanup, focus motor IDs 0/2 stop on all paths and unnormalized Brenner metric lock. | Physical scanner, real illumination, real focus motion and hardware smoke remain `ENVIRONMENT_BLOCKED`. |
 | Scan workflow and sessions | `Host Software/PrismUtility.Core.Tests/ScanWorkflowServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanWorkflowSessionCoordinatorTests.cs`, `Host Software/PrismUtility.Core.Tests/ScannerLifecycleIntegrationRegressionTests.cs` | Illumination off before returns, motor transport disabled, progress metadata, warm-up ownership and cleanup, coordinator lifecycle and integration regressions. | Live scanner timing, physical warm-up behavior and hung motion behavior on real firmware. |
@@ -101,7 +101,7 @@ Durable project quality gate matrix:
 | UI and hardware evidence | Cover behavior outside the managed test harness. | Manual or automated smoke uses the WinUI surface and supported scanner hardware when those surfaces are available. | APP live unhandled-event smoke, physical USB timing and warm-up hardware behavior remain `ENVIRONMENT_BLOCKED` unless a live app session and PRISM hardware are available. |
 | Temp cleanup | Keep validator self-tests from leaving repository or system temp residue. | Self-test output reports `Self-test temp fixture cleaned: True`. | This only proves validator fixture cleanup, not cleanup in application services. |
 
-TEST-002 current boundary: source contracts are maintained for typed routes, Page host contracts, VM-001 lifecycle characterization, UI-006 Scan workspace ownership, UI-007 ScanDebug geometry ownership, VM-002 ScanDebug public surface and SET-005 settings save behavior. The current source-contract filters pass, but they do not drive a real WinUI surface. Historical native UIA captures exist for route navigation, Settings normal/recovery states, Film Profile Editor states, ScanDebug external projection, CJK inspection and export picker recheck. Those captures are task-specific evidence inventory, not a maintained comprehensive UI automation suite. A current rerun of the checked-in native UIA shell script is `HARNESS_BLOCKED` in this PowerShell 5.1 shell because the script's Chinese literals do not parse here and `pwsh` is unavailable. TEST-002 therefore remains blocked.
+TEST-002 current boundary: source contracts are maintained for typed routes, Page host contracts, VM-001 lifecycle characterization, UI-006 Scan workspace ownership, UI-007 ScanDebug geometry ownership, VM-002 ScanDebug public surface, ScanDebug film-profile contracts and SET-005 settings save behavior. The current source-contract filters pass, but they do not drive a real WinUI surface. Historical native UIA captures exist for route navigation, Settings normal/recovery states, old editor states, ScanDebug external projection, CJK inspection and export picker recheck. Those captures are task-specific evidence inventory, not a maintained comprehensive UI automation suite. A current rerun of the checked-in native UIA shell script is `HARNESS_BLOCKED` in this PowerShell 5.1 shell because the script's Chinese literals do not parse here and `pwsh` is unavailable. TEST-002 therefore remains blocked.
 
 Unautomated end-to-end UI states remain: NavigationCache lifecycle safety, ScanDebug Canvas pointer and ROI interactions, file picker cancel and success paths, Settings save-error InfoBar render and accessibility, language switch state retention, window-close teardown and hardware-driven pages.
 
@@ -113,7 +113,7 @@ The test project has broad managed coverage and task 23 added direct managed `Dn
 
 Issue-ID: TEST-BUILD-002
 
-WinUI coverage is mostly source and view model based. Current maintained filters pass for UI-002, UI-003, VM-001, UI-006, UI-007 and VM-002 contracts, and SET-005 has save-result logic coverage. Existing native UIA route, Settings, ScanDebug, Film Profile Editor, CJK and export-picker artifacts remain historical task-specific inventory only. They do not close TEST-002 because there is no maintained suite for NavigationCache lifecycle safety, ScanDebug Canvas pointer and ROI interactions, file picker cancel and success, Settings save-error InfoBar render and accessibility, language switch state retention, window-close teardown or hardware-driven pages. Add UI automation or equivalent WinUI tooling only if the team chooses to introduce that dependency.
+WinUI coverage is mostly source and view model based. Current maintained filters pass for UI-002, UI-003, VM-001, UI-006, UI-007, VM-002 and ScanDebug film-profile contracts, and SET-005 has save-result logic coverage. Existing native UIA route, Settings, ScanDebug, old editor, CJK and export-picker artifacts remain historical task-specific inventory only. They do not close TEST-002 because there is no maintained suite for NavigationCache lifecycle safety, ScanDebug Canvas pointer and ROI interactions, file picker cancel and success, Settings save-error InfoBar render and accessibility, language switch state retention, window-close teardown or hardware-driven pages. Add UI automation or equivalent WinUI tooling only if the team chooses to introduce that dependency.
 
 Issue-ID: TEST-BUILD-003
 
@@ -133,7 +133,11 @@ Registry links: TEST-BUILD-001 -> [DNG-001](issues-and-remediation.md#dng-001); 
 
 `Host Software/DngSdkWarpper/DngSdkWarpper.vcxproj`
 
-`Host Software/PrismUtility.Core.Tests/FilmProfileEditorViewModelTests.cs`
+`Host Software/PrismUtility.Core.Tests/FilmProfileSourceContractTests.cs`
+
+`Host Software/PrismUtility.Core.Tests/FilmProfileLocalizationAccessibilityContractTests.cs`
+
+`Host Software/PrismUtility.Core.Tests/ScanDebugFilmProfileOrchestrationSourceTests.cs`
 
 `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`
 
