@@ -37,16 +37,23 @@
     <Compile Include="..\PRISM Utility\Contracts\Services\IPageService.cs" Link="Services\IPageService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputMirrorService.cs" Link="Services\IDebugOutputMirrorService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputSettingsService.cs" Link="Services\IDebugOutputSettingsService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IScanChannelImageService.cs" Link="Services\IScanChannelImageService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IScanPreviewPresenter.cs" Link="Services\IScanPreviewPresenter.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\ILanguageSelectorService.cs" Link="Services\ILanguageSelectorService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IThemeSelectorService.cs" Link="Services\IThemeSelectorService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IUiDispatcher.cs" Link="Services\IUiDispatcher.cs" />
     <Compile Include="..\PRISM Utility\Contracts\ViewModels\INavigationAware.cs" Link="ViewModels\INavigationAware.cs" />
     <Compile Include="..\PRISM Utility\Contracts\ViewModels\IPageViewModelHost.cs" Link="ViewModels\IPageViewModelHost.cs" />
     <Compile Include="..\PRISM Utility\Helpers\FrameExtensions.cs" Link="Helpers\FrameExtensions.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\FilmProfileValidationTextPresenter.cs" Link="Helpers\FilmProfileValidationTextPresenter.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\NavigationTimingLogger.cs" Link="Helpers\NavigationTimingLogger.cs" />
     <Compile Include="..\PRISM Utility\Helpers\ResourceExtensions.cs" Link="Helpers\ResourceExtensions.cs" />
     <Compile Include="..\PRISM Utility\Helpers\RuntimeHelper.cs" Link="Helpers\RuntimeHelper.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\ScanRuntimeMessageLocalizer.cs" Link="Helpers\ScanRuntimeMessageLocalizer.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\ScanSelectorDisplayNameConverter.cs" Link="Helpers\ScanSelectorDisplayNameConverter.cs" />
     <Compile Include="..\PRISM Utility\Models\AppLanguageOption.cs" Link="Models\AppLanguageOption.cs" />
     <Compile Include="..\PRISM Utility\Models\LocalSettingsOptions.cs" Link="Models\LocalSettingsOptions.cs" />
+    <Compile Include="..\PRISM Utility\Models\ScanWorkflowModels.cs" Link="Models\ScanWorkflowModels.cs" />
     <Compile Include="..\PRISM Utility\Services\DebugOutputMirrorService.cs" Link="Services\DebugOutputMirrorService.cs" />
     <Compile Include="..\PRISM Utility\Services\DebugOutputSettingsService.cs" Link="Services\DebugOutputSettingsService.cs" />
     <Compile Include="..\PRISM Utility\Services\LanguageSelectorService.cs" Link="Services\LanguageSelectorService.cs" />
@@ -58,6 +65,7 @@
 
   <ItemGroup>
     <Compile Include="..\PRISM Utility\ViewModels\SettingsViewModel.cs" Link="ViewModels\SettingsViewModel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.cs" Link="ViewModels\ScanDebugViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

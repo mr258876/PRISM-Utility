@@ -1,4 +1,5 @@
 using System.Threading;
+using System.Runtime.ExceptionServices;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Models;
 
@@ -7,6 +8,8 @@ namespace PRISM_Utility.Core.Services;
 public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, IAsyncDisposable
 {
     private static readonly TimeSpan DefaultShutdownCleanupTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DefaultMotionStopCommandTimeout = TimeSpan.FromSeconds(4);
+    private static readonly byte[] MotionMotorIds = [0, 1, 2];
 
     [ThreadStatic]
     private static ScannerDeviceSessionManager? _snapshotDispatchingManager;
@@ -16,6 +19,7 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
     private readonly IScanSessionServiceFactory _sessionFactory;
     private readonly IUsbUsageCoordinator _usbUsageCoordinator;
     private readonly TimeSpan _shutdownCleanupTimeout;
+    private readonly TimeSpan _motionStopCommandTimeout;
     private readonly Queue<ScannerDeviceSessionSnapshot> _pendingSnapshotNotifications = [];
 
     private ScannerDeviceSessionSnapshot _snapshot = ScannerDeviceSessionSnapshot.Disconnected(DateTimeOffset.UtcNow);
@@ -23,6 +27,8 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
     private TaskCompletionSource? _mutationPhaseCompletion;
     private OwnershipContext? _ownership;
     private ActiveOperationContext? _activeOperation;
+    private MotionStopContext? _motionStop;
+    private long _operationGeneration;
     private TaskCompletionSource? _teardownCompletion;
     private Task? _disposeCleanup;
     private PendingReconnectContext? _pendingReconnect;
@@ -32,11 +38,13 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
     public ScannerDeviceSessionManager(
         IScanSessionServiceFactory sessionFactory,
         IUsbUsageCoordinator usbUsageCoordinator,
-        TimeSpan? shutdownCleanupTimeout = null)
+        TimeSpan? shutdownCleanupTimeout = null,
+        TimeSpan? motionStopCommandTimeout = null)
     {
         _sessionFactory = sessionFactory;
         _usbUsageCoordinator = usbUsageCoordinator;
         _shutdownCleanupTimeout = shutdownCleanupTimeout ?? DefaultShutdownCleanupTimeout;
+        _motionStopCommandTimeout = motionStopCommandTimeout ?? DefaultMotionStopCommandTimeout;
     }
 
     public event EventHandler<ScannerDeviceSessionSnapshot>? SnapshotChanged;
@@ -320,6 +328,107 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         }
     }
 
+    public Task<ScanOperationResult> StopAllMotionAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+
+        MotionStopContext? motionStop;
+        lock (_stateGate)
+        {
+            if (_motionStop is not null)
+                return _motionStop.Completion.Task;
+
+            if (_session?.IsConnected != true)
+                return Task.FromResult(new ScanOperationResult(false, "No connected scanner session is available for a global motor stop."));
+
+            var activeOperation = _activeOperation;
+            motionStop = new MotionStopContext(_session, activeOperation, ++_operationGeneration);
+            _motionStop = motionStop;
+            activeOperation?.CancelForMotionStop();
+        }
+
+        _ = Task.Run(() => CompleteMotionStopAsync(motionStop));
+        _ = Task.Run(() => ReportMotionStopDeadlineAsync(motionStop));
+        return motionStop.Completion.Task;
+    }
+
+    private async Task CompleteMotionStopAsync(MotionStopContext motionStop)
+    {
+        var failures = new List<string>();
+        try
+        {
+            if (motionStop.ActiveOperation is not null)
+                await motionStop.ActiveOperation.Completion.Task;
+
+            var mutation = await BeginInternalMutationAsync(allowActiveOperation: true, allowMotionStop: true);
+            await using (mutation)
+            {
+                for (var index = 0; index < MotionMotorIds.Length; index++)
+                {
+                    var motorId = MotionMotorIds[index];
+                    lock (_stateGate)
+                        motionStop.AttemptedMotorCount = index + 1;
+
+                    using var commandTimeout = new CancellationTokenSource(_motionStopCommandTimeout);
+                    try
+                    {
+                        await motionStop.Session.StopMotorAsync(motorId, commandTimeout.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add($"motor {motorId}: {ex.GetType().Name}: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"transaction: {ex.GetType().Name}: {ex.Message}");
+        }
+
+        bool activeProducerStillCompleting;
+        lock (_stateGate)
+        {
+            motionStop.DispatchCompleted = true;
+            activeProducerStillCompleting = motionStop.ActiveOperation is not null
+                && !motionStop.ActiveOperation.Completion.Task.IsCompleted;
+        }
+
+        var unattempted = MotionMotorIds.Skip(motionStop.AttemptedMotorCount).ToArray();
+        var message = failures.Count == 0
+            ? "Motor stop commands completed for IDs 0, 1, and 2. Hardware motion state was not verified."
+            : $"Motor stop commands completed with failures: {string.Join("; ", failures)}. Hardware motion state was not verified.";
+        if (unattempted.Length > 0)
+            message += $" Unattempted motors: {string.Join(", ", unattempted)}.";
+        if (activeProducerStillCompleting)
+            message += " The active producer is still completing after cancellation, so new session mutations remain blocked.";
+
+        motionStop.Completion.TrySetResult(new ScanOperationResult(failures.Count == 0 && unattempted.Length == 0 && !activeProducerStillCompleting, message));
+        CompleteMotionStopQuarantine(motionStop);
+    }
+
+    private async Task ReportMotionStopDeadlineAsync(MotionStopContext motionStop)
+    {
+        await Task.Delay(_shutdownCleanupTimeout);
+
+        int attemptedMotorCount;
+        bool dispatchCompleted;
+        lock (_stateGate)
+        {
+            dispatchCompleted = motionStop.DispatchCompleted;
+            attemptedMotorCount = motionStop.AttemptedMotorCount;
+        }
+
+        if (dispatchCompleted)
+            return;
+
+        var unattempted = MotionMotorIds.Skip(attemptedMotorCount).ToArray();
+        motionStop.Completion.TrySetResult(new ScanOperationResult(
+            false,
+            $"Global motor stop timed out with an unknown outcome. The current command transaction remains quarantined. Unattempted motors: {string.Join(", ", unattempted)}. Hardware motion state was not verified."));
+    }
+
     public async Task<ScanStopResult> StopAsync(string leaseId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(leaseId))
@@ -543,17 +652,36 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         ArgumentNullException.ThrowIfNull(action);
         ct.ThrowIfCancellationRequested();
 
-        var operation = await BeginOperationAsync(sessionResolver, ownerResolver, stateResolver, ct, waitForAvailability);
+        long operationGeneration;
+        lock (_stateGate)
+        {
+            if (_motionStop is not null)
+                throw new InvalidOperationException("A global motor stop is in progress. New scanner operations are blocked until it completes.");
+
+            operationGeneration = _operationGeneration;
+        }
+
+        var operation = await BeginOperationAsync(sessionResolver, ownerResolver, stateResolver, ct, waitForAvailability, operationGeneration);
         try
         {
             return await action(operation.Session, operation.CancellationToken);
         }
         catch (TimeoutException ex)
         {
-            await HandleOperationFaultAsync(operation, ScannerSessionFaultCode.TransferFailed, ex.Message, false);
+            await HandleOperationFaultPreservingPrimaryAsync(operation, ScannerSessionFaultCode.TransferFailed, ex, false);
             throw;
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested && !operation.CancellationRequestedByTeardown)
+        catch (IOException ex)
+        {
+            var faultCode = operation.Session.ConnectionToken.IsCancellationRequested || !operation.Session.IsConnected
+                ? ScannerSessionFaultCode.DeviceAccessLost
+                : ScannerSessionFaultCode.TransferFailed;
+            await HandleOperationFaultPreservingPrimaryAsync(operation, faultCode, ex, faultCode == ScannerSessionFaultCode.DeviceAccessLost);
+            throw;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested
+            && !operation.CancellationRequestedByTeardown
+            && !operation.CancellationRequestedByMotionStop)
         {
             await HandleOperationFaultAsync(operation, ClassifyOperationCancellation(operation.Session), "Scanner session action was canceled because the device session ended unexpectedly.", true);
             throw;
@@ -569,7 +697,8 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         Func<ScannerSessionOwner?> ownerResolver,
         Func<ScannerSessionState> stateResolver,
         CancellationToken ct,
-        bool waitForAvailability)
+        bool waitForAvailability,
+        long operationGeneration)
     {
         while (true)
         {
@@ -583,6 +712,16 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
             {
                 lock (_stateGate)
                 {
+                    if (operationGeneration != _operationGeneration)
+                    {
+                        throw new OperationCanceledException("The queued scanner operation was canceled by a global motor stop.");
+                    }
+
+                    if (_motionStop is not null)
+                    {
+                        throw new InvalidOperationException("A global motor stop is in progress. New scanner operations are blocked until it completes.");
+                    }
+
                     if (_activeOperation is null && _teardownCompletion is null)
                     {
                         var session = sessionResolver();
@@ -611,10 +750,13 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
     private async Task HandleOperationFaultAsync(ActiveOperationContext operation, ScannerSessionFaultCode code, string message, bool allowReconnectPromptOnRedetection)
     {
-        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
+        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true, allowMotionStop: true);
 
         await using (mutation)
         {
+            if (_motionStop is not null)
+                return;
+
             if (!ReferenceEquals(_activeOperation, operation))
                 return;
 
@@ -624,7 +766,7 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
     private async Task CompleteOperationAsync(ActiveOperationContext operation)
     {
-        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
+        var mutation = await BeginInternalMutationAsync(allowActiveOperation: true, allowMotionStop: true);
 
         try
         {
@@ -647,6 +789,51 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         finally
         {
             operation.Complete();
+            CompleteMotionStopGate(operation);
+        }
+    }
+
+    private async Task HandleOperationFaultPreservingPrimaryAsync(ActiveOperationContext operation, ScannerSessionFaultCode code, Exception primaryFailure, bool allowReconnectPromptOnRedetection)
+    {
+        try
+        {
+            await HandleOperationFaultAsync(operation, code, primaryFailure.Message, allowReconnectPromptOnRedetection);
+        }
+        catch (Exception cleanupFailure)
+        {
+            IEnumerable<Exception> failures = cleanupFailure is AggregateException aggregate
+                ? aggregate.InnerExceptions
+                : [cleanupFailure];
+            throw new AggregateException("Scanner operation failed and fault cleanup also failed.", new[] { primaryFailure }.Concat(failures));
+        }
+
+        ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+        throw new InvalidOperationException("Unreachable primary fault preservation path.");
+    }
+
+    private void CompleteMotionStopGate(ActiveOperationContext operation)
+    {
+        MotionStopContext? motionStop;
+        lock (_stateGate)
+            motionStop = _motionStop?.ActiveOperation == operation ? _motionStop : null;
+
+        if (motionStop is not null)
+            CompleteMotionStopQuarantine(motionStop);
+    }
+
+    private void CompleteMotionStopQuarantine(MotionStopContext motionStop)
+    {
+        lock (_stateGate)
+        {
+            if (!ReferenceEquals(_motionStop, motionStop)
+                || !motionStop.DispatchCompleted
+                || (motionStop.ActiveOperation is not null && !motionStop.ActiveOperation.Completion.Task.IsCompleted))
+            {
+                return;
+            }
+
+            _motionStop = null;
+            motionStop.QuarantineCompletion.TrySetResult();
         }
     }
 
@@ -770,6 +957,19 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
     {
         while (true)
         {
+            MotionStopContext? motionStop;
+            lock (_stateGate)
+                motionStop = _motionStop;
+
+            if (motionStop is not null)
+            {
+                await motionStop.QuarantineCompletion.Task;
+                if (motionStop.ActiveOperation is not null)
+                    await motionStop.ActiveOperation.Completion.Task;
+
+                continue;
+            }
+
             var mutation = await BeginInternalMutationAsync(allowActiveOperation: true);
             ActiveOperationContext? operation = null;
             Task? activeTeardown = null;
@@ -1001,7 +1201,7 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
     {
         IScanSessionService? session;
         OwnershipContext? ownership;
-        Exception? cleanupException = null;
+        var cleanupFailures = new List<Exception>();
 
         lock (_stateGate)
         {
@@ -1022,27 +1222,34 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
             }
             catch (Exception ex)
             {
-                cleanupException = ex;
+                cleanupFailures.Add(ex);
             }
 
             try
             {
                 await session.DisposeAsync();
             }
-            catch (Exception ex) when (cleanupException is null)
+            catch (Exception ex)
             {
-                cleanupException = ex;
+                cleanupFailures.Add(ex);
             }
         }
 
         if (ownership is not null && ownership.TryBeginRelease())
         {
-            await ownership.UsbLease.ReleaseAsync(CancellationToken.None);
-            ownership.MarkReleased();
+            try
+            {
+                await ownership.UsbLease.ReleaseAsync(CancellationToken.None);
+                ownership.MarkReleased();
+            }
+            catch (Exception ex)
+            {
+                cleanupFailures.Add(ex);
+            }
         }
 
-        if (cleanupException is not null)
-            throw cleanupException;
+        if (cleanupFailures.Count > 0)
+            throw new AggregateException("Scanner session cleanup failed.", cleanupFailures);
     }
 
     private async ValueTask<bool> ReleaseLeaseAsync(OwnershipContext context, CancellationToken ct)
@@ -1125,7 +1332,8 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         bool waitForAvailability = false,
         bool allowDisposed = false,
         bool allowActiveOperation = false,
-        bool boundedAvailability = true)
+        bool boundedAvailability = true,
+        bool allowMotionStop = false)
     {
         if (!allowDisposed)
             ThrowIfDisposed();
@@ -1139,10 +1347,17 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
             Task? phaseAvailability;
             Task? availability;
+            Task? motionStopAvailability;
             var isDispatchReentrant = false;
             lock (_stateGate)
             {
-                if (_mutationPhase == MutationPhase.Idle)
+                motionStopAvailability = !allowMotionStop ? _motionStop?.QuarantineCompletion.Task : null;
+                if (motionStopAvailability is not null)
+                {
+                    phaseAvailability = null;
+                    availability = null;
+                }
+                else if (_mutationPhase == MutationPhase.Idle)
                 {
                     _mutationPhase = MutationPhase.Mutating;
                     _mutationPhaseCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1165,6 +1380,15 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
                 }
             }
 
+            if (motionStopAvailability is not null)
+            {
+                _mutationGate.Release();
+                if (!waitForAvailability || !await WaitForAvailabilityAsync(motionStopAvailability, ct, boundedAvailability))
+                    return null;
+
+                continue;
+            }
+
             if (phaseAvailability is not null)
             {
                 _mutationGate.Release();
@@ -1184,7 +1408,7 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
         }
     }
 
-    private async ValueTask<MutationLease> BeginInternalMutationAsync(bool allowActiveOperation)
+    private async ValueTask<MutationLease> BeginInternalMutationAsync(bool allowActiveOperation, bool allowMotionStop = false)
     {
         while (true)
         {
@@ -1193,7 +1417,8 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
                 waitForAvailability: true,
                 allowDisposed: true,
                 allowActiveOperation: allowActiveOperation,
-                boundedAvailability: false);
+                boundedAvailability: false,
+                allowMotionStop: allowMotionStop);
             if (mutation is not null)
                 return mutation;
         }
@@ -1491,9 +1716,17 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
 
         public bool CancellationRequestedByTeardown { get; private set; }
 
+        public bool CancellationRequestedByMotionStop { get; private set; }
+
         public void CancelForTeardown()
         {
             CancellationRequestedByTeardown = true;
+            _cancellationSource.Cancel();
+        }
+
+        public void CancelForMotionStop()
+        {
+            CancellationRequestedByMotionStop = true;
             _cancellationSource.Cancel();
         }
 
@@ -1502,6 +1735,30 @@ public sealed class ScannerDeviceSessionManager : IScannerDeviceSessionManager, 
             Completion.TrySetResult();
             _cancellationSource.Dispose();
         }
+    }
+
+    private sealed class MotionStopContext
+    {
+        public MotionStopContext(IScanSessionService session, ActiveOperationContext? activeOperation, long generation)
+        {
+            Session = session;
+            ActiveOperation = activeOperation;
+            Generation = generation;
+        }
+
+        public IScanSessionService Session { get; }
+
+        public ActiveOperationContext? ActiveOperation { get; }
+
+        public long Generation { get; }
+
+        public int AttemptedMotorCount { get; set; }
+
+        public bool DispatchCompleted { get; set; }
+
+        public TaskCompletionSource<ScanOperationResult> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource QuarantineCompletion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class OwnershipContext

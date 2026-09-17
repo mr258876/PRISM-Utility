@@ -1,0 +1,102 @@
+{
+  "SchemaVersion": 6,
+  "ProfileName": "Kodak Ektachrome E100",
+  "SavedAtUtc": "2026-08-30T09:15:30+00:00",
+  "ChannelProfiles": {
+    "IR": {
+      "Parameters": {
+        "ExposureTicks": 1700,
+        "Adc1Offset": -12,
+        "Adc1Gain": 9,
+        "Adc2Offset": 14,
+        "Adc2Gain": 10,
+        "SysClockKhz": 52000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 140, "EndInclusive": 7560 },
+        "ShieldRange": { "Start": 30, "EndInclusive": 110 },
+        "FocusLeftRange": { "Start": 1300, "EndInclusive": 2900 },
+        "FocusRightRange": { "Start": 4500, "EndInclusive": 6100 },
+        "FocusOverallRange": { "Start": 1300, "EndInclusive": 6100 }
+      },
+      "BlackLevel": 410,
+      "WhiteLevel": 59000
+    },
+    "Red": {
+      "Parameters": {
+        "ExposureTicks": 1450,
+        "Adc1Offset": -8,
+        "Adc1Gain": 13,
+        "Adc2Offset": 16,
+        "Adc2Gain": 12,
+        "SysClockKhz": 52000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 135, "EndInclusive": 7565 },
+        "ShieldRange": { "Start": 28, "EndInclusive": 112 },
+        "FocusLeftRange": { "Start": 1280, "EndInclusive": 2880 },
+        "FocusRightRange": { "Start": 4520, "EndInclusive": 6120 },
+        "FocusOverallRange": { "Start": 1280, "EndInclusive": 6120 }
+      },
+      "BlackLevel": 390,
+      "WhiteLevel": 60500
+    }
+  },
+  "SelectedCalibrationChannel": "IR",
+  "AcquisitionSettings": {
+    "Led1Level": 111,
+    "Led2Level": 222,
+    "Led3Level": 333,
+    "Led4Level": 444,
+    "SteadyMask": 3,
+    "SyncMask": 12,
+    "Led1PulseClock": 2100,
+    "Led2PulseClock": 2200,
+    "Led3PulseClock": 2300,
+    "Led4PulseClock": 2400,
+    "MotorIntervalNs": 2750,
+    "Led1ChannelColor": "IR",
+    "Led2ChannelColor": "Blue",
+    "Led3ChannelColor": "White",
+    "Led4ChannelColor": "Red",
+    "Rows": 256,
+    "ScanMotorId": 2,
+    "TargetLinePitchMicrometers": 12.5,
+    "StartingDirectionPositive": false,
+    "WarmUpEnabled": true,
+    "TransportStrategy": 0,
+    "AcquisitionChannelAssignment": {
+      "Channel1Role": "IR",
+      "Channel2Role": "Blue",
+      "Channel3Role": "Unused",
+      "Channel4Role": "Red",
+      "Channel1Reversed": true,
+      "Channel2Reversed": false,
+      "Channel3Reversed": false,
+      "Channel4Reversed": true
+    }
+  },
+  "ScanRecipeSettings": {
+    "ChannelAssignment": {
+      "Channel1Role": "IR",
+      "Channel2Role": "Blue",
+      "Channel3Role": "White",
+      "Channel4Role": "Red",
+      "Channel1Reversed": false,
+      "Channel2Reversed": true,
+      "Channel3Reversed": false,
+      "Channel4Reversed": true
+    },
+    "ColorManagement": {
+      "IsEnabled": true,
+      "RedWavelengthNm": 681.25,
+      "GreenWavelengthNm": 526.25,
+      "BlueWavelengthNm": 451.25,
+      "OutputGamma": 2.4,
+      "TargetWhitePointMode": 2,
+      "ManualWhitePointColorTemperatureK": 6100.0
+    },
+    "AlignmentMode": 1,
+    "DngExportMode": 0
+  }
+}

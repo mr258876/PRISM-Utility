@@ -5,8 +5,6 @@ namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanAutoFocusService : IScanAutoFocusService
 {
-    private const byte FocusMotor1Id = 0;
-    private const byte FocusMotor3Id = 2;
     private const int IgnoredLeadingProbeRows = 64;
     private const int MotionPollDelayMs = 75;
     private const int MotionTimeoutPaddingMs = 10000;
@@ -24,19 +22,25 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
 
     public async Task<ScanAutofocusResult> AutoFocusAsync(IScanSessionService session, ScanAutofocusRequest request, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
-        ValidateRequest(session, request);
+        ct.ThrowIfCancellationRequested();
+        var focusRoi = ValidateRequest(session, request);
+        var mapping = request.FocusMotorMapping;
+        var motorIoStarted = false;
+        Exception? primaryFailure = null;
 
         try
         {
             onStatus?.Invoke($"Autofocus: using {request.SampleRows} fresh rows per probe.");
-            await session.SetMotorEnabledAsync(FocusMotor1Id, true, ct);
-            await session.SetMotorEnabledAsync(FocusMotor3Id, true, ct);
-            await WaitForFocusMotorsIdleAsync(session, 0, request.MotorIntervalNs, ct);
+            ct.ThrowIfCancellationRequested();
+            motorIoStarted = true;
+            await session.SetMotorEnabledAsync(mapping.LeftMotorId, true, ct);
+            await session.SetMotorEnabledAsync(mapping.RightMotorId, true, ct);
+            await WaitForFocusMotorsIdleAsync(session, mapping, 0, request.MotorIntervalNs, ct);
 
-            var current = await CaptureFocusProbeAsync(session, request.SampleRows, 0, 0, request.RoiSettings, "Autofocus baseline", onStatus, onFrameCaptured, ct);
-            current = await OptimizeZAsync(session, request, current, onStatus, onFrameCaptured, ct);
-            current = await BalanceTiltAsync(session, request, current, onStatus, onFrameCaptured, ct);
-            current = await OptimizeZAsync(session, request, current, onStatus, onFrameCaptured, ct);
+            var current = await CaptureFocusProbeAsync(session, request.SampleRows, 0, 0, focusRoi, "Autofocus baseline", onStatus, onFrameCaptured, ct);
+            current = await OptimizeZAsync(session, request, focusRoi, current, onStatus, onFrameCaptured, ct);
+            current = await BalanceTiltAsync(session, request, focusRoi, current, onStatus, onFrameCaptured, ct);
+            current = await OptimizeZAsync(session, request, focusRoi, current, onStatus, onFrameCaptured, ct);
 
             onStatus?.Invoke($"Autofocus: complete. tilt={current.TiltOffsetSteps:+#;-#;0} steps, z={current.ZOffsetSteps:+#;-#;0} steps, sharpness={current.Metrics.OverallSharpness:0.0000}, imbalance={current.Metrics.TiltImbalance:+0.0000;-0.0000;0.0000}.");
             return new ScanAutofocusResult(
@@ -48,13 +52,28 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
                 current.Metrics.RightSharpness,
                 current.Metrics.TiltImbalance);
         }
+        catch (Exception ex)
+        {
+            primaryFailure = ex;
+            throw;
+        }
         finally
         {
-            await TryStopFocusMotorsAsync(session);
+            if (motorIoStarted)
+            {
+                var cleanupFailures = await TryStopFocusMotorsAsync(session, mapping);
+                if (cleanupFailures.Count > 0)
+                {
+                    var failures = primaryFailure is null
+                        ? cleanupFailures
+                        : new[] { primaryFailure }.Concat(cleanupFailures);
+                    throw new AggregateException("Autofocus motor cleanup failed.", failures);
+                }
+            }
         }
     }
 
-    private async Task<FocusProbe> BalanceTiltAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe baseline, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> BalanceTiltAsync(IScanSessionService session, ScanAutofocusRequest request, ScanFocusRoi focusRoi, FocusProbe baseline, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var current = baseline;
         LogProbe(onStatus, "Autofocus tilt baseline", current.Metrics);
@@ -64,8 +83,8 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             return current;
         }
 
-        var positive = await ProbeTiltFromCurrentAsync(session, request, current, true, "Autofocus tilt +probe", onStatus, onFrameCaptured, ct);
-        var negative = await ProbeTiltFromCurrentAsync(session, request, current, false, "Autofocus tilt -probe", onStatus, onFrameCaptured, ct);
+        var positive = await ProbeTiltFromCurrentAsync(session, request, focusRoi, current, true, "Autofocus tilt +probe", onStatus, onFrameCaptured, ct);
+        var negative = await ProbeTiltFromCurrentAsync(session, request, focusRoi, current, false, "Autofocus tilt -probe", onStatus, onFrameCaptured, ct);
         var best = SelectBestTiltProbe(current, positive, negative);
         if (ReferenceEquals(best, current))
         {
@@ -86,7 +105,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
                 return current;
             }
 
-            var next = await ProbeTiltForwardAsync(session, request, current, stepPositive, $"Autofocus tilt iteration {iteration}", onStatus, onFrameCaptured, ct);
+            var next = await ProbeTiltForwardAsync(session, request, focusRoi, current, stepPositive, $"Autofocus tilt iteration {iteration}", onStatus, onFrameCaptured, ct);
             if (!IsTiltMeaningfullyBetter(next.Metrics.TiltImbalance, current.Metrics.TiltImbalance))
             {
                 await MoveTiltAsync(session, request, !stepPositive, request.TiltProbeSteps, ct);
@@ -101,21 +120,21 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return current;
     }
 
-    private async Task<FocusProbe> OptimizeZAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe baseline, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> OptimizeZAsync(IScanSessionService session, ScanAutofocusRequest request, ScanFocusRoi focusRoi, FocusProbe baseline, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var current = baseline;
-        current = await OptimizeZAtStepAsync(session, request, current, request.ZProbeSteps, "coarse", onStatus, onFrameCaptured, ct);
+        current = await OptimizeZAtStepAsync(session, request, focusRoi, current, request.ZProbeSteps, "coarse", onStatus, onFrameCaptured, ct);
 
         var fineZProbeSteps = Math.Max(1u, request.ZProbeSteps / FineZProbeDivisor);
         if (fineZProbeSteps < request.ZProbeSteps)
         {
-            current = await OptimizeZAtStepAsync(session, request, current, fineZProbeSteps, "fine", onStatus, onFrameCaptured, ct);
+            current = await OptimizeZAtStepAsync(session, request, focusRoi, current, fineZProbeSteps, "fine", onStatus, onFrameCaptured, ct);
         }
 
         return current;
     }
 
-    private async Task<FocusProbe> OptimizeZAtStepAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe baseline, uint zProbeSteps, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> OptimizeZAtStepAsync(IScanSessionService session, ScanAutofocusRequest request, ScanFocusRoi focusRoi, FocusProbe baseline, uint zProbeSteps, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         LogProbe(onStatus, $"Autofocus z {phase} baseline", baseline.Metrics);
 
@@ -140,7 +159,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             baseline.TiltOffsetSteps,
             physicalOffset,
-            request.RoiSettings,
+            focusRoi,
             $"Autofocus z {phase} sweep 1/{sampleCount}",
             onStatus,
             onFrameCaptured,
@@ -158,7 +177,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
                 request.SampleRows,
                 baseline.TiltOffsetSteps,
                 physicalOffset,
-                request.RoiSettings,
+                focusRoi,
                 $"Autofocus z {phase} sweep {sampleIndex + 1}/{sampleCount}",
                 onStatus,
                 onFrameCaptured,
@@ -182,7 +201,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return best;
     }
 
-    private async Task<FocusProbe> ProbeTiltFromCurrentAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe current, bool positive, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> ProbeTiltFromCurrentAsync(IScanSessionService session, ScanAutofocusRequest request, ScanFocusRoi focusRoi, FocusProbe current, bool positive, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         await MoveTiltAsync(session, request, positive, request.TiltProbeSteps, ct);
         var probe = await CaptureFocusProbeAsync(
@@ -190,7 +209,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps + (positive ? (int)request.TiltProbeSteps : -(int)request.TiltProbeSteps),
             current.ZOffsetSteps,
-            request.RoiSettings,
+            focusRoi,
             label,
             onStatus,
             onFrameCaptured,
@@ -199,7 +218,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return probe;
     }
 
-    private async Task<FocusProbe> ProbeTiltForwardAsync(IScanSessionService session, ScanAutofocusRequest request, FocusProbe current, bool positive, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> ProbeTiltForwardAsync(IScanSessionService session, ScanAutofocusRequest request, ScanFocusRoi focusRoi, FocusProbe current, bool positive, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         await MoveTiltAsync(session, request, positive, request.TiltProbeSteps, ct);
         return await CaptureFocusProbeAsync(
@@ -207,7 +226,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             request.SampleRows,
             current.TiltOffsetSteps + (positive ? (int)request.TiltProbeSteps : -(int)request.TiltProbeSteps),
             current.ZOffsetSteps,
-            request.RoiSettings,
+            focusRoi,
             label,
             onStatus,
             onFrameCaptured,
@@ -219,12 +238,13 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         if (steps == 0)
             return;
 
-        var motor1Direction = positive ? request.TiltPositiveDirection : !request.TiltPositiveDirection;
-        var motor3Direction = !motor1Direction;
+        var mapping = request.FocusMotorMapping;
+        var leftDirection = positive ? mapping.TiltPositiveDirection : !mapping.TiltPositiveDirection;
+        var rightDirection = !leftDirection;
 
-        await session.MoveMotorStepsAsync(FocusMotor1Id, motor1Direction, steps, request.MotorIntervalNs, ct);
-        await session.MoveMotorStepsAsync(FocusMotor3Id, motor3Direction, steps, request.MotorIntervalNs, ct);
-        await WaitForFocusMotorMotionCompleteEventsAsync(session, steps, request.MotorIntervalNs, ct);
+        await session.MoveMotorStepsAsync(mapping.LeftMotorId, leftDirection, steps, request.MotorIntervalNs, ct);
+        await session.MoveMotorStepsAsync(mapping.RightMotorId, rightDirection, steps, request.MotorIntervalNs, ct);
+        await WaitForFocusMotorMotionCompleteEventsAsync(session, mapping, steps, request.MotorIntervalNs, ct);
     }
 
     private async Task MoveZAsync(IScanSessionService session, ScanAutofocusRequest request, bool positive, uint steps, CancellationToken ct)
@@ -232,10 +252,11 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         if (steps == 0)
             return;
 
-        var direction = positive ? request.ZPositiveDirection : !request.ZPositiveDirection;
-        await session.MoveMotorStepsAsync(FocusMotor1Id, direction, steps, request.MotorIntervalNs, ct);
-        await session.MoveMotorStepsAsync(FocusMotor3Id, direction, steps, request.MotorIntervalNs, ct);
-        await WaitForFocusMotorMotionCompleteEventsAsync(session, steps, request.MotorIntervalNs, ct);
+        var mapping = request.FocusMotorMapping;
+        var direction = positive ? mapping.ZPositiveDirection : !mapping.ZPositiveDirection;
+        await session.MoveMotorStepsAsync(mapping.LeftMotorId, direction, steps, request.MotorIntervalNs, ct);
+        await session.MoveMotorStepsAsync(mapping.RightMotorId, direction, steps, request.MotorIntervalNs, ct);
+        await WaitForFocusMotorMotionCompleteEventsAsync(session, mapping, steps, request.MotorIntervalNs, ct);
     }
 
     private async Task MoveZToOffsetAsync(IScanSessionService session, ScanAutofocusRequest request, int currentOffsetSteps, int targetOffsetSteps, CancellationToken ct)
@@ -251,21 +272,21 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         await MoveZAsync(session, request, delta > 0, (uint)steps, ct);
     }
 
-    private static async Task WaitForFocusMotorMotionCompleteEventsAsync(IScanSessionService session, uint steps, uint intervalNs, CancellationToken ct)
+    private static async Task WaitForFocusMotorMotionCompleteEventsAsync(IScanSessionService session, ScanFocusMotorMapping mapping, uint steps, uint intervalNs, CancellationToken ct)
     {
         try
         {
             await Task.WhenAll(
-                session.WaitForMotorMotionCompleteAsync(FocusMotor1Id, steps, intervalNs, ct),
-                session.WaitForMotorMotionCompleteAsync(FocusMotor3Id, steps, intervalNs, ct));
+                session.WaitForMotorMotionCompleteAsync(mapping.LeftMotorId, steps, intervalNs, ct),
+                session.WaitForMotorMotionCompleteAsync(mapping.RightMotorId, steps, intervalNs, ct));
         }
         catch (IOException)
         {
-            await WaitForFocusMotorsIdleAsync(session, steps, intervalNs, ct);
+            await WaitForFocusMotorsIdleAsync(session, mapping, steps, intervalNs, ct);
         }
     }
 
-    private static async Task WaitForFocusMotorsIdleAsync(IScanSessionService session, uint steps, uint intervalNs, CancellationToken ct)
+    private static async Task WaitForFocusMotorsIdleAsync(IScanSessionService session, ScanFocusMotorMapping mapping, uint steps, uint intervalNs, CancellationToken ct)
     {
         var expectedTravelMs = Math.Ceiling((double)steps * intervalNs / 1000000.0);
         var timeoutMs = Math.Max(ScanDebugConstants.AckTimeoutMs, (expectedTravelMs * MotionTimeoutMultiplier) + MotionTimeoutPaddingMs);
@@ -275,7 +296,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         {
             ct.ThrowIfCancellationRequested();
             var states = await session.GetMotionStateAsync(ct);
-            var focusStates = states.Where(state => state.MotorId == FocusMotor1Id || state.MotorId == FocusMotor3Id).ToArray();
+            var focusStates = states.Where(state => state.MotorId == mapping.LeftMotorId || state.MotorId == mapping.RightMotorId).ToArray();
             if (focusStates.Length >= 2 && focusStates.All(state => !state.Running && state.RemainingSteps == 0))
                 return;
 
@@ -285,7 +306,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         throw new IOException("Autofocus motion did not settle before timeout.");
     }
 
-    private async Task<FocusProbe> CaptureFocusProbeAsync(IScanSessionService session, int rows, int tiltOffsetSteps, int zOffsetSteps, ScanCalibrationRoiSettings roiSettings, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<FocusProbe> CaptureFocusProbeAsync(IScanSessionService session, int rows, int tiltOffsetSteps, int zOffsetSteps, ScanFocusRoi focusRoi, string label, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke($"{label}: capturing {rows} rows...");
         var result = await session.StartScanAsync(rows, ct);
@@ -293,41 +314,39 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             throw new IOException($"{label} failed: {result.Message}");
 
         onFrameCaptured?.Invoke(result.ImageBytes, rows, label);
-        var metrics = BuildMetrics(result.ImageBytes, rows, roiSettings);
+        var metrics = BuildMetrics(result.ImageBytes, rows, focusRoi);
         return new FocusProbe(tiltOffsetSteps, zOffsetSteps, metrics);
     }
 
-    private FocusMetrics BuildMetrics(byte[] lineBuffer, int rows, ScanCalibrationRoiSettings roiSettings)
+    private FocusMetrics BuildMetrics(byte[] lineBuffer, int rows, ScanFocusRoi focusRoi)
     {
-        var width = _decoder.GetDecodedPixelsPerLine();
-        if (rows < 3 || width < 16)
-            throw new IOException("Autofocus requires at least 3 rows and a valid decoded scan width.");
+        if (rows < 3)
+            throw new IOException("Autofocus requires at least 3 rows.");
 
         var analysisStartRow = Math.Min(IgnoredLeadingProbeRows, Math.Max(rows - 3, 0));
-        var clampedRoi = roiSettings.Clamp(width);
-        var leftRange = clampedRoi.FocusLeftRange;
-        var rightRange = clampedRoi.FocusRightRange;
-        var overallRange = clampedRoi.FocusOverallRange;
-        if (leftRange.Width < 3 || rightRange.Width < 3 || overallRange.Width < 3)
-            throw new IOException("Autofocus ROI requires valid left/right/overall column ranges.");
+        var leftRange = focusRoi.LeftRange;
+        var rightRange = focusRoi.RightRange;
+        var overallRange = focusRoi.OverallRange;
 
-        var left = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, leftRange.Start, leftRange.EndInclusive);
-        var right = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, rightRange.Start, rightRange.EndInclusive);
-        var overall = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, overallRange.Start, overallRange.EndInclusive);
+        var left = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, leftRange);
+        var right = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, rightRange);
+        var overall = ComputeNormalizedSharpness(lineBuffer, rows, analysisStartRow, overallRange);
         var imbalance = (left - right) / Math.Max(left + right, 1e-9);
 
         return new FocusMetrics(left, right, overall, imbalance);
     }
 
-    private static async Task TryStopFocusMotorsAsync(IScanSessionService session)
+    private static async Task<IReadOnlyList<Exception>> TryStopFocusMotorsAsync(IScanSessionService session, ScanFocusMotorMapping mapping)
     {
-        try { await session.StopMotorAsync(FocusMotor1Id, CancellationToken.None); } catch { }
-        try { await session.StopMotorAsync(FocusMotor3Id, CancellationToken.None); } catch { }
+        var failures = new List<Exception>();
+        try { await session.StopMotorAsync(mapping.LeftMotorId, CancellationToken.None); } catch (Exception ex) { failures.Add(ex); }
+        try { await session.StopMotorAsync(mapping.RightMotorId, CancellationToken.None); } catch (Exception ex) { failures.Add(ex); }
+        return failures;
     }
 
-    private double ComputeNormalizedSharpness(byte[] lineBuffer, int rows, int startRow, int startX, int endX)
+    private double ComputeNormalizedSharpness(byte[] lineBuffer, int rows, int startRow, ScanColumnRange range)
     {
-        var averagedLine = BuildAveragedLineProfile(lineBuffer, rows, startRow, startX, endX);
+        var averagedLine = BuildAveragedLineProfile(lineBuffer, rows, startRow, range);
         if (averagedLine.Length < 3)
             return 0;
 
@@ -379,9 +398,9 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return brennerEnergy; // Brenner
     }
 
-    private double[] BuildAveragedLineProfile(byte[] lineBuffer, int rows, int startRow, int startX, int endX)
+    private double[] BuildAveragedLineProfile(byte[] lineBuffer, int rows, int startRow, ScanColumnRange range)
     {
-        var width = endX - startX + 1;
+        var width = range.Width;
         if (width <= 0 || startRow >= rows)
             return Array.Empty<double>();
 
@@ -390,12 +409,12 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
 
         for (var y = startRow; y < rows; y++)
         {
-            for (var x = startX; x <= endX; x++)
+            for (var x = range.Start; x <= range.EndInclusive; x++)
             {
                 if (!_decoder.TryGetSample16(lineBuffer, rows, x, y, out var sample))
                     continue;
 
-                var index = x - startX;
+                var index = x - range.Start;
                 sums[index] += sample;
                 counts[index]++;
             }
@@ -446,7 +465,7 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
         return (int)result;
     }
 
-    private static void ValidateRequest(IScanSessionService session, ScanAutofocusRequest request)
+    private ScanFocusRoi ValidateRequest(IScanSessionService session, ScanAutofocusRequest request)
     {
         if (request.SampleRows <= 0 || request.SampleRows > session.SingleTransferMaxRows)
             throw new ArgumentOutOfRangeException(nameof(request), $"Autofocus sample rows must be in [1, {session.SingleTransferMaxRows}].");
@@ -460,6 +479,35 @@ public sealed class ScanAutoFocusService : IScanAutoFocusService
             throw new ArgumentOutOfRangeException(nameof(request), "Autofocus tilt iterations must be greater than zero.");
         if (request.MaxZIterations <= 0)
             throw new ArgumentOutOfRangeException(nameof(request), "Autofocus Z iterations must be greater than zero.");
+        if (request.RoiSettings is null)
+            throw new ArgumentNullException(nameof(request.RoiSettings));
+
+        var focusRoi = ScanFocusRoi.Require(request.RoiSettings, _decoder.GetDecodedPixelsPerLine());
+
+        var mappingValidation = request.FocusMotorMapping.Validate();
+        if (!mappingValidation.IsValid)
+            throw new ArgumentException(mappingValidation.Message, nameof(request));
+
+        try
+        {
+            _ = CheckedToInt(request.TiltProbeSteps, nameof(request.TiltProbeSteps));
+            _ = CheckedToInt(request.ZProbeSteps, nameof(request.ZProbeSteps));
+            _ = CheckedMultiplyToInt(request.TiltProbeSteps, request.MaxTiltIterations, nameof(request.MaxTiltIterations));
+            var bounds = ScanAutofocusPresetResolver.ComputeBounds(
+                request.TiltProbeSteps,
+                request.ZProbeSteps,
+                request.MotorIntervalNs,
+                request.MaxTiltIterations,
+                request.MaxZIterations,
+                1.0);
+            if (bounds.MaxZSteps > int.MaxValue || bounds.MaxTiltSteps > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(request), "Autofocus final offsets exceed the supported range.");
+        }
+        catch (OverflowException)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), "Autofocus bounds exceed the supported range.");
+        }
+        return focusRoi;
     }
 
     private sealed record FocusMetrics(double LeftSharpness, double RightSharpness, double OverallSharpness, double TiltImbalance);

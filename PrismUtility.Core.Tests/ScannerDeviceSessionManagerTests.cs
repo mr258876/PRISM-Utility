@@ -576,8 +576,8 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
         var session = factory.LastSession!;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1)));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1)));
+        await Assert.ThrowsAsync<AggregateException>(() => manager.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1)));
+        await Assert.ThrowsAsync<AggregateException>(() => manager.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1)));
 
         Assert.Equal(1, session.DisconnectCallCount);
         Assert.Equal(1, session.DisposeAsyncCallCount);
@@ -1145,8 +1145,501 @@ public sealed class ScannerDeviceSessionManagerTests
         Assert.Null(coordinator.ActiveLease);
     }
 
+    [Fact]
+    public async Task Manager_ProtocolIOException_PublishesFaultAndDisconnects()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var coordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, coordinator);
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var exception = await Assert.ThrowsAsync<IOException>(() => manager.RunWithSessionStateAsync(
+            owner.LeaseId,
+            ScannerSessionState.Running,
+            _ => Task.FromException<bool>(new IOException("USB transfer failed.")),
+            CancellationToken.None));
+
+        var session = Assert.Single(factory.CreatedSessions);
+        Assert.Equal("USB transfer failed.", exception.Message);
+        Assert.Equal(ScannerSessionState.Disconnected, manager.Snapshot.State);
+        Assert.Equal(ScannerSessionFaultCode.TransferFailed, manager.Snapshot.Fault?.Code);
+        Assert.Equal(1, session.DisconnectCallCount);
+        Assert.Equal(1, session.DisposeAsyncCallCount);
+        Assert.Null(coordinator.ActiveLease);
+    }
+
+    [Fact]
+    public async Task Manager_ProtocolIOException_WithTeardownFailures_PreservesPrimaryAndAttemptsAllCleanup()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            DisconnectException = new InvalidOperationException("disconnect failed"),
+            DisposeException = new InvalidOperationException("dispose failed")
+        };
+        var coordinator = new ThrowingUsbUsageCoordinator(new InvalidOperationException("lease release failed"));
+        await using var manager = new ScannerDeviceSessionManager(factory, coordinator);
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => manager.RunWithSessionStateAsync(
+            owner.LeaseId,
+            ScannerSessionState.Running,
+            _ => Task.FromException<bool>(new IOException("transport failed")),
+            CancellationToken.None));
+
+        Assert.Collection(
+            exception.InnerExceptions,
+            error => Assert.Equal("transport failed", Assert.IsType<IOException>(error).Message),
+            error => Assert.Equal("disconnect failed", error.Message),
+            error => Assert.Equal("dispose failed", error.Message),
+            error => Assert.Equal("lease release failed", error.Message));
+        var session = factory.LastSession!;
+        Assert.Equal(1, session.DisconnectCallCount);
+        Assert.Equal(1, session.DisposeAsyncCallCount);
+        Assert.Equal(1, coordinator.ReleaseCallCount);
+        Assert.Equal(ScannerSessionState.Disconnected, manager.Snapshot.State);
+        Assert.Equal(ScannerSessionFaultCode.TransferFailed, manager.Snapshot.Fault?.Code);
+        Assert.NotNull(coordinator.ActiveLease);
+    }
+
+    [Fact]
+    public async Task Manager_ApplicationValidationException_DoesNotFaultConnectedSession()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        await Assert.ThrowsAsync<ArgumentException>(() => manager.RunWithSessionStateAsync(
+            owner.LeaseId,
+            ScannerSessionState.Running,
+            _ => Task.FromException<bool>(new ArgumentException("Invalid request.")),
+            CancellationToken.None));
+
+        var session = Assert.Single(factory.CreatedSessions);
+        Assert.Equal(ScannerSessionState.Connected, manager.Snapshot.State);
+        Assert.Null(manager.Snapshot.Fault);
+        Assert.Equal(0, session.DisconnectCallCount);
+        Assert.Equal(0, session.DisposeAsyncCallCount);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_CancelsActiveProducerAndAttemptsEveryMotor()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(
+            factory,
+            new UsbUsageCoordinator(),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(50));
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "active-move");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var activeMove = manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            async (_, operationToken) =>
+            {
+                entered.TrySetResult();
+                using var registration = operationToken.Register(() => cancellationObserved.TrySetResult());
+                await cancellationObserved.Task;
+                await release.Task;
+                return "released";
+            },
+            CancellationToken.None);
+
+        await entered.Task.WaitAsync(CancellationToken.None);
+        var stopResult = await manager.StopAllMotionAsync(CancellationToken.None);
+
+        release.TrySetResult();
+        Assert.Equal("released", await activeMove);
+        await factory.LastSession!.AllMotorsStopped.Task.WaitAsync(CancellationToken.None);
+        Assert.Equal([0, 1, 2], factory.LastSession!.StoppedMotorIds);
+        Assert.All(factory.LastSession.StopMotorTokensCanBeCanceled, canBeCanceled => Assert.True(canBeCanceled));
+        Assert.Contains("unknown", stopResult.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_SuppressesQueuedPreStopOperationByGeneration()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "active-move");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var activeMove = manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            async (_, _) =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+                return "released";
+            },
+            CancellationToken.None);
+        await entered.Task.WaitAsync(CancellationToken.None);
+
+        var queued = manager.UseSessionAsync(owner.LeaseId, _ => Task.FromResult("must-not-run"), CancellationToken.None);
+        var stopTask = manager.StopAllMotionAsync(CancellationToken.None);
+        release.TrySetResult();
+
+        Assert.Equal("released", await activeMove);
+        Assert.True((await stopTask).Success);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+        await factory.LastSession!.AllMotorsStopped.Task.WaitAsync(CancellationToken.None);
+        Assert.Equal([0, 1, 2], factory.LastSession!.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_RejectsFreshMutationWhileStopsAreInProgress()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(
+            factory,
+            new UsbUsageCoordinator(),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(50));
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var stopTask = manager.StopAllMotionAsync(CancellationToken.None);
+        await factory.LastSession!.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        var warmUp = await manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None);
+        factory.StopMotorDelay.TrySetResult();
+
+        Assert.False(warmUp.Success);
+        Assert.Contains("busy", warmUp.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True((await stopTask).Success);
+        Assert.Equal(0, factory.LastSession.WarmUpCallCount);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_ContinuesAfterMotorFailureAndReportsIt()
+    {
+        var factory = new FakeScanSessionServiceFactory { StopMotorFailureId = 0 };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var result = await manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal([0, 1, 2], factory.LastSession!.StoppedMotorIds);
+        Assert.Contains("motor 0", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_IgnoresCallerCancellationAfterItBegins()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        using var callerCancellation = new CancellationTokenSource();
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var stopTask = manager.StopAllMotionAsync(callerCancellation.Token);
+        await factory.LastSession!.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        callerCancellation.Cancel();
+        factory.StopMotorDelay.TrySetResult();
+
+        Assert.True((await stopTask).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_OfflineDoesNotCreateSession()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+
+        var result = await manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Empty(factory.CreatedSessions);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_RepeatedCallSharesInFlightStop()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var first = manager.StopAllMotionAsync(CancellationToken.None);
+        await factory.LastSession!.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        var repeated = manager.StopAllMotionAsync(CancellationToken.None);
+        factory.StopMotorDelay.TrySetResult();
+
+        Assert.Same(first, repeated);
+        Assert.True((await first).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_PreventsSessionReplacementFromReceivingStaleStops()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var firstSession = factory.LastSession!;
+        var stopTask = manager.StopAllMotionAsync(CancellationToken.None);
+        await firstSession.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        var blockedDisconnect = await manager.DisconnectAsync(owner.LeaseId, CancellationToken.None);
+        factory.StopMotorDelay.TrySetResult();
+        Assert.True((await stopTask).Success);
+        Assert.False(blockedDisconnect.Success);
+
+        Assert.True((await manager.DisconnectAsync(owner.LeaseId, CancellationToken.None)).Success);
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var replacement = factory.LastSession!;
+
+        Assert.NotSame(firstSession, replacement);
+        Assert.Equal([0, 1, 2], firstSession.StoppedMotorIds);
+        Assert.Empty(replacement.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_KeepsGateUntilCanceledProducerCompletes()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        await using var manager = new ScannerDeviceSessionManager(
+            factory,
+            new UsbUsageCoordinator(),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(50));
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "active-move");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var activeMove = manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            async (_, _) =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+                return "released";
+            },
+            CancellationToken.None);
+        await entered.Task.WaitAsync(CancellationToken.None);
+
+        var stopTask = manager.StopAllMotionAsync(CancellationToken.None);
+        var quarantineCompletion = GetCurrentMotionStopQuarantineCompletion(manager);
+        var stopResult = await stopTask;
+        var blockedWarmUp = await manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None);
+        Assert.False(quarantineCompletion.IsCompleted);
+        release.TrySetResult();
+        Assert.Equal("released", await activeMove);
+        await quarantineCompletion.WaitAsync(CancellationToken.None);
+        var resumedWarmUp = await manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None);
+
+        Assert.False(stopResult.Success);
+        Assert.False(blockedWarmUp.Success);
+        Assert.True(resumedWarmUp.Success);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_WaitsForDirectWarmUpTransactionBeforeStoppingMotors()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            WarmUpDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var warmUp = manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None);
+        await factory.LastSession!.WarmUpStarted.Task.WaitAsync(CancellationToken.None);
+        var stop = manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(factory.LastSession.StopMotorStarted.Task.IsCompleted);
+        factory.WarmUpDelay.TrySetResult();
+
+        Assert.True((await warmUp).Success);
+        Assert.True((await stop).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_WaitsForDirectStopScanTransactionBeforeStoppingMotors()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopScanDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var stopScan = manager.StopAsync(owner.LeaseId, CancellationToken.None);
+        await factory.LastSession!.StopScanStarted.Task.WaitAsync(CancellationToken.None);
+        var stopMotors = manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(factory.LastSession.StopMotorStarted.Task.IsCompleted);
+        factory.StopScanDelay.TrySetResult();
+
+        Assert.True((await stopScan).Success);
+        Assert.True((await stopMotors).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_WaitsForUseConnectedSessionAsyncCommandTransactionBeforeStoppingMotors()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            WarmUpDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var commandOwner = CreateOwner("scan-page", ScannerSessionOperation.Diagnostics, "direct-command");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var directCommand = manager.UseConnectedSessionAsync(
+            commandOwner,
+            (session, _) => session.SetWarmUpEnabledAsync(true, CancellationToken.None),
+            CancellationToken.None);
+        await factory.LastSession!.WarmUpStarted.Task.WaitAsync(CancellationToken.None);
+        var stop = manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(factory.LastSession.StopMotorStarted.Task.IsCompleted);
+        factory.WarmUpDelay.TrySetResult();
+
+        Assert.True((await directCommand).Success);
+        Assert.True((await stop).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_WaitsForRunConnectedProducerPendingAckBeforeStoppingMotors()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopScanDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        await using var manager = new ScannerDeviceSessionManager(factory, new UsbUsageCoordinator());
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+        var scanOwner = CreateOwner("scan-page", ScannerSessionOperation.Scan, "pending-ack");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var pendingAck = manager.RunConnectedSessionStateAsync(
+            scanOwner,
+            ScannerSessionState.Running,
+            (session, _) => session.StopScanAsync(CancellationToken.None),
+            CancellationToken.None);
+        await factory.LastSession!.StopScanStarted.Task.WaitAsync(CancellationToken.None);
+        var stop = manager.StopAllMotionAsync(CancellationToken.None);
+
+        Assert.False(factory.LastSession.StopMotorStarted.Task.IsCompleted);
+        factory.StopScanDelay.TrySetResult();
+
+        Assert.True((await pendingAck).Success);
+        Assert.True((await stop).Success);
+        Assert.Equal([0, 1, 2], factory.LastSession.StoppedMotorIds);
+    }
+
+    [Fact]
+    public async Task StopAllMotionAsync_HungMotorReturnsBoundedUnknownAndKeepsMutationGateQuarantined()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+            StopMotorIgnoresCancellation = true
+        };
+        await using var manager = new ScannerDeviceSessionManager(
+            factory,
+            new UsbUsageCoordinator(),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(50));
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var stop = manager.StopAllMotionAsync(CancellationToken.None);
+        await factory.LastSession!.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        var result = await stop;
+        var blockedWarmUp = await manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("unknown", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unattempted", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal([0], factory.LastSession.StoppedMotorIds);
+        Assert.False(blockedWarmUp.Success);
+
+        factory.StopMotorDelay.TrySetResult();
+        await factory.LastSession.AllMotorsStopped.Task.WaitAsync(CancellationToken.None);
+        await WaitForConditionAsync(() => manager.SetWarmUpEnabledAsync(owner.LeaseId, true, CancellationToken.None).GetAwaiter().GetResult().Success);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_DuringQuarantinedGlobalStopReturnsBoundedFailureWithoutDisposal()
+    {
+        var factory = new FakeScanSessionServiceFactory
+        {
+            StopMotorDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+            StopMotorIgnoresCancellation = true
+        };
+        var coordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(
+            factory,
+            coordinator,
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(50));
+        var owner = CreateOwner("scan-page", ScannerSessionOperation.Connect, "lease-connect");
+
+        Assert.True((await manager.ConnectAsync(owner, CancellationToken.None)).Success);
+        var session = factory.LastSession!;
+        var stop = manager.StopAllMotionAsync(CancellationToken.None);
+        await session.StopMotorStarted.Task.WaitAsync(CancellationToken.None);
+        Assert.False((await stop).Success);
+
+        var shutdown = await manager.ShutdownAsync(CancellationToken.None);
+
+        Assert.False(shutdown.Success);
+        Assert.False(session.DisposeAsyncCalled);
+        Assert.NotNull(coordinator.ActiveLease);
+
+        factory.StopMotorDelay.TrySetResult();
+        await session.AllMotorsStopped.Task.WaitAsync(CancellationToken.None);
+        Assert.True((await manager.ShutdownAsync(CancellationToken.None)).Success);
+    }
+
     private static ScannerSessionOwner CreateOwner(string ownerId, ScannerSessionOperation operation, string leaseId)
         => new(ownerId, ScannerSessionOwnerType.ScanWorkflow, operation, new DateTimeOffset(2026, 6, 2, 12, 0, 0, TimeSpan.Zero), leaseId);
+
+    private static Task GetCurrentMotionStopQuarantineCompletion(ScannerDeviceSessionManager manager)
+    {
+        var motionStop = typeof(ScannerDeviceSessionManager)
+            .GetField("_motionStop", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(manager)!;
+        var quarantineCompletion = motionStop.GetType().GetProperty("QuarantineCompletion")!.GetValue(motionStop)!;
+        return (Task)quarantineCompletion.GetType().GetProperty(nameof(TaskCompletionSource.Task))!.GetValue(quarantineCompletion)!;
+    }
 
     private static async Task WaitForStateAsync(IScannerDeviceSessionManager manager, ScannerSessionState state)
         => await WaitForConditionAsync(() => manager.Snapshot.State == state);
@@ -1159,6 +1652,55 @@ public sealed class ScannerDeviceSessionManagerTests
         {
             timeout.Token.ThrowIfCancellationRequested();
             await Task.Delay(10, timeout.Token);
+        }
+    }
+
+    private sealed class ThrowingUsbUsageCoordinator(Exception releaseException) : IUsbUsageCoordinator
+    {
+        public event EventHandler<UsbUsageLeaseSnapshot?>? ActiveLeaseChanged;
+
+        public bool IsScanDebugInUse => ActiveLease?.OwnerType == UsbUsageOwnerType.Scanner;
+
+        public bool IsUsbDebugInUse => ActiveLease?.OwnerType == UsbUsageOwnerType.RawUsb;
+
+        public UsbUsageLeaseSnapshot? ActiveLease { get; private set; }
+
+        public int ReleaseCallCount { get; private set; }
+
+        public ValueTask<UsbUsageLeaseAcquireResult> TryAcquireLeaseAsync(string ownerId, UsbUsageOwnerType ownerType, string operation, CancellationToken ct = default)
+        {
+            var snapshot = new UsbUsageLeaseSnapshot(ownerId, ownerType, operation, DateTimeOffset.UtcNow, Guid.NewGuid());
+            ActiveLease = snapshot;
+            ActiveLeaseChanged?.Invoke(this, snapshot);
+            return ValueTask.FromResult(new UsbUsageLeaseAcquireResult(true, new ThrowingUsbUsageLease(this, snapshot), snapshot, string.Empty));
+        }
+
+        public ValueTask<bool> ReleaseAsync(Guid releaseToken, CancellationToken ct = default)
+        {
+            ReleaseCallCount++;
+            return ValueTask.FromException<bool>(releaseException);
+        }
+
+        public ValueTask<bool> ForceReleaseAsync(string ownerId, UsbUsageOwnerType ownerType, CancellationToken ct = default)
+            => ValueTask.FromResult(false);
+
+        public bool CanObserveReadOnly(string ownerId, UsbUsageOwnerType ownerType) => true;
+
+        public void SetScanDebugInUse(bool inUse, string callerFilePath = "") { }
+
+        public void SetUsbDebugInUse(bool inUse, string callerFilePath = "") { }
+
+        private sealed class ThrowingUsbUsageLease(ThrowingUsbUsageCoordinator owner, UsbUsageLeaseSnapshot snapshot) : IUsbUsageLease
+        {
+            public string OwnerId => snapshot.OwnerId;
+            public UsbUsageOwnerType OwnerType => snapshot.OwnerType;
+            public string Operation => snapshot.Operation;
+            public DateTimeOffset AcquiredAt => snapshot.AcquiredAt;
+            public Guid ReleaseToken => snapshot.ReleaseToken;
+            public CancellationToken CancellationToken => CancellationToken.None;
+            public ValueTask<bool> ReleaseAsync(CancellationToken ct = default) => owner.ReleaseAsync(ReleaseToken, ct);
+            public void Dispose() { }
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 
@@ -1186,7 +1728,17 @@ public sealed class ScannerDeviceSessionManagerTests
 
         public TaskCompletionSource? DisconnectDelay { get; set; }
 
+        public TaskCompletionSource? StopMotorDelay { get; set; }
+
+        public TaskCompletionSource? StopScanDelay { get; set; }
+
+        public byte? StopMotorFailureId { get; set; }
+
+        public bool StopMotorIgnoresCancellation { get; set; }
+
         public Exception? DisconnectException { get; set; }
+
+        public Exception? DisposeException { get; set; }
 
         public ScanOperationResult ConnectResult { get; set; } = new(true, "Connected.");
 
@@ -1235,6 +1787,16 @@ public sealed class ScannerDeviceSessionManagerTests
         public int ConnectCallCount { get; private set; }
 
         public int WarmUpCallCount { get; private set; }
+
+        public List<byte> StoppedMotorIds { get; } = [];
+
+        public List<bool> StopMotorTokensCanBeCanceled { get; } = [];
+
+        public TaskCompletionSource StopMotorStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource AllMotorsStopped { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource StopScanStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public TaskCompletionSource WarmUpStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1315,8 +1877,25 @@ public sealed class ScannerDeviceSessionManagerTests
         public Task<ScanMotorState> MoveMotorStepsAndWaitForCompletionAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
             => Task.FromResult(new ScanMotorState(motorId, false, false, direction, 0, intervalNs, 0));
 
-        public Task StopMotorAsync(byte motorId, CancellationToken ct)
-            => Task.CompletedTask;
+        public async Task StopMotorAsync(byte motorId, CancellationToken ct)
+        {
+            StoppedMotorIds.Add(motorId);
+            StopMotorTokensCanBeCanceled.Add(ct.CanBeCanceled);
+            StopMotorStarted.TrySetResult();
+            if (_factory.StopMotorFailureId == motorId)
+                throw new IOException($"planned motor {motorId} stop failure");
+
+            if (_factory.StopMotorDelay is not null)
+            {
+                if (_factory.StopMotorIgnoresCancellation)
+                    await _factory.StopMotorDelay.Task;
+                else
+                    await _factory.StopMotorDelay.Task.WaitAsync(ct);
+            }
+
+            if (StoppedMotorIds.Count == 3)
+                AllMotorsStopped.TrySetResult();
+        }
 
         public Task ApplyMotorConfigAsync(byte motorId, CancellationToken ct)
             => Task.CompletedTask;
@@ -1327,8 +1906,14 @@ public sealed class ScannerDeviceSessionManagerTests
         public Task<ScanStartResult> StartSegmentedScanAsync(int totalRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
             => Task.FromResult(new ScanStartResult(true, "Started.", []));
 
-        public Task<ScanStopResult> StopScanAsync(CancellationToken ct)
-            => Task.FromResult(new ScanStopResult(true, "Stopped."));
+        public async Task<ScanStopResult> StopScanAsync(CancellationToken ct)
+        {
+            StopScanStarted.TrySetResult();
+            if (_factory.StopScanDelay is not null)
+                await _factory.StopScanDelay.Task.WaitAsync(ct);
+
+            return new ScanStopResult(true, "Stopped.");
+        }
 
         public Task<ScanControlFrame> SendControlCommandAndWaitAckAsync(byte[] command, byte expectedCommand, int totalTimeoutMs, CancellationToken ct, bool ignoreForeignCommands = true)
             => Task.FromException<ScanControlFrame>(new NotSupportedException());
@@ -1344,7 +1929,9 @@ public sealed class ScannerDeviceSessionManagerTests
         public ValueTask DisposeAsync()
         {
             Dispose();
-            return ValueTask.CompletedTask;
+            return _factory.DisposeException is null
+                ? ValueTask.CompletedTask
+                : ValueTask.FromException(_factory.DisposeException);
         }
     }
 }

@@ -142,6 +142,7 @@ public class ScanProtocolService : IScanProtocolService
 
     public byte[] BuildSetScanLinesCommand(int rows)
     {
+        ScanRowCountValidation.EnsureValidForHostBuffer(rows, nameof(rows));
         var payload = new byte[8];
         payload[0] = ScanDebugConstants.HostFrameSof;
         payload[1] = ScanDebugConstants.UsbCmdSetScanLines;

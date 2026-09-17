@@ -1,14 +1,41 @@
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Services;
 
 internal static class ScanFilmProfileDocumentNormalization
 {
-    public static ScanFilmProfileDocumentParseResult NormalizeParsedDocument(ScanFilmParameterProfileSet source, int schemaVersion)
+    public static ScanFilmProfileDocumentParseResult MigrateV5ToV6(ScanFilmParameterProfileSet source, int schemaVersion)
+        => NormalizeParsedDocument(source, schemaVersion, migrateV5: true, repairLegacyProfiles: true);
+
+    public static ScanFilmProfileDocumentParseResult NormalizeCurrentDocument(ScanFilmParameterProfileSet source, int schemaVersion)
+        => NormalizeParsedDocument(source, schemaVersion, migrateV5: false, repairLegacyProfiles: true);
+
+    public static ScanFilmParameterProfileSet NormalizeForSerialization(ScanFilmParameterProfileSet source, int schemaVersion)
+        => source with
+        {
+            SchemaVersion = schemaVersion,
+            AcquisitionSettings = source.SchemaVersion == 5
+                ? MigrateV5Acquisition(source.AcquisitionSettings)
+                : (source.AcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize()
+        };
+
+    private static ScanFilmProfileDocumentParseResult NormalizeParsedDocument(
+        ScanFilmParameterProfileSet source,
+        int schemaVersion,
+        bool migrateV5,
+        bool repairLegacyProfiles)
     {
         var issues = new List<ScanFilmProfileValidationIssue>();
-        var profiles = NormalizeProfiles(source.ChannelProfiles, issues);
+        var profileName = source.ProfileName.Trim();
+        if (profileName.Length == 0)
+            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidProfileName, "profileName", "FilmProfile.Validation.ProfileNameInvalid", ScanFilmProfileValidationSeverity.Warning));
+
+        var profiles = NormalizeProfiles(source.ChannelProfiles, issues, repairLegacyProfiles);
         var recipe = NormalizeRecipe(source.ScanRecipeSettings, issues);
+        var acquisition = migrateV5
+            ? MigrateV5Acquisition(source.AcquisitionSettings)
+            : NormalizeV6Acquisition(source.AcquisitionSettings, issues);
         AddNoProfilesIssue(profiles, issues);
         var validation = new ScanFilmProfileValidationResult(issues);
         if (profiles.Count == 0)
@@ -16,11 +43,11 @@ internal static class ScanFilmProfileDocumentNormalization
 
         var document = new ScanFilmParameterProfileSet(
             schemaVersion,
-            source.ProfileName.Trim(),
+            profileName,
             source.SavedAtUtc,
             profiles,
             NormalizeSelectedChannel(source.SelectedCalibrationChannel, profiles),
-            source.AcquisitionSettings?.Normalize(),
+            acquisition,
             recipe);
         return new ScanFilmProfileDocumentParseResult(document, validation);
     }
@@ -32,11 +59,12 @@ internal static class ScanFilmProfileDocumentNormalization
 
         var issues = new List<ScanFilmProfileValidationIssue>();
         if (string.IsNullOrWhiteSpace(draft.ProfileName))
-            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidProfileName, "profileName", "FilmProfile.Validation.ProfileNameInvalid"));
+            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidProfileName, "profileName", "FilmProfile.Validation.ProfileNameInvalid", ScanFilmProfileValidationSeverity.Warning));
 
-        var profiles = NormalizeProfiles(draft.ChannelProfiles, issues);
+        var profiles = NormalizeProfiles(draft.ChannelProfiles, issues, repairLegacyProfiles: false);
         AddNoProfilesIssue(profiles, issues);
         var recipe = NormalizeRecipe(draft.ScanRecipeSettings, issues);
+        var acquisition = NormalizeV6Acquisition(draft.AcquisitionSettings, issues);
         var validation = new ScanFilmProfileValidationResult(issues);
         if (!validation.IsValid)
             return new ScanFilmProfileDocumentBuildResult(null, validation);
@@ -48,7 +76,7 @@ internal static class ScanFilmProfileDocumentNormalization
                 draft.SavedAtUtc,
                 profiles,
                 NormalizeSelectedChannel(draft.SelectedCalibrationChannel, profiles),
-                draft.AcquisitionSettings?.Normalize(),
+                acquisition,
                 recipe),
             validation);
     }
@@ -77,7 +105,8 @@ internal static class ScanFilmProfileDocumentNormalization
 
     private static Dictionary<string, ScanChannelCalibrationProfile> NormalizeProfiles(
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? source,
-        List<ScanFilmProfileValidationIssue> issues)
+        List<ScanFilmProfileValidationIssue> issues,
+        bool repairLegacyProfiles)
     {
         var profiles = new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
         if (source is null)
@@ -108,13 +137,14 @@ internal static class ScanFilmProfileDocumentNormalization
                 continue;
             }
 
-            var roi = (pair.Value.RoiSettings ?? ScanCalibrationRoiSettings.CreateDefault()).Normalize();
-            var whiteLevel = pair.Value.WhiteLevel is > 0 ? pair.Value.WhiteLevel : null;
-            var blackLevel = pair.Value.BlackLevel;
-            if (blackLevel is not null && whiteLevel is not null && blackLevel >= whiteLevel)
-                blackLevel = (ushort)(whiteLevel.Value - 1);
+            if (ScanCalibrationProfileSettingsNormalizer.TryValidateProfile(pair.Value, out var profile)
+                || (repairLegacyProfiles && ScanCalibrationProfileSettingsNormalizer.TryNormalizeProfile(pair.Value, out profile)))
+            {
+                profiles[role] = profile;
+                continue;
+            }
 
-            profiles[role] = new ScanChannelCalibrationProfile(parameters, roi, blackLevel, whiteLevel);
+            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidRoiInput, $"{fieldPath}.roiSettings", "FilmProfile.Validation.RoiInputInvalid"));
         }
 
         return profiles;
@@ -160,6 +190,57 @@ internal static class ScanFilmProfileDocumentNormalization
             settings.DngExportMode);
     }
 
+    private static ScanFilmAcquisitionSettings MigrateV5Acquisition(ScanFilmAcquisitionSettings? settings)
+    {
+        var defaults = ScanFilmAcquisitionSettings.CreateDefault();
+        var normalized = (settings ?? defaults).Normalize();
+        return normalized with
+        {
+            Rows = defaults.Rows,
+            ScanMotorId = defaults.ScanMotorId,
+            TargetLinePitchMicrometers = defaults.TargetLinePitchMicrometers,
+            StartingDirectionPositive = defaults.StartingDirectionPositive,
+            WarmUpEnabled = defaults.WarmUpEnabled,
+            TransportStrategy = defaults.TransportStrategy,
+            AcquisitionChannelAssignment = defaults.AcquisitionChannelAssignment
+        };
+    }
+
+    private static ScanFilmAcquisitionSettings NormalizeV6Acquisition(
+        ScanFilmAcquisitionSettings? settings,
+        List<ScanFilmProfileValidationIssue> issues)
+    {
+        var normalized = (settings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize();
+        if (!ScanRowCountValidation.IsValidForHostBuffer(normalized.Rows))
+            issues.Add(AcquisitionIssue("acquisitionSettings.rows"));
+
+        if (normalized.ScanMotorId >= ScanDebugConstants.MotionMotorCount)
+            issues.Add(AcquisitionIssue("acquisitionSettings.scanMotorId"));
+
+        if (normalized.TargetLinePitchMicrometers is double targetLinePitch
+            && (!double.IsFinite(targetLinePitch) || targetLinePitch <= 0.0))
+        {
+            issues.Add(AcquisitionIssue("acquisitionSettings.targetLinePitchMicrometers"));
+        }
+
+        if (!Enum.IsDefined(normalized.TransportStrategy))
+            issues.Add(AcquisitionIssue("acquisitionSettings.transportStrategy"));
+
+        if (normalized.AcquisitionChannelAssignment is { } assignment
+            && ScanChannelRoleHelper.CountActiveRoles(assignment.Roles) == 0)
+        {
+            issues.Add(AcquisitionIssue("acquisitionSettings.acquisitionChannelAssignment"));
+        }
+
+        return normalized;
+    }
+
+    private static ScanFilmProfileValidationIssue AcquisitionIssue(string fieldPath)
+        => Issue(
+            ScanFilmProfileValidationCode.InvalidAcquisitionInput,
+            fieldPath,
+            "FilmProfile.Validation.AcquisitionInputInvalid");
+
     private static void AddNoProfilesIssue(Dictionary<string, ScanChannelCalibrationProfile> profiles, List<ScanFilmProfileValidationIssue> issues)
     {
         if (profiles.Count == 0)
@@ -185,5 +266,8 @@ internal static class ScanFilmProfileDocumentNormalization
         => new([Issue(code, fieldPath, messageKey)]);
 
     private static ScanFilmProfileValidationIssue Issue(ScanFilmProfileValidationCode code, string fieldPath, string messageKey)
-        => new(code, fieldPath, ScanFilmProfileValidationSeverity.Error, messageKey);
+        => Issue(code, fieldPath, messageKey, ScanFilmProfileValidationSeverity.Error);
+
+    private static ScanFilmProfileValidationIssue Issue(ScanFilmProfileValidationCode code, string fieldPath, string messageKey, ScanFilmProfileValidationSeverity severity)
+        => new(code, fieldPath, severity, messageKey);
 }

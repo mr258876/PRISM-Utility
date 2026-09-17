@@ -6,6 +6,7 @@ using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -25,7 +26,6 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private const double AxisMarginTop = 28;
     private const double AxisMarginRight = 16;
     private const double AxisMarginBottom = 36;
-    private const double WorkbenchSectionWideSelectorMinimumWidth = 960;
     private static readonly float[] ZoomLevels = { 0.1f, 0.125f, 0.2f, 0.25f, 0.5f, 0.75f, 1f, 2f, 3f, 4f, 6f, 8f, 12f, 16f, 20f };
     private const string RoiSelectionBwActive = "BW Active";
     private const string RoiSelectionBwShield = "BW Shield";
@@ -51,10 +51,27 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private uint _activeRoiPointerId;
     private int _roiDragStartX;
     private ScanColumnRange _roiOriginalRange = new(0, 0);
+    private int _roiDragImageWidth;
+    private int _roiDragFrameVersion = -1;
+    private string _roiDragSelection = string.Empty;
+    private string _roiDragCalibrationChannel = string.Empty;
+    private bool _roiDragHasAppliedRange;
     private bool _areViewModelEventsSubscribed;
     private bool _isUpdatingCurrentCalibrationIlluminationEditor;
     private bool _isSynchronizingWorkbenchSection;
-    private int _activeWorkbenchSectionIndex = 4;
+    private int _activeWorkbenchSectionIndex = 0;
+    private bool _isNarrowPreviewOpen;
+    private double _workbenchPreviewEditorRatio = ScanWorkbenchPreviewLayout.DefaultEditorRatio;
+    private ScanWorkbenchPreviewLayoutMode _workbenchPreviewLayoutMode = ScanWorkbenchPreviewLayoutMode.NarrowEditor;
+#if PRISM_VISUAL_QA
+    private int _visualQaPreviewScrollPressedCount;
+    private int _visualQaPreviewScrollMovedCount;
+    private int _visualQaPreviewCanvasPressedCount;
+    private int _visualQaPreviewCanvasMovedCount;
+    private int _visualQaPreviewCanvasReleasedCount;
+    private string _visualQaLastPointer = string.Empty;
+    private string _visualQaLastPan = string.Empty;
+#endif
 
     public ScanDebugViewModel ViewModel
     {
@@ -107,37 +124,103 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!IsWorkbenchSectionUiReady())
             return;
 
-        _ = DispatcherQueue.TryEnqueue(() => SetWorkbenchSectionSelectorMode(e.NewSize.Width));
+        _ = DispatcherQueue.TryEnqueue(() => UpdateWorkbenchPreviewLayout(e.NewSize.Width));
     }
 
-    private void SetWorkbenchSectionSelectorMode(double width)
+    private void UpdateWorkbenchPreviewLayout()
+        => UpdateWorkbenchPreviewLayout(ScanDebugRootGrid.ActualWidth);
+
+    private void UpdateWorkbenchPreviewLayout(double availableWidth)
     {
         if (!IsWorkbenchSectionUiReady())
             return;
 
-        var isWideSelectorAvailable = width >= WorkbenchSectionWideSelectorMinimumWidth;
+        if (!double.IsFinite(availableWidth) || availableWidth < 0)
+            availableWidth = 0;
+
+        var layout = ScanWorkbenchPreviewLayout.Calculate(new ScanWorkbenchPreviewLayoutInput(availableWidth, HasValidPreviewFrame(), _isNarrowPreviewOpen, _workbenchPreviewEditorRatio));
+        _workbenchPreviewLayoutMode = layout.Mode;
+        if (!layout.IsPreviewVisible)
+            CancelPreviewVisualInteraction();
+
+        var isWideSelectorAvailable = layout.Mode is ScanWorkbenchPreviewLayoutMode.WideCompact or ScanWorkbenchPreviewLayoutMode.WideImage;
         WorkbenchSectionSelectorBar.Visibility = isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
         WorkbenchSectionComboBox.Visibility = isWideSelectorAvailable ? Visibility.Collapsed : Visibility.Visible;
-        SetWorkbenchContentSplitMode(isWideSelectorAvailable);
+        WorkbenchEditorColumn.Width = new GridLength(layout.EditorWidth);
+        WorkbenchPreviewSeparatorColumn.Width = new GridLength(layout.SeparatorWidth);
+        WorkbenchPreviewColumn.Width = new GridLength(layout.PreviewWidth);
+        WorkbenchEditorRow.Height = new GridLength(1, GridUnitType.Star);
+        WorkbenchEditorColumnContent.Visibility = ToVisibility(layout.IsEditorVisible);
+        WorkbenchPreviewColumnContent.Visibility = ToVisibility(layout.IsPreviewVisible);
+        OpenPreviewButton.Visibility = ToVisibility(layout.IsPreviewOpenButtonVisible);
+        BackToEditorButton.Visibility = ToVisibility(layout.IsBackToEditorButtonVisible);
+        PreviewSplitter.Visibility = ToVisibility(layout.IsSplitterVisible);
+        PreviewSplitter.IsTabStop = layout.IsSplitterVisible;
+        WorkbenchPreviewColumnContent.VerticalAlignment = layout.Mode == ScanWorkbenchPreviewLayoutMode.WideCompact ? VerticalAlignment.Top : VerticalAlignment.Stretch;
     }
 
-    private void SetWorkbenchContentSplitMode(bool isWideSelectorAvailable)
+    private bool HasValidPreviewFrame()
+        => ViewModel.PreviewFrame is { Width: > 0, Height: > 0 };
+
+    private static Visibility ToVisibility(bool isVisible)
+        => isVisible ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OpenPreviewButton_Click(object sender, RoutedEventArgs e)
     {
-        WorkbenchEditorColumn.Width = isWideSelectorAvailable ? new GridLength(5, GridUnitType.Star) : new GridLength(1, GridUnitType.Star);
-        WorkbenchPreviewColumn.Width = isWideSelectorAvailable ? new GridLength(7, GridUnitType.Star) : new GridLength(0);
-        WorkbenchPreviewColumnContent.Visibility = isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
+        _isNarrowPreviewOpen = true;
+        UpdateWorkbenchPreviewLayout();
+        _ = DispatcherQueue.TryEnqueue(() => BackToEditorButton.Focus(FocusState.Programmatic));
+    }
+
+    private void BackToEditorButton_Click(object sender, RoutedEventArgs e)
+    {
+        _isNarrowPreviewOpen = false;
+        UpdateWorkbenchPreviewLayout();
+        _ = DispatcherQueue.TryEnqueue(() => WorkbenchSectionComboBox.Focus(FocusState.Programmatic));
+    }
+
+    private void PreviewSplitter_DragDelta(object sender, DragDeltaEventArgs e)
+        => ResizeWidePreviewSplit(e.HorizontalChange);
+
+    private void PreviewSplitter_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Left && e.Key != Windows.System.VirtualKey.Right)
+            return;
+
+        var delta = e.Key == Windows.System.VirtualKey.Left
+            ? -ScanWorkbenchPreviewLayout.KeyboardResizeDelta
+            : ScanWorkbenchPreviewLayout.KeyboardResizeDelta;
+        ResizeWidePreviewSplit(delta);
+        e.Handled = true;
+    }
+
+    private void ResizeWidePreviewSplit(double editorDelta)
+    {
+        if (_workbenchPreviewLayoutMode != ScanWorkbenchPreviewLayoutMode.WideImage || PreviewSplitter.Visibility != Visibility.Visible)
+            return;
+
+        var split = ScanWorkbenchPreviewLayout.ResizeWideImageSplit(new ScanWorkbenchPreviewResizeInput(ScanDebugRootGrid.ActualWidth, _workbenchPreviewEditorRatio, editorDelta));
+        _workbenchPreviewEditorRatio = split.EditorRatio;
+        UpdateWorkbenchPreviewLayout();
     }
 
     private bool IsWorkbenchSectionUiReady()
         => WorkbenchSectionSelectorBar is not null
             && WorkbenchSectionComboBox is not null
             && WorkbenchEditorColumn is not null
+            && WorkbenchEditorColumnContent is not null
+            && WorkbenchPreviewSeparatorColumn is not null
             && WorkbenchPreviewColumn is not null
+            && WorkbenchEditorRow is not null
             && WorkbenchPreviewColumnContent is not null
+            && OpenPreviewButton is not null
+            && BackToEditorButton is not null
+            && PreviewSplitter is not null
             && BasicInfoSection is not null
             && AcquisitionPlanSection is not null
             && ChannelCalibrationSection is not null
             && LiveCalibrationSection is not null
+            && DeviceSettingsSection is not null
             && EngineeringToolsSection is not null;
 
     private int GetWorkbenchSectionSelectorIndex(SelectorBarItem? selectedItem)
@@ -153,13 +236,14 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void SetActiveWorkbenchSection(int index)
     {
-        if ((uint)index >= 5)
+        if ((uint)index >= 6)
         {
             SynchronizeWorkbenchSectionSelectors(_activeWorkbenchSectionIndex);
             return;
         }
 
         _activeWorkbenchSectionIndex = index;
+        _isNarrowPreviewOpen = false;
         _isSynchronizingWorkbenchSection = true;
         try
         {
@@ -167,8 +251,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             AcquisitionPlanSection.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
             ChannelCalibrationSection.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
             LiveCalibrationSection.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
-            EngineeringToolsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+            DeviceSettingsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
+            EngineeringToolsSection.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
             SynchronizeWorkbenchSectionSelectors(index);
+            UpdateWorkbenchPreviewLayout();
         }
         finally
         {
@@ -178,7 +264,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void SynchronizeWorkbenchSectionSelectors(int index)
     {
-        if ((uint)index >= 5)
+        if ((uint)index >= 6)
             return;
 
         if (!ReferenceEquals(WorkbenchSectionSelectorBar.SelectedItem, WorkbenchSectionSelectorBar.Items[index]))
@@ -240,11 +326,35 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private void PreviewDisplayToolsFlyout_Opening(object sender, object e)
     {
         FindName("PreviewDisplayToolsContent");
+        ConfigureLocalFlyoutBounds(PreviewDisplayToolsFlyout, PreviewDisplayToolsScrollViewer, PreviewDisplayToolsContent);
     }
 
     private void OverlayToolsFlyout_Opening(object sender, object e)
     {
         FindName("OverlayToolsContent");
+        ConfigureLocalFlyoutBounds(OverlayToolsFlyout, OverlayToolsScrollViewer, OverlayToolsContent);
+    }
+
+    private void ConfigureLocalFlyoutBounds(Flyout flyout, ScrollViewer scrollViewer, FrameworkElement content)
+    {
+        const double targetFlyoutWidth = 420;
+        const double edgePadding = 24;
+        var rootSize = XamlRoot?.Size ?? new Size(targetFlyoutWidth, 520);
+        var width = Math.Max(0, Math.Min(targetFlyoutWidth, rootSize.Width - edgePadding));
+        var height = Math.Max(0, rootSize.Height - edgePadding);
+
+        var boundedPresenterStyle = new Style(typeof(FlyoutPresenter))
+        {
+            BasedOn = (Style)Resources["ScanDebugLocalFlyoutPresenterBaseStyle"]
+        };
+        boundedPresenterStyle.Setters.Add(new Setter(FrameworkElement.WidthProperty, width));
+        boundedPresenterStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, width));
+        boundedPresenterStyle.Setters.Add(new Setter(FrameworkElement.MaxHeightProperty, height));
+        flyout.FlyoutPresenterStyle = boundedPresenterStyle;
+
+        scrollViewer.MaxHeight = height;
+        content.ClearValue(FrameworkElement.WidthProperty);
+        content.ClearValue(FrameworkElement.MaxWidthProperty);
     }
 
     private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -258,6 +368,9 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ViewModel.AttachRuntimeBindings();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded AttachRuntimeBindings={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
+        App.MainWindow.Activated -= MainWindow_Activated;
+        App.MainWindow.Activated += MainWindow_Activated;
+
         stepStopwatch.Restart();
         await ViewModel.RefreshDeviceSettingsBindingsAsync();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded RefreshDeviceSettingsBindingsAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
@@ -270,6 +383,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         RefreshPreviewLayout();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded RefreshPreviewLayout={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
+#if PRISM_VISUAL_QA
+        PrismVisualQaPendingCalibrationHook.ApplyPageState(this, SetActiveWorkbenchSection);
+#endif
+
         totalStopwatch.Stop();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
     }
@@ -278,6 +395,11 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         var totalStopwatch = Stopwatch.StartNew();
         var stepStopwatch = Stopwatch.StartNew();
+        App.MainWindow.Activated -= MainWindow_Activated;
+        CancelPreviewVisualInteraction();
+#if PRISM_VISUAL_QA
+        await PrismVisualQaCaptureService.StopAsync(this);
+#endif
         UnsubscribeViewModelEvents();
         NavigationTimingLogger.Write($"ScanDebugPage.Unloaded UnsubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
@@ -293,6 +415,12 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         NavigationTimingLogger.Write($"ScanDebugPage.Unloaded total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
     }
 
+    private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated)
+            CancelPreviewVisualInteraction();
+    }
+
     private void SubscribeViewModelEvents()
     {
         if (_areViewModelEventsSubscribed)
@@ -302,6 +430,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;
         ViewModel.FilmProfileDiscardConfirmationRequested += OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested += OnNoticeRequested;
+        ViewModel.RoiIssueNavigationRequested += OnRoiIssueNavigationRequested;
         _areViewModelEventsSubscribed = true;
     }
 
@@ -314,7 +443,55 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;
         ViewModel.FilmProfileDiscardConfirmationRequested -= OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested -= OnNoticeRequested;
+        ViewModel.RoiIssueNavigationRequested -= OnRoiIssueNavigationRequested;
         _areViewModelEventsSubscribed = false;
+    }
+
+    private void OnRoiIssueNavigationRequested(ScanRoiIssueNavigationRequest request)
+    {
+        if (!TryResolveRoiNavigationTarget(request, out var sectionIndex, out var scroller, out var target))
+            return;
+
+        SetActiveWorkbenchSection(sectionIndex);
+        _ = DispatcherQueue.TryEnqueue(() =>
+        {
+            target.StartBringIntoView();
+            _ = scroller.ChangeView(null, Math.Max(0, target.ActualOffset.Y - 24), null, true);
+            _ = target.Focus(FocusState.Programmatic);
+            if (target is TextBox textBox)
+                textBox.SelectAll();
+        });
+    }
+
+    private bool TryResolveRoiNavigationTarget(ScanRoiIssueNavigationRequest request, out int sectionIndex, out ScrollViewer scroller, out Control target)
+    {
+        sectionIndex = -1;
+        scroller = null!;
+        target = null!;
+
+        switch (request.Target)
+        {
+            case ScanRoiEditorTarget.AdcEffective:
+            case ScanRoiEditorTarget.AdcShield:
+                sectionIndex = 2;
+                scroller = ChannelCalibrationScrollViewer;
+                target = AdcRoiStartTextBox;
+                return true;
+            case ScanRoiEditorTarget.FocusOverall:
+            case ScanRoiEditorTarget.FocusLeft:
+            case ScanRoiEditorTarget.FocusRight:
+                sectionIndex = 3;
+                scroller = LiveCalibrationScrollViewer;
+                target = FocusRoiStartTextBox;
+                return true;
+            case ScanRoiEditorTarget.ImageReferenceColumn:
+                sectionIndex = 2;
+                scroller = ChannelCalibrationScrollViewer;
+                target = ReferenceColumnSampleStartTextBox;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private void PreviewCanvasControl_CreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
@@ -405,10 +582,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot,
-                Title = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationTitle.Text".GetLocalized(),
-                Content = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationMessage.Text".GetLocalized(),
-                PrimaryButtonText = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationDiscardButton.Content".GetLocalized(),
-                CloseButtonText = "ScanDebug_FilmProfileWorkbenchDirtyConfirmationStayButton.Content".GetLocalized(),
+                Title = e.TitleResourceKey.GetLocalized(),
+                Content = e.MessageResourceKey.GetLocalized(),
+                PrimaryButtonText = e.PrimaryButtonResourceKey.GetLocalized(),
+                CloseButtonText = e.CloseButtonResourceKey.GetLocalized(),
                 DefaultButton = ContentDialogButton.Close
             };
 
@@ -455,6 +632,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (e.PropertyName == nameof(ScanDebugViewModel.RoiOverlayVersion)
             || e.PropertyName == nameof(ScanDebugViewModel.SelectedRoiSelection)
             || e.PropertyName == nameof(ScanDebugViewModel.IsRoiEditModeEnabled)
+            || e.PropertyName == nameof(ScanDebugViewModel.IsImageReferenceOverlayVisible)
             || e.PropertyName == nameof(ScanDebugViewModel.ColumnSampleOverlayVersion)
             || e.PropertyName == nameof(ScanDebugViewModel.IsColumnSampleEditModeEnabled))
         {
@@ -473,6 +651,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void RefreshPreviewLayout()
     {
+        UpdateWorkbenchPreviewLayout();
         UpdatePreviewEmptyStateVisibility();
         var frame = ViewModel.PreviewFrame;
         if (frame is null || frame.Width <= 0 || frame.Height <= 0)
@@ -541,6 +720,15 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!_pendingInitialFitZoom)
             return;
 
+#if PRISM_VISUAL_QA
+        if (string.Equals(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_SKIP_INITIAL_FIT"), "1", StringComparison.Ordinal))
+        {
+            _pendingInitialFitZoom = false;
+            UpdateZoomScaleComboBoxSelection();
+            return;
+        }
+#endif
+
         var viewportWidth = PreviewScrollViewer.ViewportWidth;
         var viewportHeight = PreviewScrollViewer.ViewportHeight;
         var contentWidth = PreviewCanvas.Width;
@@ -575,7 +763,14 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void PreviewScrollViewer_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        _visualQaPreviewScrollPressedCount++;
+#endif
         if (ViewModel.PreviewFrame is null)
+            return;
+
+        PreviewCanvasControl_PointerPressed(PreviewCanvasControl, e);
+        if (e.Handled)
             return;
 
         var point = e.GetCurrentPoint(PreviewScrollViewer);
@@ -587,30 +782,57 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _panStartPoint = point.Position;
         _panStartHorizontalOffset = PreviewScrollViewer.HorizontalOffset;
         _panStartVerticalOffset = PreviewScrollViewer.VerticalOffset;
+#if PRISM_VISUAL_QA
+        _visualQaLastPan = $"pressed pointer={point.PointerId} x={point.Position.X:0.###} y={point.Position.Y:0.###} h={_panStartHorizontalOffset:0.###} v={_panStartVerticalOffset:0.###}";
+#endif
         PreviewScrollViewer.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
     private void PreviewScrollViewer_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        _visualQaPreviewScrollMovedCount++;
+#endif
+        if (_isRoiDragging)
+        {
+            PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);
+            e.Handled = true;
+            return;
+        }
+
         if (!_isPanning)
             return;
 
         var point = e.GetCurrentPoint(PreviewScrollViewer);
         if (point.PointerId != _activePanPointerId)
+        {
+#if PRISM_VISUAL_QA
+            _visualQaLastPan = $"move-mismatch pointer={point.PointerId} active={_activePanPointerId} x={point.Position.X:0.###} y={point.Position.Y:0.###}";
+#endif
             return;
+        }
 
         var deltaX = point.Position.X - _panStartPoint.X;
         var deltaY = point.Position.Y - _panStartPoint.Y;
         var newHorizontalOffset = Math.Max(0, _panStartHorizontalOffset - deltaX);
         var newVerticalOffset = Math.Max(0, _panStartVerticalOffset - deltaY);
 
-        _ = PreviewScrollViewer.ChangeView(newHorizontalOffset, newVerticalOffset, null, true);
+        var changeViewAccepted = PreviewScrollViewer.ChangeView(newHorizontalOffset, newVerticalOffset, null, true);
+#if PRISM_VISUAL_QA
+        _visualQaLastPan = $"moved pointer={point.PointerId} dx={deltaX:0.###} dy={deltaY:0.###} newH={newHorizontalOffset:0.###} newV={newVerticalOffset:0.###} accepted={changeViewAccepted}";
+#endif
         e.Handled = true;
     }
 
     private void PreviewScrollViewer_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        if (_isRoiDragging)
+        {
+            PreviewCanvasControl_PointerReleased(PreviewCanvasControl, e);
+            return;
+        }
+
         if (!_isPanning)
             return;
 
@@ -618,12 +840,18 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (point.PointerId != _activePanPointerId)
             return;
 
-        EndPanning();
+        EndPanning(e);
         e.Handled = true;
     }
 
     private void PreviewScrollViewer_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
+        if (_isRoiDragging)
+        {
+            PreviewCanvasControl_PointerCanceled(PreviewCanvasControl, e);
+            return;
+        }
+
         if (!_isPanning)
             return;
 
@@ -631,7 +859,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (point.PointerId != _activePanPointerId)
             return;
 
-        EndPanning();
+        EndPanning(e);
         e.Handled = true;
     }
 
@@ -748,20 +976,28 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private static string FormatZoomLabel(float zoom)
         => $"{zoom * 100:0.###}%";
 
-    private void EndPanning()
+    private void EndPanning(PointerRoutedEventArgs e)
     {
-        _isPanning = false;
-        _activePanPointerId = 0;
-        PreviewScrollViewer.ReleasePointerCaptures();
+        ClearPanState();
+        PreviewScrollViewer.ReleasePointerCapture(e.Pointer);
     }
 
     private void PreviewCanvasControl_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        _visualQaPreviewCanvasPressedCount++;
+#endif
         if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview) || ViewModel.PreviewFrame is null)
             return;
 
         var point = e.GetCurrentPoint(PreviewCanvasControl);
+#if PRISM_VISUAL_QA
+        _visualQaLastPointer = $"pressed x={point.Position.X:0.###} y={point.Position.Y:0.###} left={point.Properties.IsLeftButtonPressed}";
+#endif
         if (!point.Properties.IsLeftButtonPressed)
+            return;
+
+        if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.PreviewFrame.Width || point.Position.Y >= ViewModel.PreviewFrame.Height)
             return;
 
         var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewFrame.Width - 1, 0));
@@ -769,6 +1005,11 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _isColumnSampleDrag = ViewModel.CanMutateColumnSampleFromPreview;
         _activeRoiPointerId = point.PointerId;
         _roiDragStartX = x;
+        _roiDragImageWidth = ViewModel.PreviewFrame.Width;
+        _roiDragFrameVersion = ViewModel.PreviewFrame.Version;
+        _roiDragSelection = ViewModel.SelectedRoiSelection;
+        _roiDragCalibrationChannel = ViewModel.SelectedCalibrationChannel;
+        _roiDragHasAppliedRange = false;
         var hasRange = _isColumnSampleDrag
             ? ViewModel.TryGetColumnSampleRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)
             : ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange);
@@ -779,11 +1020,17 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void PreviewCanvasControl_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        _visualQaPreviewCanvasMovedCount++;
+#endif
         var bitmap = ViewModel.PreviewFrame;
         if (bitmap is null)
             return;
 
         var point = e.GetCurrentPoint(PreviewCanvasControl).Position;
+#if PRISM_VISUAL_QA
+        _visualQaLastPointer = $"moved x={point.X:0.###} y={point.Y:0.###} dragging={_isRoiDragging}";
+#endif
         var x = (int)Math.Floor(point.X);
         var y = (int)Math.Floor(point.Y);
 
@@ -804,7 +1051,13 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         if (_isColumnSampleDrag ? !ViewModel.CanMutateColumnSampleFromPreview : !ViewModel.CanMutateRoiFromPreview)
         {
-            EndRoiDrag();
+            EndRoiDrag(e);
+            return;
+        }
+
+        if (!IsRoiDragTargetCurrent(bitmap))
+        {
+            EndRoiDrag(e);
             return;
         }
 
@@ -813,25 +1066,18 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             return;
 
         if (_isRoiMoveMode)
-        {
-            if (_isColumnSampleDrag)
-                ViewModel.ShiftColumnSampleRange(x - _roiDragStartX, bitmap.Width);
-            else
-                ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.Width);
-        }
+            ApplyRoiMoveDragToX(x, bitmap.Width);
         else
-        {
-            if (_isColumnSampleDrag)
-                ViewModel.UpdateColumnSampleRange(_roiDragStartX, x, bitmap.Width);
-            else
-                ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.Width);
-        }
+            ApplyRoiDragRangeIfChanged(new ScanColumnRange(_roiDragStartX, x), bitmap.Width);
 
         e.Handled = true;
     }
 
     private void PreviewCanvasControl_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        _visualQaPreviewCanvasReleasedCount++;
+#endif
         if (!_isRoiDragging)
             return;
 
@@ -839,7 +1085,20 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (point.PointerId != _activeRoiPointerId)
             return;
 
-        EndRoiDrag();
+        var bitmap = ViewModel.PreviewFrame;
+        if (bitmap is not null)
+        {
+            var x = (int)Math.Floor(point.Position.X);
+            if (x >= 0 && point.Position.Y >= 0 && x < bitmap.Width && point.Position.Y < bitmap.Height && IsRoiDragTargetCurrent(bitmap))
+            {
+                if (_isRoiMoveMode)
+                    ApplyRoiMoveDragToX(x, bitmap.Width);
+                else
+                    PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);
+            }
+        }
+
+        EndRoiDrag(e);
         e.Handled = true;
     }
 
@@ -852,8 +1111,18 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (point.PointerId != _activeRoiPointerId)
             return;
 
-        EndRoiDrag();
+        EndRoiDrag(e);
         e.Handled = true;
+    }
+
+    private void PreviewCanvasControl_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        EndRoiDragOrPanForPointer(e);
+    }
+
+    private void PreviewScrollViewer_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        EndRoiDragOrPanForPointer(e);
     }
 
     private void PreviewCanvasControl_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -861,13 +1130,89 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         SetDefaultCursorText();
     }
 
-    private void EndRoiDrag()
+    private void EndRoiDrag(PointerRoutedEventArgs e)
+    {
+        ClearRoiDragState();
+        PreviewCanvasControl.ReleasePointerCapture(e.Pointer);
+    }
+
+    private void CancelPreviewVisualInteraction()
+    {
+        ClearRoiDragState();
+        ClearPanState();
+        PreviewCanvasControl.ReleasePointerCaptures();
+        PreviewScrollViewer.ReleasePointerCaptures();
+    }
+
+    private void ClearRoiDragState()
     {
         _isRoiDragging = false;
         _isColumnSampleDrag = false;
         _isRoiMoveMode = false;
         _activeRoiPointerId = 0;
-        PreviewCanvasControl.ReleasePointerCaptures();
+        _roiDragStartX = 0;
+        _roiOriginalRange = new ScanColumnRange(0, 0);
+        _roiDragImageWidth = 0;
+        _roiDragFrameVersion = -1;
+        _roiDragSelection = string.Empty;
+        _roiDragCalibrationChannel = string.Empty;
+        _roiDragHasAppliedRange = false;
+    }
+
+    private void ClearPanState()
+    {
+        _isPanning = false;
+        _activePanPointerId = 0;
+        _panStartPoint = default;
+        _panStartHorizontalOffset = 0;
+        _panStartVerticalOffset = 0;
+    }
+
+    private void ApplyRoiMoveDragToX(int x, int imageWidth)
+    {
+        var range = ScanRoiDragMath.CalculateMovedRange(_roiOriginalRange, x - _roiDragStartX, imageWidth);
+        ApplyRoiDragRangeIfChanged(range, imageWidth);
+    }
+
+    private void ApplyRoiDragRangeIfChanged(ScanColumnRange range, int imageWidth)
+    {
+        if (_roiDragHasAppliedRange)
+        {
+            var currentRangeValid = _isColumnSampleDrag
+                ? ViewModel.TryGetColumnSampleRange(imageWidth, out var currentRange)
+                : ViewModel.TryGetSelectedRoiRange(imageWidth, out currentRange);
+            if (currentRangeValid && currentRange == range)
+                return;
+        }
+
+        _roiDragHasAppliedRange = true;
+        if (_isColumnSampleDrag)
+            ViewModel.UpdateColumnSampleRange(range.Start, range.EndInclusive, imageWidth);
+        else
+            ViewModel.UpdateSelectedRoiRange(range.Start, range.EndInclusive, imageWidth);
+    }
+
+    private bool IsRoiDragTargetCurrent(ScanPreviewFrame bitmap)
+        => bitmap.Width == _roiDragImageWidth
+            && bitmap.Version == _roiDragFrameVersion
+            && string.Equals(ViewModel.SelectedCalibrationChannel, _roiDragCalibrationChannel, StringComparison.Ordinal)
+            && (_isColumnSampleDrag || string.Equals(ViewModel.SelectedRoiSelection, _roiDragSelection, StringComparison.Ordinal));
+
+    private void EndRoiDragOrPanForPointer(PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(PreviewCanvasControl).PointerId;
+        if (_isRoiDragging && point == _activeRoiPointerId)
+        {
+            EndRoiDrag(e);
+            e.Handled = true;
+            return;
+        }
+
+        if (_isPanning && point == _activePanPointerId)
+        {
+            EndPanning(e);
+            e.Handled = true;
+        }
     }
 
     private void ManualFocusNegativeButton_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -878,6 +1223,12 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private void ManualFocusPositiveButton_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         BeginManualFocusHold(sender, e, positive: true);
+    }
+
+    private void AutoFocusButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (ViewModel.CanRunAutoFocusAction)
+            ViewModel.AutoFocusCommand.Execute(null);
     }
 
     private void ManualFocusButton_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -921,6 +1272,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
             return;
 
+        var labels = new List<(TextBlock Element, double AnchorX, bool IsSelected, bool IsBottomAnchored)>();
+
         foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.Width))
         {
             var stroke = new SolidColorBrush(GetRoiColor(overlay.Key, overlay.IsSelected));
@@ -948,12 +1301,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
                 FontWeight = overlay.IsSelected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal
             };
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(label, AxisMarginLeft + overlay.Range.Start + 4);
-            Canvas.SetTop(label, Math.Max(0, AxisMarginTop + 4));
-            RoiCanvas.Children.Add(label);
+            labels.Add((label, overlay.Range.Start, overlay.IsSelected, false));
         }
 
-        if (ViewModel.TryGetColumnSampleRange(bitmap.Width, out var sampleRange))
+        if (ViewModel.IsImageReferenceOverlayVisible && ViewModel.TryGetColumnSampleRange(bitmap.Width, out var sampleRange))
         {
             var strokeColor = ViewModel.IsColumnSampleEditModeEnabled ? Colors.Gold : Colors.Khaki;
             var rectangle = new Rectangle
@@ -974,14 +1325,30 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
             var label = new TextBlock
             {
-                Text = "Sample",
+                Text = "ScanDebug_Runtime_ImageReferenceOverlayLabel".GetLocalized(),
                 Foreground = new SolidColorBrush(strokeColor),
                 FontSize = 11,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             };
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(label, AxisMarginLeft + sampleRange.Start + 4);
-            Canvas.SetTop(label, Math.Max(0, AxisMarginTop + bitmap.Height - label.DesiredSize.Height - 4));
+            labels.Add((label, sampleRange.Start, false, true));
+        }
+
+        var layoutInputs = labels
+            .Select((label, index) => new ScanRoiOverlayLabelLayoutInput(
+                index,
+                label.AnchorX,
+                label.Element.DesiredSize.Width,
+                label.Element.DesiredSize.Height,
+                label.IsSelected,
+                label.IsBottomAnchored))
+            .ToArray();
+
+        foreach (var placement in ScanRoiOverlayLabelLayout.Arrange(bitmap.Width, bitmap.Height, layoutInputs))
+        {
+            var label = labels[placement.Index].Element;
+            Canvas.SetLeft(label, AxisMarginLeft + placement.X);
+            Canvas.SetTop(label, AxisMarginTop + placement.Y);
             RoiCanvas.Children.Add(label);
         }
     }
@@ -1106,5 +1473,21 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         return (int)(nice * magnitude);
     }
+
+#if PRISM_VISUAL_QA
+    internal object GetVisualQaPointerDiagnostics()
+        => new
+        {
+            _visualQaPreviewScrollPressedCount,
+            _visualQaPreviewScrollMovedCount,
+            _visualQaPreviewCanvasPressedCount,
+            _visualQaPreviewCanvasMovedCount,
+            _visualQaPreviewCanvasReleasedCount,
+            _visualQaLastPointer,
+            _visualQaLastPan,
+            _isRoiDragging,
+            _isPanning
+        };
+#endif
 }
 

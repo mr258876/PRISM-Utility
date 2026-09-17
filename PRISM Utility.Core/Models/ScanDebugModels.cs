@@ -26,6 +26,7 @@ public static class ScanDebugConstants
     public const int WhiteProbeSampleRows = 512;
     public const ushort MinExposureTicks = 0;
     public const uint MinSysClockKhz = 30_000;
+    public const uint MaxSysClockKhz = 200_000;
 
     public const int AckTimeoutMs = 2000;
     public const int ImageReadTimeoutMs = 30000;
@@ -116,6 +117,20 @@ public static class ScanDebugConstants
     }
 }
 
+public static class ScanRowCountValidation
+{
+    public static int MaxHostRows => Array.MaxLength / ScanDebugConstants.BytesPerLine;
+
+    public static bool IsValidForHostBuffer(int rows)
+        => rows > 0 && rows <= MaxHostRows;
+
+    public static void EnsureValidForHostBuffer(int rows, string parameterName)
+    {
+        if (!IsValidForHostBuffer(rows))
+            throw new ArgumentOutOfRangeException(parameterName, rows, $"Rows must be in [1, {MaxHostRows}] for a host scan buffer.");
+    }
+}
+
 public delegate void ScanRowsAvailableHandler(byte[] imageBytes, int completedRows);
 
 public sealed record ScanControlFrame(byte Opcode, byte Status, byte[] Payload);
@@ -133,6 +148,13 @@ public sealed record ScanStopResult(bool Success, string Message);
 public sealed record ScanParameterDefinition(string DisplayName, string Key);
 
 public sealed record ScanParameterSnapshot(ushort ExposureTicks, int Adc1Offset, ushort Adc1Gain, int Adc2Offset, ushort Adc2Gain, uint SysClockKhz);
+
+public sealed record ScanAutoCalibrationCandidateResult(
+    ScanParameterSnapshot OriginalSnapshot,
+    ScanParameterSnapshot CandidateSnapshot,
+    ScanCalibrationMetrics BeforeMetrics,
+    ScanCalibrationMetrics AfterMetrics,
+    ScanCalibrationCandidateValidation Validation);
 
 public sealed record ScanIlluminationState(
     ushort Led1Level,
@@ -162,7 +184,7 @@ public sealed record ScanCalibrationPrompt(string Title, string Content, string 
 
 public sealed record ScanColumnRange(int Start, int EndInclusive)
 {
-    public int Width => Math.Max(0, EndInclusive - Start + 1);
+    public int Width => (int)Math.Min(int.MaxValue, Math.Max(0L, (long)EndInclusive - Start + 1));
 
     public ScanColumnRange Normalize()
         => Start <= EndInclusive ? this : new ScanColumnRange(EndInclusive, Start);
@@ -199,6 +221,7 @@ public static class ScanDebugValidation
             && snapshot.Adc1Gain <= 63
             && snapshot.Adc2Gain <= 63
             && snapshot.SysClockKhz >= ScanDebugConstants.MinSysClockKhz
+            && snapshot.SysClockKhz <= ScanDebugConstants.MaxSysClockKhz
             && snapshot.ExposureTicks >= ScanDebugConstants.MinExposureTicks;
 
         normalized = new ScanParameterSnapshot(
@@ -207,7 +230,7 @@ public static class ScanDebugValidation
             (ushort)Math.Clamp((int)snapshot.Adc1Gain, 0, 63),
             Math.Clamp(snapshot.Adc2Offset, -255, 255),
             (ushort)Math.Clamp((int)snapshot.Adc2Gain, 0, 63),
-            Math.Max(snapshot.SysClockKhz, ScanDebugConstants.MinSysClockKhz));
+            Math.Clamp(snapshot.SysClockKhz, ScanDebugConstants.MinSysClockKhz, ScanDebugConstants.MaxSysClockKhz));
 
         return isValid;
     }
@@ -398,16 +421,61 @@ public sealed record ScanChannelCalibrationProfile(
     ushort? BlackLevel = null,
     ushort? WhiteLevel = null);
 
-public sealed record ScanAutofocusRequest(
-    int SampleRows,
-    uint TiltProbeSteps,
-    uint ZProbeSteps,
-    uint MotorIntervalNs,
-    bool ZPositiveDirection,
-    bool TiltPositiveDirection,
-    int MaxTiltIterations,
-    int MaxZIterations,
-    ScanCalibrationRoiSettings RoiSettings);
+public sealed record ScanAutofocusRequest
+{
+    public ScanAutofocusRequest(
+        int SampleRows,
+        uint TiltProbeSteps,
+        uint ZProbeSteps,
+        uint MotorIntervalNs,
+        bool ZPositiveDirection,
+        bool TiltPositiveDirection,
+        int MaxTiltIterations,
+        int MaxZIterations,
+        ScanCalibrationRoiSettings RoiSettings)
+        : this(
+            SampleRows,
+            TiltProbeSteps,
+            ZProbeSteps,
+            MotorIntervalNs,
+            MaxTiltIterations,
+            MaxZIterations,
+            RoiSettings,
+            new ScanFocusMotorMapping(
+                ZPositiveDirection: ZPositiveDirection,
+                TiltPositiveDirection: TiltPositiveDirection))
+    {
+    }
+
+    public ScanAutofocusRequest(
+        int SampleRows,
+        uint TiltProbeSteps,
+        uint ZProbeSteps,
+        uint MotorIntervalNs,
+        int MaxTiltIterations,
+        int MaxZIterations,
+        ScanCalibrationRoiSettings RoiSettings,
+        ScanFocusMotorMapping FocusMotorMapping)
+    {
+        this.SampleRows = SampleRows;
+        this.TiltProbeSteps = TiltProbeSteps;
+        this.ZProbeSteps = ZProbeSteps;
+        this.MotorIntervalNs = MotorIntervalNs;
+        this.MaxTiltIterations = MaxTiltIterations;
+        this.MaxZIterations = MaxZIterations;
+        this.RoiSettings = RoiSettings;
+        this.FocusMotorMapping = FocusMotorMapping ?? throw new ArgumentNullException(nameof(FocusMotorMapping));
+    }
+
+    public int SampleRows { get; init; }
+    public uint TiltProbeSteps { get; init; }
+    public uint ZProbeSteps { get; init; }
+    public uint MotorIntervalNs { get; init; }
+    public int MaxTiltIterations { get; init; }
+    public int MaxZIterations { get; init; }
+    public ScanCalibrationRoiSettings RoiSettings { get; init; }
+    public ScanFocusMotorMapping FocusMotorMapping { get; init; }
+}
 
 public sealed record ScanAutofocusResult(
     int SampleRows,

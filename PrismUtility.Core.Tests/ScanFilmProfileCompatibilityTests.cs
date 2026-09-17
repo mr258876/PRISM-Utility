@@ -10,7 +10,7 @@ public sealed class ScanFilmProfileCompatibilityTests
     [Fact]
     public void ParseExchangeJson_RejectsFutureSchemaWithoutReturningPartialDocument()
     {
-        var outcome = ParseFixture("future-v6.json");
+        var outcome = ParseFixture("future-v7.json");
 
         Assert.Null(outcome.Profile);
         Assert.Equal(ScanFilmProfileParseErrorCode.UnsupportedSchemaVersion, outcome.Error?.Code);
@@ -31,16 +31,16 @@ public sealed class ScanFilmProfileCompatibilityTests
     [InlineData("full-v5.json", "Green", true)]
     [InlineData("minimal-v5.json", "Blue", false)]
     [InlineData("null-optionals-v5.json", "Red", false)]
-    public void ParseExchangeJson_AcceptsLiteralV5OptionalSettingsVariants(string fixtureName, string selectedChannel, bool hasOptionalSettings)
+    public void ParseExchangeJson_MigratesLiteralV5OptionalSettingsVariants(string fixtureName, string selectedChannel, bool hasRecipeSettings)
     {
         var outcome = ParseFixture(fixtureName);
 
         var profileSet = Assert.IsType<ScanFilmParameterProfileSet>(outcome.Profile);
         Assert.Null(outcome.Error);
-        Assert.Equal(5, profileSet.SchemaVersion);
+        Assert.Equal(6, profileSet.SchemaVersion);
         Assert.Equal(selectedChannel, profileSet.SelectedCalibrationChannel);
-        Assert.Equal(hasOptionalSettings, profileSet.AcquisitionSettings is not null);
-        Assert.Equal(hasOptionalSettings, profileSet.ScanRecipeSettings is not null);
+        Assert.NotNull(profileSet.AcquisitionSettings);
+        Assert.Equal(hasRecipeSettings, profileSet.ScanRecipeSettings is not null);
     }
 
     [Fact]

@@ -1,0 +1,59 @@
+{
+  "SchemaVersion": 6,
+  "ProfileName": "Invalid v6 Acquisition",
+  "SavedAtUtc": "2026-08-30T09:15:30+00:00",
+  "ChannelProfiles": {
+    "Blue": {
+      "Parameters": {
+        "ExposureTicks": 10,
+        "Adc1Offset": 0,
+        "Adc1Gain": 1,
+        "Adc2Offset": 0,
+        "Adc2Gain": 1,
+        "SysClockKhz": 30000
+      },
+      "RoiSettings": {
+        "EffectiveRange": { "Start": 128, "EndInclusive": 7577 },
+        "ShieldRange": { "Start": 26, "EndInclusive": 115 },
+        "FocusLeftRange": { "Start": 1200, "EndInclusive": 2800 },
+        "FocusRightRange": { "Start": 4600, "EndInclusive": 6200 },
+        "FocusOverallRange": { "Start": 1200, "EndInclusive": 6200 }
+      }
+    }
+  },
+  "SelectedCalibrationChannel": "Blue",
+  "AcquisitionSettings": {
+    "Led1Level": 0,
+    "Led2Level": 0,
+    "Led3Level": 0,
+    "Led4Level": 0,
+    "SteadyMask": 15,
+    "SyncMask": 0,
+    "Led1PulseClock": 2,
+    "Led2PulseClock": 2,
+    "Led3PulseClock": 2,
+    "Led4PulseClock": 2,
+    "MotorIntervalNs": 500000,
+    "Led1ChannelColor": "Blue",
+    "Led2ChannelColor": "White",
+    "Led3ChannelColor": "Red",
+    "Led4ChannelColor": "Green",
+    "Rows": 0,
+    "ScanMotorId": 3,
+    "TargetLinePitchMicrometers": -1.0,
+    "StartingDirectionPositive": true,
+    "WarmUpEnabled": false,
+    "TransportStrategy": 99,
+    "AcquisitionChannelAssignment": {
+      "Channel1Role": "Unused",
+      "Channel2Role": "Unused",
+      "Channel3Role": "Unused",
+      "Channel4Role": "Unused",
+      "Channel1Reversed": false,
+      "Channel2Reversed": false,
+      "Channel3Reversed": false,
+      "Channel4Reversed": false
+    }
+  },
+  "ScanRecipeSettings": null
+}

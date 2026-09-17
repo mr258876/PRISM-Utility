@@ -1,5 +1,15 @@
 namespace PRISM_Utility.Core.Models;
 
+public sealed record ScanWorkflowLinePitchInput(
+    double TargetLinePitchMicrometers,
+    ScanMotorMechanicalSettings? MotorMechanics,
+    uint MinimumMotorIntervalNanoseconds,
+    uint?[] MotorIntervalOverrides)
+{
+    internal ScanWorkflowLinePitchInput CreateExecutionCopy()
+        => this with { MotorIntervalOverrides = MotorIntervalOverrides?.ToArray() ?? [] };
+}
+
 public sealed record ScanWorkflowRequest(
     int Rows,
     bool WarmUpEnabled,
@@ -14,7 +24,48 @@ public sealed record ScanWorkflowRequest(
     uint SysClockKhz,
     ScanFilmAcquisitionSettings? AcquisitionSettings = null,
     bool EnableMotorTransport = true,
-    bool EnableLedAutoControl = true);
+    bool EnableLedAutoControl = true,
+    ScanLinePitchPlanResult? LinePitchPlan = null,
+    ScanLinePitchPlanInputSnapshot? LinePitchPlanInput = null,
+    ScanWorkflowLinePitchInput? LinePitchInput = null)
+{
+    internal ScanWorkflowRequest CreateExecutionSnapshot()
+        => this with
+        {
+            LedLevels = LedLevels?.ToArray() ?? [],
+            PassChannelRoles = PassChannelRoles?.ToArray() ?? [],
+            PassParameterProfiles = PassParameterProfiles?.ToArray() ?? [],
+            LinePitchInput = LinePitchInput?.CreateExecutionCopy()
+        };
+}
+
+public enum ScanWorkflowTransportValidationFailure
+{
+    MissingLinePitchPlan,
+    MissingLinePitchInput,
+    InvalidLinePitchInput,
+    InvalidLinePitchPlan,
+    PlanInputMismatch,
+    AlternateDirectionNotAllowed,
+    PlanPassMismatch
+}
+
+public sealed class ScanWorkflowTransportValidationException : InvalidOperationException
+{
+    public ScanWorkflowTransportValidationException(
+        ScanWorkflowTransportValidationFailure failure,
+        string message,
+        ScanLinePitchPlanResult? linePitchPlan = null)
+        : base(message)
+    {
+        Failure = failure;
+        LinePitchPlan = linePitchPlan;
+    }
+
+    public ScanWorkflowTransportValidationFailure Failure { get; }
+
+    public ScanLinePitchPlanResult? LinePitchPlan { get; }
+}
 
 public sealed record ScanPassCapture(
     int PassIndex,
@@ -47,7 +98,14 @@ public sealed record ScanWorkflowRowsAvailable(
     bool DirectionPositive,
     string ChannelRole,
     byte[] ImageBytes,
-    int CompletedRows);
+    int CompletedRows,
+    uint MotorSteps = 0,
+    uint MotorIntervalNanoseconds = 0)
+{
+    public int StartRow { get; init; }
+
+    public int RowCount { get; init; } = -1;
+}
 
 public sealed record ScanRowAvailability(int StartRow, int RowCount)
 {
@@ -69,7 +127,10 @@ public sealed record ScanChannelAssignment(
     bool Channel3Reversed,
     bool Channel4Reversed)
 {
+    [Newtonsoft.Json.JsonIgnore]
     public IReadOnlyList<string> Roles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
+
+    [Newtonsoft.Json.JsonIgnore]
     public IReadOnlyList<bool> ReversedFlags => new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed };
 }
 

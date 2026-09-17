@@ -24,6 +24,10 @@ public class DefaultActivationHandler : ActivationHandler<LaunchActivatedEventAr
     {
         _navigationService.NavigateTo(AppRoute.Main, args.Arguments);
 
+#if PRISM_VISUAL_QA
+        PrismVisualQaPendingCalibrationHook.Activate(_navigationService);
+#endif
+
         await Task.CompletedTask;
     }
 }

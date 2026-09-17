@@ -46,7 +46,10 @@ public static class ResourceExtensions
             string localized;
             lock (ResourceLoaderGate)
             {
-                localized = GetResourceLoader().GetString(resourceKey);
+                var loader = GetResourceLoader();
+                localized = loader.GetString(resourceKey);
+                if (string.IsNullOrEmpty(localized) || string.Equals(localized, resourceKey, StringComparison.Ordinal))
+                    localized = loader.GetString(ToResourceLoaderName(resourceKey));
             }
             if (!string.IsNullOrEmpty(localized))
                 return localized;
@@ -81,7 +84,10 @@ public static class ResourceExtensions
             string localized;
             lock (ResourceLoaderGate)
             {
-                localized = GetResourceLoader().GetString(resourceKey);
+                var loader = GetResourceLoader();
+                localized = loader.GetString(resourceKey);
+                if (string.IsNullOrEmpty(localized) || string.Equals(localized, resourceKey, StringComparison.Ordinal))
+                    localized = loader.GetString(ToResourceLoaderName(resourceKey));
             }
             if (!string.IsNullOrEmpty(localized))
                 return localized;
@@ -102,4 +108,12 @@ public static class ResourceExtensions
 
     public static string GetLocalizedFormat(this string resourceKey, params object[] args)
         => string.Format(CultureInfo.CurrentCulture, resourceKey.GetLocalized(), args);
+
+    private static string ToResourceLoaderName(string resourceKey)
+    {
+        var separator = resourceKey.LastIndexOf('.');
+        return separator > 0 && separator < resourceKey.Length - 1
+            ? resourceKey[..separator] + "/" + resourceKey[(separator + 1)..]
+            : resourceKey;
+    }
 }

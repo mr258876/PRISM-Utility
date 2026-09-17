@@ -36,7 +36,7 @@ Host Software 是一个 WinUI 3 桌面应用。C1 建立应用 Host、Shell 和�
 | C5 | `Host Software/PRISM Utility.Core/Services/ScanWorkflowService.cs` `ExecuteAsync` | 多 pass 参数、照明、电机和 cleanup 工作流 | [Scan workflow and device control](scan-workflow-and-device-control.md) |
 | C5 | `Host Software/PRISM Utility.Core/Services/ScanImageDecoder.cs` `DecodeToBgra` | 原始行缓冲到 BGRA 预览 | [Image decoding and preview](image-decoding-preview.md) |
 | C5 | `Host Software/PRISM Utility.Core/Services/ScanCompositeImageProcessor.cs` `TryBuildRgbComposite` | RGB 合成和色彩管理 | [Alignment, color processing, and composite preview](alignment-color-processing.md) |
-| C5 | `Host Software/PRISM Utility.Core/Services/ScanAutoCalibrationService.cs` `AutoCalibrateAsync` | 黑场、白场校准和 profile 保存 | [Calibration, autofocus, and film profiles](calibration-autofocus-film-profiles.md) |
+| C5 | `Host Software/PRISM Utility.Core/Services/ScanAutoCalibrationService.cs` `AutoCalibrateAsync` | 黑场、白场校准和 pending review candidate | [Calibration, autofocus, and film profiles](calibration-autofocus-film-profiles.md) |
 | C6 | `Host Software/PRISM Utility.Core/Services/DngWriterService.cs` `WriteRawDng` | 托管 DNG 请求验证和原生 DLL 调用 | [DNG export and native bridge](dng-export-native-bridge.md) |
 | C6 | `Host Software/docs/architecture/validate-docs.ps1` `Full` | 文档结构、链接、源码路径和 Mermaid 检查 | [Testing and build](testing-and-build.md) |
 | C6 | `Host Software/docs/architecture/issues-and-remediation.md` | 去重问题登记和整改路线 | [Issues and remediation](issues-and-remediation.md) |

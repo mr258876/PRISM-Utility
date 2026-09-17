@@ -48,6 +48,13 @@ internal static class FilmProfileRoundTripAssertions
         Assert.Equal(expectedAcquisition.Led2ChannelColor, actualAcquisition.Led2ChannelColor);
         Assert.Equal(expectedAcquisition.Led3ChannelColor, actualAcquisition.Led3ChannelColor);
         Assert.Equal(expectedAcquisition.Led4ChannelColor, actualAcquisition.Led4ChannelColor);
+        Assert.Equal(expectedAcquisition.Rows, actualAcquisition.Rows);
+        Assert.Equal(expectedAcquisition.ScanMotorId, actualAcquisition.ScanMotorId);
+        Assert.Equal(expectedAcquisition.TargetLinePitchMicrometers, actualAcquisition.TargetLinePitchMicrometers);
+        Assert.Equal(expectedAcquisition.StartingDirectionPositive, actualAcquisition.StartingDirectionPositive);
+        Assert.Equal(expectedAcquisition.WarmUpEnabled, actualAcquisition.WarmUpEnabled);
+        Assert.Equal(expectedAcquisition.TransportStrategy, actualAcquisition.TransportStrategy);
+        Assert.Equal(expectedAcquisition.AcquisitionChannelAssignment, actualAcquisition.AcquisitionChannelAssignment);
 
         var expectedRecipe = Assert.IsType<ScanFilmScanRecipeSettings>(expected.ScanRecipeSettings);
         var actualRecipe = Assert.IsType<ScanFilmScanRecipeSettings>(actual.ScanRecipeSettings);

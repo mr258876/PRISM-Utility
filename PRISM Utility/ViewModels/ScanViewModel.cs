@@ -1708,6 +1708,52 @@ public partial class ScanViewModel : ObservableRecipient
             passProfiles[passIndex] = profile.Parameters;
         }
 
+        double targetLinePitchMillimeters;
+        if (_isMotorDistanceDerivedFromInterval)
+        {
+            targetLinePitchMillimeters = ScanTimingMath.ConvertMotorIntervalToLineDistanceMillimeters(
+                intervalNs,
+                _loadedExposureTicks,
+                _loadedSysClockKhz,
+                motorSettings);
+        }
+        else if (!ScanMotorDistanceText.TryParseMillimeters(
+            MotorDistancePerLineValue,
+            MotorDistancePerLineUnit,
+            motorSettings,
+            out targetLinePitchMillimeters))
+        {
+            error = "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
+            return false;
+        }
+
+        var linePitchInput = new ScanWorkflowLinePitchInput(
+            targetLinePitchMillimeters * 1_000.0,
+            motorSettings,
+            ScanDebugConstants.MotionMinIntervalNs,
+            new uint?[passRoles.Length]);
+        var linePitchPlan = ScanTimingMath.BuildLinePitchPlan(new ScanLinePitchPlanRequest(
+            rows,
+            linePitchInput.TargetLinePitchMicrometers,
+            linePitchInput.MotorMechanics,
+            linePitchInput.MinimumMotorIntervalNanoseconds,
+            passRoles.Select((channelRole, passIndex) => new ScanLinePitchPassInput(
+                passIndex,
+                channelRole,
+                ScanChannelRoleHelper.IsActiveRole(channelRole),
+                passProfiles[passIndex].ExposureTicks,
+                _loadedSysClockKhz,
+                ParameterProfile: passProfiles[passIndex])).ToArray()));
+        if (!linePitchPlan.CanScan
+            || (IsAlternateMotorDirectionEnabled && !linePitchPlan.CanUseAlternateDirection))
+        {
+            error = linePitchPlan.Issues.FirstOrDefault(issue => issue.Severity != ScanLinePitchIssueSeverity.Warning
+                && (issue.Scope == ScanLinePitchIssueScope.Plan
+                    || (IsAlternateMotorDirectionEnabled && issue.Scope == ScanLinePitchIssueScope.AlternateDirection)))?.Message
+                ?? "Scan_Runtime_ErrorMotorIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
+            return false;
+        }
+
         var acquisitionSettings = BuildWorkflowAcquisitionSettings(intervalNs);
 
         request = new ScanWorkflowRequest(
@@ -1722,7 +1768,8 @@ public partial class ScanViewModel : ObservableRecipient
             IsAlternateMotorDirectionEnabled,
             _loadedExposureTicks,
             _loadedSysClockKhz,
-            acquisitionSettings);
+            acquisitionSettings,
+            LinePitchInput: linePitchInput);
 
         error = string.Empty;
         return true;

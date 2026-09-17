@@ -21,7 +21,7 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
         _documents = documents;
         _timeProvider = timeProvider ?? TimeProvider.System;
         var initial = ScanFilmProfileDraft.CreateDefault();
-        _snapshot = new ScanFilmProfileWorkspaceSnapshot(initial, initial, false, null);
+        _snapshot = new ScanFilmProfileWorkspaceSnapshot(initial, initial, false, ScanFilmProfileImportResult.None);
     }
 
     public ScanFilmProfileWorkspaceSnapshot Snapshot => Volatile.Read(ref _snapshot);
@@ -53,7 +53,7 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
                     defaultDraft.AcquisitionSettings,
                     defaultDraft.ScanRecipeSettings);
                 if (!hydrated.HasSameContentAs(snapshotBeforeRead.CurrentDraft))
-                    UpdateIfUnchanged(snapshotBeforeRead, hydrated, hydrated, null);
+                    UpdateIfUnchanged(snapshotBeforeRead, hydrated, hydrated, ScanFilmProfileImportResult.None);
             }
 
             Volatile.Write(ref _isInitialized, 1);
@@ -68,7 +68,10 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     {
         var parsed = _documents.Parse(json);
         if (!parsed.CanApply)
+        {
+            SetImportError(parsed.Validation);
             return new ScanFilmProfileStageImportResult(false, parsed.Validation);
+        }
 
         return StageImport(parsed.Document!);
     }
@@ -79,7 +82,10 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     public ScanFilmProfileStageImportResult StageImport(ScanFilmParameterProfileSet document, ScanFilmProfileValidationResult validation)
     {
         if (!validation.IsValid)
+        {
+            SetImportError(validation);
             return new ScanFilmProfileStageImportResult(false, validation);
+        }
 
         if (document.SchemaVersion != _documents.CurrentSchemaVersion)
         {
@@ -91,53 +97,103 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
                     ScanFilmProfileValidationSeverity.Error,
                     "FilmProfile.Validation.SchemaVersionUnsupported")
             ]);
+            SetImportError(schemaValidation);
             return new ScanFilmProfileStageImportResult(false, schemaValidation);
         }
 
         var conversion = ScanFilmProfileDraft.FromDocument(document);
         if (!conversion.Validation.IsValid)
+        {
+            SetImportError(conversion.Validation);
             return new ScanFilmProfileStageImportResult(false, conversion.Validation);
+        }
 
         var validated = _documents.Build(conversion.Draft);
         if (!validated.CanApply)
+        {
+            SetImportError(validated.Validation);
             return new ScanFilmProfileStageImportResult(false, validated.Validation);
+        }
 
         var normalized = ScanFilmProfileDraft.FromDocument(validated.Document);
         var staged = new ScanFilmProfileStagedImport(normalized.Draft, validated.Validation);
         var snapshot = Snapshot;
-        Update(snapshot.CurrentDraft, snapshot.BaselineDraft, staged);
+        Update(snapshot.CurrentDraft, snapshot.BaselineDraft, ScanFilmProfileImportResult.FromValidStaged(staged));
         return new ScanFilmProfileStageImportResult(true, validated.Validation);
     }
 
     public void DiscardStagedImport()
     {
         var snapshot = Snapshot;
-        if (snapshot.StagedImport is not null)
-            Update(snapshot.CurrentDraft, snapshot.BaselineDraft, null);
+        if (snapshot.ImportResult.State != ScanFilmProfileImportResultState.None)
+            Update(snapshot.CurrentDraft, snapshot.BaselineDraft, ScanFilmProfileImportResult.None);
     }
 
-    public async Task<ScanFilmProfileApplyResult> ApplyStagedImportAsync(CancellationToken ct)
+    public Task<ScanFilmProfileApplyResult> ApplyStagedImportAsync(CancellationToken ct)
     {
         var staged = Snapshot.StagedImport;
         if (staged is null)
-            return new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.NoStagedImport);
+            return Task.FromResult(new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.NoStagedImport));
 
+        if (ct.IsCancellationRequested)
+            return Task.FromResult(new ScanFilmProfileApplyResult(
+                ScanFilmProfileApplyStatus.Canceled,
+                new OperationCanceledException(ct)));
+
+        Update(staged.Draft, staged.Draft, ScanFilmProfileImportResult.None);
+        return Task.FromResult(new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.Applied));
+    }
+
+    public async Task<ScanFilmProfileLibrarySyncPlan> PlanCalibrationLibrarySyncAsync(CancellationToken ct)
+    {
+        var source = Snapshot.CurrentDraft;
+        var repository = await _repository.ReadAsync(ct);
+        return CreateLibrarySyncPlan(source, repository);
+    }
+
+    public Task<ScanFilmProfileLibrarySyncResult> SyncCalibrationLibraryAsync(CancellationToken ct)
+        => SyncCalibrationLibraryAsync(fullReplacement: false, ct);
+
+    public Task<ScanFilmProfileLibrarySyncResult> ReplaceCalibrationLibraryAsync(
+        ScanFilmProfileFullReplacementConfirmation? confirmation,
+        CancellationToken ct)
+        => confirmation is null
+            ? Task.FromResult(new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.ConfirmationRequired))
+            : SyncCalibrationLibraryAsync(fullReplacement: true, ct);
+
+    private async Task<ScanFilmProfileLibrarySyncResult> SyncCalibrationLibraryAsync(bool fullReplacement, CancellationToken ct)
+    {
+        var sourceSnapshot = Snapshot;
         try
         {
             ct.ThrowIfCancellationRequested();
-            await _repository.ReplaceAsync(ToRepositorySnapshot(staged.Draft), ct);
+            var repository = await _repository.ReadAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            var plan = CreateLibrarySyncPlan(sourceSnapshot.CurrentDraft, repository);
+            if (!ReferenceEquals(sourceSnapshot, Snapshot))
+                return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.Stale, plan);
+
+            if (fullReplacement ? !plan.HasFullReplacementChanges : !plan.HasAdditionsOrUpdates)
+                return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.NoChanges, plan);
+
+            var replacement = fullReplacement
+                ? ToRepositorySnapshot(sourceSnapshot.CurrentDraft)
+                : ApplyAdditionsAndUpdates(repository, plan);
+            await _repository.ReplaceAsync(replacement, ct);
+            return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.Applied, plan);
         }
         catch (OperationCanceledException exception)
         {
-            return new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.Canceled, exception);
+            return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.Canceled, Error: exception);
         }
-        catch (Exception exception)
+        catch (IOException exception)
         {
-            return new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.Failed, exception);
+            return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.Failed, Error: exception);
         }
-
-        Update(staged.Draft, staged.Draft, null);
-        return new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.Applied);
+        catch (UnauthorizedAccessException exception)
+        {
+            return new ScanFilmProfileLibrarySyncResult(ScanFilmProfileLibrarySyncStatus.Failed, Error: exception);
+        }
     }
 
     public ScanFilmProfileWorkspaceExportResult BuildExportDocument(ScanChannelCalibrationProfile? selectedChannelPatch = null)
@@ -166,33 +222,42 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     {
         ArgumentNullException.ThrowIfNull(exportedDocument);
         var exportedDraft = ScanFilmProfileDraft.FromDocument(exportedDocument).Draft;
-        Update(exportedDraft, exportedDraft, Snapshot.StagedImport);
+        Update(exportedDraft, exportedDraft, Snapshot.ImportResult);
     }
 
     public void ResetToDefaultDraft()
     {
         var initial = ScanFilmProfileDraft.CreateDefault();
-        Update(initial, initial, null);
+        Update(initial, initial, ScanFilmProfileImportResult.None);
     }
 
     public void SetCurrentDraft(ScanFilmProfileDraft draft)
     {
         var snapshot = Snapshot;
-        Update(draft, snapshot.BaselineDraft, snapshot.StagedImport);
+        Update(draft, snapshot.BaselineDraft, snapshot.ImportResult);
     }
 
     private static bool IsPristine(ScanFilmProfileWorkspaceSnapshot snapshot)
     {
         var defaultDraft = ScanFilmProfileDraft.CreateDefault();
-        return snapshot.StagedImport is null
+        return snapshot.ImportResult.State == ScanFilmProfileImportResultState.None
             && !snapshot.IsDirty
             && snapshot.CurrentDraft.HasSameContentAs(defaultDraft)
             && snapshot.BaselineDraft.HasSameContentAs(defaultDraft);
     }
 
-    private void Update(ScanFilmProfileDraft current, ScanFilmProfileDraft baseline, ScanFilmProfileStagedImport? staged)
+    public void SetImportError(ScanFilmProfileValidationResult validation)
     {
-        var updated = CreateSnapshot(current, baseline, staged);
+        var snapshot = Snapshot;
+        Update(
+            snapshot.CurrentDraft,
+            snapshot.BaselineDraft,
+            ScanFilmProfileImportResult.FromError(validation, snapshot.StagedImport));
+    }
+
+    private void Update(ScanFilmProfileDraft current, ScanFilmProfileDraft baseline, ScanFilmProfileImportResult importResult)
+    {
+        var updated = CreateSnapshot(current, baseline, importResult);
         Interlocked.Exchange(ref _snapshot, updated);
         SnapshotChanged?.Invoke(updated);
     }
@@ -201,9 +266,9 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
         ScanFilmProfileWorkspaceSnapshot expected,
         ScanFilmProfileDraft current,
         ScanFilmProfileDraft baseline,
-        ScanFilmProfileStagedImport? staged)
+        ScanFilmProfileImportResult importResult)
     {
-        var updated = CreateSnapshot(current, baseline, staged);
+        var updated = CreateSnapshot(current, baseline, importResult);
         if (ReferenceEquals(Interlocked.CompareExchange(ref _snapshot, updated, expected), expected))
             SnapshotChanged?.Invoke(updated);
     }
@@ -211,11 +276,53 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     private static ScanFilmProfileWorkspaceSnapshot CreateSnapshot(
         ScanFilmProfileDraft current,
         ScanFilmProfileDraft baseline,
-        ScanFilmProfileStagedImport? staged)
-        => new(current, baseline, !current.HasSameContentAs(baseline), staged);
+        ScanFilmProfileImportResult importResult)
+        => new(current, baseline, !current.HasSameContentAs(baseline), importResult);
 
     private static ScanCalibrationProfileRepositorySnapshot ToRepositorySnapshot(ScanFilmProfileDraft draft)
         => new(
             draft.ChannelProfiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
             draft.SelectedCalibrationChannel);
+
+    private static ScanFilmProfileLibrarySyncPlan CreateLibrarySyncPlan(
+        ScanFilmProfileDraft draft,
+        ScanCalibrationProfileRepositorySnapshot repository)
+    {
+        var additions = new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
+        var updates = new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
+        var removals = new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var profile in draft.ChannelProfiles.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!repository.Profiles.TryGetValue(profile.Key, out var existing))
+                additions.Add(profile.Key, profile.Value);
+            else if (!EqualityComparer<ScanChannelCalibrationProfile>.Default.Equals(profile.Value, existing))
+                updates.Add(profile.Key, profile.Value);
+        }
+
+        foreach (var profile in repository.Profiles.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!draft.ChannelProfiles.ContainsKey(profile.Key))
+                removals.Add(profile.Key, profile.Value);
+        }
+
+        return new ScanFilmProfileLibrarySyncPlan(
+            additions,
+            updates,
+            removals,
+            !string.Equals(draft.SelectedCalibrationChannel, repository.SelectedChannel, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static ScanCalibrationProfileRepositorySnapshot ApplyAdditionsAndUpdates(
+        ScanCalibrationProfileRepositorySnapshot repository,
+        ScanFilmProfileLibrarySyncPlan plan)
+    {
+        var profiles = repository.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        foreach (var profile in plan.Additions)
+            profiles.Add(profile.Key, profile.Value);
+        foreach (var profile in plan.Updates)
+            profiles[profile.Key] = profile.Value;
+
+        return new ScanCalibrationProfileRepositorySnapshot(profiles, repository.SelectedChannel);
+    }
 }

@@ -19,7 +19,7 @@ public sealed class ScanFilmProfileWorkspaceTests
 
         Assert.True(parsed.CanApply);
         Assert.True(built.CanApply);
-        Assert.Equal(5, built.Document?.SchemaVersion);
+        Assert.Equal(6, built.Document?.SchemaVersion);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class ScanFilmProfileWorkspaceTests
     }
 
     [Fact]
-    public async Task StageDiscardAndApply_RaiseAuthoritativeSnapshotsWhileOnlyApplyReplacesCurrentDraft()
+    public async Task StageDiscardAndApply_RaiseAuthoritativeSnapshotsWithoutReplacingCalibrationLibrary()
     {
         var repository = new RecordingCalibrationProfileRepository();
         var workspace = CreateWorkspace(repository);
@@ -72,29 +72,31 @@ public sealed class ScanFilmProfileWorkspaceTests
         Assert.Same(appliedSnapshot.CurrentDraft, appliedSnapshot.BaselineDraft);
         Assert.Null(appliedSnapshot.StagedImport);
         Assert.False(appliedSnapshot.CurrentDraft.HasSameContentAs(initial.CurrentDraft));
-        Assert.Equal(1, repository.ReplaceCount);
+        Assert.Equal(0, repository.ReplaceCount);
     }
 
     [Fact]
-    public async Task ApplyStagedImportAsync_ReplacesProfilesAndSelectionExactlyOnce()
+    public async Task ApplyStagedImportAsync_UpdatesDraftWithoutReplacingCalibrationLibrary()
     {
         var repository = new RecordingCalibrationProfileRepository();
         var workspace = CreateWorkspace(repository);
         workspace.StageImport(ReadFixture("full-v5.json"));
 
         var result = await workspace.ApplyStagedImportAsync(CancellationToken.None);
+        var repeated = await workspace.ApplyStagedImportAsync(CancellationToken.None);
 
-        var replacement = Assert.IsType<ScanCalibrationProfileRepositorySnapshot>(repository.LastReplacement);
         Assert.Equal(ScanFilmProfileApplyStatus.Applied, result.Status);
-        Assert.Equal(1, repository.ReplaceCount);
-        Assert.Equal("Green", replacement.SelectedChannel);
-        Assert.Equal(new[] { "Blue", "Green" }, replacement.Profiles.Keys);
+        Assert.Equal(ScanFilmProfileApplyStatus.NoStagedImport, repeated.Status);
+        Assert.Equal(0, repository.ReplaceCount);
+        Assert.Null(repository.LastReplacement);
+        Assert.Equal("Green", workspace.Snapshot.CurrentDraft.SelectedCalibrationChannel);
+        Assert.Equal(new[] { "Blue", "Green" }, workspace.Snapshot.CurrentDraft.ChannelProfiles.Keys);
         Assert.Null(workspace.Snapshot.StagedImport);
         Assert.False(workspace.Snapshot.IsDirty);
     }
 
     [Fact]
-    public async Task FailedAndCanceledApply_PreserveStagingAndCurrentState()
+    public async Task ApplyStagedImportAsync_DoesNotObserveRepositoryFailuresAndPreservesCanceledStaging()
     {
         var failingRepository = new RecordingCalibrationProfileRepository { ReplaceFailure = new InvalidOperationException("replace failed") };
         var failedWorkspace = CreateWorkspace(failingRepository);
@@ -105,16 +107,18 @@ public sealed class ScanFilmProfileWorkspaceTests
         var canceledRepository = new RecordingCalibrationProfileRepository();
         var canceledWorkspace = CreateWorkspace(canceledRepository);
         canceledWorkspace.StageImport(ReadFixture("full-v5.json"));
+        var canceledBefore = canceledWorkspace.Snapshot;
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var canceled = await canceledWorkspace.ApplyStagedImportAsync(cancellation.Token);
 
-        Assert.Equal(ScanFilmProfileApplyStatus.Failed, failed.Status);
-        Assert.NotNull(failedWorkspace.Snapshot.StagedImport);
-        Assert.Equal(1, failingRepository.ReplaceCount);
+        Assert.Equal(ScanFilmProfileApplyStatus.Applied, failed.Status);
+        Assert.Null(failedWorkspace.Snapshot.StagedImport);
+        Assert.Equal(0, failingRepository.ReplaceCount);
         Assert.Equal(ScanFilmProfileApplyStatus.Canceled, canceled.Status);
         Assert.NotNull(canceledWorkspace.Snapshot.StagedImport);
         Assert.Equal(0, canceledRepository.ReplaceCount);
+        AssertSnapshotEquals(canceledBefore, canceledWorkspace.Snapshot);
     }
 
     [Fact]
@@ -355,6 +359,29 @@ public sealed class ScanFilmProfileWorkspaceTests
     }
 
     [Fact]
+    public void Todo8Baseline_NamedProfileExportPreservesLiteralProfileName()
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var workspace = CreateWorkspace(new RecordingCalibrationProfileRepository(), documents: documents);
+        var draft = ScanFilmProfileDraft.FromDocument(Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(ReadFixture("full-v5.json")).Document)).Draft;
+
+        workspace.SetCurrentDraft(new ScanFilmProfileDraft(
+            "5207",
+            draft.SavedAtUtc,
+            draft.ChannelProfiles,
+            draft.SelectedCalibrationChannel,
+            draft.AcquisitionSettings,
+            draft.ScanRecipeSettings));
+
+        var exported = Assert.IsType<ScanFilmParameterProfileSet>(workspace.BuildExportDocument().Document.Document);
+        var serialized = documents.Serialize(exported);
+
+        Assert.Equal("5207", exported.ProfileName);
+        Assert.Contains("\"ProfileName\":\"5207\"", serialized, StringComparison.Ordinal);
+        Assert.True(workspace.Snapshot.CurrentDraft.HasSameContentAs(workspace.Snapshot.CurrentDraft));
+    }
+
+    [Fact]
     public async Task Todo4_FullV5Fixture_DraftExportSerializeStageApplyPreservesEveryFieldAndSnapshotOwnership()
     {
         var documents = new ScanFilmProfileDocumentService();
@@ -386,11 +413,46 @@ public sealed class ScanFilmProfileWorkspaceTests
         var applied = await workspace.ApplyStagedImportAsync(CancellationToken.None);
 
         Assert.Equal(ScanFilmProfileApplyStatus.Applied, applied.Status);
-        Assert.Equal(1, repository.ReplaceCount);
+        Assert.Equal(0, repository.ReplaceCount);
         Assert.Null(workspace.Snapshot.StagedImport);
         Assert.False(workspace.Snapshot.IsDirty);
         FilmProfileRoundTripAssertions.EqualCompleteDocument(reparsed, documents.Build(workspace.Snapshot.CurrentDraft).Document!);
         FilmProfileRoundTripAssertions.EqualCompleteDocument(reparsed, documents.Build(workspace.Snapshot.BaselineDraft).Document!);
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task Todo19_ExactMinimumRoi_V5AndV6ImportWorkspaceExportAndReimportPreserveEachRange(int schemaVersion)
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var source = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(ReadFixture("full-v6.json")).Document);
+        var exact = new ScanCalibrationRoiSettings(
+            new ScanColumnRange(100, 101),
+            new ScanColumnRange(0, 1),
+            new ScanColumnRange(100, 102),
+            new ScanColumnRange(104, 106),
+            new ScanColumnRange(100, 106));
+        var profileRole = source.SelectedCalibrationChannel!;
+        var profiles = source.ChannelProfiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        profiles[profileRole] = profiles[profileRole] with { RoiSettings = exact };
+        var imported = source with { SchemaVersion = schemaVersion, ChannelProfiles = profiles };
+        var parsed = documents.Parse(System.Text.Json.JsonSerializer.Serialize(imported));
+        var parsedDocument = Assert.IsType<ScanFilmParameterProfileSet>(parsed.Document);
+        var workspace = CreateWorkspace(new RecordingCalibrationProfileRepository(), documents: documents);
+
+        Assert.True(parsed.CanApply);
+        Assert.Equal(exact, parsedDocument.ChannelProfiles[profileRole].RoiSettings);
+        Assert.True(workspace.StageImport(parsedDocument).Staged);
+        Assert.Equal(exact, workspace.Snapshot.StagedImport?.Draft.ChannelProfiles[profileRole].RoiSettings);
+
+        Assert.Equal(ScanFilmProfileApplyStatus.Applied, (await workspace.ApplyStagedImportAsync(CancellationToken.None)).Status);
+        var exported = Assert.IsType<ScanFilmParameterProfileSet>(workspace.BuildExportDocument().Document.Document);
+        var reparsed = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(documents.Serialize(exported)).Document);
+
+        Assert.Equal(exact, workspace.Snapshot.CurrentDraft.ChannelProfiles[profileRole].RoiSettings);
+        Assert.Equal(exact, exported.ChannelProfiles[profileRole].RoiSettings);
+        Assert.Equal(exact, reparsed.ChannelProfiles[profileRole].RoiSettings);
     }
 
     [Fact]
@@ -498,7 +560,7 @@ public sealed class ScanFilmProfileWorkspaceTests
         Assert.True(workspace.Snapshot.BaselineDraft.HasSameContentAs(expected));
         Assert.Equal("Green", workspace.Snapshot.CurrentDraft.SelectedCalibrationChannel);
         Assert.Equal((ushort)1, workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].BlackLevel);
-        Assert.Equal(1, repository.ReplaceCount);
+        Assert.Equal(0, repository.ReplaceCount);
         Assert.True(dirtyAfterSelection);
         Assert.False(workspace.Snapshot.IsDirty);
     }
@@ -509,10 +571,75 @@ public sealed class ScanFilmProfileWorkspaceTests
         var repository = new RecordingCalibrationProfileRepository();
         var workspace = CreateWorkspace(repository);
 
-        var staged = workspace.StageImport(ReadFixture("future-v6.json"));
+        var staged = workspace.StageImport(ReadFixture("future-v7.json"));
 
         Assert.False(staged.Staged);
         Assert.Null(workspace.Snapshot.StagedImport);
+        Assert.Equal(0, repository.ReplaceCount);
+    }
+
+    [Fact]
+    public void Todo4_InvalidStage_PublishesImportErrorResultWithoutChangingCurrentDraft()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+        var before = workspace.Snapshot;
+
+        var staged = workspace.StageImport(ReadFixture("future-v7.json"));
+        var after = workspace.Snapshot;
+
+        Assert.False(staged.Staged);
+        Assert.Equal(ScanFilmProfileImportResultState.Error, after.ImportResult.State);
+        Assert.Null(after.ImportResult.StagedImport);
+        Assert.Contains(after.ImportResult.Validation.Issues, issue => issue.FieldPath == "schemaVersion");
+        Assert.True(before.CurrentDraft.HasSameContentAs(after.CurrentDraft));
+        Assert.True(before.BaselineDraft.HasSameContentAs(after.BaselineDraft));
+        Assert.Null(after.StagedImport);
+        Assert.Equal(0, repository.ReplaceCount);
+    }
+
+    [Fact]
+    public async Task Todo4_ValidStagePersistsUntilExplicitApplyOrDiscard()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+
+        var staged = workspace.StageImport(ReadFixture("full-v5.json"));
+        var stagedSnapshot = workspace.Snapshot;
+
+        Assert.True(staged.Staged);
+        Assert.Equal(ScanFilmProfileImportResultState.ValidStaged, stagedSnapshot.ImportResult.State);
+        Assert.NotNull(stagedSnapshot.ImportResult.StagedImport);
+        Assert.NotNull(stagedSnapshot.StagedImport);
+
+        var canceled = await workspace.ApplyStagedImportAsync(new CancellationToken(canceled: true));
+
+        Assert.Equal(ScanFilmProfileApplyStatus.Canceled, canceled.Status);
+        Assert.Equal(stagedSnapshot.ImportResult, workspace.Snapshot.ImportResult);
+
+        workspace.DiscardStagedImport();
+        Assert.Equal(ScanFilmProfileImportResultState.None, workspace.Snapshot.ImportResult.State);
+        Assert.Null(workspace.Snapshot.StagedImport);
+    }
+
+    [Theory]
+    [InlineData("future-v7.json")]
+    [InlineData("invalid-v6-acquisition.json")]
+    public void Todo9_FailedImport_PreservesCurrentBaselineAndExistingStagedDraft(string fixtureName)
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+        Assert.True(workspace.StageImport(ReadFixture("full-v6.json")).Staged);
+        var before = workspace.Snapshot;
+
+        var failed = workspace.StageImport(ReadFixture(fixtureName));
+        var after = workspace.Snapshot;
+
+        Assert.False(failed.Staged);
+        Assert.Same(before.CurrentDraft, after.CurrentDraft);
+        Assert.Same(before.BaselineDraft, after.BaselineDraft);
+        Assert.Same(before.StagedImport, after.StagedImport);
+        Assert.Equal(ScanFilmProfileImportResultState.Error, after.ImportResult.State);
         Assert.Equal(0, repository.ReplaceCount);
     }
 

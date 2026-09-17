@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Data;
 using PRISM_Utility.Core.Models;
+using PRISM_Utility.Models;
 
 namespace PRISM_Utility.Helpers;
 
@@ -16,8 +17,14 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
         if (parameter as string == "AlignmentMode" && value is ScanChannelAlignmentMode alignmentMode)
             return GetAlignmentModeDisplayName(alignmentMode);
 
+        if (parameter as string == "AutofocusPreset" && value is ScanAutofocusPresetKind autofocusPreset)
+            return GetAutofocusPresetDisplayName(autofocusPreset);
+
         if (parameter as string == "TargetWhitePointMode" && value is ScanTargetWhitePointMode targetWhitePointMode)
             return GetTargetWhitePointModeDisplayName(targetWhitePointMode);
+
+        if (parameter as string == "CaptureMode" && value is ScanDebugCaptureMode captureMode)
+            return GetCaptureModeDisplayName(captureMode);
 
         if (value is not string token || string.IsNullOrWhiteSpace(token))
             return value?.ToString() ?? string.Empty;
@@ -94,6 +101,16 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             _ => mode.ToString()
         };
 
+    public static string GetAutofocusPresetDisplayName(ScanAutofocusPresetKind preset)
+        => preset switch
+        {
+            ScanAutofocusPresetKind.Quick => "ScanDebug_Runtime_AutofocusPresetQuick".GetLocalized(),
+            ScanAutofocusPresetKind.Standard => "ScanDebug_Runtime_AutofocusPresetStandard".GetLocalized(),
+            ScanAutofocusPresetKind.Fine => "ScanDebug_Runtime_AutofocusPresetFine".GetLocalized(),
+            ScanAutofocusPresetKind.Custom => "ScanDebug_Runtime_AutofocusPresetCustom".GetLocalized(),
+            _ => preset.ToString()
+        };
+
     private static string GetTargetWhitePointModeDisplayName(ScanTargetWhitePointMode mode)
         => mode switch
         {
@@ -141,5 +158,14 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             "Focus Left" => "ScanDebug_Runtime_RoiSelectionFocusLeft".GetLocalized(),
             "Focus Right" => "ScanDebug_Runtime_RoiSelectionFocusRight".GetLocalized(),
             _ => roiSelection
+        };
+
+    private static string GetCaptureModeDisplayName(ScanDebugCaptureMode mode)
+        => mode switch
+        {
+            ScanDebugCaptureMode.Single => "ScanDebug_Runtime_CaptureModeSingle".GetLocalized(),
+            ScanDebugCaptureMode.Continuous => "ScanDebug_Runtime_CaptureModeContinuous".GetLocalized(),
+            ScanDebugCaptureMode.Transport => "ScanDebug_Runtime_CaptureModeTransport".GetLocalized(),
+            _ => mode.ToString()
         };
 }

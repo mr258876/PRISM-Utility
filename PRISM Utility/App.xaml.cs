@@ -123,7 +123,7 @@ public partial class App : Application
             services.AddTransient<LogPage>();
             services.AddTransient<ScanViewModel>();
             services.AddTransient<ScanPage>();
-            services.AddTransient<ScanDebugViewModel>();
+            services.AddSingleton<ScanDebugViewModel>();
             services.AddTransient<ScanDebugPage>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainPage>();

@@ -1,4 +1,5 @@
 using PRISM_Utility.Core.Contracts.Services;
+using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Core.Services;
 using Xunit;
@@ -33,7 +34,7 @@ public sealed class ScanWorkflowServiceTests
         var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
         var session = new RecordingScanSession(log);
 
-        await service.ExecuteAsync(
+        var result = await service.ExecuteAsync(
             session,
             BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
             CancellationToken.None);
@@ -96,6 +97,34 @@ public sealed class ScanWorkflowServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_PrimaryFailureAndMotorCleanupFailures_AttemptsStopWaitRestoreAndDisable()
+    {
+        var log = new List<string>();
+        var illumination = new RecordingIlluminationService(log) { RestoreFailure = new IOException("restore failed") };
+        var service = new ScanWorkflowService(new RecordingParameterService(log), illumination, new StubTransferSettingsService());
+        var session = new RecordingScanSession(log)
+        {
+            ScanFailureMessage = "capture failed",
+            StopMotorFailure = new IOException("stop failed"),
+            MotorDisableFailure = new IOException("disable failed"),
+            InitialMotorEnabled = false
+        };
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true),
+            CancellationToken.None));
+
+        var primary = Assert.IsType<IOException>(exception.InnerExceptions[0]);
+        Assert.Contains("Pass 1 failed: capture failed", primary.Message, StringComparison.Ordinal);
+        Assert.Contains("Stop:0", log);
+        Assert.Contains("Wait:", string.Join('|', log), StringComparison.Ordinal);
+        Assert.Contains("RestoreIllumination", log);
+        Assert.Contains((byte)0, session.DisabledMotorIds);
+        Assert.Equal(4, exception.InnerExceptions.Count);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WarmUpEnableFailure_AbortsBeforeCaptureWithClearFailure()
     {
         var log = new List<string>();
@@ -113,33 +142,33 @@ public sealed class ScanWorkflowServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WarmUpDisableFailure_ReportsDiagnosticWithoutConvertingSuccessfulWorkflow()
+    public async Task ExecuteAsync_WarmUpDisableFailure_ReportsDiagnosticAndSurfacesCleanupFault()
     {
         var log = new List<string>();
         var diagnostics = new List<string>();
         var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
         var session = new RecordingScanSession(log) { WarmUpDisableFailureMessage = "Stop command rejected." };
 
-        var result = await service.ExecuteAsync(
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.ExecuteAsync(
             session,
             BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
             CancellationToken.None,
-            onDiagnostic: diagnostics.Add);
+            onDiagnostic: diagnostics.Add));
 
-        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.IsType<IOException>(Assert.Single(exception.InnerExceptions));
         Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
         Assert.Contains("Scan workflow warm-up cleanup failed: Stop command rejected.", diagnostics);
     }
 
     [Fact]
-    public async Task ExecuteAsync_WarmUpDisableFailure_DiagnosticCallbackFailureDoesNotConvertSuccessfulWorkflow()
+    public async Task ExecuteAsync_WarmUpDisableFailure_DiagnosticCallbackFailureDoesNotMaskCleanupFault()
     {
         var log = new List<string>();
         var diagnosticCalls = 0;
         var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
         var session = new RecordingScanSession(log) { WarmUpDisableFailureMessage = "Stop command rejected." };
 
-        var result = await service.ExecuteAsync(
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.ExecuteAsync(
             session,
             BuildRequest(alternateMotorDirection: true, warmUpEnabled: true),
             CancellationToken.None,
@@ -147,9 +176,9 @@ public sealed class ScanWorkflowServiceTests
             {
                 diagnosticCalls++;
                 throw new InvalidOperationException("Diagnostic observer failed.");
-            });
+            }));
 
-        Assert.Equal(ScanDebugConstants.IlluminationChannelCount, result.Passes.Count);
+        Assert.IsType<IOException>(Assert.Single(exception.InnerExceptions));
         Assert.Equal(1, diagnosticCalls);
         Assert.Equal([true, false], session.WarmUpCalls.Select(call => call.Enabled).ToArray());
     }
@@ -206,7 +235,7 @@ public sealed class ScanWorkflowServiceTests
         var session = new RecordingScanSession(log);
         var snapshots = new List<ScanWorkflowRowsAvailable>();
 
-        await service.ExecuteAsync(
+        var result = await service.ExecuteAsync(
             session,
             BuildRequest(alternateMotorDirection: true),
             CancellationToken.None,
@@ -226,11 +255,259 @@ public sealed class ScanWorkflowServiceTests
         {
             Assert.Collection(
                 snapshots.OrderBy(snapshot => snapshot.CurrentPass),
-                snapshot => AssertWorkflowSnapshot(snapshot, 1, 0, 0, true, "Blue"),
-                snapshot => AssertWorkflowSnapshot(snapshot, 2, 1, 1, false, "Green"),
-                snapshot => AssertWorkflowSnapshot(snapshot, 3, 2, 2, true, "Red"),
-                snapshot => AssertWorkflowSnapshot(snapshot, 4, 3, 3, false, "IR"));
+                snapshot => AssertWorkflowSnapshot(snapshot, result, 1, 0, 0, true, "Blue"),
+                snapshot => AssertWorkflowSnapshot(snapshot, result, 2, 1, 1, false, "Green"),
+                snapshot => AssertWorkflowSnapshot(snapshot, result, 3, 2, 2, true, "Red"),
+                snapshot => AssertWorkflowSnapshot(snapshot, result, 4, 3, 3, false, "IR"));
         }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailableDetachesBytesBeforeAsyncQueue()
+    {
+        var log = new List<string>();
+        var backingBuffer = Enumerable.Repeat((byte)0x11, ScanDebugConstants.BytesPerLine).ToArray();
+        var producerCallbackReturned = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Action? queuedWorkItem = null;
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            workItem =>
+            {
+                Assert.Null(queuedWorkItem);
+                queuedWorkItem = workItem;
+            });
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = backingBuffer,
+            OnRowsAvailableReturned = () => producerCallbackReturned.TrySetResult(null)
+        };
+        ScanWorkflowRowsAvailable? deliveredSnapshot = null;
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        var workflowTask = service.ExecuteAsync(
+            session,
+            request,
+            CancellationToken.None,
+            onRowsAvailable: snapshot => deliveredSnapshot = snapshot);
+        await producerCallbackReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(queuedWorkItem);
+        Assert.Null(deliveredSnapshot);
+        Array.Fill(backingBuffer, (byte)0x22);
+        queuedWorkItem();
+
+        var snapshot = Assert.IsType<ScanWorkflowRowsAvailable>(deliveredSnapshot);
+        Assert.Equal(1, snapshot.CurrentPass);
+        Assert.Equal(1, snapshot.TotalPasses);
+        Assert.Equal(0, snapshot.PassIndex);
+        Assert.Equal((byte)0, snapshot.LedChannelIndex);
+        Assert.True(snapshot.DirectionPositive);
+        Assert.Equal("Blue", snapshot.ChannelRole);
+        Assert.Equal(1, snapshot.CompletedRows);
+        Assert.Equal(0u, snapshot.MotorSteps);
+        Assert.Equal(0u, snapshot.MotorIntervalNanoseconds);
+        Assert.All(snapshot.ImageBytes, value => Assert.Equal((byte)0x11, value));
+
+        await workflowTask;
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailableEmitsDetachedContiguousDeltasInFifoOrder()
+    {
+        var log = new List<string>();
+        var backingBuffer = new byte[ScanDebugConstants.BytesPerLine * 2];
+        Array.Fill(backingBuffer, (byte)0x11, 0, ScanDebugConstants.BytesPerLine);
+        Array.Fill(backingBuffer, (byte)0x22, ScanDebugConstants.BytesPerLine, ScanDebugConstants.BytesPerLine);
+        var queuedWorkItems = new List<Action>();
+        var delivered = new List<ScanWorkflowRowsAvailable>();
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            queuedWorkItems.Add);
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = backingBuffer,
+            RowsAvailableReports = [1, 2]
+        };
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false) with
+        {
+            Rows = 2,
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        await service.ExecuteAsync(session, request, CancellationToken.None, onRowsAvailable: delivered.Add);
+
+        Assert.Single(queuedWorkItems);
+        queuedWorkItems.Single()();
+
+        Assert.Collection(
+            delivered,
+            first =>
+            {
+                Assert.Equal((0, 1, 1), (first.StartRow, first.RowCount, first.CompletedRows));
+                Assert.All(first.ImageBytes, value => Assert.Equal((byte)0x11, value));
+            },
+            second =>
+            {
+                Assert.Equal((1, 1, 2), (second.StartRow, second.RowCount, second.CompletedRows));
+                Assert.All(second.ImageBytes, value => Assert.Equal((byte)0x22, value));
+            });
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailableEmitsExactDetachedDeltaByteVolume()
+    {
+        const int rows = 4;
+        var log = new List<string>();
+        var backingBuffer = new byte[rows * ScanDebugConstants.BytesPerLine];
+        Array.Fill(backingBuffer, (byte)0x11, 0, ScanDebugConstants.BytesPerLine);
+        Array.Fill(backingBuffer, (byte)0x22, ScanDebugConstants.BytesPerLine, ScanDebugConstants.BytesPerLine);
+        Array.Fill(backingBuffer, (byte)0x33, ScanDebugConstants.BytesPerLine * 2, ScanDebugConstants.BytesPerLine);
+        Array.Fill(backingBuffer, (byte)0x44, ScanDebugConstants.BytesPerLine * 3, ScanDebugConstants.BytesPerLine);
+        var scheduler = new ReversingScheduler();
+        var delivered = new List<ScanWorkflowRowsAvailable>();
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            scheduler.Queue);
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = backingBuffer,
+            RowsAvailableReports = [1, 3, 4]
+        };
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false, rows: rows) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        await service.ExecuteAsync(session, request, CancellationToken.None, onRowsAvailable: delivered.Add);
+
+        Assert.Single(scheduler.Actions);
+        Array.Fill(backingBuffer, (byte)0xFF);
+        scheduler.RunInReverse();
+
+        Assert.Equal([0, 1, 3], delivered.Select(snapshot => snapshot.StartRow).ToArray());
+        Assert.Equal([1, 2, 1], delivered.Select(snapshot => snapshot.RowCount).ToArray());
+        Assert.Equal([1, 3, 4], delivered.Select(snapshot => snapshot.CompletedRows).ToArray());
+        Assert.Equal(4 * ScanDebugConstants.BytesPerLine, delivered.Sum(snapshot => snapshot.ImageBytes.Length));
+        Assert.All(delivered[0].ImageBytes, value => Assert.Equal((byte)0x11, value));
+        Assert.All(delivered[1].ImageBytes[..ScanDebugConstants.BytesPerLine], value => Assert.Equal((byte)0x22, value));
+        Assert.All(delivered[1].ImageBytes[ScanDebugConstants.BytesPerLine..], value => Assert.Equal((byte)0x33, value));
+        Assert.All(delivered[2].ImageBytes, value => Assert.Equal((byte)0x44, value));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailablePreservesFifoOrderWhenSchedulerReversesWorkItems()
+    {
+        var log = new List<string>();
+        var scheduler = new ReversingScheduler();
+        var delivered = new List<int>();
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            scheduler.Queue);
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = new byte[ScanDebugConstants.BytesPerLine * 3],
+            RowsAvailableReports = [1, 2, 3]
+        };
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false, rows: 3) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        await service.ExecuteAsync(
+            session,
+            request,
+            CancellationToken.None,
+            onRowsAvailable: snapshot => delivered.Add(snapshot.CompletedRows));
+
+        Assert.Single(scheduler.Actions);
+        scheduler.RunInReverse();
+
+        Assert.Equal([1, 2, 3], delivered);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailableIsolatesConsumerExceptions()
+    {
+        var log = new List<string>();
+        var scheduler = new ReversingScheduler();
+        var deliveryAttempts = new List<int>();
+        var deliveredAfterException = new List<int>();
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            scheduler.Queue);
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = new byte[ScanDebugConstants.BytesPerLine * 3],
+            RowsAvailableReports = [1, 2, 3]
+        };
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false, rows: 3) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        var result = await service.ExecuteAsync(
+            session,
+            request,
+            CancellationToken.None,
+            onRowsAvailable: snapshot =>
+            {
+                deliveryAttempts.Add(snapshot.CompletedRows);
+                if (snapshot.CompletedRows == 1)
+                    throw new InvalidOperationException("Consumer failed.");
+
+                deliveredAfterException.Add(snapshot.CompletedRows);
+            });
+
+        scheduler.RunInReverse();
+
+        Assert.Single(result.Passes);
+        Assert.Equal([1, 2, 3], deliveryAttempts);
+        Assert.Equal([2, 3], deliveredAfterException);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RowsAvailableRejectsLateProducerCallbacks()
+    {
+        var log = new List<string>();
+        var scheduler = new ReversingScheduler();
+        var delivered = new List<ScanWorkflowRowsAvailable>();
+        var imageBytes = new byte[ScanDebugConstants.BytesPerLine];
+        var service = new ScanWorkflowService(
+            new RecordingParameterService(log),
+            new RecordingIlluminationService(log),
+            new StubTransferSettingsService(),
+            scheduler.Queue);
+        var session = new RecordingScanSession(log)
+        {
+            ScanImageBytes = imageBytes,
+            RowsAvailableReports = []
+        };
+        var request = BuildRequest(alternateMotorDirection: false, enableMotorTransport: false, enableLedAutoControl: false) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
+        };
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None, onRowsAvailable: delivered.Add);
+        Assert.Single(result.Passes);
+        Assert.NotNull(session.CapturedRowsAvailable);
+
+        session.InvokeCapturedRowsAvailable(imageBytes, 1);
+
+        Assert.Empty(scheduler.Actions);
+        Assert.Empty(delivered);
     }
 
     [Fact]
@@ -256,10 +533,13 @@ public sealed class ScanWorkflowServiceTests
         var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
         var session = new RecordingScanSession(log);
 
-        var request = BuildRequest(alternateMotorDirection: true) with
+        var request = BuildRequest(alternateMotorDirection: true);
+        var sparseRoles = new[] { "Unused", "Unused", "Red", "Unused" };
+        var sparseLinePitchInput = BuildLinePitchInput(sparseRoles, request.PassParameterProfiles);
+        request = request with
         {
             LedLevels = [0, 0, 345, 0],
-            PassChannelRoles = ["Unused", "Unused", "Red", "Unused"],
+            PassChannelRoles = sparseRoles,
             AcquisitionSettings = new ScanFilmAcquisitionSettings(
                 0,
                 0,
@@ -271,7 +551,8 @@ public sealed class ScanWorkflowServiceTests
                 ScanDebugConstants.IlluminationMinSyncPulseClock,
                 ScanDebugConstants.IlluminationMinSyncPulseClock,
                 ScanDebugConstants.IlluminationMinSyncPulseClock,
-                ScanDebugConstants.MotionDefaultIntervalNs)
+                ScanDebugConstants.MotionDefaultIntervalNs),
+            LinePitchInput = sparseLinePitchInput
         };
 
         var result = await service.ExecuteAsync(session, request, CancellationToken.None);
@@ -282,17 +563,130 @@ public sealed class ScanWorkflowServiceTests
         Assert.Equal(1, log.Count(entry => entry == "IlluminationOff"));
     }
 
-    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true, bool warmUpEnabled = false)
+    public static IEnumerable<object[]> InvalidHostRows()
+    {
+        yield return [0];
+        yield return [-1];
+        yield return [282_459];
+        yield return [checked(ScanRowCountValidation.MaxHostRows + 1)];
+        yield return [int.MaxValue];
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidHostRows))]
+    public async Task ExecuteAsync_InvalidRowsRejectBeforeIlluminationMotorOrScanIo(int rows)
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ExecuteAsync(
+            session,
+            BuildRequest(alternateMotorDirection: true, rows: rows),
+            CancellationToken.None));
+
+        Assert.Equal("Rows", exception.ParamName);
+        Assert.Empty(log);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UsesRequestClockForExpectedLineTimeAndAppliedProfile()
+    {
+        const uint requestClockKhz = 125_000;
+        var log = new List<string>();
+        var parameters = new RecordingParameterService(log);
+        var service = new ScanWorkflowService(parameters, new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var profiles = new[]
+        {
+            new ScanParameterSnapshot(1_000, 0, 0, 0, 0, 30_000),
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, 200_000),
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, 30_000),
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, 200_000)
+        };
+        var request = BuildRequest(alternateMotorDirection: true, enableMotorTransport: false, enableLedAutoControl: false) with
+        {
+            PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"],
+            PassParameterProfiles = profiles,
+            SysClockKhz = requestClockKhz
+        };
+
+        await service.ExecuteAsync(session, request, CancellationToken.None);
+
+        Assert.Equal([415u], session.ExpectedLineTimes);
+        Assert.Equal([requestClockKhz], parameters.AppliedSnapshots.Select(snapshot => snapshot.SysClockKhz));
+    }
+
+    [Fact]
+    public void TryNormalizeSnapshot_ClockAboveMaximumRejectsAndClamps()
+    {
+        var valid = ScanDebugValidation.TryNormalizeSnapshot(
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MaxSysClockKhz + 1),
+            out var normalized);
+
+        Assert.False(valid);
+        Assert.Equal(ScanDebugConstants.MaxSysClockKhz, normalized.SysClockKhz);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ClockAboveMaximumRejectsBeforeAnyWorkflowSideEffect()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var request = BuildRequest(alternateMotorDirection: true, enableMotorTransport: false, enableLedAutoControl: false) with
+        {
+            SysClockKhz = ScanDebugConstants.MaxSysClockKhz + 1
+        };
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ExecuteAsync(session, request, CancellationToken.None));
+
+        Assert.Equal("request", exception.ParamName);
+        Assert.Empty(log);
+        Assert.Empty(session.ExpectedLineTimes);
+    }
+
+    [Theory]
+    [InlineData(30_000u)]
+    [InlineData(200_000u)]
+    public async Task ApplyGlobalClockAsync_ClockAtInclusiveBoundsTransfersParameter(uint sysClockKhz)
+    {
+        var session = new RecordingScanSession([]);
+        var parameters = new ScanParameterService(new ScanProtocolService());
+
+        await parameters.ApplyGlobalClockAsync(session, sysClockKhz, CancellationToken.None);
+
+        var command = Assert.Single(session.ControlCommands);
+        Assert.Equal(sysClockKhz, BitConverter.ToUInt32(command, 10));
+    }
+
+    [Fact]
+    public async Task ApplyGlobalClockAsync_ClockAboveMaximumRejectsBeforeControlTransfer()
+    {
+        var session = new RecordingScanSession([]);
+        var parameters = new ScanParameterService(new ScanProtocolService());
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => parameters.ApplyGlobalClockAsync(
+            session,
+            ScanDebugConstants.MaxSysClockKhz + 1,
+            CancellationToken.None));
+
+        Assert.Equal("sysClockKhz", exception.ParamName);
+        Assert.Empty(session.ControlCommands);
+    }
+
+    private static ScanWorkflowRequest BuildRequest(bool alternateMotorDirection, bool enableMotorTransport = true, bool enableLedAutoControl = true, bool warmUpEnabled = false, int rows = 1)
     {
         var profiles = Enumerable.Range(0, ScanDebugConstants.IlluminationChannelCount)
             .Select(_ => new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz))
             .ToArray();
 
+        var roles = new[] { "Blue", "Green", "Red", "IR" };
         return new ScanWorkflowRequest(
-            1,
+            rows,
             warmUpEnabled,
             [100, 100, 100, 100],
-            ["Blue", "Green", "Red", "IR"],
+            roles,
             profiles,
             0,
             ScanDebugConstants.MotionDefaultIntervalNs,
@@ -301,7 +695,48 @@ public sealed class ScanWorkflowServiceTests
             0,
             ScanDebugConstants.MinSysClockKhz,
             EnableMotorTransport: enableMotorTransport,
-            EnableLedAutoControl: enableLedAutoControl);
+            EnableLedAutoControl: enableLedAutoControl,
+            LinePitchInput: enableMotorTransport ? BuildLinePitchInput(roles, profiles) : null);
+    }
+
+    private static ScanWorkflowLinePitchInput BuildLinePitchInput(string[] roles, ScanParameterSnapshot[] profiles)
+    {
+        const uint intervalNanoseconds = ScanDebugConstants.MotionDefaultIntervalNs;
+        var targetPitchMicrometers = ScanTimingMath.ExposureTicksToNanoseconds(
+            profiles[0].ExposureTicks,
+            profiles[0].SysClockKhz)
+            / (intervalNanoseconds * 400.0)
+            * 1_000.0;
+        return new ScanWorkflowLinePitchInput(
+            targetPitchMicrometers,
+            new ScanMotorMechanicalSettings(200, 16, 8.0),
+            ScanDebugConstants.MotionMinIntervalNs,
+            Enumerable.Repeat<uint?>(intervalNanoseconds, roles.Length).ToArray());
+    }
+
+    private static ScanLinePitchPlanResult BuildLinePitchPlan(int rows, string[] roles, ScanParameterSnapshot[] profiles)
+    {
+        const uint intervalNanoseconds = ScanDebugConstants.MotionDefaultIntervalNs;
+        var targetPitchMicrometers = ScanTimingMath.ExposureTicksToNanoseconds(
+            profiles[0].ExposureTicks,
+            profiles[0].SysClockKhz)
+            / (intervalNanoseconds * 400.0)
+            * 1_000.0;
+        var passes = roles.Select((role, passIndex) => new ScanLinePitchPassInput(
+            passIndex,
+            role,
+            !string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase),
+            profiles[passIndex].ExposureTicks,
+            profiles[passIndex].SysClockKhz,
+            intervalNanoseconds,
+            profiles[passIndex]));
+
+        return ScanTimingMath.BuildLinePitchPlan(new ScanLinePitchPlanRequest(
+            rows,
+            targetPitchMicrometers,
+            new ScanMotorMechanicalSettings(200, 16, 8.0),
+            ScanDebugConstants.MotionMinIntervalNs,
+            passes.ToArray()));
     }
 
     private static int FindNthIndex(IReadOnlyList<string> values, string value, int occurrence)
@@ -349,7 +784,7 @@ public sealed class ScanWorkflowServiceTests
         Assert.True(condition(), "Timed out waiting for workflow row callback propagation.");
     }
 
-    private static void AssertWorkflowSnapshot(ScanWorkflowRowsAvailable snapshot, int currentPass, int passIndex, byte ledChannelIndex, bool directionPositive, string channelRole)
+    private static void AssertWorkflowSnapshot(ScanWorkflowRowsAvailable snapshot, ScanWorkflowResult result, int currentPass, int passIndex, byte ledChannelIndex, bool directionPositive, string channelRole)
     {
         Assert.Equal(currentPass, snapshot.CurrentPass);
         Assert.Equal(ScanDebugConstants.IlluminationChannelCount, snapshot.TotalPasses);
@@ -359,10 +794,14 @@ public sealed class ScanWorkflowServiceTests
         Assert.Equal(channelRole, snapshot.ChannelRole);
         Assert.Equal(1, snapshot.CompletedRows);
         Assert.Equal(ScanDebugConstants.BytesPerLine, snapshot.ImageBytes.Length);
+        Assert.Equal(result.Passes[passIndex].MotorSteps, snapshot.MotorSteps);
+        Assert.Equal(result.MotorIntervalNs, snapshot.MotorIntervalNanoseconds);
     }
 
     private sealed class RecordingParameterService(List<string> log) : IScanParameterService
     {
+        public List<ScanParameterSnapshot> AppliedSnapshots { get; } = [];
+
         public IReadOnlyList<ScanParameterDefinition> Definitions => Array.Empty<ScanParameterDefinition>();
 
         public bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz, out ScanParameterSnapshot snapshot, out string error)
@@ -381,8 +820,15 @@ public sealed class ScanWorkflowServiceTests
         public Task<ScanParameterSnapshot> LoadAsync(IScanSessionService session, CancellationToken ct)
             => Task.FromResult(new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz));
 
+        public Task ApplyGlobalClockAsync(IScanSessionService session, uint sysClockKhz, CancellationToken ct)
+        {
+            log.Add($"ApplyGlobalClock:{sysClockKhz}");
+            return Task.CompletedTask;
+        }
+
         public Task ApplyAsync(IScanSessionService session, ScanParameterSnapshot snapshot, CancellationToken ct)
         {
+            AppliedSnapshots.Add(snapshot);
             log.Add("ApplyParameters");
             return Task.CompletedTask;
         }
@@ -390,8 +836,12 @@ public sealed class ScanWorkflowServiceTests
 
     private sealed class RecordingIlluminationService(List<string> log) : IScanIlluminationService
     {
+        public Exception? RestoreFailure { get; init; }
         public Task<ScanIlluminationState> GetStateAsync(IScanSessionService session, CancellationToken ct)
-            => Task.FromResult(new ScanIlluminationState(0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2));
+        {
+            log.Add("IlluminationState");
+            return Task.FromResult(new ScanIlluminationState(0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2));
+        }
 
         public Task ApplyStateAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
             => Task.CompletedTask;
@@ -414,7 +864,7 @@ public sealed class ScanWorkflowServiceTests
         public Task RestoreStateAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
         {
             log.Add("RestoreIllumination");
-            return Task.CompletedTask;
+            return RestoreFailure is null ? Task.CompletedTask : Task.FromException(RestoreFailure);
         }
     }
 
@@ -443,6 +893,22 @@ public sealed class ScanWorkflowServiceTests
 
     private sealed record WarmUpCall(bool Enabled, bool TokenCanBeCanceled);
 
+    private sealed class ReversingScheduler
+    {
+        private readonly List<Action> _actions = [];
+
+        public IReadOnlyList<Action> Actions => _actions;
+
+        public void Queue(Action action)
+            => _actions.Add(action);
+
+        public void RunInReverse()
+        {
+            for (var index = _actions.Count - 1; index >= 0; index--)
+                _actions[index]();
+        }
+    }
+
     private sealed class RecordingScanSession(List<string> log) : IScanSessionService
     {
         private int _scanIndex;
@@ -459,6 +925,19 @@ public sealed class ScanWorkflowServiceTests
         public string? ScanFailureMessage { get; init; }
         public string? WarmUpEnableFailureMessage { get; init; }
         public string? WarmUpDisableFailureMessage { get; init; }
+        public Exception? StopMotorFailure { get; init; }
+        public Exception? MotorDisableFailure { get; init; }
+        public bool InitialMotorEnabled { get; init; } = true;
+        public byte[]? ScanImageBytes { get; init; }
+        public IReadOnlyList<int>? RowsAvailableReports { get; init; }
+        public Action? OnRowsAvailableReturned { get; init; }
+        public ScanRowsAvailableHandler? CapturedRowsAvailable { get; private set; }
+        public List<uint?> ExpectedLineTimes { get; } = [];
+        public List<byte[]> ControlCommands { get; } = [];
+        public List<byte> DisabledMotorIds { get; } = [];
+
+        public void InvokeCapturedRowsAvailable(byte[] imageBytes, int completedRows)
+            => CapturedRowsAvailable?.Invoke(imageBytes, completedRows);
 
         public void RefreshTargets()
         {
@@ -488,10 +967,23 @@ public sealed class ScanWorkflowServiceTests
             => Task.CompletedTask;
 
         public Task<IReadOnlyList<ScanMotorState>> GetMotionStateAsync(CancellationToken ct)
-            => Task.FromResult<IReadOnlyList<ScanMotorState>>([new ScanMotorState(0, true, false, false, 0, 0, 0)]);
+        {
+            log.Add("MotionState");
+            return Task.FromResult<IReadOnlyList<ScanMotorState>>([new ScanMotorState(0, InitialMotorEnabled, false, false, 0, 0, 0)]);
+        }
 
         public Task SetMotorEnabledAsync(byte motorId, bool enabled, CancellationToken ct)
-            => Task.CompletedTask;
+        {
+            log.Add($"MotorEnable:{motorId}:{enabled}");
+            if (!enabled)
+            {
+                DisabledMotorIds.Add(motorId);
+                if (MotorDisableFailure is not null)
+                    return Task.FromException(MotorDisableFailure);
+            }
+
+            return Task.CompletedTask;
+        }
 
         public Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
             => Task.CompletedTask;
@@ -515,7 +1007,10 @@ public sealed class ScanWorkflowServiceTests
         }
 
         public Task StopMotorAsync(byte motorId, CancellationToken ct)
-            => Task.CompletedTask;
+        {
+            log.Add($"Stop:{motorId}");
+            return StopMotorFailure is null ? Task.CompletedTask : Task.FromException(StopMotorFailure);
+        }
 
         public Task ApplyMotorConfigAsync(byte motorId, CancellationToken ct)
             => Task.CompletedTask;
@@ -536,13 +1031,17 @@ public sealed class ScanWorkflowServiceTests
         public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
         {
             log.Add($"Scan:{_scanIndex++}");
+            ExpectedLineTimes.Add(expectedLineTimeUs);
             CancellationSourceToCancelOnScan?.Cancel();
             ct.ThrowIfCancellationRequested();
             if (ScanFailureMessage is not null)
                 return Task.FromResult(new ScanStartResult(false, ScanFailureMessage, null));
 
-            var imageBytes = new byte[rows * ScanDebugConstants.BytesPerLine];
-            onRowsAvailable?.Invoke(imageBytes, rows);
+            CapturedRowsAvailable = onRowsAvailable;
+            var imageBytes = ScanImageBytes ?? new byte[rows * ScanDebugConstants.BytesPerLine];
+            foreach (var completedRows in RowsAvailableReports ?? [rows])
+                onRowsAvailable?.Invoke(imageBytes, completedRows);
+            OnRowsAvailableReturned?.Invoke();
             return Task.FromResult(new ScanStartResult(true, string.Empty, imageBytes));
         }
 
@@ -553,7 +1052,20 @@ public sealed class ScanWorkflowServiceTests
             => Task.FromResult(new ScanStopResult(true, string.Empty));
 
         public Task<ScanControlFrame> SendControlCommandAndWaitAckAsync(byte[] command, byte expectedCommand, int totalTimeoutMs, CancellationToken ct, bool ignoreForeignCommands = true)
-            => Task.FromResult(new ScanControlFrame(expectedCommand, 0, Array.Empty<byte>()));
+        {
+            ControlCommands.Add(command.ToArray());
+            if (expectedCommand == ScanDebugConstants.UsbCmdSetParamByHash && command.Length == 14)
+            {
+                var payload = new byte[10];
+                Buffer.BlockCopy(command, 4, payload, 0, 4);
+                payload[4] = command[8];
+                payload[5] = command[9];
+                Buffer.BlockCopy(command, 10, payload, 6, 4);
+                return Task.FromResult(new ScanControlFrame(expectedCommand, 0, payload));
+            }
+
+            return Task.FromResult(new ScanControlFrame(expectedCommand, 0, Array.Empty<byte>()));
+        }
 
         public void Dispose()
         {

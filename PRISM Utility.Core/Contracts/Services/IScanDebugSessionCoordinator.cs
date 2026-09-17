@@ -4,7 +4,15 @@ namespace PRISM_Utility.Core.Contracts.Services;
 
 public interface IScanDebugSessionCoordinator
 {
+    event EventHandler<ScannerDeviceSessionSnapshot>? SnapshotChanged
+    {
+        add { }
+        remove { }
+    }
+
     bool IsConnectBlockedByUsbDebug();
+
+    ScannerDeviceSessionSnapshot Snapshot { get; }
 
     bool HasConnectedSession { get; }
 
@@ -15,6 +23,9 @@ public interface IScanDebugSessionCoordinator
     Task<ScanOperationResult> DisconnectAsync(CancellationToken ct);
 
     Task<ScanOperationResult> SetWarmUpAsync(bool enabled, CancellationToken ct);
+
+    Task<ScanOperationResult> StopAllMotionAsync(CancellationToken ct)
+        => Task.FromResult(new ScanOperationResult(false, "Global motor stop is unavailable from this coordinator."));
 
     Task<TResult> UseConnectedSessionAsync<TResult>(Func<IScanSessionService, CancellationToken, Task<TResult>> action, CancellationToken ct);
 

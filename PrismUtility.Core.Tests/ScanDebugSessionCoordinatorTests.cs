@@ -29,6 +29,88 @@ public sealed class ScanDebugSessionCoordinatorTests
     }
 
     [Fact]
+    public async Task SnapshotChanged_ForwardsManagerConnectionAndDisconnection()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        var states = new List<ScannerSessionState>();
+        coordinator.SnapshotChanged += (_, snapshot) => states.Add(snapshot.State);
+
+        Assert.True((await coordinator.ConnectAsync(CancellationToken.None)).Success);
+        Assert.True((await coordinator.DisconnectAsync(CancellationToken.None)).Success);
+
+        Assert.Contains(ScannerSessionState.Connected, states);
+        Assert.Contains(ScannerSessionState.Disconnected, states);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_ConcurrentDirectCallsAdmitOnlyOneConnectionBoundary()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        factory.ConnectEntered = entered;
+        factory.ConnectRelease = release;
+
+        var first = coordinator.ConnectAsync(CancellationToken.None);
+        await entered.Task;
+        var second = await coordinator.ConnectAsync(CancellationToken.None);
+        release.SetResult();
+
+        var firstResult = await first;
+
+        Assert.True(firstResult.Success);
+        Assert.False(second.Success);
+        Assert.Equal(1, factory.LastSession!.ConnectCallCount);
+    }
+
+    [Fact]
+    public async Task DisconnectAsync_ConcurrentDirectCallsAdmitOnlyOneConnectionBoundary()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+        Assert.True((await coordinator.ConnectAsync(CancellationToken.None)).Success);
+
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        factory.LastSession!.DisconnectEntered = entered;
+        factory.LastSession.DisconnectRelease = release;
+
+        var first = coordinator.DisconnectAsync(CancellationToken.None);
+        await entered.Task;
+        var second = await coordinator.DisconnectAsync(CancellationToken.None);
+        release.SetResult();
+
+        var firstResult = await first;
+
+        Assert.True(firstResult.Success);
+        Assert.False(second.Success);
+        Assert.Equal(1, factory.LastSession.DisconnectCallCount);
+    }
+
+    [Fact]
+    public async Task Snapshot_ExposesTheAuthoritativeSessionManagerState()
+    {
+        var factory = new FakeScanSessionServiceFactory();
+        var usbCoordinator = new UsbUsageCoordinator();
+        await using var manager = new ScannerDeviceSessionManager(factory, usbCoordinator);
+        var coordinator = new ScanDebugSessionCoordinator(usbCoordinator, manager);
+
+        Assert.Equal(ScannerSessionState.Disconnected, coordinator.Snapshot.State);
+        Assert.True((await coordinator.ConnectAsync(CancellationToken.None)).Success);
+
+        Assert.Equal(manager.Snapshot, coordinator.Snapshot);
+        Assert.Equal(ScannerSessionState.Connected, coordinator.Snapshot.State);
+    }
+
+    [Fact]
     public async Task UseConnectedSessionAsync_WhenScannerConnectedByWorkflow_UsesGlobalSessionWithDebugOperationOwner()
     {
         var factory = new FakeScanSessionServiceFactory();
@@ -265,11 +347,19 @@ public sealed class ScanDebugSessionCoordinatorTests
     {
         public List<FakeScanSessionService> CreatedSessions { get; } = [];
 
+        public TaskCompletionSource? ConnectEntered { get; set; }
+
+        public TaskCompletionSource? ConnectRelease { get; set; }
+
         public FakeScanSessionService? LastSession { get; private set; }
 
         public IScanSessionService CreateSession()
         {
-            var session = new FakeScanSessionService();
+            var session = new FakeScanSessionService
+            {
+                ConnectEntered = ConnectEntered,
+                ConnectRelease = ConnectRelease
+            };
             CreatedSessions.Add(session);
             LastSession = session;
             return session;
@@ -291,6 +381,16 @@ public sealed class ScanDebugSessionCoordinatorTests
 
         public int WarmUpCallCount { get; private set; }
 
+        public int ConnectCallCount { get; private set; }
+
+        public TaskCompletionSource? ConnectEntered { get; set; }
+
+        public TaskCompletionSource? ConnectRelease { get; set; }
+
+        public TaskCompletionSource? DisconnectEntered { get; set; }
+
+        public TaskCompletionSource? DisconnectRelease { get; set; }
+
         public int SetMotorEnabledCallCount { get; private set; }
 
         public int DisconnectCallCount { get; private set; }
@@ -298,17 +398,23 @@ public sealed class ScanDebugSessionCoordinatorTests
         public void RefreshTargets()
             => TargetsChanged?.Invoke(this, EventArgs.Empty);
 
-        public Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
+        public async Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
         {
+            ConnectCallCount++;
+            ConnectEntered?.TrySetResult();
+            if (ConnectRelease is not null)
+                await ConnectRelease.Task.WaitAsync(ct);
             IsConnected = true;
-            return Task.FromResult(new ScanOperationResult(true, "Connected."));
+            return new ScanOperationResult(true, "Connected.");
         }
 
-        public Task DisconnectAsync()
+        public async Task DisconnectAsync()
         {
             DisconnectCallCount++;
+            DisconnectEntered?.TrySetResult();
+            if (DisconnectRelease is not null)
+                await DisconnectRelease.Task;
             IsConnected = false;
-            return Task.CompletedTask;
         }
 
         public Task<ScanIlluminationState> GetIlluminationStateAsync(CancellationToken ct)

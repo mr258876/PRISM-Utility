@@ -22,7 +22,8 @@ public sealed record ScanDeviceSettings(
     string Channel1Role = "Blue",
     string Channel2Role = "White",
     string Channel3Role = "Red",
-    string Channel4Role = "Green")
+    string Channel4Role = "Green",
+    ScanFocusMotorMapping? FocusMotorMapping = null)
 {
     private static readonly HashSet<string> ValidChannelRoles = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -37,12 +38,14 @@ public sealed record ScanDeviceSettings(
     public static ScanDeviceSettings CreateDefault()
     {
         var motorDefaults = ScanMotorMechanicalSettings.CreateDefault();
-        return new ScanDeviceSettings(motorDefaults, motorDefaults, motorDefaults);
+        return new ScanDeviceSettings(motorDefaults, motorDefaults, motorDefaults, FocusMotorMapping: new ScanFocusMotorMapping());
     }
 
     public ScanDeviceSettings Normalize()
     {
         var defaults = CreateDefault();
+        var focusMotorMapping = FocusMotorMapping ?? defaults.FocusMotorMapping!;
+
         return new ScanDeviceSettings(
             (Motor1 ?? defaults.Motor1!).Normalize(),
             (Motor2 ?? defaults.Motor2!).Normalize(),
@@ -50,7 +53,8 @@ public sealed record ScanDeviceSettings(
             NormalizeChannelRole(Channel1Role, defaults.Channel1Role),
             NormalizeChannelRole(Channel2Role, defaults.Channel2Role),
             NormalizeChannelRole(Channel3Role, defaults.Channel3Role),
-            NormalizeChannelRole(Channel4Role, defaults.Channel4Role));
+            NormalizeChannelRole(Channel4Role, defaults.Channel4Role),
+            focusMotorMapping);
     }
 
     public IReadOnlyList<string> ChannelRoles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };

@@ -91,7 +91,7 @@ The current core test project enumerated by `Host Software/PrismUtility.Core.Tes
 | --- | --- | --- |
 | 扫描组合缓冲区 | `Host Software/PrismUtility.Core.Tests/ScanCompositeImageProcessorTests.cs` | RGB 组合、缺失通道补零、alpha 行可用性。 |
 | 通道对齐 | `Host Software/PrismUtility.Core.Tests/ScanChannelAlignmentServiceTests.cs` | 对齐服务的参数和结果行为。 |
-| 胶片配置导出模式 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs` | `InvalidDngExportMode` 验证和 schema 5 配置归一化。 |
+| 胶片配置导出模式 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileSchemaV6Tests.cs` | `InvalidDngExportMode` 验证、schema 5→6 迁移和当前 schema 6 配置归一化。 |
 | 工作区导出补丁 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` | 导出文档时间戳、选中通道补丁和导出后基线更新。 |
 | DNG managed seam | `Host Software/PrismUtility.Core.Tests/DngWriterServiceValidationTests.cs`, `Host Software/PrismUtility.Core.Tests/DngWriterServiceNativeStatusTests.cs`, `Host Software/PrismUtility.Core.Tests/DngWriterServiceNativeAbiLayoutTests.cs` | 托管请求验证、native seam status mapping、loader failure mapping、ABI V2 x64 header contract。 |
 

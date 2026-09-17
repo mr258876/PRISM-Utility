@@ -1,3 +1,4 @@
+using System.Globalization;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
@@ -32,33 +33,33 @@ public class ScanParameterService : IScanParameterService
         _protocol = protocol;
     }
 
-    public bool TryParseInput(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz, out ScanParameterSnapshot snapshot, out string error)
+    public bool TryParseInput(string exposureMicroseconds, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockMhz, out ScanParameterSnapshot snapshot, out string error)
     {
         snapshot = default!;
 
-        if (!TryParseUInt16(exposureTicks, ExposureTicksParameter.DisplayName, out var exposure, out error)
+        if (!TryParseExposureMicroseconds(exposureMicroseconds, ExposureTicksParameter.DisplayName, sysClockMhz, out var exposureTicks, out error)
             || !TryParseOffset(adc1Offset, Adc1OffsetParameter.DisplayName, out var adc1OffsetParsed, out error)
             || !TryParseGain(adc1Gain, Adc1GainParameter.DisplayName, out var adc1GainParsed, out error)
             || !TryParseOffset(adc2Offset, Adc2OffsetParameter.DisplayName, out var adc2OffsetParsed, out error)
             || !TryParseGain(adc2Gain, Adc2GainParameter.DisplayName, out var adc2GainParsed, out error)
-            || !TryParseSysClockKhz(sysClockKhz, SysClockKhzParameter.DisplayName, out var sysClockKhzParsed, out error))
+            || !TryParseSysClockMhz(sysClockMhz, SysClockKhzParameter.DisplayName, out var sysClockKhzParsed, out error))
         {
             return false;
         }
 
-        snapshot = new ScanParameterSnapshot(exposure, adc1OffsetParsed, adc1GainParsed, adc2OffsetParsed, adc2GainParsed, sysClockKhzParsed);
+        snapshot = new ScanParameterSnapshot(exposureTicks, adc1OffsetParsed, adc1GainParsed, adc2OffsetParsed, adc2GainParsed, sysClockKhzParsed);
         error = string.Empty;
         return true;
     }
 
-    public ScanParameterDisplays BuildDisplays(string exposureTicks, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockKhz)
+    public ScanParameterDisplays BuildDisplays(string exposureMicroseconds, string adc1Offset, string adc1Gain, string adc2Offset, string adc2Gain, string sysClockMhz)
     {
-        var exposureDisplay = BuildExposureDisplay(exposureTicks, sysClockKhz);
+        var exposureDisplay = BuildExposureDisplay(exposureMicroseconds, sysClockMhz);
         var adc1OffsetDisplay = BuildOffsetDisplay(adc1Offset);
         var adc2OffsetDisplay = BuildOffsetDisplay(adc2Offset);
         var adc1GainDisplay = BuildGainDisplay(adc1Gain);
         var adc2GainDisplay = BuildGainDisplay(adc2Gain);
-        var sysClockDisplay = BuildSysClockDisplay(sysClockKhz);
+        var sysClockDisplay = BuildSysClockDisplay(sysClockMhz);
 
         return new ScanParameterDisplays(exposureDisplay, adc1OffsetDisplay, adc2OffsetDisplay, adc1GainDisplay, adc2GainDisplay, sysClockDisplay);
     }
@@ -100,7 +101,6 @@ public class ScanParameterService : IScanParameterService
         await SetParameterAsync(session, Adc1GainParameter, snapshot.Adc1Gain, ct);
         await SetParameterAsync(session, Adc2OffsetParameter, EncodeSignedOffset(snapshot.Adc2Offset), ct);
         await SetParameterAsync(session, Adc2GainParameter, snapshot.Adc2Gain, ct);
-        await SetParameterAsync(session, SysClockKhzParameter, snapshot.SysClockKhz, ct);
     }
 
     private async Task SetParameterAsync(IScanSessionService session, ScanParameterDefinition parameter, ushort value, CancellationToken ct)
@@ -129,17 +129,19 @@ public class ScanParameterService : IScanParameterService
             throw new IOException($"SET_PARAM '{parameter.DisplayName}' verify mismatch: expected {value}, echoed {echoed}");
     }
 
-    private static bool TryParseUInt16(string text, string fieldName, out ushort value, out string error)
+    private static bool TryParseExposureMicroseconds(string text, string fieldName, string sysClockMhzText, out ushort exposureTicks, out string error)
     {
-        if (!ushort.TryParse(text, out value))
-        {
-            error = $"{fieldName} must be an integer in [{ScanDebugConstants.MinExposureTicks}, 65535].";
+        exposureTicks = 0;
+        if (!TryParseSysClockMhz(sysClockMhzText, SysClockKhzParameter.DisplayName, out var sysClockKhz, out error))
             return false;
-        }
 
-        if (value < ScanDebugConstants.MinExposureTicks)
+        var trimmed = text?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)
+            || !double.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var exposureMicroseconds)
+            || !ScanTimingMath.TryConvertMicrosecondsToExposureTicks(exposureMicroseconds, sysClockKhz, out exposureTicks))
         {
-            error = $"{fieldName} must be an integer in [{ScanDebugConstants.MinExposureTicks}, 65535].";
+            error = $"{fieldName} must be a finite exposure in microseconds that maps to a valid tick value.";
+            exposureTicks = 0;
             return false;
         }
 
@@ -175,18 +177,54 @@ public class ScanParameterService : IScanParameterService
         return true;
     }
 
-    private static bool TryParseSysClockKhz(string text, string fieldName, out uint value, out string error)
+    private static bool TryParseSysClockMhz(string text, string fieldName, out uint value, out string error)
     {
         value = 0;
-        if (!uint.TryParse(text, out var parsed) || parsed < ScanDebugConstants.MinSysClockKhz)
+        var trimmed = text?.Trim();
+        var fractionalDigits = trimmed is null ? string.Empty : GetFractionalDigits(trimmed);
+        if (string.IsNullOrWhiteSpace(trimmed)
+            || fractionalDigits.Length > 3
+            || !decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var mhz)
+            || mhz < 30m
+            || mhz > 200m)
         {
-            error = $"{fieldName} must be an integer greater than or equal to {ScanDebugConstants.MinSysClockKhz}.";
+            error = $"{fieldName} must be a decimal in [30, 200] MHz with integral kHz precision.";
             return false;
         }
 
-        value = parsed;
+        var khz = mhz * 1000m;
+        if (decimal.Truncate(khz) != khz)
+        {
+            error = $"{fieldName} must be a decimal in [30, 200] MHz with integral kHz precision.";
+            return false;
+        }
+
+        if (khz < ScanDebugConstants.MinSysClockKhz || khz > ScanDebugConstants.MaxSysClockKhz)
+        {
+            error = $"{fieldName} must be a decimal in [30, 200] MHz with integral kHz precision.";
+            return false;
+        }
+
+        value = (uint)khz;
         error = string.Empty;
         return true;
+    }
+
+    private static string GetFractionalDigits(string text)
+    {
+        var decimalSeparatorIndex = text.IndexOf('.');
+        if (decimalSeparatorIndex < 0 || decimalSeparatorIndex == text.Length - 1)
+            return string.Empty;
+
+        return text[(decimalSeparatorIndex + 1)..];
+    }
+
+    public async Task ApplyGlobalClockAsync(IScanSessionService session, uint sysClockKhz, CancellationToken ct)
+    {
+        if (sysClockKhz is < ScanDebugConstants.MinSysClockKhz or > ScanDebugConstants.MaxSysClockKhz)
+            throw new ArgumentOutOfRangeException(nameof(sysClockKhz), sysClockKhz, $"System clock must be in [{ScanDebugConstants.MinSysClockKhz}, {ScanDebugConstants.MaxSysClockKhz}] kHz.");
+
+        await SetParameterAsync(session, SysClockKhzParameter, sysClockKhz, ct);
     }
 
     private static int DecodeSignedOffset(ushort raw)
@@ -203,43 +241,43 @@ public class ScanParameterService : IScanParameterService
         return (ushort)(signBit | magnitude);
     }
 
-    private static string BuildExposureDisplay(string exposureText, string sysClockKhzText)
+    private static string BuildExposureDisplay(string exposureMicrosecondsText, string sysClockMhzText)
     {
-        if (!ushort.TryParse(exposureText, out var ticks)
-            || !uint.TryParse(sysClockKhzText, out var sysClockKhz)
-            || sysClockKhz == 0)
-            return "Exposure time: -";
+        if (!TryParseSysClockMhz(sysClockMhzText, SysClockKhzParameter.DisplayName, out var sysClockKhz, out _)
+            || !double.TryParse(exposureMicrosecondsText, NumberStyles.Number, CultureInfo.InvariantCulture, out var exposureMicroseconds)
+            || !ScanTimingMath.TryConvertMicrosecondsToExposureTicks(exposureMicroseconds, sysClockKhz, out var exposureTicks))
+            return "-";
 
-        var exposureNs = ScanTimingMath.ExposureTicksToNanoseconds(ticks, sysClockKhz);
-        var exposureUs = ScanTimingMath.ExposureTicksToMicroseconds(ticks, sysClockKhz);
+        var exposureNs = ScanTimingMath.ExposureTicksToNanoseconds(exposureTicks, sysClockKhz);
+        var exposureUs = ScanTimingMath.ExposureTicksToMicroseconds(exposureTicks, sysClockKhz);
         var reciprocalSeconds = ScanTimingMath.ExposureNanosecondsToReciprocalSeconds(exposureNs);
-        return $"Exposure time: {exposureNs:0.##} ns ({exposureUs:0.###} us, 1/{reciprocalSeconds:0.###} s)";
+        return $"{exposureNs:0.##} ns ({exposureUs:0.###} us, 1/{reciprocalSeconds:0.###} s)";
     }
 
     private static string BuildOffsetDisplay(string offsetText)
     {
         if (!int.TryParse(offsetText, out var offset) || offset < -255 || offset > 255)
-            return "Offset amplitude: -";
+            return "-";
 
         var offsetMv = offset * 300.0 / 256.0;
-        return $"Offset amplitude: {offsetMv:+0.###;-0.###;0} mV";
+        return $"{offsetMv:+0.###;-0.###;0} mV";
     }
 
     private static string BuildGainDisplay(string gainText)
     {
         if (!int.TryParse(gainText, out var gain) || gain < 0 || gain > 63)
-            return "Gain: -";
+            return "-";
 
         var ratio = 6.0 / (1.0 + 5.0 * ((63.0 - gain) / 63.0));
-        return $"Gain: {ratio:0.###} V/V";
+        return $"{ratio:0.###} V/V";
     }
 
-    private static string BuildSysClockDisplay(string sysClockKhzText)
+    private static string BuildSysClockDisplay(string sysClockMhzText)
     {
-        if (!uint.TryParse(sysClockKhzText, out var khz))
-            return "System clock: -";
+        if (!TryParseSysClockMhz(sysClockMhzText, SysClockKhzParameter.DisplayName, out var khz, out _))
+            return "-";
 
         var mhz = khz / 1000.0;
-        return $"System clock: {mhz:0.###} MHz";
+        return $"{mhz:0.###} MHz";
     }
 }

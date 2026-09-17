@@ -75,9 +75,9 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("ScanDebug_Runtime_StatusFilmProfileImportInvalid\".GetLocalized()", load, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_Runtime_StatusLoadFilmProfileFailed\".GetLocalizedFormat(FormatFilmProfileValidationIssues", load, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_Runtime_StatusLoadFilmProfileFailed\".GetLocalized()", load + apply, StringComparison.Ordinal);
-        Assert.Contains("HasStagedFilmProfileImport", canDiscard, StringComparison.Ordinal);
+        Assert.Contains("HasPendingFilmProfileImportResult", canDiscard, StringComparison.Ordinal);
         Assert.DoesNotContain("StagedFilmProfileImportValidationIssues.Count > 0", canDiscard, StringComparison.Ordinal);
-        Assert.Contains("ClearStagedFilmProfileImportValidation();", discard, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportNone();", discard, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,17 +113,21 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         }
 
         Assert.Contains("private bool CanStartScan() =>", source, StringComparison.Ordinal);
-        Assert.Contains("!IsApplyingMotion &&\n        IsConnected &&", source, StringComparison.Ordinal);
-        foreach (var gate in new[]
+        foreach (var command in new[]
         {
-            "CanApplyParameters",
-            "CanManageIllumination",
-            "CanManageMotion",
-            "CanRunAutoCalibration",
-            "CanUseManualFocusSurface"
+            "StartScan",
+            "ApplyParameters",
+            "ApplyIllumination",
+            "RefreshIllumination",
+            "RefreshMotion",
+            "AutoBlackAdjust",
+            "AutoWhiteAdjust",
+            "AutoCalibrate",
+            "AutoFocus",
+            "StartManualFocus"
         })
         {
-            Assert.Contains($"private bool {gate}() =>\n        IsConnected", source, StringComparison.Ordinal);
+            Assert.Contains($"CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.{command})", source, StringComparison.Ordinal);
         }
 
         foreach (var operation in new[]
@@ -141,7 +145,10 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
             "SetMotorEnabledCoreAsync"
         })
         {
-            Assert.Contains("if (!IsConnected)", ExtractMethod(source, operation), StringComparison.Ordinal);
+            Assert.Contains(
+                operation == "AutoFocus" ? "if (!IsDeviceConnected)" : "if (!IsConnected)",
+                ExtractMethod(source, operation),
+                StringComparison.Ordinal);
         }
     }
 
@@ -174,6 +181,69 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
             Assert.Contains("PublishFilmProfileOperation", body, StringComparison.Ordinal);
             Assert.DoesNotContain("StatusText", body, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void Todo5Characterization_ExportGateAndOperationPublicationStayDedicatedToFileOperations()
+    {
+        var source = ReadViewModelSource();
+        var canSave = ExtractMethod(source, "CanSaveFilmProfile");
+        var publish = ExtractMethod(source, "PublishFilmProfileOperation");
+        var save = ExtractMethod(source, "SaveFilmProfileJson");
+
+        Assert.Contains("IsCurrentFilmProfileValidationValid", canSave, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasUnsavedProfileChanges", canSave, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationMessage = message;", publish, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationSeverity = severity;", publish, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationIsOpen = true;", publish, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationVisibility = Visibility.Visible;", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("StatusText", save, StringComparison.Ordinal);
+        Assert.Contains("_filmProfileWorkspace.BuildExportDocument", save, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo5DesiredContract_ExportIsCurrentValidationGatedAndDirtyIndependent()
+    {
+        var source = ReadViewModelSource();
+        var canSave = ExtractMethod(source, "CanSaveFilmProfile");
+        var synchronize = ExtractMethod(source, "SynchronizeFilmProfileDraftFromInputs");
+        var projection = ExtractMethod(source, "RefreshFilmProfileWorkspaceProjection");
+
+        Assert.Contains("CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.SaveFilmProfileJson)", canSave, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentFilmProfileValidationValid", canSave, StringComparison.Ordinal);
+        Assert.Contains("!_hasInvalidFilmProfileInput", canSave, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasUnsavedProfileChanges", canSave, StringComparison.Ordinal);
+        Assert.Contains("SaveFilmProfileJsonCommand.NotifyCanExecuteChanged();", synchronize, StringComparison.Ordinal);
+        Assert.Contains("SaveFilmProfileJsonCommand.NotifyCanExecuteChanged();", projection, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo5DesiredContract_OperationInfoBarUsesCancelableTimerAndCloseState()
+    {
+        var source = ReadViewModelSource();
+        var publish = ExtractMethod(source, "PublishFilmProfileOperation");
+        var schedule = ExtractMethod(source, "ScheduleFilmProfileOperationAutoCloseTimer");
+        var close = ExtractMethod(source, "CloseFilmProfileOperation");
+        var cancel = ExtractMethod(source, "CancelFilmProfileOperationAutoCloseTimer");
+        var deactivate = ExtractMethod(source, "DeactivateAsync");
+
+        Assert.Contains("public partial bool FilmProfileOperationIsOpen", source, StringComparison.Ordinal);
+        Assert.Contains("private readonly TimeProvider _operationTimeProvider;", source, StringComparison.Ordinal);
+        Assert.Contains("private ITimer? _filmProfileOperationAutoCloseTimer;", source, StringComparison.Ordinal);
+        Assert.Contains("TimeProvider? operationTimeProvider = null", source, StringComparison.Ordinal);
+        Assert.Contains("_operationTimeProvider = operationTimeProvider ?? TimeProvider.System;", source, StringComparison.Ordinal);
+        Assert.Contains("var publicationId = Interlocked.Increment(ref _filmProfileOperationPublicationId);", publish, StringComparison.Ordinal);
+        Assert.Contains("CancelFilmProfileOperationAutoCloseTimer();", publish, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationIsOpen = true;", publish, StringComparison.Ordinal);
+        Assert.Contains("ShouldAutoCloseFilmProfileOperation(severity)", publish, StringComparison.Ordinal);
+        Assert.Contains("_operationTimeProvider.CreateTimer", schedule, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(4)", source, StringComparison.Ordinal);
+        Assert.Contains("Timeout.InfiniteTimeSpan", schedule, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref _filmProfileOperationPublicationId)", close, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileOperationIsOpen = false;", close, StringComparison.Ordinal);
+        Assert.Contains("_filmProfileOperationAutoCloseTimer?.Dispose();", cancel, StringComparison.Ordinal);
+        Assert.Contains("CancelFilmProfileOperationAutoCloseTimer();", deactivate, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Delay", publish + schedule + close, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -279,6 +349,45 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("_isNewFilmProfilePendingExport", projection, StringComparison.Ordinal);
         Assert.Contains("ScanFilmProfileDirtyState.IsDirty", projection, StringComparison.Ordinal);
         Assert.DoesNotContain("_isNewFilmProfilePendingExport = false;", synchronize, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo4DesiredContract_ImportLifecycleHasExplicitResultStatesAndPendingGuards()
+    {
+        var source = ReadViewModelSource();
+        var workspaceModels = File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), "PRISM Utility.Core", "Models", "ScanFilmProfileWorkspaceModels.cs"));
+        var load = ExtractMethod(source, "LoadFilmProfileJson");
+        var apply = ExtractMethod(source, "ApplyStagedFilmProfileImport");
+        var discard = ExtractMethod(source, "DiscardStagedFilmProfileImport");
+        var newProfile = ExtractMethod(source, "NewFilmProfile");
+
+        Assert.Contains("public enum ScanFilmProfileImportResultState", workspaceModels, StringComparison.Ordinal);
+        Assert.Contains("public sealed record ScanFilmProfileImportResult", workspaceModels, StringComparison.Ordinal);
+        Assert.Contains("public ScanFilmProfileImportResult ImportResult", workspaceModels, StringComparison.Ordinal);
+        Assert.Contains("HasPendingFilmProfileImportResult", source, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportError", source, StringComparison.Ordinal);
+        Assert.Contains("RequestFilmProfileImportReplacementConfirmationAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RequestFilmProfileImportDiscardConfirmationAsync", source, StringComparison.Ordinal);
+
+        Assert.True(load.IndexOf("RequestFilmProfileImportReplacementConfirmationAsync", StringComparison.Ordinal) < load.IndexOf("_filmProfileFiles.ImportAsync", StringComparison.Ordinal));
+        Assert.Contains("SetFilmProfileImportError(imported.Validation ?? new ScanFilmProfileValidationResult())", load, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportError(staged.Validation)", load, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetCurrentFilmProfileValidation", load, StringComparison.Ordinal);
+        Assert.Contains("HasPendingFilmProfileImportResult && !await RequestFilmProfileImportDiscardConfirmationAsync()", newProfile, StringComparison.Ordinal);
+        Assert.Contains("CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.ApplyStagedFilmProfileImport)", source, StringComparison.Ordinal);
+        Assert.Contains("HasStagedFilmProfileImport", source, StringComparison.Ordinal);
+        Assert.Contains("IsStagedFilmProfileImportValid", source, StringComparison.Ordinal);
+        Assert.Contains("_filmProfileWorkspace.DiscardStagedImport();", discard, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportNone();", apply + discard, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo4NavigationPreservesPendingImportByKeepingScanDebugViewModelSingleton()
+    {
+        var app = File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), "PRISM Utility", "App.xaml.cs"));
+
+        Assert.Contains("services.AddSingleton<ScanDebugViewModel>();", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("services.AddTransient<ScanDebugViewModel>();", app, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -421,7 +530,15 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("_isSynchronizingFilmProfileWorkspace = true", apply, StringComparison.Ordinal);
         Assert.Contains("_isSynchronizingFilmProfileWorkspace = wasSynchronizing", apply, StringComparison.Ordinal);
         Assert.True(selection.IndexOf("if (_isSynchronizingFilmProfileWorkspace)", StringComparison.Ordinal) < selection.IndexOf("HandleSelectedCalibrationChannelChangedAsync", StringComparison.Ordinal));
-        Assert.Contains("existing.Led1ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("existing.Led1ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("existing.Led2ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("existing.Led3ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("existing.Led4ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.Contains("var acquisitionProjection = _selectedFilmAcquisitionSettings?.Normalize()", acquisition, StringComparison.Ordinal);
+        Assert.Contains("acquisitionProjection.Led1ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.Contains("acquisitionProjection.Led2ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.Contains("acquisitionProjection.Led3ChannelColor", acquisition, StringComparison.Ordinal);
+        Assert.Contains("acquisitionProjection.Led4ChannelColor", acquisition, StringComparison.Ordinal);
         Assert.Contains("clearUnusedInputs: false", acquisition, StringComparison.Ordinal);
     }
 
@@ -508,11 +625,12 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("IsStagedFilmProfileImportValid", source, StringComparison.Ordinal);
         Assert.Contains("CanApplyStagedFilmProfileImport", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SetCurrentFilmProfileValidation", load, StringComparison.Ordinal);
-        Assert.Contains("SetStagedFilmProfileImportValidation", load, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportError(imported.Validation ?? new ScanFilmProfileValidationResult())", load, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportError(staged.Validation)", load, StringComparison.Ordinal);
         Assert.Contains("SetCurrentFilmProfileValidation", snapshotProjection, StringComparison.Ordinal);
-        Assert.Contains("SetStagedFilmProfileImportValidation", snapshotProjection, StringComparison.Ordinal);
-        Assert.Contains("ClearStagedFilmProfileImportValidation", snapshotProjection, StringComparison.Ordinal);
-        Assert.Contains("ClearStagedFilmProfileImportValidation", discard, StringComparison.Ordinal);
+        Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.ImportResult.Validation)", snapshotProjection, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClearStagedFilmProfileImportValidation", snapshotProjection, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportNone();", discard, StringComparison.Ordinal);
         Assert.Equal(1, Count(snapshotProjection, "ApplyDraftToFields("));
         Assert.DoesNotContain("ApplyDraftToFields", apply, StringComparison.Ordinal);
         Assert.Equal(2, Count(source, "ApplyDraftToFields("));
@@ -542,7 +660,13 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         var saveLevels = ExtractMethod(source, "SaveCalibrationLevelsAsync");
         var selection = ExtractCallback(source, "OnSelectedCalibrationChannelChanged");
 
-        Assert.Contains("_calibrationProfiles.ClearProfileAsync(SelectedCalibrationChannel, CancellationToken.None)", clear, StringComparison.Ordinal);
+        Assert.Contains("var channelRole = SelectedCalibrationChannel;", clear, StringComparison.Ordinal);
+        Assert.Contains("await _calibrationProfiles.ClearProfileAsync(channelRole, CancellationToken.None);", clear, StringComparison.Ordinal);
+        Assert.Contains("_copiedUnverifiedCalibrationProfiles.Remove(channelRole);", clear, StringComparison.Ordinal);
+        Assert.Contains("if (!IsCurrentCalibrationChannel(channelRole))", clear, StringComparison.Ordinal);
+        Assert.True(
+            clear.IndexOf("if (!IsCurrentCalibrationChannel(channelRole))", StringComparison.Ordinal) <
+            clear.IndexOf("StatusText = removed", StringComparison.Ordinal));
         Assert.Contains("await _calibrationProfiles.SetSelectedChannelAsync(channelRole, CancellationToken.None);", loadSelected, StringComparison.Ordinal);
         Assert.Contains("await _calibrationProfiles.SaveProfileAsync(", save, StringComparison.Ordinal);
         Assert.Contains("CancellationToken.None", save, StringComparison.Ordinal);
@@ -574,6 +698,7 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         var save = ExtractMethod(source, "SaveSelectedCalibrationProfileAsync");
         var clear = ExtractMethod(source, "ClearChannelProfile");
         var statusKind = ExtractMethod(source, "GetCalibrationChannelStatusKind");
+        var currentProfile = ExtractMethod(source, "TryBuildCurrentCalibrationProfile");
 
         Assert.Contains("public enum CalibrationChannelStatusKind", source, StringComparison.Ordinal);
         Assert.Contains("public sealed class ScanDebugCalibrationChannelItemViewModel", source, StringComparison.Ordinal);
@@ -583,15 +708,62 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("RefreshCalibrationChannelItems();", selection, StringComparison.Ordinal);
         Assert.Contains("RefreshCalibrationChannelItems();", save, StringComparison.Ordinal);
         Assert.Contains("RefreshCalibrationChannelItems();", clear, StringComparison.Ordinal);
-        Assert.Contains("_calibrationProfiles.TryGetProfile(channelRole, out _)", statusKind, StringComparison.Ordinal);
+        Assert.Contains("_calibrationProfiles.TryGetProfile(channelRole, out var persisted)", statusKind, StringComparison.Ordinal);
         Assert.Contains("string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)", statusKind, StringComparison.Ordinal);
-        Assert.Contains("!_parameters.TryParseInput(ExposureTicks, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockKhz", statusKind, StringComparison.Ordinal);
-        Assert.Contains("!TryValidateRoiInputs()", statusKind, StringComparison.Ordinal);
+        Assert.Contains("TryBuildCurrentCalibrationProfile(out profile!)", statusKind, StringComparison.Ordinal);
+        Assert.Contains("_parameters.TryParseInput(ExposureMicroseconds, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockMhz", currentProfile, StringComparison.Ordinal);
+        Assert.Contains("&& TryValidateRoiInputs()", currentProfile, StringComparison.Ordinal);
+        Assert.Contains("_roiSettings,", currentProfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("_roiSettings.Normalize()", currentProfile, StringComparison.Ordinal);
+        Assert.Contains("existingProfile?.BlackLevel", currentProfile, StringComparison.Ordinal);
+        Assert.Contains("existingProfile?.WhiteLevel", currentProfile, StringComparison.Ordinal);
         Assert.Contains("GetBoundLedName(_role)", source, StringComparison.Ordinal);
         Assert.Contains("ScanDebug_Runtime_ChannelStatusAccessibility", source, StringComparison.Ordinal);
         Assert.Contains("CalibrationChannelStatusKind.Invalid", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CopyChannel", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ParameterCopy", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SelectedCalibrationCopySourceChannel", source, StringComparison.Ordinal);
+        Assert.Contains("CalibrationCopySourceChannelOptions", source, StringComparison.Ordinal);
+        Assert.Contains("CopyCalibrationProfileFromChannelCommand", source, StringComparison.Ordinal);
+        Assert.Contains("_copiedUnverifiedCalibrationProfiles", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo7DesiredContract_CopySourceCommandStagesOnlyAndStatusTextUsesFiveLocalizedStates()
+    {
+        var source = ReadViewModelSource();
+        var copy = ExtractMethod(source, "CopyCalibrationProfileFromChannel");
+        var statusText = ExtractMethod(source, "GetCalibrationChannelStatusText");
+
+        Assert.Contains("public IReadOnlyList<string> CalibrationCopySourceChannelOptions", source, StringComparison.Ordinal);
+        Assert.Contains("!string.Equals(role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)", source, StringComparison.Ordinal);
+        Assert.Contains("[NotifyCanExecuteChangedFor(nameof(CopyCalibrationProfileFromChannelCommand))]", source, StringComparison.Ordinal);
+        Assert.Contains("public partial string? SelectedCalibrationCopySourceChannel", source, StringComparison.Ordinal);
+        Assert.Contains("!string.Equals(SelectedCalibrationChannel, SelectedCalibrationCopySourceChannel, StringComparison.OrdinalIgnoreCase)", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetCalibrationProfile(SelectedCalibrationCopySourceChannel", source, StringComparison.Ordinal);
+
+        Assert.Contains("_copiedUnverifiedCalibrationProfiles[SelectedCalibrationChannel] = sourceProfile;", copy, StringComparison.Ordinal);
+        Assert.Contains("ApplyCalibrationProfileProjection(sourceProfile);", copy, StringComparison.Ordinal);
+        Assert.Contains("RefreshCalibrationChannelItems();", copy, StringComparison.Ordinal);
+        Assert.Contains("NotifyChannelProfileOverviewChanged();", copy, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveProfileAsync", copy, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClearProfileAsync", copy, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReplaceAsync", copy, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveFilmProfileJson", copy, StringComparison.Ordinal);
+
+        foreach (var resourceKey in new[]
+        {
+            "ScanDebug_Runtime_ChannelStatusSaved",
+            "ScanDebug_Runtime_ChannelStatusModified",
+            "ScanDebug_Runtime_ChannelStatusInvalid",
+            "ScanDebug_Runtime_ChannelStatusMissing",
+            "ScanDebug_Runtime_ChannelStatusCopiedUnverified"
+        })
+        {
+            Assert.Contains(resourceKey, statusText, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("CalibrationChannelStatusKind.Modified => \"ScanDebug_Runtime_ChannelStatusUnconfigured\"", statusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("CalibrationChannelStatusKind.CopiedUnverified => \"ScanDebug_Runtime_ChannelStatusUnconfigured\"", statusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("CalibrationChannelStatusKind.Missing => \"ScanDebug_Runtime_ChannelStatusUnconfigured\"", statusText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -619,7 +791,9 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
             Assert.Contains(path, source, StringComparison.Ordinal);
         }
         Assert.Contains("string messageKey", issueFactory, StringComparison.Ordinal);
-        Assert.Contains("new(code, fieldPath, ScanFilmProfileValidationSeverity.Error, messageKey)", issueFactory, StringComparison.Ordinal);
+        Assert.Contains("ScanFilmProfileValidationSeverity.Error", issueFactory, StringComparison.Ordinal);
+        Assert.Contains("ScanFilmProfileValidationSeverity severity", issueFactory, StringComparison.Ordinal);
+        Assert.Contains("new(code, fieldPath, severity, messageKey)", issueFactory, StringComparison.Ordinal);
         Assert.DoesNotContain("parameterError", issueFactory, StringComparison.Ordinal);
         Assert.DoesNotContain("acquisitionError", issueFactory, StringComparison.Ordinal);
         Assert.DoesNotContain("recipeError", source, StringComparison.Ordinal);
@@ -633,11 +807,13 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         var synchronization = ExtractMethod(source, "SynchronizeFilmProfileDraftFromInputs");
 
         Assert.Contains("_lastProjectedFilmProfileDraft", source, StringComparison.Ordinal);
-        Assert.Contains("_lastProjectedStagedFilmProfileImport", source, StringComparison.Ordinal);
+        Assert.Contains("_lastProjectedFilmProfileImportResult", source, StringComparison.Ordinal);
         Assert.Contains("ApplyExternalFilmProfileWorkspaceSnapshot(snapshot)", snapshotChanged, StringComparison.Ordinal);
         Assert.DoesNotContain("ApplyDraftToFields", synchronization, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(snapshot.CurrentDraft, _lastProjectedFilmProfileDraft)", source, StringComparison.Ordinal);
-        Assert.Contains("!ReferenceEquals(snapshot.StagedImport, _lastProjectedStagedFilmProfileImport)", source, StringComparison.Ordinal);
+        Assert.Contains("var importResultChanged = !ReferenceEquals(snapshot.ImportResult, _lastProjectedFilmProfileImportResult);", source, StringComparison.Ordinal);
+        Assert.Contains("_lastProjectedFilmProfileImportResult = snapshot.ImportResult;", source, StringComparison.Ordinal);
+        Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.ImportResult.Validation)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -661,7 +837,7 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.Contains("ApplyProfileAcquisitionSettings", apply, StringComparison.Ordinal);
         Assert.Contains("ApplyScanRecipeSettings", apply, StringComparison.Ordinal);
         Assert.Contains("ResolveProfileChannelToLoad", apply, StringComparison.Ordinal);
-        Assert.Contains("ApplySnapshotToInputs(profile.Parameters)", apply, StringComparison.Ordinal);
+        Assert.Contains("ApplyCalibrationSnapshotProjection(profile.Parameters)", apply, StringComparison.Ordinal);
         Assert.Contains("_roiSettings = profile.RoiSettings.Normalize()", apply, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiStatus", apply, StringComparison.Ordinal);
         Assert.Contains("RefreshColumnSampleStatus", apply, StringComparison.Ordinal);
@@ -669,7 +845,7 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
 
         foreach (var field in new[]
         {
-            "ApplyIlluminationStateToInputs",
+            "ApplyDraftIlluminationStateToInputs",
             "MotorIntervalUs = FormatMotorIntervalInput",
             "RefreshDerivedMotorDistanceFromCurrentInterval",
             "ApplyMotorSpeedFromIntervalNs"
@@ -706,6 +882,79 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.DoesNotContain("StagedFilmProfileImportValidation", synchronize, StringComparison.Ordinal);
         Assert.True(save.IndexOf("SynchronizeFilmProfileDraftFromInputs", StringComparison.Ordinal) < save.IndexOf("BuildExportDocument", StringComparison.Ordinal));
         Assert.True(save.IndexOf("return;", save.IndexOf("SynchronizeFilmProfileDraftFromInputs", StringComparison.Ordinal), StringComparison.Ordinal) < save.IndexOf("BuildExportDocument", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Todo3ResetThenOverlay_AtoNewAndNameOnlyExport_ClearPriorChannelEditorState()
+    {
+        var source = ReadViewModelSource();
+        var apply = ExtractMethod(source, "ApplyDraftToFields");
+
+        Assert.Contains("ResetProfileEditorFields();", apply, StringComparison.Ordinal);
+        Assert.True(
+            apply.IndexOf("ResetProfileEditorFields();", StringComparison.Ordinal)
+                < apply.IndexOf("FilmProfileName =", StringComparison.Ordinal));
+        Assert.Contains("SelectedCalibrationChannel = channel;", apply, StringComparison.Ordinal);
+        Assert.Contains("if (draft.ChannelProfiles.TryGetValue(channel, out var profile))", apply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo3ResetThenOverlay_MissingRecipeRoiAndReferences_ResetEveryProfileOwnedEditorDefault()
+    {
+        var reset = ExtractMethod(ReadViewModelSource(), "ResetProfileEditorFields");
+
+        foreach (var field in new[]
+        {
+            "var defaultAcquisitionSettings = ScanFilmAcquisitionSettings.CreateDefault();",
+            "ApplyProfileAcquisitionSettings(defaultAcquisitionSettings);",
+            "SelectedCalibrationChannel = string.Empty;",
+            "ExposureTicks = string.Empty;",
+            "Adc1Offset = string.Empty;",
+            "Adc1Gain = string.Empty;",
+            "Adc2Offset = string.Empty;",
+            "Adc2Gain = string.Empty;",
+            "SysClockKhz = string.Empty;",
+            "_roiSettings = ScanCalibrationRoiSettings.CreateDefault();",
+            "IsChannel1Reversed = false;",
+            "IsChannel2Reversed = false;",
+            "IsChannel3Reversed = false;",
+            "IsChannel4Reversed = false;",
+            "IsScanRecipeColorManagementEnabled = defaultColorManagement.IsEnabled;",
+            "ScanRecipeRedWavelengthNm = FormatColorDouble(defaultColorManagement.RedWavelengthNm);",
+            "ScanRecipeGreenWavelengthNm = FormatColorDouble(defaultColorManagement.GreenWavelengthNm);",
+            "ScanRecipeBlueWavelengthNm = FormatColorDouble(defaultColorManagement.BlueWavelengthNm);",
+            "ScanRecipeOutputGamma = FormatColorDouble(defaultColorManagement.OutputGamma);",
+            "SelectedScanRecipeTargetWhitePointMode = defaultColorManagement.TargetWhitePointMode.ToString();",
+            "ScanRecipeManualWhitePointColorTemperatureK = FormatColorDouble(defaultColorManagement.ManualWhitePointColorTemperatureK);",
+            "SelectedProfileAlignmentMode = AlignmentModeOptions[0];",
+            "SelectedProfileDngExportMode = DngExportModeOptions[0];"
+        })
+        {
+            Assert.Contains(field, reset, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Todo3ResetThenOverlay_ChannelResolution_UsesRequestedThenFirstKnownThenNoSelection()
+    {
+        var resolve = ExtractMethod(ReadViewModelSource(), "ResolveProfileChannelToLoad");
+
+        Assert.Contains("return selectedChannel;", resolve, StringComparison.Ordinal);
+        Assert.Contains("return firstKnown;", resolve, StringComparison.Ordinal);
+        Assert.Contains("return string.Empty;", resolve, StringComparison.Ordinal);
+        Assert.DoesNotContain("return SelectedCalibrationChannel;", resolve, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo3ResetThenOverlay_RepeatedAtoBtoA_RefreshesProjectionWithoutDeviceOrLibraryMutation()
+    {
+        var apply = ExtractMethod(ReadViewModelSource(), "ApplyDraftToFields");
+
+        Assert.Contains("ResetProfileEditorFields();", apply, StringComparison.Ordinal);
+        Assert.Contains("RefreshRoiStatus();", apply, StringComparison.Ordinal);
+        Assert.Contains("RefreshColumnSampleStatus();", apply, StringComparison.Ordinal);
+        Assert.Contains("RefreshFilmProfileWorkspaceProjection();", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("_calibrationProfiles.", apply, StringComparison.Ordinal);
     }
 
     private static string ReadViewModelSource()

@@ -1,5 +1,11 @@
 namespace PRISM_Utility.Core.Models;
 
+public enum ScanFilmTransportStrategy
+{
+    ReturnToStart = 0,
+    AlternateDirection = 1
+}
+
 public sealed record ScanFilmAcquisitionSettings(
     ushort Led1Level,
     ushort Led2Level,
@@ -15,7 +21,14 @@ public sealed record ScanFilmAcquisitionSettings(
     string Led1ChannelColor = "Blue",
     string Led2ChannelColor = "White",
     string Led3ChannelColor = "Red",
-    string Led4ChannelColor = "Green")
+    string Led4ChannelColor = "Green",
+    int Rows = 128,
+    byte ScanMotorId = 1,
+    double? TargetLinePitchMicrometers = null,
+    bool StartingDirectionPositive = true,
+    bool WarmUpEnabled = false,
+    ScanFilmTransportStrategy TransportStrategy = ScanFilmTransportStrategy.AlternateDirection,
+    ScanChannelAssignment? AcquisitionChannelAssignment = null)
 {
     public static ScanFilmAcquisitionSettings CreateDefault()
         => new(
@@ -33,13 +46,25 @@ public sealed record ScanFilmAcquisitionSettings(
             "Blue",
             "White",
             "Red",
-            "Green");
+            "Green",
+            128,
+            1,
+            null,
+            true,
+            false,
+            ScanFilmTransportStrategy.AlternateDirection,
+            new ScanChannelAssignment("Blue", "White", "Red", "Green", false, false, false, false));
 
     public ScanFilmAcquisitionSettings Normalize()
     {
         var steadyMask = (byte)(SteadyMask & ScanDebugConstants.IlluminationValidMask);
         var syncMask = (byte)(SyncMask & ScanDebugConstants.IlluminationValidMask);
         syncMask = (byte)(syncMask & ~steadyMask);
+        var led1ChannelColor = NormalizeChannelColor(Led1ChannelColor, "Blue");
+        var led2ChannelColor = NormalizeChannelColor(Led2ChannelColor, "White");
+        var led3ChannelColor = NormalizeChannelColor(Led3ChannelColor, "Red");
+        var led4ChannelColor = NormalizeChannelColor(Led4ChannelColor, "Green");
+        var assignment = AcquisitionChannelAssignment;
 
         return new ScanFilmAcquisitionSettings(
             Led1Level,
@@ -53,10 +78,27 @@ public sealed record ScanFilmAcquisitionSettings(
             Math.Max(Led3PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(Led4PulseClock, ScanDebugConstants.IlluminationMinSyncPulseClock),
             Math.Max(MotorIntervalNs, ScanDebugConstants.MotionMinIntervalNs),
-            NormalizeChannelColor(Led1ChannelColor, "Blue"),
-            NormalizeChannelColor(Led2ChannelColor, "White"),
-            NormalizeChannelColor(Led3ChannelColor, "Red"),
-            NormalizeChannelColor(Led4ChannelColor, "Green"));
+            led1ChannelColor,
+            led2ChannelColor,
+            led3ChannelColor,
+            led4ChannelColor,
+            Rows,
+            ScanMotorId,
+            TargetLinePitchMicrometers,
+            StartingDirectionPositive,
+            WarmUpEnabled,
+            TransportStrategy,
+            assignment is null
+                ? new ScanChannelAssignment(led1ChannelColor, led2ChannelColor, led3ChannelColor, led4ChannelColor, false, false, false, false)
+                : new ScanChannelAssignment(
+                    NormalizeChannelColor(assignment.Channel1Role, led1ChannelColor),
+                    NormalizeChannelColor(assignment.Channel2Role, led2ChannelColor),
+                    NormalizeChannelColor(assignment.Channel3Role, led3ChannelColor),
+                    NormalizeChannelColor(assignment.Channel4Role, led4ChannelColor),
+                    assignment.Channel1Reversed,
+                    assignment.Channel2Reversed,
+                    assignment.Channel3Reversed,
+                    assignment.Channel4Reversed));
     }
 
     private static string NormalizeChannelColor(string? channelColor, string fallback)

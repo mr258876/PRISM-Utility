@@ -21,6 +21,11 @@
     <BuildDate>$([System.DateTime]::Now.ToString("yyyyMMdd"))</BuildDate>
     <GitShortSha>unknown</GitShortSha>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PrismVisualQa>false</PrismVisualQa>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PrismVisualQa)' == 'true'">
+    <DefineConstants>$(DefineConstants);PRISM_VISUAL_QA</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

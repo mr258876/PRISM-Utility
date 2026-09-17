@@ -42,12 +42,98 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
     public async Task<ScanParameterSnapshot> AutoCalibrateAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
-        var blackAdjusted = await AutoBlackAdjustAsync(session, currentSnapshot, roiSettings, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
-        return await AutoWhiteAdjustAsync(session, blackAdjusted, roiSettings, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        var blackAdjusted = await AutoBlackAdjustCoreAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
+        return await AutoWhiteAdjustCoreAsync(session, blackAdjusted, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
     }
 
-    public async Task<ScanParameterSnapshot> AutoBlackAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    public Task<ScanAutoCalibrationCandidateResult> AutoBlackAdjustCandidateAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        return RunCandidateAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct, AutoBlackAdjustCoreAsync, "Auto black");
+    }
+
+    public Task<ScanAutoCalibrationCandidateResult> AutoWhiteAdjustCandidateAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        return RunCandidateAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct, AutoWhiteAdjustCoreAsync, "Auto white");
+    }
+
+    public async Task<ScanAutoCalibrationCandidateResult> AutoCalibrateCandidateAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        var black = await RunCandidateAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct, AutoBlackAdjustCoreAsync, "Auto black");
+        var white = await RunCandidateAsync(session, black.CandidateSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct, AutoWhiteAdjustCoreAsync, "Auto white");
+        return new ScanAutoCalibrationCandidateResult(
+            currentSnapshot,
+            white.CandidateSnapshot,
+            ComposeStageMetrics(black.BeforeMetrics, white.BeforeMetrics),
+            ComposeStageMetrics(black.AfterMetrics, white.AfterMetrics),
+            ScanCalibrationCandidateValidation.Valid);
+    }
+
+    private async Task<ScanAutoCalibrationCandidateResult> RunCandidateAsync(
+        IScanSessionService session,
+        ScanParameterSnapshot originalSnapshot,
+        ScanAdcCalibrationRoi roiSettings,
+        Func<ScanCalibrationPrompt, Task<bool>> promptAsync,
+        Action<string>? onStatus,
+        Action<ScanParameterSnapshot>? onSnapshotApplied,
+        Action<byte[], int, string>? onFrameCaptured,
+        CancellationToken ct,
+        Func<IScanSessionService, ScanParameterSnapshot, ScanAdcCalibrationRoi, Func<ScanCalibrationPrompt, Task<bool>>, Action<string>?, Action<ScanParameterSnapshot>?, Action<byte[], int, string>?, CancellationToken, Task<ScanParameterSnapshot>> runAsync,
+        string stage)
+    {
+        ScanCalibrationStatistics? before = null;
+        async Task<bool> PromptAndCaptureBaselineAsync(ScanCalibrationPrompt prompt)
+        {
+            if (!await promptAsync(prompt))
+                return false;
+
+            before = await CaptureCandidateStatisticsAsync(session, originalSnapshot, roiSettings, $"{stage} baseline", onStatus, onFrameCaptured, ct);
+            return true;
+        }
+
+        var candidate = await runAsync(session, originalSnapshot, roiSettings, PromptAndCaptureBaselineAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
+        var after = await CaptureCandidateStatisticsAsync(session, candidate, roiSettings, $"{stage} candidate", onStatus, onFrameCaptured, ct);
+        return new ScanAutoCalibrationCandidateResult(originalSnapshot, candidate, BuildMetrics(before ?? throw new InvalidOperationException("Calibration candidate did not request target preparation.")), BuildMetrics(after), ScanCalibrationCandidateValidation.Valid);
+    }
+
+    private static ScanCalibrationMetrics ComposeStageMetrics(ScanCalibrationMetrics black, ScanCalibrationMetrics white)
+        => new(
+            white.AdcOutputDifferencePercent,
+            black.BlackLevelDeviation,
+            white.SaturatedPixelPercent,
+            black.NoiseStandardDeviation);
+
+    private static ScanCalibrationMetrics BuildMetrics(ScanCalibrationStatistics statistics)
+    {
+        var channelDifference = Math.Abs(statistics.EvenMean - statistics.OddMean) / Math.Max(Math.Abs(statistics.EffectiveMean), 1.0) * 100.0;
+        var mean = statistics.ColumnMeans.Average();
+        var variance = statistics.ColumnMeans.Select(value => (value - mean) * (value - mean)).Average();
+        return new ScanCalibrationMetrics(
+            (decimal)Math.Clamp(channelDifference, 0.0, 100.0),
+            (decimal)Math.Abs(statistics.EffectiveMean),
+            (decimal)Math.Clamp(statistics.SaturationRatio * 100.0, 0.0, 100.0),
+            (decimal)Math.Sqrt(variance));
+    }
+
+    public Task<ScanParameterSnapshot> AutoBlackAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        return AutoBlackAdjustCoreAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
+    }
+
+    private async Task<ScanParameterSnapshot> AutoBlackAdjustCoreAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanAdcCalibrationRoi roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var confirmed = await promptAsync(new ScanCalibrationPrompt(
+            "Black Calibration",
+            "Please cover the sensor completely. Warm-up will start, then the scanner will capture dark frames to auto-adjust black level and offset.",
+            "Start",
+            "Cancel"));
+        if (!confirmed)
+            throw new OperationCanceledException("Black calibration canceled by user.");
+
         var working = currentSnapshot with
         {
             Adc1Offset = 0,
@@ -58,14 +144,6 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         onStatus?.Invoke("Auto black: resetting offset/gain to zero...");
         await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
-
-        var confirmed = await promptAsync(new ScanCalibrationPrompt(
-            "Black Calibration",
-            "Please cover the sensor completely. Warm-up will start, then the scanner will capture dark frames to auto-adjust black level and offset.",
-            "Start",
-            "Cancel"));
-        if (!confirmed)
-            throw new OperationCanceledException("Black calibration canceled by user.");
 
         var adc1State = new ChannelOffsetState();
         var adc2State = new ChannelOffsetState();
@@ -165,7 +243,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         throw new IOException("Auto black failed to converge.");
     }
 
-    private async Task<ScanParameterSnapshot> MatchBlackOutputSignalGainsAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanChannelMapping channelMapping, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ScanParameterSnapshot> MatchBlackOutputSignalGainsAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanChannelMapping channelMapping, ScanAdcCalibrationRoi roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var working = currentSnapshot with { Adc1Gain = 0, Adc2Gain = 0 };
         await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
@@ -229,8 +307,22 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         throw new IOException("Auto black failed to match output signal gains.");
     }
 
-    public async Task<ScanParameterSnapshot> AutoWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    public Task<ScanParameterSnapshot> AutoWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
+        var validatedRoi = ScanAdcCalibrationRoi.Require(roiSettings, _decoder.GetDecodedPixelsPerLine());
+        return AutoWhiteAdjustCoreAsync(session, currentSnapshot, validatedRoi, promptAsync, onStatus, onSnapshotApplied, onFrameCaptured, ct);
+    }
+
+    private async Task<ScanParameterSnapshot> AutoWhiteAdjustCoreAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanAdcCalibrationRoi roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        var confirmed = await promptAsync(new ScanCalibrationPrompt(
+            "White Calibration",
+            "Place a uniform white paper target under fixed lighting. The scanner will probe overexposure range first, then adjust gain for a bright but non-clipped white level.",
+            "Start",
+            "Cancel"));
+        if (!confirmed)
+            throw new OperationCanceledException("White calibration canceled by user.");
+
         var working = currentSnapshot with { Adc1Gain = 0, Adc2Gain = 0 };
         var adc1State = new ChannelGainState();
         var adc2State = new ChannelGainState();
@@ -240,14 +332,6 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
 
         onStatus?.Invoke("Auto white: resetting gain to zero...");
         await ApplyParametersForCalibrationAsync(session, working, onSnapshotApplied, ct);
-
-        var confirmed = await promptAsync(new ScanCalibrationPrompt(
-            "White Calibration",
-            "Place a uniform white paper target under fixed lighting. The scanner will probe overexposure range first, then adjust gain for a bright but non-clipped white level.",
-            "Start",
-            "Cancel"));
-        if (!confirmed)
-            throw new OperationCanceledException("White calibration canceled by user.");
 
         var originalExposure = (ushort)Math.Max(working.ExposureTicks, ScanDebugConstants.MinExposureTicks);
         if (working.ExposureTicks != originalExposure)
@@ -365,7 +449,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         throw new IOException("Auto white failed to converge.");
     }
 
-    private async Task<ushort> ProbeSaturationExposureAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ushort> ProbeSaturationExposureAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanAdcCalibrationRoi roiSettings, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var exposure = (ushort)Math.Max(snapshot.ExposureTicks, ScanDebugConstants.MinExposureTicks);
         var lastExposure = exposure;
@@ -396,7 +480,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         return lastExposure;
     }
 
-    private async Task<ScanChannelMapping> DetectChannelMappingAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ScanChannelMapping> DetectChannelMappingAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanAdcCalibrationRoi roiSettings, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke("Auto calibration: detecting ADC/pixel mapping...");
 
@@ -425,7 +509,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         return new ScanChannelMapping(isAdc1Even, adc1Delta, adc2Delta);
     }
 
-    private async Task<ScanParameterSnapshot> BalanceChannelsAfterWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanChannelMapping mapping, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ScanParameterSnapshot> BalanceChannelsAfterWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanChannelMapping mapping, ScanAdcCalibrationRoi roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var working = snapshot;
 
@@ -477,7 +561,7 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         return working;
     }
 
-    private async Task<ScanParameterSnapshot> BalanceOffsetsAfterWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanChannelMapping mapping, ScanCalibrationRoiSettings roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ScanParameterSnapshot> BalanceOffsetsAfterWhiteAdjustAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanChannelMapping mapping, ScanAdcCalibrationRoi roiSettings, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         var working = snapshot;
 
@@ -531,7 +615,28 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         onSnapshotApplied?.Invoke(snapshot);
     }
 
-    private async Task<ScanCalibrationStatistics> CaptureStatisticsAsync(IScanSessionService session, int rows, ScanCalibrationRoiSettings roiSettings, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    private async Task<ScanCalibrationStatistics> CaptureCandidateStatisticsAsync(IScanSessionService session, ScanParameterSnapshot snapshot, ScanAdcCalibrationRoi roiSettings, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
+    {
+        Exception? captureFailure = null;
+        try
+        {
+            await session.SetWarmUpEnabledAsync(true, ct);
+            await WaitForWarmUpSettlingAsync(snapshot.ExposureTicks, snapshot.SysClockKhz, onStatus, ct);
+            return await CaptureStatisticsAsync(session, ScanDebugConstants.CalibrationSampleRows, roiSettings, phase, onStatus, onFrameCaptured, ct);
+        }
+        catch (Exception exception)
+        {
+            captureFailure = exception;
+            throw;
+        }
+        finally
+        {
+            try { await session.SetWarmUpEnabledAsync(false, CancellationToken.None); }
+            catch when (captureFailure is not null) { }
+        }
+    }
+
+    private async Task<ScanCalibrationStatistics> CaptureStatisticsAsync(IScanSessionService session, int rows, ScanAdcCalibrationRoi roiSettings, string phase, Action<string>? onStatus, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
     {
         onStatus?.Invoke($"{phase}: capturing {rows} rows...");
         var useExtendedSingleRead = await ShouldUseFullStartReadPathAsync();
@@ -546,17 +651,16 @@ public sealed class ScanAutoCalibrationService : IScanAutoCalibrationService
         return BuildStatistics(result.ImageBytes, rows, roiSettings);
     }
 
-    private ScanCalibrationStatistics BuildStatistics(byte[] lineBuffer, int rows, ScanCalibrationRoiSettings roiSettings)
+    private ScanCalibrationStatistics BuildStatistics(byte[] lineBuffer, int rows, ScanAdcCalibrationRoi roiSettings)
     {
-        var width = _decoder.GetDecodedPixelsPerLine();
-        var effectiveRange = roiSettings.Clamp(width).EffectiveRange;
-        var shieldRange = roiSettings.Clamp(width).ShieldRange;
+        var effectiveRange = roiSettings.EffectiveRange;
+        var shieldRange = roiSettings.ShieldRange;
         var effectiveStart = effectiveRange.Start;
         var effectiveEnd = effectiveRange.EndInclusive;
         var shieldStart = shieldRange.Start;
         var shieldEnd = shieldRange.EndInclusive;
         var effectiveCount = effectiveEnd - effectiveStart + 1;
-        if (width <= 0 || effectiveCount <= 0)
+        if (effectiveCount <= 0)
             throw new IOException("Calibration ROI requires a valid effective column range.");
 
         var columnSums = new double[effectiveCount];

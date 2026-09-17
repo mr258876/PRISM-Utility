@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using PRISM_Utility.Core.Contracts.Services;
 using PRISM_Utility.Core.Helpers;
 using PRISM_Utility.Core.Models;
@@ -17,7 +18,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
     {
         var result = Service.Parse(ReadFixture("full-v5.json"));
 
-        Assert.Equal(5, result.Document?.SchemaVersion);
+        Assert.Equal(6, result.Document?.SchemaVersion);
         Assert.True(result.Validation.IsValid);
     }
 
@@ -124,12 +125,12 @@ public sealed class ScanFilmProfileDocumentServiceTests
     [Fact]
     public void DocumentService_ExposesTheSoleCurrentSchemaVersion()
     {
-        Assert.Equal(5, Service.CurrentSchemaVersion);
+        Assert.Equal(6, Service.CurrentSchemaVersion);
         Assert.Null(typeof(ScanFilmProfileCompatibility).GetField("SchemaVersion"));
     }
 
     [Theory]
-    [InlineData("future-v6.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion)]
+    [InlineData("future-v7.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion)]
     [InlineData("malformed-v5.json", ScanFilmProfileValidationCode.MalformedJson)]
     [InlineData("missing-required-v5.json", ScanFilmProfileValidationCode.InvalidSavedAtUtc)]
     public void Parse_RejectsMalformedAndFutureDocumentsWithStructuredIssues(string fixtureName, ScanFilmProfileValidationCode expectedCode)
@@ -142,8 +143,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
 
     [Theory]
     [InlineData("{\"SchemaVersion\":5,\"ProfileName\":\"Valid\",\"SavedAtUtc\":42,\"ChannelProfiles\":{}}", ScanFilmProfileValidationCode.InvalidSavedAtUtc)]
-    [InlineData("{\"SchemaVersion\":5,\"ProfileName\":\"  \",\"SavedAtUtc\":\"2026-07-16T12:34:56+00:00\",\"ChannelProfiles\":{}}", ScanFilmProfileValidationCode.InvalidProfileName)]
-    public void Parse_RejectsInvalidTimestampTypesAndWhitespaceProfileNames(string json, ScanFilmProfileValidationCode expectedCode)
+    public void Parse_RejectsInvalidTimestampTypes(string json, ScanFilmProfileValidationCode expectedCode)
     {
         var result = Service.Parse(json);
 
@@ -152,7 +152,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
     }
 
     [Fact]
-    public void BuildAndSerialize_ProduceDeterministicV5JsonAndRoundTrip()
+    public void BuildAndSerialize_ProduceDeterministicV6JsonAndRoundTrip()
     {
         var draft = ScanFilmProfileDraft.FromDocument(ParseFullDocument()).Draft;
         var built = Service.Build(draft);
@@ -164,12 +164,61 @@ public sealed class ScanFilmProfileDocumentServiceTests
 
         Assert.True(built.Validation.IsValid);
         Assert.Equal(firstJson, secondJson);
-        Assert.Equal(5, roundTrip.Document?.SchemaVersion);
+        Assert.Equal(6, roundTrip.Document?.SchemaVersion);
         Assert.True(roundTrip.Validation.IsValid);
         using var jsonDocument = JsonDocument.Parse(firstJson);
         Assert.Equal(
             new[] { "SchemaVersion", "ProfileName", "SavedAtUtc", "ChannelProfiles", "SelectedCalibrationChannel", "AcquisitionSettings", "ScanRecipeSettings" },
             jsonDocument.RootElement.EnumerateObject().Select(property => property.Name));
+    }
+
+    [Fact]
+    public void Todo8_BuildSerialize_EmptyProfileNameStaysEmptyAndCultureInvariant()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+        var previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            var english = BuildEmptyNameExportJson("en-US");
+            var chinese = BuildEmptyNameExportJson("zh-CN");
+
+            Assert.Equal(english.Json, chinese.Json);
+            Assert.Equal(string.Empty, english.Document.ProfileName);
+            Assert.Equal(string.Empty, chinese.Document.ProfileName);
+            Assert.Contains(english.Validation.Issues, issue =>
+                issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
+                && issue.FieldPath == "profileName"
+                && issue.Severity == ScanFilmProfileValidationSeverity.Warning);
+            Assert.DoesNotContain("Untitled Film Profile", english.Json, StringComparison.Ordinal);
+            Assert.DoesNotContain("未命名胶片配置", english.Json, StringComparison.Ordinal);
+            Assert.DoesNotContain("Untitled Film Profile", chinese.Json, StringComparison.Ordinal);
+            Assert.DoesNotContain("未命名胶片配置", chinese.Json, StringComparison.Ordinal);
+            using var json = JsonDocument.Parse(english.Json);
+            Assert.Equal(string.Empty, json.RootElement.GetProperty("ProfileName").GetString());
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Todo8_Parse_EmptyOrWhitespaceProfileNameStaysEmptyAndReportsFieldPath(string profileName)
+    {
+        var source = ParseFullDocument() with { ProfileName = profileName };
+
+        var parsed = Service.Parse(Service.Serialize(source));
+        var document = Assert.IsType<ScanFilmParameterProfileSet>(parsed.Document);
+
+        Assert.True(parsed.CanApply);
+        Assert.Equal(string.Empty, document.ProfileName);
+        Assert.Contains(parsed.Validation.Issues, issue =>
+            issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
+            && issue.FieldPath == "profileName"
+            && issue.Severity == ScanFilmProfileValidationSeverity.Warning);
     }
 
     [Fact]
@@ -299,6 +348,17 @@ public sealed class ScanFilmProfileDocumentServiceTests
 
     private static ScanFilmParameterProfileSet ParseFullDocument()
         => Assert.IsType<ScanFilmParameterProfileSet>(ScanFilmProfileCompatibility.ParseExchangeJson(ReadFixture("full-v5.json")).Profile);
+
+    private static (ScanFilmParameterProfileSet Document, ScanFilmProfileValidationResult Validation, string Json) BuildEmptyNameExportJson(string cultureName)
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+        var source = ParseFullDocument();
+        var draft = ScanFilmProfileDraft.FromDocument(source with { ProfileName = string.Empty }).Draft;
+        var built = Service.Build(draft);
+        var document = Assert.IsType<ScanFilmParameterProfileSet>(built.Document);
+        return (document, built.Validation, Service.Serialize(document));
+    }
 
     private static string CreateChannelProfileJson(string channelProfiles)
         => $$"""

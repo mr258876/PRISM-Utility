@@ -1,0 +1,38 @@
+{
+  "SchemaVersion": 6,
+  "ProfileName": "Malformed v6 Acquisition Type",
+  "SavedAtUtc": "2026-08-30T09:15:30+00:00",
+  "ChannelProfiles": {
+    "Blue": {
+      "Parameters": {
+        "ExposureTicks": 10,
+        "Adc1Offset": 0,
+        "Adc1Gain": 1,
+        "Adc2Offset": 0,
+        "Adc2Gain": 1,
+        "SysClockKhz": 30000
+      }
+    }
+  },
+  "SelectedCalibrationChannel": "Blue",
+  "AcquisitionSettings": {
+    "Led1Level": 0,
+    "Led2Level": 0,
+    "Led3Level": 0,
+    "Led4Level": 0,
+    "SteadyMask": 15,
+    "SyncMask": 0,
+    "Led1PulseClock": 2,
+    "Led2PulseClock": 2,
+    "Led3PulseClock": 2,
+    "Led4PulseClock": 2,
+    "MotorIntervalNs": 500000,
+    "Rows": { "unexpected": 128 },
+    "ScanMotorId": 1,
+    "TargetLinePitchMicrometers": null,
+    "StartingDirectionPositive": true,
+    "WarmUpEnabled": false,
+    "TransportStrategy": 1,
+    "AcquisitionChannelAssignment": null
+  }
+}

@@ -16,8 +16,8 @@
 2. 保存原始照明状态和目标电机状态。
 3. 如果 `WarmUpEnabled` 为 true, 扫描前启用 warm-up；只有启用成功后才在 finally 中禁用。
 4. 如需输片且电机未启用，先启用目标电机。
-5. 对每个活动 pass 应用参数、设置单通道照明、预备电机在 `EXPOSURE_SYNC` 时启动、运行扫描、等待电机完成、关闭照明，并按配置决定是否反向归位。
-6. 在 finally 中禁用 workflow 拥有的 warm-up、停止未完成运动、恢复照明、恢复本次临时启用的电机状态。
+5. 在 pass loop 前应用一次请求级全局系统时钟；对每个活动 pass 只应用曝光和四个 ADC 通道参数、设置单通道照明、预备电机在 `EXPOSURE_SYNC` 时启动、运行扫描、等待电机完成、关闭照明，并按配置决定是否反向归位。
+6. 在 finally 中禁用 workflow 拥有的 warm-up、停止 `activeMotion`、恢复照明、恢复本次临时启用的电机状态。
 
 ## Key entry points
 
@@ -25,7 +25,8 @@
 | --- | --- | --- |
 | `ScanWorkflowService.ExecuteAsync(...)` | 多 pass 工作流入口 | 抛出异常给调用方，finally 做设备 cleanup |
 | `ScanWorkflowService.RunScanAsync(...)` | 按行数和传输设置选择单段或分段扫描 | 调用 session 的扫描 API |
-| `ScanParameterService.ApplyAsync(...)` | 依次写 exposure、ADC offset/gain、system clock | 每个 SET_PARAM 后解析 echo 并比对 |
+| `ScanParameterService.ApplyGlobalClockAsync(...)` | 在 pass loop 前写请求级全局 system clock | U32 SET_PARAM 后解析 echo 并比对 |
+| `ScanParameterService.ApplyAsync(...)` | 每个 pass 依次写 exposure 和四个 ADC offset/gain 值 | 不拥有全局 clock；每个 U16 SET_PARAM 后解析 echo 并比对 |
 | `ScanIlluminationService.ApplySingleChannelAsync(...)` | 只打开当前 pass 对应 LED | sync 和 steady 都未启用时回退到 steady 单灯 |
 | `ScanIlluminationService.TurnOffAsync(...)` | 关闭 sync 和 steady illumination | pass 结束后调用 |
 | `ScanIlluminationService.RestoreStateAsync(...)` | 恢复原始 levels、steady mask、sync mask、pulse clocks | finally 中使用 `CancellationToken.None` |
@@ -35,11 +36,13 @@
 
 ## Implementation mechanism
 
-`ScanWorkflowRequest` 是工作流输入模型，包含 `Rows`、`WarmUpEnabled`、`LedLevels`、`PassChannelRoles`、`PassParameterProfiles`、`ScanMotorId`、`MotorIntervalNs`、方向策略、曝光和系统时钟。`ScanWorkflowResult` 返回总行数、`ScanPassCapture` 列表、每 pass 计算出的电机步数、nanosecond interval、曝光和系统时钟。
+`ScanWorkflowRequest` 是工作流输入模型，包含 `Rows`、`WarmUpEnabled`、`LedLevels`、`PassChannelRoles`、`PassParameterProfiles`、`ScanMotorId`、方向策略、曝光和系统时钟。启用输片时 `ScanWorkflowTransportPlan.Resolve` 从执行快照的原始 `LinePitchInput` 重建计划；`LinePitchPlan`、`LinePitchPlanInput` 和请求级 `MotorIntervalNs` 仅为兼容字段，不能决定电机命令。每个 active pass 自己携带推导出的 interval 与 rounded steps。
 
-活动 pass 由 `GetActivePassIndices` 从 `PassChannelRoles` 中筛选，角色为 `Unused` 的通道不扫描。`GetDirectionForPass` 根据 `AlternateMotorDirection` 决定方向。如果启用交替方向，pass index 偶数使用起始方向，奇数使用相反方向。如果不交替，扫描后用 `MoveMotorStepsAndWaitForCompletionAsync` 反向归位。
+活动 pass 由 `GetActivePassIndices` 从 `PassChannelRoles` 中筛选，角色为 `Unused` 的通道不扫描。`GetDirectionForPass` 按 active execution ordinal（不是有空洞的物理 pass index）决定交替方向。如果不交替，扫描后用该 pass 自己的 steps/interval 反向归位。
 
-参数设置使用 hash API。`ScanParameterService` 对 `prism.exposure_ticks`、`prism.adc1.offset`、`prism.adc1.gain`、`prism.adc2.offset`、`prism.adc2.gain` 和 `prism.sys_clock_khz` 计算 FNV-1a hash，再调用 `BuildSetParamByHashCommand`。U16 和 U32 响应分别通过 `ParseU16ParamPayload` 和 `ParseU32ParamPayload` 验证 key hash、类型、长度和 echo 值。
+工作流 rows callback 在 producer 边界生成连续 delta：`StartRow` 和 `RowCount >= 0` 描述 `[StartRow, CompletedRows)`，payload 只包含该区间的行。每次 `ExecuteAsync` 使用一个串行 FIFO drain 交付已接受的 callback，consumer exception 仅记录且不会阻止后续通知；已关闭 pass 的迟到 producer callback 被拒绝。旧调用方仍可构造 `RowCount = -1` 的累计-prefix snapshot。
+
+参数设置使用 hash API。`ScanWorkflowService` 先调用一次 `ScanParameterService.ApplyGlobalClockAsync` 写请求级全局 `prism.sys_clock_khz`，再进入 active pass loop。每个 pass 的 `ScanParameterService.ApplyAsync` 只对 `prism.exposure_ticks`、`prism.adc1.offset`、`prism.adc1.gain`、`prism.adc2.offset` 和 `prism.adc2.gain` 计算 FNV-1a hash 并调用 `BuildSetParamByHashCommand`。U16 和 U32 响应分别通过 `ParseU16ParamPayload` 和 `ParseU32ParamPayload` 验证 key hash、类型、长度和 echo 值。
 
 照明设置先构造 `ScanFilmAcquisitionSettings`。`ApplySingleChannelAsync` 只给当前 LED 写入亮度，计算该 LED 的 sync mask 和 steady mask。如果两者都为 0，主机会把 steady mask 设成该 LED，确保采集时至少有当前通道照明。`TurnOffAsync` 先 `ConfigureExposureLightingAsync(0)`，再 `SetSteadyIlluminationAsync(0)`。
 
@@ -86,9 +89,11 @@ sequenceDiagram
     Workflow->>Session: GetIlluminationStateAsync, GetMotionStateAsync
     Workflow->>Session: SetWarmUpEnabledAsync true when requested
     Workflow->>Session: SetMotorEnabledAsync when needed
+    Workflow->>Params: ApplyGlobalClockAsync request system clock
+    Params->>Session: SET_PARAM prism.sys_clock_khz, verify echoed U32
     loop active pass
-        Workflow->>Params: ApplyAsync pass parameter profile
-        Params->>Session: SET_PARAM by hash, verify echoed value
+        Workflow->>Params: ApplyAsync pass exposure and ADC profile
+        Params->>Session: SET_PARAM exposure + 4 ADC values, verify echoed U16
         Workflow->>Light: ApplySingleChannelAsync
         Light->>Session: levels, pulse clocks, steady mask, sync mask
         Workflow->>Session: PrepareMotorOnExposureSyncAsync
@@ -120,11 +125,13 @@ sequenceDiagram
 
 ## State and concurrency
 
-工作流状态主要是局部变量。`originalIllumination` 和 `originalMotorState` 是 cleanup 依据。`motionStarted` 表示已经发出运动准备或归位命令但还未确认 idle。`warmUpEnabledForWorkflow` 表示本次工作流成功启用了 warm-up，finally 只在这个条件成立时禁用。`enabledMotorForWorkflow` 表示本次工作流临时启用了扫描电机，finally 只在这个条件成立时恢复禁用。
+工作流状态主要是局部变量。`originalIllumination` 和 `originalMotorState` 是 cleanup 依据。`activeMotion` 表示已经发出运动准备或归位命令但还未确认 idle。`warmUpEnabledForWorkflow` 表示本次工作流成功启用了 warm-up，finally 只在这个条件成立时禁用。`enabledMotorForWorkflow` 表示本次工作流临时启用了扫描电机，finally 只在这个条件成立时恢复禁用。
 
-进度回调分两层。`ScanWorkflowProgress` 汇报 pass、总 pass、LED、方向和阶段。字节进度回调把单 pass 的 transferred bytes 映射到工作流总字节数。行可用回调通过 `QueueWorkflowRowsAvailable` 投递到 ThreadPool，避免图像行通知阻塞扫描流程。该投递函数捕获回调异常并写入 Debug 输出。
+进度回调分两层。`ScanWorkflowProgress` 汇报 pass、总 pass、LED、方向和阶段。字节进度回调把单 pass 的 transferred bytes 映射到工作流总字节数。行可用回调在 producer 边界截取 detached delta slice，并通过每次 `ExecuteAsync` 的单一 FIFO drain 投递；只调度一个 drain，consumer exception 被隔离并写入 Debug 输出，不会阻止后续通知。
 
 取消使用调用方传入的 `CancellationToken`。pass 开头调用 `ct.ThrowIfCancellationRequested`。参数、照明、电机和扫描调用也透传同一个 token。finally 的设备恢复使用 `CancellationToken.None`，这是主机端恢复策略，不代表固件会忽略已经到达的 stop 或 restore 命令。
+
+行可用回调携带服务解析的 direction、steps 和 interval。`ScanDebugViewModel` 只合并与当前完成行严格连续、长度与 metadata 一致的 delta；stale、gap 或 malformed 通知在修改 buffer 前被拒绝，未设置 delta metadata 的旧构造器 snapshot 仍按累计完成行 prefix 兼容。callback closure 绑定到 preview generation；结束、取消、失败和 no-data 成功路径均先失效 generation，延迟 callback/dispatcher apply 成为 no-op。预览在锁内深拷贝每个 pass buffer，锁外构造结果。行数必须为正，且 `rows * BytesPerLine` 必须可表示为 host `byte[]`；`ScanRowCountValidation` 在 workflow、runner、protocol SET_SCAN_LINES 与 v6 acquisition profile 处执行。`MaxRows=137` 只是单段传输边界，不是总扫描上限。
 
 ## Error handling
 
@@ -132,11 +139,11 @@ sequenceDiagram
 
 单个 pass 的扫描结果如果 `Success` 为 false 或 `ImageBytes` 为 null，工作流抛出 `IOException`，消息包含 pass 序号和底层扫描失败消息。电机等待先读 motion complete event。如果每 500 ms 片段内没有事件，会查询 motion state，看到目标 motor `Running = false` 且 `RemainingSteps = 0` 时也视为完成。最终超时消息包含 steps、interval、预估 travel time、timeout 和最后一次观测状态。
 
-cleanup 先处理 workflow 拥有的 warm-up：如果 disable 返回失败或抛异常，只通过 guarded diagnostic 报告，不把成功扫描转换为失败。之后 cleanup 处理三段设备恢复。第一段在 `motionStarted` 为 true 时尝试 `StopMotorAsync` 并等待 idle。第二段恢复原始照明。第三段如果本次工作流临时启用了电机，就尝试禁用。设备恢复 catch 后通过 `onDiagnostic` 记录，不覆盖原始异常。
+cleanup 先处理 workflow 拥有的 warm-up：如果 disable 返回失败或抛异常，只通过 guarded diagnostic 报告，不把成功扫描转换为失败。之后 cleanup 处理三段设备恢复。第一段在 `activeMotion` 非 null 时尝试 `StopMotorAsync` 并等待 idle。第二段恢复原始照明。第三段如果本次工作流临时启用了电机，就尝试禁用。设备恢复 catch 后通过 `onDiagnostic` 记录，不覆盖原始异常。
 
 ## Test coverage
 
-`Host Software/PrismUtility.Core.Tests/ScanWorkflowServiceTests.cs` 覆盖工作流请求校验、active pass、参数和照明调用、分段扫描选择、电机方向、warm-up ownership 和 cleanup 等行为。SCAN-006 focused tests 与 independent harness 覆盖 false inert、enable before first capture、success/cancel/capture-failure cleanup、enable failure abort、diagnostic-only cleanup failure、throwing diagnostic observer isolation 和 resume。`Host Software/PrismUtility.Core.Tests/ScanTimingMathTests.cs` 覆盖曝光和电机换算。`Host Software/PrismUtility.Core.Tests/ScanSessionServiceUsbRefreshTests.cs` 覆盖 session 在 USB 刷新下的连接边界。
+`Host Software/PrismUtility.Core.Tests/ScanWorkflowServiceTests.cs` 覆盖工作流请求校验、active pass、参数和照明调用、分段扫描选择、电机方向、warm-up ownership 和 cleanup，以及 delta byte volume、producer buffer ownership、FIFO delivery、消费者异常隔离和 late producer 拒绝。`Host Software/PrismUtility.Core.Tests/ScanDebugCalibrationStatusTests.cs` 覆盖 ViewModel 的连续 delta merge、stale/gap/malformed 原子拒绝、legacy prefix 兼容和 preview generation lifecycle。SCAN-006 focused tests 与 independent harness 覆盖 false inert、enable before first capture、success/cancel/capture-failure cleanup、enable failure abort、diagnostic-only cleanup failure、throwing diagnostic observer isolation 和 resume。`Host Software/PrismUtility.Core.Tests/ScanTimingMathTests.cs` 覆盖曝光和电机换算。`Host Software/PrismUtility.Core.Tests/ScanSessionServiceUsbRefreshTests.cs` 覆盖 session 在 USB 刷新下的连接边界。
 
 本文档的可执行检查由 `Host Software/docs/architecture/validate-docs.ps1` 的 Partial 模式负责。它验证标准章节、Mermaid、本地链接和源码路径。`-SelfTest MissingProtocolStep` 用于确认协议文档缺少 `SET_SCAN_LINES -> START_SCAN -> done ACK` 时会失败。
 

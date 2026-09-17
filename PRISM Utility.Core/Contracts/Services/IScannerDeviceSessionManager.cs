@@ -28,6 +28,8 @@ public interface IScannerDeviceSessionManager
 
     Task<ScanOperationResult> ShutdownAsync(CancellationToken ct);
 
+    Task<ScanOperationResult> StopAllMotionAsync(CancellationToken ct);
+
     Task<ScanStopResult> StopAsync(string leaseId, CancellationToken ct);
 
     Task<ScanStopResult> StopAsync(ScannerSessionOwner owner, CancellationToken ct);

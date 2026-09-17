@@ -723,12 +723,18 @@ public sealed class ScanChannelImageService : IScanChannelImageService
             return false;
         }
 
-        var clamped = range.Clamp(width);
+        var referenceRange = ScanImageReferenceColumnRange.TryCreate(range, width).Value;
+        if (referenceRange is null)
+        {
+            error = "The selected columns are outside the decoded image bounds.";
+            return false;
+        }
+
         ulong sum = 0;
         long count = 0;
         for (var y = 0; y < rows; y++)
         {
-            for (var x = clamped.Start; x <= clamped.EndInclusive; x++)
+            for (var x = referenceRange.ColumnRange.Start; x <= referenceRange.ColumnRange.EndInclusive; x++)
             {
                 if (!_decoder.TryGetSample16(lineBuffer, rows, x, y, out var sample))
                     continue;

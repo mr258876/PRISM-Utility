@@ -149,19 +149,22 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
 
         Assert.Contains("private bool ShouldUseDebugWorkflowScan()", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("=> IsScanMotorTransportEnabled || GetSelectedAcquisitionChannelCount() > 1;", scanDebugViewModel, StringComparison.Ordinal);
-        Assert.Contains("public bool CanEditContinuousScan => AreScanAcquisitionSettingsEditable && !ShouldUseDebugWorkflowScan();", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool CanEditCaptureMode => AreScanAcquisitionSettingsEditable;", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("public bool CanEditWaterfall => AreScanAcquisitionSettingsEditable && GetSelectedAcquisitionChannelCount() == 1;", scanDebugViewModel, StringComparison.Ordinal);
-        Assert.Contains("public bool CanEditScanMotorTransport => AreScanAcquisitionSettingsEditable;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool IsContinuousScanEnabled => SelectedCaptureMode == ScanDebugCaptureMode.Continuous;", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("public bool IsScanMotorTransportEnabled => SelectedCaptureMode == ScanDebugCaptureMode.Transport;", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("public bool CanEditScanLedAutoControl => false;", scanDebugViewModel, StringComparison.Ordinal);
 
-        Assert.Contains("OnPropertyChanged(nameof(CanEditContinuousScan));", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CanEditCaptureMode));", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("OnPropertyChanged(nameof(CanEditWaterfall));", scanDebugViewModel, StringComparison.Ordinal);
-        Assert.Contains("OnPropertyChanged(nameof(CanEditScanMotorTransport));", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("OnPropertyChanged(nameof(CanEditScanLedAutoControl));", scanDebugViewModel, StringComparison.Ordinal);
 
-        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditContinuousScan, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"CaptureModeComboBox\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{x:Bind ViewModel.SelectedCaptureMode, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditCaptureMode, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditWaterfall, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
-        Assert.Contains("IsEnabled=\"{x:Bind ViewModel.CanEditScanMotorTransport, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScanDebug_ContinuousToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScanDebug_ScanMotorTransportToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_ScanLedAutoControlToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_MultiChannelToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AcquisitionChannels}\"", scanDebugPageXaml, StringComparison.Ordinal);
@@ -170,15 +173,21 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.DoesNotContain("ScanDebug_Runtime_StatusAtLeastOneAcquisitionChannelRequired", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("if (!HasSelectedAcquisitionChannels())", scanDebugViewModel, StringComparison.Ordinal);
         Assert.Contains("return \"ScanDebug_DisabledReasonNoAcquisitionChannels\".GetLocalized();", scanDebugViewModel, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding Level, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding PulseClock, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding WorkMode, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ItemsSource=\"{x:Bind ViewModel.ActiveIlluminationChannels}", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding Level, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding PulseClock, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedItem=\"{Binding WorkMode, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Bind ViewModel.DeviceLed1Level, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Bind ViewModel.RawLed1Level, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.CopyRawIlluminationToDraftCommand}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.TestIlluminationAcquisitionSyncCommand}\"", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.Contains("DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Premultiplied", scanDebugPageCodeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Straight", scanDebugPageCodeBehind, StringComparison.Ordinal);
 
-        var continuousChanged = ExtractMemberBody(scanDebugViewModel, "OnIsContinuousScanEnabledChanged");
-        Assert.Contains("if (value && ShouldUseDebugWorkflowScan())", continuousChanged, StringComparison.Ordinal);
-        Assert.Contains("IsContinuousScanEnabled = false;", continuousChanged, StringComparison.Ordinal);
+        var captureModeChanged = ExtractMemberBody(scanDebugViewModel, "OnSelectedCaptureModeChanged");
+        Assert.Contains("OnPropertyChanged(nameof(IsContinuousScanEnabled));", captureModeChanged, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(IsScanMotorTransportEnabled));", captureModeChanged, StringComparison.Ordinal);
+        Assert.Contains("NotifyCaptureModeAvailabilityChanged();", captureModeChanged, StringComparison.Ordinal);
 
         var waterfallChanged = ExtractMemberBody(scanDebugViewModel, "OnIsWaterfallEnabledChanged");
         Assert.Contains("if (value && GetSelectedAcquisitionChannelCount() > 1)", waterfallChanged, StringComparison.Ordinal);
@@ -194,13 +203,11 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.Contains("if (!value)", ledAutoChanged, StringComparison.Ordinal);
         Assert.Contains("IsScanLedAutoControlEnabled = true;", ledAutoChanged, StringComparison.Ordinal);
 
-        var motorTransportChanged = ExtractMemberBody(scanDebugViewModel, "OnIsScanMotorTransportEnabledChanged");
-        Assert.Contains("if (value && IsContinuousScanEnabled)", motorTransportChanged, StringComparison.Ordinal);
-        Assert.Contains("IsContinuousScanEnabled = false;", motorTransportChanged, StringComparison.Ordinal);
-        Assert.Contains("NotifyScanWorkflowDependencyEditabilityChanged();", motorTransportChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnIsContinuousScanEnabledChanged", scanDebugViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnIsScanMotorTransportEnabledChanged", scanDebugViewModel, StringComparison.Ordinal);
 
         Assert.Contains(
-            "<data name=\"ScanDebug_ContinuousToggleSwitch.Header\" xml:space=\"preserve\">\n    <value>连续扫描</value>",
+            "<data name=\"ScanDebug_CaptureModeComboBox.Header\" xml:space=\"preserve\">\n    <value>采集模式</value>",
             normalizedZhCnResources,
             StringComparison.Ordinal);
     }

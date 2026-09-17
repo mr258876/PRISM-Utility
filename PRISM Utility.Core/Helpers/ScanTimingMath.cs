@@ -2,7 +2,7 @@ using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Core.Helpers;
 
-public static class ScanTimingMath
+public static partial class ScanTimingMath
 {
     private const double ExposureBaseTicks = 45827.0;
     private const double ExposureTickScale = 6.0;
@@ -11,6 +11,7 @@ public static class ScanTimingMath
     private const double MicrosecondsPerSecond = 1_000_000.0;
     private const double MicrometersPerMillimeter = 1000.0;
     private const double KhzToHzScale = 1_000_000.0;
+    private const double MicrosecondsPerKilohertz = 1000.0;
 
     public static double ExposureTicksToNanoseconds(ushort exposureTicks, uint sysClockKhz)
         => (ExposureBaseTicks + (exposureTicks * ExposureTickScale)) * (KhzToHzScale / Math.Max(sysClockKhz, 1u));
@@ -24,12 +25,44 @@ public static class ScanTimingMath
     public static uint ExposureTicksToMicrosecondsCeil(ushort exposureTicks, uint sysClockKhz)
         => (uint)Math.Max(1, (int)Math.Ceiling(ExposureTicksToMicroseconds(exposureTicks, sysClockKhz)));
 
-    public static ushort NanosecondsToExposureTicks(double nanoseconds, uint sysClockKhz)
+    public static ushort MicrosecondsToExposureTicks(double exposureMicroseconds, uint sysClockKhz)
     {
-        var ticks = ((nanoseconds * Math.Max(sysClockKhz, 1u)) / KhzToHzScale - ExposureBaseTicks) / ExposureTickScale;
-        var rounded = (int)Math.Round(ticks, MidpointRounding.AwayFromZero);
-        return (ushort)Math.Clamp(rounded, ScanDebugConstants.MinExposureTicks, ushort.MaxValue);
+        if (!double.IsFinite(exposureMicroseconds))
+            throw new ArgumentOutOfRangeException(nameof(exposureMicroseconds), exposureMicroseconds, "Exposure microseconds must be finite.");
+
+        if (sysClockKhz is < ScanDebugConstants.MinSysClockKhz or > ScanDebugConstants.MaxSysClockKhz)
+            throw new ArgumentOutOfRangeException(nameof(sysClockKhz), sysClockKhz, $"System clock must be in [{ScanDebugConstants.MinSysClockKhz}, {ScanDebugConstants.MaxSysClockKhz}] kHz.");
+
+        if (exposureMicroseconds < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(exposureMicroseconds), exposureMicroseconds, "Exposure microseconds must be non-negative.");
+
+        var rawTicks = ((exposureMicroseconds * sysClockKhz) / MicrosecondsPerKilohertz - ExposureBaseTicks) / ExposureTickScale;
+        if (!double.IsFinite(rawTicks))
+            throw new ArgumentOutOfRangeException(nameof(exposureMicroseconds), exposureMicroseconds, "Exposure microseconds is outside the supported range.");
+
+        if (rawTicks < ScanDebugConstants.MinExposureTicks || rawTicks > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(exposureMicroseconds), exposureMicroseconds, "Exposure microseconds is outside the supported tick range.");
+
+        var rounded = Math.Round(rawTicks, MidpointRounding.AwayFromZero);
+        return (ushort)rounded;
     }
+
+    public static bool TryConvertMicrosecondsToExposureTicks(double exposureMicroseconds, uint sysClockKhz, out ushort exposureTicks)
+    {
+        exposureTicks = 0;
+        try
+        {
+            exposureTicks = MicrosecondsToExposureTicks(exposureMicroseconds, sysClockKhz);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
+
+    public static ushort NanosecondsToExposureTicks(double nanoseconds, uint sysClockKhz)
+        => MicrosecondsToExposureTicks(nanoseconds / NanosecondsPerMicrosecond, sysClockKhz);
 
     public static double ComputeScanDurationMicroseconds(int rows, ushort exposureTicks, uint sysClockKhz)
         => Math.Max(rows, 0) * ExposureTicksToMicroseconds(exposureTicks, sysClockKhz);

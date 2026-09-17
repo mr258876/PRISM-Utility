@@ -98,6 +98,24 @@ public sealed class ScanFilmProfileFileCoordinatorTests
         FilmProfileRoundTripAssertions.EqualCompleteDocument(source, Assert.IsType<ScanFilmParameterProfileSet>(imported.Profile));
     }
 
+    [Theory]
+    [InlineData("future-v7.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion, "schemaVersion")]
+    [InlineData("invalid-v6-acquisition.json", ScanFilmProfileValidationCode.InvalidAcquisitionInput, "acquisitionSettings.rows")]
+    public async Task Todo9_InvalidV6OrFutureImport_DoesNotPublishProfile(
+        string fixtureName,
+        ScanFilmProfileValidationCode expectedCode,
+        string expectedPath)
+    {
+        var result = await new ScanFilmProfileFileCoordinator(
+            new FakeGateway { Read = new(false, ReadFixture(fixtureName)) },
+            new ScanFilmProfileDocumentService()).ImportAsync(CancellationToken.None);
+
+        Assert.False(result.WasCanceled);
+        Assert.Null(result.Profile);
+        Assert.Contains(Assert.IsType<ScanFilmProfileValidationResult>(result.Validation).Issues, issue =>
+            issue.Code == expectedCode && issue.FieldPath == expectedPath);
+    }
+
     private sealed class FakeGateway : IScanFilmProfileFileGateway
     {
         public ScanFilmProfileFileReadResult Read { get; init; } = new(true, null);

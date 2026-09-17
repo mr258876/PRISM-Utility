@@ -11,8 +11,12 @@ public interface IScanFilmProfileWorkspace
     ScanFilmProfileStageImportResult StageImport(string json);
     ScanFilmProfileStageImportResult StageImport(ScanFilmParameterProfileSet document);
     ScanFilmProfileStageImportResult StageImport(ScanFilmParameterProfileSet document, ScanFilmProfileValidationResult validation);
+    void SetImportError(ScanFilmProfileValidationResult validation);
     void DiscardStagedImport();
     Task<ScanFilmProfileApplyResult> ApplyStagedImportAsync(CancellationToken ct);
+    Task<ScanFilmProfileLibrarySyncPlan> PlanCalibrationLibrarySyncAsync(CancellationToken ct);
+    Task<ScanFilmProfileLibrarySyncResult> SyncCalibrationLibraryAsync(CancellationToken ct);
+    Task<ScanFilmProfileLibrarySyncResult> ReplaceCalibrationLibraryAsync(ScanFilmProfileFullReplacementConfirmation? confirmation, CancellationToken ct);
     ScanFilmProfileWorkspaceExportResult BuildExportDocument(ScanChannelCalibrationProfile? selectedChannelPatch = null);
     void MarkExported(ScanFilmParameterProfileSet exportedDocument);
     void ResetToDefaultDraft();

@@ -44,7 +44,5 @@ namespace PRISM_Utility.ViewModels
 
     public sealed class ScanViewModel;
 
-    public sealed class ScanDebugViewModel;
-
     public sealed class DeviceConfigurationViewModel;
 }

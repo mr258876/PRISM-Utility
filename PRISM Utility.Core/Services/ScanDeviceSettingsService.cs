@@ -57,6 +57,10 @@ public sealed class ScanDeviceSettingsService : IScanDeviceSettingsService
     {
         await InitializeAsync();
         var normalized = NormalizeOrDefault(settings);
+        var mappingValidation = normalized.FocusMotorMapping!.Validate();
+        if (!mappingValidation.IsValid)
+            throw new ArgumentException(mappingValidation.Message, nameof(settings));
+
         if (Settings == normalized)
             return;
 

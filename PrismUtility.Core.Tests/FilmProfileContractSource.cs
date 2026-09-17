@@ -15,8 +15,10 @@ internal static class FilmProfileContractSource
     {
         "Click",
         "CreateResources",
+        "DragDelta",
         "Draw",
         "Expanding",
+        "KeyDown",
         "Opening",
         "PointerCanceled",
         "PointerCaptureLost",

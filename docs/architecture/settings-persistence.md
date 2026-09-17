@@ -16,7 +16,7 @@
 
 校准 profile 由 `LocalSettingsScanCalibrationProfileStorage` 适配到同一个本地设置接口。SET-003 后 current document key 是 `ScanCalibrationProfileSettingsDocument`, payload 同时包含 profile 字典和 selected channel。`ProfilesKey` `ScanChannelParameterProfiles` 与 `SelectedChannelKey` `ScanCalibrationSelectedChannel` 只作为 legacy 读取来源保留。`ScanCalibrationProfileRepository` 在 current document 之上提供初始化、快照、保存、清除、替换和选中通道操作。
 
-Film profile 的导入导出由 `ScanFilmProfileDocumentService` 和 `ScanFilmProfileWorkspace` 处理。源码证实当前 schema 版本是 `ScanFilmProfileDocumentService.CurrentSchemaVersionValue = 5`。文档模型是 `ScanFilmParameterProfileSet`，包含 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`、`SelectedCalibrationChannel`、可选 `AcquisitionSettings` 和可选 `ScanRecipeSettings`。
+Film profile 的导入导出由 `ScanFilmProfileDocumentService` 和 `ScanFilmProfileWorkspace` 处理。源码证实当前 schema 版本是 `ScanFilmProfileDocumentService.CurrentSchemaVersionValue = 6`；服务继续读取 schema 5 并确定性迁移到 schema 6，导出只写 schema 6。文档模型是 `ScanFilmParameterProfileSet`，包含 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`、`SelectedCalibrationChannel`、可选 `AcquisitionSettings` 和可选 `ScanRecipeSettings`。
 
 ## Key entry points
 
@@ -47,7 +47,7 @@ ServiceCoverage: ScanFilmProfileWorkspace
 
 `ScanCalibrationProfileRepository` 有两个 gate。`_initializeGate` 保护初始化，`_writeGate` 保护保存、清除、替换和选中通道写入。初始化优先读 schema 1 current document。只有 current document 缺失时才读 legacy profile 字典和 legacy selected channel，并经 `MigrateLegacyProfiles` 把 `ScanParameterSnapshot` 转成 `ScanChannelCalibrationProfile`，ROI 使用 `ScanCalibrationRoiSettings.CreateDefault().Normalize()`。如果 current document 是 future schema、malformed 或 payload 无效，repository 保持空 state, 不回读 legacy, 不发布 stale fallback。保存、清除、替换和 selected channel 变更都写回一个 current document, 保存成功后才通过 `Volatile` snapshot 发布新 generation。源码没有证据显示旧 schema 文件的多版本迁移链。
 
-`ScanFilmProfileDocumentService.Parse` 先用 `JObject.Load` 检查 JSON，再验证 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`。`SchemaVersion` 必须等于 5。通过基本检查后，服务反序列化成 `ScanFilmParameterProfileSet`，再交给 `ScanFilmProfileDocumentNormalization.NormalizeParsedDocument`。`Build` 只从 draft 构建当前版本文档。
+`ScanFilmProfileDocumentService.Parse` 先用 `JObject.Load` 检查 JSON，再验证 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`。`SchemaVersion` 必须是受支持的 5 或 6；schema 5 在反序列化前移除 v6-only acquisition 字段并迁移到 v6，schema 6 在默认值注入和反序列化前规范化已知 acquisition 字段并拒绝大小写冲突。`Build` 只从 draft 构建当前 schema 6 文档。
 
 `ScanFilmProfileWorkspace` 以 `ScanFilmProfileWorkspaceSnapshot` 持有 `CurrentDraft`、`BaselineDraft`、`IsDirty` 和 `StagedImport`。它用 `Volatile.Read` 读 `_snapshot`，用 `Interlocked.Exchange` 或 `Interlocked.CompareExchange` 替换快照，并通过 `SnapshotChanged` 发布变更。
 
@@ -69,12 +69,12 @@ flowchart TD
     Repository[ScanCalibrationProfileRepository] --> Profiles
     Workspace[ScanFilmProfileWorkspace] --> Repository
     Workspace --> Documents[ScanFilmProfileDocumentService]
-    Documents --> Schema[ScanFilmParameterProfileSet schema v5]
+    Documents --> Schema[ScanFilmParameterProfileSet schema v6]
 ```
 
 典型读取路径是 ViewModel 调用门面 `InitializeAsync`，门面调用 `ReadSettingAsync<T>`，本地设置服务按运行形态选择 MSIX local settings 或非打包 JSON 文件，JSON helper 反序列化字符串。典型写入路径是 Settings ViewModel 属性变化或 restore/default 命令把 operation 放入 owner-scoped coordinator。coordinator 按 owner 和 scope 产生 result, 门面更新内存状态后调用 `SaveSettingAsync<T>`，非打包路径在 `_settingsGate` 下更新内存字典并通过 atomic writer 发布文件。失败 result 先 mirror diagnostic, 再通过 UI dispatcher rollback visible state 并更新既有 Settings persistence InfoBar；成功 result 清除同 scope error。
 
-校准 profile 路径多一层 repository。应用层注册 `IScanCalibrationProfileStorage` 为 `LocalSettingsScanCalibrationProfileStorage`，repository 优先读 current document, 只在缺失时迁移 legacy 字典和 selected channel。workspace 初始化时从 repository hydrate 默认 draft。导入 JSON 时，workspace 先 stage，再由 `ApplyStagedImportAsync` 调用 repository `ReplaceAsync` 写回一个 current document。
+校准 profile 路径多一层 repository。应用层注册 `IScanCalibrationProfileStorage` 为 `LocalSettingsScanCalibrationProfileStorage`，repository 优先读 current document, 只在缺失时迁移 legacy 字典和 selected channel。workspace 初始化时从 repository hydrate 默认 draft。导入 JSON 时，workspace 先 stage；`ApplyStagedImportAsync` is draft-only：它只更新内存中的 current/baseline draft、清除 staged state，并执行 zero calibration-repository writes。校准库持久化是独立的显式操作：`SyncCalibrationLibraryAsync` 只同步新增和更新，`ReplaceCalibrationLibraryAsync` 只有在调用方提供确认后才执行完整替换；这两条路径才通过 repository `ReplaceAsync` 写入。
 
 ## Dependencies
 
@@ -86,7 +86,7 @@ flowchart TD
 - `Host Software/PRISM Utility.Core/Services/AtomicFileWriter.cs` 负责非打包 JSON 文件原子写入。
 - `Host Software/PRISM Utility.Core/Helpers/Json.cs` 负责序列化。
 - `Host Software/PRISM Utility/Services/LocalSettingsScanCalibrationProfileStorage.cs` 把 profile repository 接到 settings key。
-- `Host Software/PRISM Utility.Core/Models/ScanFilmParameterProfileSet.cs` 定义 schema v5 文档字段。
+- `Host Software/PRISM Utility.Core/Models/ScanFilmParameterProfileSet.cs` 定义当前 schema v6 文档字段和受支持的 v5 迁移输入形状。
 - `Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentNormalization.cs` 定义 profile、recipe、selected channel 的 normalize 规则。
 
 ## State and concurrency
@@ -105,7 +105,7 @@ flowchart TD
 
 `LocalSettingsService.ReadSettingAsync` 没有捕获 JSON 反序列化异常。`ScanDeviceSettingsService.InitializeAsync` 捕获读取异常并回退到默认值，同时写 `Debug` 和 `Trace`。`ScanDngGeometrySettingsService.InitializeAsync` 捕获异常后回退，但不记录异常。其他门面多以 null 或非法值回退到当前默认值。
 
-`ScanFilmProfileDocumentService.Parse` 捕获 malformed JSON 和 Newtonsoft.Json 反序列化异常，返回 `ScanFilmProfileValidationResult`。它对 schema 版本不匹配返回 `UnsupportedSchemaVersion`。`ScanFilmProfileWorkspace.ApplyStagedImportAsync` 捕获取消和普通异常，返回 `Canceled` 或 `Failed`，但不自动修复 repository 或设置文件。
+`ScanFilmProfileDocumentService.Parse` 捕获 malformed JSON 和 Newtonsoft.Json 反序列化异常，返回 `ScanFilmProfileValidationResult`。它对 schema 版本不匹配返回 `UnsupportedSchemaVersion`。`ScanFilmProfileWorkspace.ApplyStagedImportAsync` 在没有 staged import 时返回 `NoStagedImport`；pre-cancelled token 在任何更新前返回 `Canceled` 并保留 staged state；否则它同步更新内存 current/baseline、清除 staged state 并返回 `Applied`。该方法不捕获普通异常，`Update` 或同步 `SnapshotChanged` 订阅者抛出的异常会沿调用栈传播；它不访问 repository 或设置文件。
 
 `ScanCalibrationProfileRepository.InitializeAsync` 若 schema 1 current document 存在且有效，会 normalize 后作为当前 state。若 current document 缺失且 legacy profiles 存在，会迁移到 current document 形状并保存。future、malformed 或 payload 无效 document 会被拒绝, 不回退到 legacy, 也不发布旧 state。这个行为是已知 legacy key 到 schema 1 document 的迁移，不是通用损坏恢复。
 
@@ -133,7 +133,7 @@ Issue-ID: SETTINGS-PERSISTENCE-006
 
 Issue-ID: SETTINGS-PERSISTENCE-003
 
-事实: `Json` helper 和 settings service 没有通用 schema/version envelope。只有 film profile 文档有 `SchemaVersion = 5`。建议: 文档和测试都应避免把 film profile schema 说成所有 settings 的 schema。
+事实: `Json` helper 和 settings service 没有通用 schema/version envelope。film profile 的 current/emitted schema 6；服务仍 reads schema 5 并确定性迁移到 6，同时 rejects schema 7+。这个版本包络只属于 film profile，不能推广为所有 settings 的 schema。建议: 文档和测试都应避免把 film profile schema 说成所有 settings 的 schema。
 
 Issue-ID: SETTINGS-PERSISTENCE-004
 

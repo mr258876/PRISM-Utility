@@ -9,7 +9,7 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanCalibrationProfileRepositoryCharacterizationTests
 {
     [Fact]
-    public void ExistingProfileNormalization_PreservesTrimmedCaseInsensitiveRolesLevelsAndSelectedChannel()
+    public void NewProfileBuild_InvalidLevelsAreRejectedWithoutRepair()
     {
         IScanFilmProfileDocumentService documents = new ScanFilmProfileDocumentService();
         var draft = new ScanFilmProfileDraft(
@@ -29,15 +29,9 @@ public sealed class ScanCalibrationProfileRepositoryCharacterizationTests
 
         var result = documents.Build(draft);
 
-        var document = Assert.IsType<ScanFilmParameterProfileSet>(result.Document);
-        var profile = Assert.Single(document.ChannelProfiles);
-        Assert.True(result.CanApply);
-        Assert.Equal("blue", profile.Key);
-        Assert.True(document.ChannelProfiles.ContainsKey("BLUE"));
-        Assert.Equal((ushort)99, profile.Value.BlackLevel);
-        Assert.Equal((ushort)100, profile.Value.WhiteLevel);
-        Assert.Equal("BLUE", document.SelectedCalibrationChannel);
-        Assert.Equal(5, document.SchemaVersion);
+        Assert.Null(result.Document);
+        Assert.False(result.CanApply);
+        Assert.Contains(result.Validation.Issues, issue => issue.Code == ScanFilmProfileValidationCode.InvalidRoiInput);
     }
 
     [Fact]

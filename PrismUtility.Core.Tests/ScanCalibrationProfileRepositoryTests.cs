@@ -57,6 +57,33 @@ public sealed class ScanCalibrationProfileRepositoryTests
     }
 
     [Fact]
+    public async Task Todo19_ExactMinimumRoi_SaveReloadsUnchangedAndInvalidNewSaveDoesNotPersist()
+    {
+        var storage = new RecordingScanCalibrationProfileStorage
+        {
+            CurrentProfiles = new Dictionary<string, ScanChannelCalibrationProfile>()
+        };
+        var repository = new ScanCalibrationProfileRepository(storage);
+        var exact = ExactMinimumProfile();
+
+        await repository.InitializeAsync(CancellationToken.None);
+        storage.ResetWriteCounts();
+        await repository.SaveProfileAsync("Blue", exact, CancellationToken.None);
+
+        Assert.Equal(exact, storage.Document?.Payload?.Profiles?["Blue"]);
+        var reloaded = new ScanCalibrationProfileRepository(storage);
+        var reloadedSnapshot = await reloaded.ReadAsync(CancellationToken.None);
+        Assert.Equal(exact, reloadedSnapshot.Profiles["Blue"]);
+
+        var writesBeforeInvalidSave = storage.SaveDocumentCount;
+        var invalid = exact with { RoiSettings = exact.RoiSettings with { FocusLeftRange = new ScanColumnRange(100, 101) } };
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => repository.SaveProfileAsync("Green", invalid, CancellationToken.None));
+
+        Assert.Equal(writesBeforeInvalidSave, storage.SaveDocumentCount);
+        Assert.False(repository.Snapshot.Profiles.ContainsKey("Green"));
+    }
+
+    [Fact]
     public async Task InitializeAsync_NullCurrentProfilesMigratesLegacyAndPersistsCurrentForm()
     {
         var storage = new RecordingScanCalibrationProfileStorage
@@ -215,6 +242,16 @@ public sealed class ScanCalibrationProfileRepositoryTests
 
     private static ScanParameterSnapshot Snapshot()
         => new(10, -2, 3, 4, 5, 30_000);
+
+    private static ScanChannelCalibrationProfile ExactMinimumProfile()
+        => new(
+            Snapshot(),
+            new ScanCalibrationRoiSettings(
+                new ScanColumnRange(100, 101),
+                new ScanColumnRange(0, 1),
+                new ScanColumnRange(100, 102),
+                new ScanColumnRange(104, 106),
+                new ScanColumnRange(100, 106)));
 }
 
 internal sealed class RecordingScanCalibrationProfileStorage : IScanCalibrationProfileStorage

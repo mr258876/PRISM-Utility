@@ -59,7 +59,7 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
     public async Task SaveProfileAsync(string channelRole, ScanChannelCalibrationProfile profile, CancellationToken ct)
     {
         var role = ScanCalibrationProfileSettingsNormalizer.RequireRole(channelRole);
-        if (!ScanCalibrationProfileSettingsNormalizer.TryNormalizeProfile(profile, out var normalized))
+        if (!ScanCalibrationProfileSettingsNormalizer.TryValidateProfile(profile, out var normalized))
             throw new ArgumentOutOfRangeException(nameof(profile), "Calibration profile contains unsupported scan parameters.");
 
         await _settingsGate.WaitAsync(ct);

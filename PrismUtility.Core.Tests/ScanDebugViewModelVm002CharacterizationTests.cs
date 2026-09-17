@@ -12,6 +12,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
         var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
         var shellViewModel = ReadHostSource("PRISM Utility", "ViewModels", "ShellViewModel.cs");
 
         Assert.Contains("NavigationCacheMode=\"Enabled\"", xaml, StringComparison.Ordinal);
@@ -35,11 +36,19 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "SelectedItem=\"{x:Bind ViewModel.SelectedCalibrationChannel, Mode=TwoWay}\"",
             "Command=\"{x:Bind ViewModel.SaveChannelProfileCommand}\"",
             "Command=\"{x:Bind ViewModel.ClearChannelProfileCommand}\"",
+            "Command=\"{x:Bind ViewModel.ApplyDeviceClockCommand}\"",
             "Command=\"{x:Bind ViewModel.ApplyParametersCommand}\"",
             "Command=\"{x:Bind ViewModel.AutoBlackAdjustCommand}\"",
             "Command=\"{x:Bind ViewModel.AutoWhiteAdjustCommand}\"",
             "Command=\"{x:Bind ViewModel.AutoCalibrateCommand}\"",
-            "Command=\"{x:Bind ViewModel.AutoFocusCommand}\"",
+            "Command=\"{x:Bind ViewModel.NewFilmProfileCommand}\"",
+            "Command=\"{x:Bind ViewModel.LoadFilmProfileJsonCommand}\"",
+            "Command=\"{x:Bind ViewModel.ValidateFilmProfileCommand}\"",
+            "Command=\"{x:Bind ViewModel.SaveFilmProfileJsonCommand}\"",
+            "Command=\"{x:Bind ViewModel.ApplyStagedFilmProfileImportCommand}\"",
+            "Command=\"{x:Bind ViewModel.DiscardStagedFilmProfileImportCommand}\"",
+            "IsEnabled=\"{x:Bind ViewModel.CanRunAutoFocusAction, Mode=OneWay}\"",
+            "Click=\"AutoFocusButton_Click\"",
             "Command=\"{x:Bind ViewModel.RefreshIlluminationCommand}\"",
             "Command=\"{x:Bind ViewModel.ApplyIlluminationCommand}\"",
             "Command=\"{x:Bind ViewModel.RefreshMotionCommand}\"",
@@ -49,8 +58,10 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "Command=\"{x:Bind ViewModel.StopMotorCommand}\"",
             "Command=\"{x:Bind ViewModel.ApplyMotorConfigCommand}\"",
             "IsOn=\"{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}\"",
-            "ItemsSource=\"{x:Bind ViewModel.RoiSelectionOptions, Mode=OneWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedRoiSelection, Mode=TwoWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.AdcRoiSelectionOptions, Mode=OneWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedAdcRoiSelection, Mode=TwoWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedFocusRoiSelection, Mode=TwoWay}\"",
             "Command=\"{x:Bind ViewModel.ApplySelectedRoiInputsCommand}\"",
             "Command=\"{x:Bind ViewModel.ResetSelectedRoiCommand}\"",
             "Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\""
@@ -59,11 +70,14 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
         }
 
+        FilmProfileSourceContractTests.AssertCurrentRuntimeGatedCommandInventory(xaml, codeBehind, viewModel);
+
         foreach (var declaration in new[]
         {
             "private async Task ExportDng(CancellationToken cancellationToken)",
             "private async Task ConnectDevices()",
             "private async Task DisconnectDevices()",
+            "private async Task ApplyDeviceClock()",
             "private async Task ApplyParameters()",
             "private Task AutoBlackAdjust()",
             "private Task AutoWhiteAdjust()",
@@ -123,28 +137,63 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
         Assert.Contains("IsAutoCalibrating = true;", calibration, StringComparison.Ordinal);
         Assert.Contains("_sessionCoordinator.RunConnectedSessionStateAsync", calibration, StringComparison.Ordinal);
-        Assert.Contains("_roiSettings.Normalize()", calibration, StringComparison.Ordinal);
+        Assert.Contains("ScanAdcCalibrationRoi.TryCreate(_roiSettings, GetRoiEditingWidth())", calibration, StringComparison.Ordinal);
+        Assert.DoesNotContain("_roiSettings.Normalize()", calibration, StringComparison.Ordinal);
         Assert.Contains("RequestCalibrationPromptAsync", calibration, StringComparison.Ordinal);
-        Assert.Contains("ApplyCalibrationSnapshotProjection(applied)", calibration, StringComparison.Ordinal);
+        Assert.Contains("var originalSnapshot = await _parameters.LoadAsync(session, token);", calibration, StringComparison.Ordinal);
+        Assert.Contains("originalIllumination = await _illumination.GetStateAsync(session, token);", calibration, StringComparison.Ordinal);
+        Assert.Contains("await RestoreCalibrationStateAsync(session, originalSnapshot, originalIllumination);", calibration, StringComparison.Ordinal);
+        Assert.Contains("var published = PendingCalibrationResult.Create(", calibration, StringComparison.Ordinal);
+        Assert.Contains(".InvalidateIfStale(CreateCalibrationCandidateContext());", calibration, StringComparison.Ordinal);
+        Assert.Contains("if (published.State == PendingCalibrationResultState.Pending)", calibration, StringComparison.Ordinal);
+        Assert.Contains("StatusText = successMessage;", calibration, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyCalibrationSnapshotProjection(captured.originalSnapshot);", calibration, StringComparison.Ordinal);
         Assert.Contains("ShowCalibrationFrame(imageBytes, rows, phase)", calibration, StringComparison.Ordinal);
-        Assert.Contains("await SaveSelectedCalibrationProfileAsync(calibrated);", calibration, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveSelectedCalibrationProfileAsync", calibration, StringComparison.Ordinal);
         Assert.Contains("IsAutoCalibrating = false;", calibration, StringComparison.Ordinal);
         Assert.Contains("_isSynchronizingFilmProfileWorkspace = true", calibrationSnapshotProjection, StringComparison.Ordinal);
-        Assert.Contains("ApplySnapshotToInputs(snapshot);", calibrationSnapshotProjection, StringComparison.Ordinal);
+        Assert.Contains("ScanTimingMath.ExposureTicksToMicroseconds", calibrationSnapshotProjection, StringComparison.Ordinal);
+        Assert.Contains("ExposureMicroseconds = exposureMicroseconds;", calibrationSnapshotProjection, StringComparison.Ordinal);
+        Assert.Contains("SysClockMhz = (snapshot.SysClockKhz / 1000m)", calibrationSnapshotProjection, StringComparison.Ordinal);
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", calibrationSnapshotProjection, StringComparison.Ordinal);
-        Assert.Contains("ApplySnapshotToInputs(profile.Parameters);", calibrationProfileProjection, StringComparison.Ordinal);
-        Assert.Contains("_roiSettings = profile.RoiSettings.Normalize();", calibrationProfileProjection, StringComparison.Ordinal);
+        Assert.Contains("ApplyCalibrationSnapshotProjection(profile.Parameters);", calibrationProfileProjection, StringComparison.Ordinal);
+        Assert.Contains("_roiSettings = profile.RoiSettings;", calibrationProfileProjection, StringComparison.Ordinal);
+        Assert.Contains("RefreshRoiStatus();", calibrationProfileProjection, StringComparison.Ordinal);
+        Assert.Contains("RefreshColumnSampleStatus();", calibrationProfileProjection, StringComparison.Ordinal);
 
         Assert.Contains("_imageDecoder.TryGetSample16(_lineBuffer, _previewRows, x, y, out sample)", sample, StringComparison.Ordinal);
         Assert.Contains("var clamped = _roiSettings.Clamp(imageWidth);", overlays, StringComparison.Ordinal);
         Assert.Contains(".Where(overlay => IsRoiOverlayVisible(overlay.Key))", overlays, StringComparison.Ordinal);
-        Assert.Contains("new ScanColumnRange(start, endInclusive).Clamp(imageWidth)", selectedRoiUpdate, StringComparison.Ordinal);
-        Assert.Contains("NormalizeCurrentRoiSettings();", selectedRoiUpdate, StringComparison.Ordinal);
+        Assert.Contains("var requestedRange = new ScanColumnRange(start, endInclusive);", selectedRoiUpdate, StringComparison.Ordinal);
+        Assert.Contains("TryBuildRoiEditCandidate(requestedRange, imageWidth", selectedRoiUpdate, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Clamp(imageWidth)", selectedRoiUpdate, StringComparison.Ordinal);
+        Assert.DoesNotContain("NormalizeCurrentRoiSettings();", selectedRoiUpdate, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiStatus();", selectedRoiUpdate, StringComparison.Ordinal);
         Assert.Contains("SynchronizeFilmProfileDraftFromInputs();", selectedRoiUpdate, StringComparison.Ordinal);
         Assert.Contains("EnsureRoiEditModeAvailability();", roiStatus, StringComparison.Ordinal);
         Assert.Contains("EnsureColumnSampleEditModeAvailability();", roiStatus, StringComparison.Ordinal);
         Assert.Contains("RoiOverlayVersion++;", roiStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo22Vm002_PreviewOnlyTogglesStaySessionOnlyAndWaterfallVisibilityIsDerived()
+    {
+        var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var source = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var waterfallChanged = ExtractMemberBodyAtDeclaration(source, "partial void OnIsWaterfallEnabledChanged(bool value)");
+        var gammaChanged = ExtractMemberBodyAtDeclaration(source, "partial void OnIsGammaCorrectionEnabledChanged(bool value)");
+        var previewGammaChanged = ExtractMemberBodyAtDeclaration(source, "partial void OnPreviewGammaChanged(string value)");
+
+        Assert.Contains("public Visibility WaterfallPreviewOptionsVisibility => IsWaterfallEnabled ? Visibility.Visible : Visibility.Collapsed;", source, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(WaterfallPreviewOptionsVisibility));", waterfallChanged, StringComparison.Ordinal);
+        Assert.Contains("IsOn=\"{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsOn=\"{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SynchronizeFilmProfileDraftFromInputs", waterfallChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("SynchronizeFilmProfileDraftFromInputs", gammaChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("SynchronizeFilmProfileDraftFromInputs", previewGammaChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScanRecipeOutputGamma", waterfallChanged + gammaChanged + previewGammaChanged, StringComparison.Ordinal);
+        Assert.Contains("ScanRecipeOutputGamma", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,19 +209,21 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         var synchronize = ExtractMemberBodyAtDeclaration(source, "private bool SynchronizeFilmProfileDraftFromInputs(");
         var projection = ExtractMemberBodyAtDeclaration(source, "private void RefreshFilmProfileWorkspaceProjection()");
         var applyDraft = ExtractMemberBodyAtDeclaration(source, "private void ApplyDraftToFields(");
+        var refreshBindings = ExtractMemberBodyAtDeclaration(source, "public async Task RefreshDeviceSettingsBindingsAsync()");
 
         Assert.Contains("_filmProfileWorkspace = filmProfileWorkspace;", constructor, StringComparison.Ordinal);
         Assert.Contains("_filmProfileFiles = filmProfileFiles;", constructor, StringComparison.Ordinal);
         Assert.Contains("_isSynchronizingFilmProfileWorkspace = true;", constructor, StringComparison.Ordinal);
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", constructor, StringComparison.Ordinal);
+        Assert.Contains("await EnsureDeviceSettingsInitializedAsync();", refreshBindings, StringComparison.Ordinal);
+        Assert.Contains("await _filmProfileWorkspace.InitializeAsync(CancellationToken.None);", refreshBindings, StringComparison.Ordinal);
 
         Assert.Contains("ReferenceEquals(snapshot.CurrentDraft, _lastProjectedFilmProfileDraft)", externalSnapshot, StringComparison.Ordinal);
-        Assert.Contains("ReferenceEquals(snapshot.StagedImport, _lastProjectedStagedFilmProfileImport)", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(snapshot.ImportResult, _lastProjectedFilmProfileImportResult)", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("HasStagedFilmProfileImport = snapshot.StagedImport is not null;", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("ApplyDraftToFields(snapshot.CurrentDraft);", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("SetCurrentFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);", externalSnapshot, StringComparison.Ordinal);
-        Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.StagedImport.Validation);", externalSnapshot, StringComparison.Ordinal);
-        Assert.Contains("ClearStagedFilmProfileImportValidation();", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.ImportResult.Validation);", externalSnapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFilmProfileValidation(", source, StringComparison.Ordinal);
         Assert.Contains("CurrentFilmProfileValidationIssues", source, StringComparison.Ordinal);
         Assert.Contains("CurrentFilmProfileValidationSummary", source, StringComparison.Ordinal);
@@ -189,14 +240,14 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", save, StringComparison.Ordinal);
         Assert.Contains("_filmProfileFiles.ImportAsync(CancellationToken.None)", load, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.StageImport", load, StringComparison.Ordinal);
-        Assert.Contains("SetStagedFilmProfileImportValidation", load, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportError", load, StringComparison.Ordinal);
         Assert.DoesNotContain("SetCurrentFilmProfileValidation", load, StringComparison.Ordinal);
         Assert.Contains("RefreshFilmProfileWorkspaceProjection();", load, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.ApplyStagedImportAsync", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("ApplyDraftToFields", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("HasStagedFilmProfileImport = false;", apply, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.DiscardStagedImport();", discard, StringComparison.Ordinal);
-        Assert.Contains("ClearStagedFilmProfileImportValidation();", discard, StringComparison.Ordinal);
+        Assert.Contains("SetFilmProfileImportNone();", discard, StringComparison.Ordinal);
 
         Assert.Contains("TryBuildCurrentFilmProfileDraft", synchronize, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.SetCurrentDraft(draft);", synchronize, StringComparison.Ordinal);
@@ -204,7 +255,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("ScanFilmProfileDirtyState.IsDirty", projection, StringComparison.Ordinal);
         Assert.Contains("ApplyProfileAcquisitionSettings(_selectedFilmAcquisitionSettings);", applyDraft, StringComparison.Ordinal);
         Assert.Contains("ApplyScanRecipeSettings(draft.ScanRecipeSettings);", applyDraft, StringComparison.Ordinal);
-        Assert.Contains("ApplySnapshotToInputs(profile.Parameters);", applyDraft, StringComparison.Ordinal);
+        Assert.Contains("ApplyCalibrationSnapshotProjection(profile.Parameters);", applyDraft, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -304,7 +355,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("_scanCts?.Cancel();", disconnect, StringComparison.Ordinal);
         Assert.Contains("_sessionCoordinator.DisconnectAsync(CancellationToken.None)", disconnect, StringComparison.Ordinal);
         Assert.Contains("SwitchToDiscoverySession();", disconnect, StringComparison.Ordinal);
-        Assert.Contains("_scanCts = new CancellationTokenSource();", start, StringComparison.Ordinal);
+        Assert.Contains("_scanCts = CancellationTokenSource.CreateLinkedTokenSource(producer.CancellationToken);", start, StringComparison.Ordinal);
         Assert.Contains("IsRunning = true;", start, StringComparison.Ordinal);
         Assert.Contains("RunWorkflowScanAsync", start, StringComparison.Ordinal);
         Assert.Contains("RunContinuousScanLoopAsync", start, StringComparison.Ordinal);
@@ -316,7 +367,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("_debugOutputMirror.Mirror(\"ScanDebug.WorkflowDiagnostic\", diagnostic)", workflow, StringComparison.Ordinal);
         Assert.Contains("CalibrationPromptRequested?.Invoke(this, request);", promptRequest, StringComparison.Ordinal);
         Assert.Contains("NoticeRequested?.Invoke(this, request);", noticeRequest, StringComparison.Ordinal);
-        Assert.Contains("services.AddTransient<ScanDebugViewModel>()", app, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<ScanDebugViewModel>()", app, StringComparison.Ordinal);
         Assert.Contains("services.AddTransient<ScanDebugPage>()", app, StringComparison.Ordinal);
     }
 
@@ -359,7 +410,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             Assert.DoesNotContain(forbidden, app, StringComparison.Ordinal);
         }
 
-        Assert.Contains("services.AddTransient<ScanDebugViewModel>()", app, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<ScanDebugViewModel>()", app, StringComparison.Ordinal);
         Assert.DoesNotContain("IScanDebugPreviewPresenter", app, StringComparison.Ordinal);
         Assert.DoesNotContain("IScanDebugRoiWorkspace", app, StringComparison.Ordinal);
         Assert.DoesNotContain("IScanDebugCalibrationWorkspace", app, StringComparison.Ordinal);

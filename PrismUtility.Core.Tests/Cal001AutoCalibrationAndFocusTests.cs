@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Xunit;
 using Xunit.Abstractions;
 using PRISM_Utility.Core.Contracts.Services;
@@ -249,14 +250,14 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task AutoBlackAdjust_InvalidDecodedWidth_ThrowsDiagnosticAndDisablesWarmUpWithSafeToken()
+    public async Task AutoBlackAdjust_InvalidDecodedWidth_IsRejectedBeforeSessionIo()
     {
         var frames = new[] { CalibrationFrame(0, "invalid-roi", 512, 512, 512, 512) };
         var commands = new List<string>();
         var session = new ScriptedScanSession(frames, commands);
         var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(0, frames));
 
-        var exception = await Assert.ThrowsAsync<IOException>(() => service.AutoBlackAdjustAsync(
+        var exception = await Assert.ThrowsAsync<ScanRoiValidationException>(() => service.AutoBlackAdjustAsync(
             session,
             new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
             EmptyRoi(),
@@ -266,9 +267,44 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
             null,
             CancellationToken.None));
 
-        Assert.Equal("Calibration ROI requires a valid effective column range.", exception.Message);
-        Assert.Equal(["invalid-roi"], session.CapturedFrameNames);
-        Assert.Equal("WarmUp:False:False", commands[^1]);
+        Assert.Contains(new ScanRoiValidationIssue(ScanRoiOperationOwner.AdcCalibration, ScanRoiValidationCode.Empty, "EffectiveRange"), exception.Issues);
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    [Fact]
+    public async Task AutoBlackAdjust_UsesExactlyTwoValidatedAdcColumnsDespiteInvalidFocusRanges()
+    {
+        var frames = new[]
+        {
+            ExactAdcRoiFrame(0, "mapping-baseline", 512, 512, 512, 512),
+            ExactAdcRoiFrame(1, "mapping-probe", 544, 512, 512, 512),
+            ExactAdcRoiFrame(2, "black-coarse", 512, 512, 512, 512),
+            ExactAdcRoiFrame(3, "black-gain-match", 512, 512, 512, 512)
+        };
+        var commands = new List<string>();
+        var statuses = new List<string>();
+        var session = new ScriptedScanSession(frames, commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, frames));
+        var roi = new ScanCalibrationRoiSettings(
+            new ScanColumnRange(0, 1),
+            new ScanColumnRange(2, 3),
+            new ScanColumnRange(5, 4),
+            new ScanColumnRange(8, 7),
+            new ScanColumnRange(10, 9));
+
+        var result = await service.AutoBlackAdjustAsync(
+            session,
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
+            roi,
+            ConfirmAsync,
+            statuses.Add,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz), result);
+        Assert.Contains("Auto calibration: mapping probe even-delta=32.0, odd-delta=0.0.", statuses);
+        Assert.Equal(["mapping-baseline", "mapping-probe", "black-coarse", "black-gain-match"], session.CapturedFrameNames);
     }
 
     [Fact]
@@ -340,6 +376,194 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task AutoBlackCandidate_DeclinedPreparation_DoesNotScanBaseline()
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([], commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, []));
+
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AutoBlackAdjustCandidateAsync(
+            session,
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
+            CalibrationRoi(),
+            prompt =>
+            {
+                commands.Add($"Prompt:{prompt.Title}");
+                return Task.FromResult(false);
+            },
+            null,
+            null,
+            null,
+            CancellationToken.None));
+
+        Assert.Equal("Black calibration canceled by user.", exception.Message);
+        Assert.Contains("Prompt:Black Calibration", commands);
+        Assert.DoesNotContain(commands, command => command.StartsWith("Apply:", StringComparison.Ordinal));
+        Assert.DoesNotContain(commands, command => command.StartsWith("StartScan:", StringComparison.Ordinal));
+        Assert.Empty(session.CapturedFrameNames);
+    }
+
+    [Fact]
+    public async Task AutoBlackCandidate_AcceptedPreparation_CapturesComparableMetricsAfterPrompt()
+    {
+        var frames = new[]
+        {
+            CalibrationFrame(0, "black-before", 1000, 1000, 1000, 1000),
+            CalibrationFrame(1, "mapping-baseline", 512, 512, 512, 512),
+            CalibrationFrame(2, "mapping-probe", 544, 512, 512, 512),
+            CalibrationFrame(3, "black-coarse", 512, 512, 512, 512),
+            CalibrationFrame(4, "black-gain-match", 512, 512, 512, 512),
+            CalibrationFrame(5, "black-after", 512, 512, 512, 512)
+        };
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, frames));
+
+        var result = await service.AutoBlackAdjustCandidateAsync(
+            session,
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
+            CalibrationRoi(),
+            prompt =>
+            {
+                commands.Add($"Prompt:{prompt.Title}");
+                return Task.FromResult(true);
+            },
+            null,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.True(commands.IndexOf("Prompt:Black Calibration") < commands.IndexOf("StartScan:black-before:512"));
+        Assert.True(commands.IndexOf("Prompt:Black Calibration") < commands.FindIndex(command => command.StartsWith("Apply:", StringComparison.Ordinal)));
+        AssertWarmUpBracketsScan(commands, "StartScan:black-before:512");
+        AssertWarmUpBracketsScan(commands, "StartScan:black-after:512");
+        Assert.Equal(["black-before", "mapping-baseline", "mapping-probe", "black-coarse", "black-gain-match", "black-after"], session.CapturedFrameNames);
+        Assert.Equal(1000m, result.BeforeMetrics.BlackLevelDeviation);
+        Assert.Equal(512m, result.AfterMetrics.BlackLevelDeviation);
+        Assert.Equal(result.BeforeMetrics.NoiseStandardDeviation, result.AfterMetrics.NoiseStandardDeviation);
+    }
+
+    [Fact]
+    public async Task AutoWhiteCandidate_DeclinedPreparation_DoesNotApplyOrScan()
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([], commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, []));
+
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AutoWhiteAdjustCandidateAsync(
+            session,
+            new ScanParameterSnapshot(0, 2, 4, -2, 5, ScanDebugConstants.MinSysClockKhz),
+            CalibrationRoi(),
+            prompt =>
+            {
+                commands.Add($"Prompt:{prompt.Title}");
+                return Task.FromResult(false);
+            },
+            null,
+            null,
+            null,
+            CancellationToken.None));
+
+        Assert.Equal("White calibration canceled by user.", exception.Message);
+        Assert.Equal(["Prompt:White Calibration"], commands);
+        Assert.Empty(session.CapturedFrameNames);
+    }
+
+    [Fact]
+    public async Task AutoWhiteCandidate_AcceptedPreparation_CapturesWhiteMetricsBeforeAnyApply()
+    {
+        var frames = new[]
+        {
+            CalibrationFrame(0, "white-before", 60000, 30000, 60000, 30000),
+            CalibrationFrame(1, "mapping-baseline", 60000, 60000, 60000, 60000),
+            CalibrationFrame(2, "mapping-probe", 60032, 60000, 60000, 60000),
+            CalibrationFrame(3, "white-saturation-probe", ushort.MaxValue, ushort.MaxValue, ushort.MaxValue, ushort.MaxValue),
+            CalibrationFrame(4, "white-low", 30000, 30000, 30000, 30000),
+            CalibrationFrame(5, "white-converged", 60000, 60000, 60000, 60000),
+            CalibrationFrame(6, "white-offset-balance", 60000, 60000, 60000, 60000),
+            CalibrationFrame(7, "white-channel-balance", 60000, 60000, 60000, 60000),
+            CalibrationFrame(8, "white-after", 60000, 60000, 60000, 60000)
+        };
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, frames));
+
+        var result = await service.AutoWhiteAdjustCandidateAsync(
+            session,
+            new ScanParameterSnapshot(0, 2, 4, -2, 5, ScanDebugConstants.MinSysClockKhz),
+            CalibrationRoi(),
+            prompt =>
+            {
+                commands.Add($"Prompt:{prompt.Title}");
+                return Task.FromResult(true);
+            },
+            null,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.True(commands.IndexOf("Prompt:White Calibration") < commands.IndexOf("StartScan:white-before:512"));
+        Assert.True(commands.IndexOf("Prompt:White Calibration") < commands.FindIndex(command => command.StartsWith("Apply:", StringComparison.Ordinal)));
+        AssertWarmUpBracketsScan(commands, "StartScan:white-before:512");
+        AssertWarmUpBracketsScan(commands, "StartScan:white-after:512");
+        Assert.True(result.BeforeMetrics.AdcOutputDifferencePercent > 60m);
+        Assert.Equal(0m, result.BeforeMetrics.SaturatedPixelPercent);
+        Assert.Equal(0m, result.AfterMetrics.AdcOutputDifferencePercent);
+        Assert.Equal(0m, result.AfterMetrics.SaturatedPixelPercent);
+    }
+
+    [Fact]
+    public async Task AutoCalibrateCandidate_ComposesBlackAndWhiteStageMetricsWithoutExtraPrompts()
+    {
+        var frames = new[]
+        {
+            CalibrationFrame(0, "black-before", 1000, 1000, 1000, 1000),
+            CalibrationFrame(1, "black-mapping-baseline", 512, 512, 512, 512),
+            CalibrationFrame(2, "black-mapping-probe", 544, 512, 512, 512),
+            CalibrationFrame(3, "black-coarse", 512, 512, 512, 512),
+            CalibrationFrame(4, "black-gain-match", 512, 512, 512, 512),
+            CalibrationFrame(5, "black-after", 512, 512, 512, 512),
+            CalibrationFrame(6, "white-before", 60000, 30000, 60000, 30000),
+            CalibrationFrame(7, "white-mapping-baseline", 60000, 60000, 60000, 60000),
+            CalibrationFrame(8, "white-mapping-probe", 60032, 60000, 60000, 60000),
+            CalibrationFrame(9, "white-saturation-probe", ushort.MaxValue, ushort.MaxValue, ushort.MaxValue, ushort.MaxValue),
+            CalibrationFrame(10, "white-low", 30000, 30000, 30000, 30000),
+            CalibrationFrame(11, "white-converged", 60000, 60000, 60000, 60000),
+            CalibrationFrame(12, "white-offset-balance", 60000, 60000, 60000, 60000),
+            CalibrationFrame(13, "white-channel-balance", 60000, 60000, 60000, 60000),
+            CalibrationFrame(14, "white-after", 60000, 60000, 60000, 60000)
+        };
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(16, frames));
+
+        var result = await service.AutoCalibrateCandidateAsync(
+            session,
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
+            CalibrationRoi(),
+            prompt =>
+            {
+                commands.Add($"Prompt:{prompt.Title}");
+                return Task.FromResult(true);
+            },
+            null,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(["Prompt:Black Calibration", "Prompt:White Calibration"], commands.Where(command => command.StartsWith("Prompt:", StringComparison.Ordinal)).ToArray());
+        Assert.True(commands.IndexOf("Prompt:Black Calibration") < commands.IndexOf("StartScan:black-before:512"));
+        Assert.True(commands.IndexOf("Prompt:White Calibration") < commands.IndexOf("StartScan:white-before:512"));
+        Assert.Equal(1000m, result.BeforeMetrics.BlackLevelDeviation);
+        Assert.Equal(0m, result.BeforeMetrics.NoiseStandardDeviation);
+        Assert.True(result.BeforeMetrics.AdcOutputDifferencePercent > 60m);
+        Assert.Equal(0m, result.BeforeMetrics.SaturatedPixelPercent);
+        Assert.Equal(512m, result.AfterMetrics.BlackLevelDeviation);
+        Assert.Equal(0m, result.AfterMetrics.AdcOutputDifferencePercent);
+        Assert.Equal(0m, result.AfterMetrics.SaturatedPixelPercent);
+    }
+
+    [Fact]
     public async Task AutoFocus_UsesUnnormalizedBrennerMetricAndStopsMotorsOnSuccess()
     {
         var frames = Enumerable.Range(0, 7)
@@ -361,6 +585,35 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task AutoFocus_UsesExactlyThreeValidatedColumnsForEachBrennerRangeDespiteInvalidAdcShield()
+    {
+        var frames = Enumerable.Range(0, 16)
+            .Select(frameId => ExactFocusRoiFrame((byte)frameId, $"exact-focus-{frameId}"))
+            .ToArray();
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands);
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+        var request = FocusRequest() with
+        {
+            RoiSettings = new ScanCalibrationRoiSettings(
+                new ScanColumnRange(0, 1),
+                new ScanColumnRange(5, 4),
+                new ScanColumnRange(0, 2),
+                new ScanColumnRange(3, 5),
+                new ScanColumnRange(0, 5))
+        };
+
+        var result = await service.AutoFocusAsync(session, request, null, null, CancellationToken.None);
+
+        var (_, _, _, overallSharpness, leftSharpness, rightSharpness, tiltImbalance) = result;
+        Assert.Equal(100d, leftSharpness);
+        Assert.Equal(400d, rightSharpness);
+        Assert.Equal(600d, overallSharpness);
+        Assert.Equal(-0.6d, tiltImbalance, 8);
+        Assert.NotEmpty(session.CapturedFrameNames);
+    }
+
+    [Fact]
     public async Task AutoFocus_ScanFailure_StopsBothMotorsWithSafeToken()
     {
         var frames = new[] { new ScriptedFrame(0, "focus-failure", static (_, _) => 0, "planned focus scan failure") };
@@ -376,22 +629,21 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task AutoFocus_InvalidDecodedWidth_ReportsDiagnosticAndStopsBothMotors()
+    public async Task AutoFocus_InvalidDecodedWidth_IsRejectedBeforeMotorIo()
     {
         var frames = new[] { FlatFocusFrame(0, "invalid-width") };
         var commands = new List<string>();
         var session = new ScriptedScanSession(frames, commands);
         var service = new ScanAutoFocusService(new ScriptedImageDecoder(0, frames));
 
-        var exception = await Assert.ThrowsAsync<IOException>(() => service.AutoFocusAsync(session, FocusRequest(), null, null, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<ScanRoiValidationException>(() => service.AutoFocusAsync(session, FocusRequest(), null, null, CancellationToken.None));
 
-        Assert.Equal("Autofocus requires at least 3 rows and a valid decoded scan width.", exception.Message);
-        Assert.Equal(["invalid-width"], session.CapturedFrameNames);
-        Assert.Equal(["Stop:0:False", "Stop:2:False"], commands[^2..]);
+        Assert.Equal(new ScanRoiValidationIssue(ScanRoiOperationOwner.AutoFocus, ScanRoiValidationCode.Empty, "FocusLeftRange"), exception.Issues[0]);
+        AssertNoSessionIoOrStops(session, commands);
     }
 
     [Fact]
-    public async Task AutoFocus_MalformedRoiRanges_AreNormalizedBeforeBuildMetrics()
+    public async Task AutoFocus_MalformedRoiRanges_AreRejectedBeforeMotorIo()
     {
         var frames = Enumerable.Range(0, 7)
             .Select(frameId => FlatFocusFrame((byte)frameId, $"malformed-roi-{frameId}"))
@@ -409,11 +661,37 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         };
         var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
 
-        var result = await service.AutoFocusAsync(session, malformedRequest, null, null, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<ScanRoiValidationException>(() => service.AutoFocusAsync(session, malformedRequest, null, null, CancellationToken.None));
 
-        Assert.Equal(new ScanAutofocusResult(3, 0, -2, 0, 0, 0, 0), result);
-        Assert.Equal(["malformed-roi-0", "malformed-roi-1", "malformed-roi-2", "malformed-roi-3", "malformed-roi-4", "malformed-roi-5", "malformed-roi-6"], session.CapturedFrameNames);
-        Assert.Equal(["Stop:0:False", "Stop:2:False"], commands[^2..]);
+        Assert.Equal(new ScanRoiValidationIssue(ScanRoiOperationOwner.AutoFocus, ScanRoiValidationCode.Inverted, "FocusLeftRange"), exception.Issues[0]);
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    [Fact]
+    public async Task AutoBlack_InvalidAdcRoiIsRejectedBeforePromptOrSessionIo()
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([], commands);
+        var service = CreateCalibrationService(new RecordingParameterService(commands), new ScriptedImageDecoder(20, []));
+        var roi = new ScanCalibrationRoiSettings(
+            new ScanColumnRange(0, 0),
+            new ScanColumnRange(8, 11),
+            new ScanColumnRange(0, 4),
+            new ScanColumnRange(8, 12),
+            new ScanColumnRange(0, 12));
+
+        var exception = await Assert.ThrowsAsync<ScanRoiValidationException>(() => service.AutoBlackAdjustAsync(
+            session,
+            new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz),
+            roi,
+            _ => throw new Xunit.Sdk.XunitException("Prompt must not run for an invalid ADC ROI."),
+            null,
+            null,
+            null,
+            CancellationToken.None));
+
+        Assert.Equal(new ScanRoiValidationIssue(ScanRoiOperationOwner.AdcCalibration, ScanRoiValidationCode.TooNarrow, "EffectiveRange"), Assert.Single(exception.Issues));
+        AssertNoSessionIoOrStops(session, commands);
     }
 
     [Fact]
@@ -446,6 +724,500 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         Assert.Equal(["Stop:0:False", "Stop:2:False"], commands[^2..]);
     }
 
+    [Fact]
+    public void ScanFocusMotorMapping_DefaultsAreImmutableAndValid()
+    {
+        var mapping = new ScanFocusMotorMapping();
+        var replacement = mapping with { LeftMotorId = 1, RightMotorId = 2 };
+
+        Assert.Equal((byte)0, mapping.LeftMotorId);
+        Assert.Equal((byte)2, mapping.RightMotorId);
+        Assert.False(mapping.ZPositiveDirection);
+        Assert.False(mapping.TiltPositiveDirection);
+        Assert.Equal((byte)0, mapping.LeftMotorId);
+        Assert.Equal((byte)1, replacement.LeftMotorId);
+        Assert.Equal((byte)2, replacement.RightMotorId);
+
+        ScanFocusMotorMappingValidationResult validation = mapping.Validate();
+        Assert.True(validation.IsValid);
+        Assert.Equal(ScanFocusMotorMappingValidationError.None, validation.Error);
+    }
+
+    [Fact]
+    public async Task ScanFocusMotorMapping_InvalidValuesHaveTypedFailuresAndAreRejectedBeforeSessionIo()
+    {
+        var invalidMappings = new[]
+        {
+            (Mapping: new ScanFocusMotorMapping(1, 1), Error: ScanFocusMotorMappingValidationError.DuplicateMotorIds),
+            (Mapping: new ScanFocusMotorMapping(3, 2), Error: ScanFocusMotorMappingValidationError.LeftMotorIdOutOfRange),
+            (Mapping: new ScanFocusMotorMapping(1, 3), Error: ScanFocusMotorMappingValidationError.RightMotorIdOutOfRange)
+        };
+
+        foreach (var invalid in invalidMappings)
+        {
+            ScanFocusMotorMappingValidationResult validation = invalid.Mapping.Validate();
+            Assert.False(validation.IsValid);
+            Assert.Equal(invalid.Error, validation.Error);
+
+            await AssertAutoFocusMappingRejectedBeforeSessionIoAsync(MappedFocusRequest(invalid.Mapping));
+        }
+    }
+
+    [Fact]
+    public void ScanAutofocusRequest_UsesMappingAsItsOnlyDirectionAuthority()
+    {
+        var roi = FocusRequest().RoiSettings;
+        var legacy = new ScanAutofocusRequest(3, 1, 1, ScanDebugConstants.MotionMinIntervalNs, true, false, 1, 1, roi);
+        var mapping = new ScanFocusMotorMapping(1, 2, ZPositiveDirection: true, TiltPositiveDirection: true);
+        var explicitMapping = new ScanAutofocusRequest(3, 1, 1, ScanDebugConstants.MotionMinIntervalNs, 1, 1, roi, mapping);
+        var replacement = mapping with { LeftMotorId = 0, RightMotorId = 2 };
+
+        Assert.Equal(new ScanFocusMotorMapping(0, 2, true, false), legacy.FocusMotorMapping);
+        Assert.Equal(mapping, explicitMapping.FocusMotorMapping);
+        Assert.NotEqual(replacement, explicitMapping.FocusMotorMapping);
+        Assert.Equal(mapping, explicitMapping.FocusMotorMapping);
+        Assert.DoesNotContain(
+            typeof(ScanAutofocusRequest).GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic),
+            property => property.Name.Contains("Legacy", StringComparison.Ordinal));
+        Assert.Null(typeof(ScanAutofocusRequest).GetProperty("ZPositiveDirection"));
+        Assert.Null(typeof(ScanAutofocusRequest).GetProperty("TiltPositiveDirection"));
+    }
+
+    [Fact]
+    public async Task AutoFocus_WithCopyUsesOnlyCopiedMappingDirectionsForZAndTilt()
+    {
+        var frames = Enumerable.Range(0, 9)
+            .Select(frameId => new ScriptedFrame((byte)frameId, $"mapping-direction-{frameId}", static (x, _) => x == 2 ? (ushort)100 : (ushort)0))
+            .ToArray();
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands) { MotionStates = MappedIdleMotionStates() };
+        var request = FocusRequest() with
+        {
+            FocusMotorMapping = new ScanFocusMotorMapping(1, 2, ZPositiveDirection: false, TiltPositiveDirection: false)
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        await service.AutoFocusAsync(session, request, null, null, CancellationToken.None);
+
+        AssertOrdered(commands, "Move:1:True:2", "Move:2:True:2");
+        AssertOrdered(commands, "Move:1:False:1", "Move:2:True:1");
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public async Task AutoFocus_PreflightValidationRejectsInvalidRowsStepsIntervalsAndIterationsBeforeSessionIo()
+    {
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { SampleRows = 0 });
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { TiltProbeSteps = 0 });
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { ZProbeSteps = 0 });
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { MotorIntervalNs = ScanDebugConstants.MotionMinIntervalNs - 1 });
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { MaxTiltIterations = 0 });
+        await AssertAutoFocusPreflightRejectedAsync(FocusRequest() with { MaxZIterations = 0 });
+    }
+
+    [Fact]
+    public async Task AutoFocus_NullRoiIsRejectedBeforeSessionIoOrStops()
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([FlatFocusFrame(0, "null-roi")], commands)
+        {
+            MotionStates = MappedIdleMotionStates()
+        };
+        var request = MappedFocusRequest(new ScanFocusMotorMapping(1, 2)) with { RoiSettings = null! };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, []));
+
+        var exception = await Record.ExceptionAsync(() => service.AutoFocusAsync(session, request, null, null, CancellationToken.None));
+
+        _output.WriteLine($"NULL_ROI_OBSERVED exception={exception?.GetType().Name} session={session.SessionCallCount} motorIo={session.MotorIoCallCount} stops={session.StopCallCount} commands={string.Join(',', commands)}");
+        Assert.IsType<ArgumentNullException>(exception);
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    [Fact]
+    public async Task AutoFocus_PreCanceledRequestDoesNotReachSessionOrStopMotors()
+    {
+        var commands = new List<string>();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var session = new ScriptedScanSession([], commands);
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, []));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AutoFocusAsync(session, FocusRequest(), null, null, cancellation.Token));
+
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    [Fact]
+    public async Task AutoFocus_FirstStatusCallbackCancellationDoesNotReachSessionOrStopMotors()
+    {
+        var commands = new List<string>();
+        using var cancellation = new CancellationTokenSource();
+        var session = new ScriptedScanSession([], commands);
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, []));
+
+        var exception = await Record.ExceptionAsync(() => service.AutoFocusAsync(
+            session,
+            MappedFocusRequest(new ScanFocusMotorMapping(1, 2)),
+            _ => cancellation.Cancel(),
+            null,
+            cancellation.Token));
+
+        _output.WriteLine($"STATUS_CANCEL_OBSERVED exception={exception?.GetType().Name} session={session.SessionCallCount} motorIo={session.MotorIoCallCount} stops={session.StopCallCount} commands={string.Join(',', commands)}");
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    [Fact]
+    public async Task AutoFocus_PreflightArithmeticOverflowDoesNotReachSessionOrStopMotors()
+    {
+        var overflow = FocusRequest() with
+        {
+            TiltProbeSteps = uint.MaxValue,
+            ZProbeSteps = uint.MaxValue,
+            MaxTiltIterations = int.MaxValue,
+            MaxZIterations = int.MaxValue
+        };
+
+        await AssertAutoFocusPreflightRejectedAsync(overflow);
+    }
+
+    [Fact]
+    public async Task AutoFocus_ExplicitMappingUsesOnlyMappedMotorsForIoIdleFilteringAndStops()
+    {
+        var frames = Enumerable.Range(0, 7)
+            .Select(frameId => FocusFrame((byte)frameId, $"mapped-focus-{frameId}"))
+            .ToArray();
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands)
+        {
+            MotionStates =
+            [
+                new ScanMotorState(0, true, true, false, 0, ScanDebugConstants.MotionMinIntervalNs, 1),
+                new ScanMotorState(1, true, false, false, 0, ScanDebugConstants.MotionMinIntervalNs, 0),
+                new ScanMotorState(2, true, false, false, 0, ScanDebugConstants.MotionMinIntervalNs, 0)
+            ]
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        await service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, CancellationToken.None);
+
+        Assert.Contains("MotorEnable:1:True", commands);
+        Assert.Contains("MotorEnable:2:True", commands);
+        Assert.Contains("MotionState", commands);
+        Assert.Contains(commands, command => command.StartsWith("Move:1:", StringComparison.Ordinal));
+        Assert.Contains(commands, command => command.StartsWith("Move:2:", StringComparison.Ordinal));
+        Assert.Contains(commands, command => command.StartsWith("Wait:1:", StringComparison.Ordinal));
+        Assert.Contains(commands, command => command.StartsWith("Wait:2:", StringComparison.Ordinal));
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+        Assert.DoesNotContain(commands, command => command.StartsWith("MotorEnable:0:", StringComparison.Ordinal)
+            || command.StartsWith("Move:0:", StringComparison.Ordinal)
+            || command.StartsWith("Wait:0:", StringComparison.Ordinal)
+            || command.StartsWith("Stop:0:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AutoFocus_MappedScanFailureStopsMappedMotorsWithSafeToken()
+    {
+        var frames = new[] { new ScriptedFrame(0, "mapped-failure", static (_, _) => 0, "planned mapped scan failure") };
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands) { MotionStates = MappedIdleMotionStates() };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        var exception = await Assert.ThrowsAsync<IOException>(() => service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, CancellationToken.None));
+
+        Assert.Equal("Autofocus baseline failed: planned mapped scan failure", exception.Message);
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public async Task AutoFocus_MappedCancellationStopsMappedMotorsWithSafeToken()
+    {
+        var frames = new[] { FocusFrame(0, "mapped-cancel") };
+        var commands = new List<string>();
+        using var cancellation = new CancellationTokenSource();
+        var session = new ScriptedScanSession(frames, commands)
+        {
+            CancelOnStartScan = cancellation,
+            MotionStates = MappedIdleMotionStates()
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, cancellation.Token));
+
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public async Task AutoFocus_StopFailuresAfterIoBeginsAreSurfacedAfterAttemptingBothMappedMotors()
+    {
+        var frames = Enumerable.Range(0, 7)
+            .Select(frameId => FocusFrame((byte)frameId, $"stop-failure-{frameId}"))
+            .ToArray();
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands)
+        {
+            MotionStates = MappedIdleMotionStates(),
+            ThrowOnStop = true
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, CancellationToken.None));
+
+        Assert.Equal(2, exception.InnerExceptions.Count);
+        Assert.All(exception.InnerExceptions, error => Assert.IsType<IOException>(error));
+        Assert.Equal(2, session.StopCallCount);
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public async Task AutoFocus_PrimaryFailureAndStopFailure_PreservesPrimaryAndAttemptsBothMappedMotors()
+    {
+        var frames = new[] { new ScriptedFrame(0, "primary-cleanup-failure", static (_, _) => 0, "planned scan failure") };
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands)
+        {
+            MotionStates = MappedIdleMotionStates(),
+            ThrowOnStop = true
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, CancellationToken.None));
+
+        var primary = Assert.IsType<IOException>(exception.InnerExceptions[0]);
+        Assert.Equal("Autofocus baseline failed: planned scan failure", primary.Message);
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public async Task AutoFocus_LeftStopFailureStillAttemptsMappedRightStopWithSafeTokens()
+    {
+        var frames = Enumerable.Range(0, 7)
+            .Select(frameId => FocusFrame((byte)frameId, $"single-stop-failure-{frameId}"))
+            .ToArray();
+        var commands = new List<string>();
+        var session = new ScriptedScanSession(frames, commands)
+        {
+            MotionStates = MappedIdleMotionStates(),
+            ThrowOnStopMotorId = 1
+        };
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, frames));
+
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => service.AutoFocusAsync(session, MappedFocusRequest(new ScanFocusMotorMapping(1, 2)), null, null, CancellationToken.None));
+
+        Assert.IsType<IOException>(Assert.Single(exception.InnerExceptions));
+        Assert.Equal([1, 2], session.StopAttemptedMotorIds);
+        Assert.Equal([2], session.StopCompletedMotorIds);
+        Assert.Equal(2, session.StopCallCount);
+        Assert.Equal(1, session.StopCompletedCount);
+        Assert.Equal([false, false], session.StopTokenCanBeCanceled);
+        Assert.Equal(["Stop:1:False", "Stop:2:False"], commands[^2..]);
+    }
+
+    [Fact]
+    public void ScanAutofocusPresetCatalog_UsesImmutableReadOnlyDeterministicDefinitions()
+    {
+        var definitionsProperty = typeof(ScanAutofocusPresetCatalog).GetProperty(nameof(ScanAutofocusPresetCatalog.Definitions));
+
+        Assert.True(typeof(ScanAutofocusPresetKind).IsEnum);
+        Assert.Equal(
+            [ScanAutofocusPresetKind.Quick, ScanAutofocusPresetKind.Standard, ScanAutofocusPresetKind.Fine, ScanAutofocusPresetKind.Custom],
+            Enum.GetValues<ScanAutofocusPresetKind>());
+        Assert.NotNull(definitionsProperty);
+        Assert.Equal(typeof(IReadOnlyList<ScanAutofocusPresetDefinition>), definitionsProperty!.PropertyType);
+        Assert.True(typeof(ScanAutofocusPresetDefinition).IsSealed);
+        Assert.True(typeof(ScanAutofocusResolvedOptions).IsSealed);
+
+        var firstRead = ScanAutofocusPresetCatalog.Definitions.ToArray();
+        var secondRead = ScanAutofocusPresetCatalog.Definitions.ToArray();
+        Assert.Equal(firstRead, secondRead);
+        Assert.Equal(
+            [ScanAutofocusPresetKind.Quick, ScanAutofocusPresetKind.Standard, ScanAutofocusPresetKind.Fine],
+            firstRead.Select(definition => definition.Kind).ToArray());
+    }
+
+    [Fact]
+    public void ScanAutofocusPresetResolver_QuickHasExactDefinitionAndBounds()
+    {
+        AssertPresetResolution(
+            ScanAutofocusPresetKind.Quick,
+            new ScanAutofocusPresetDefinition(ScanAutofocusPresetKind.Quick, 64, 0.25, 0.5, 500_000, false, false, 4, 5),
+            100,
+            200,
+            new ScanAutofocusBounds(2500, 6.25, 400, 1.0, 50, 15400, 38.5, 7700));
+    }
+
+    [Fact]
+    public void ScanAutofocusPresetResolver_StandardHasExactDefinitionAndBounds()
+    {
+        AssertPresetResolution(
+            ScanAutofocusPresetKind.Standard,
+            new ScanAutofocusPresetDefinition(ScanAutofocusPresetKind.Standard, 128, 0.5, 1.0, 500_000, false, false, 8, 10),
+            200,
+            400,
+            new ScanAutofocusBounds(10000, 25.0, 1600, 4.0, 94, 56600, 141.5, 28300));
+    }
+
+    [Fact]
+    public void ScanAutofocusPresetResolver_FineHasExactDefinitionAndBounds()
+    {
+        AssertPresetResolution(
+            ScanAutofocusPresetKind.Fine,
+            new ScanAutofocusPresetDefinition(ScanAutofocusPresetKind.Fine, 128, 0.25, 0.5, 500_000, false, false, 16, 20),
+            100,
+            200,
+            new ScanAutofocusBounds(10000, 25.0, 1600, 4.0, 182, 54100, 135.25, 27050));
+    }
+
+    [Fact]
+    public void ScanAutofocusPresetResolver_ComparativeBoundsAndCustomValuesDoNotMutateBuiltIns()
+    {
+        var quick = ResolveBuiltInPreset(ScanAutofocusPresetKind.Quick);
+        var standard = ResolveBuiltInPreset(ScanAutofocusPresetKind.Standard);
+        var fine = ResolveBuiltInPreset(ScanAutofocusPresetKind.Fine);
+        var builtInsBeforeCustomResolution = ScanAutofocusPresetCatalog.Definitions.ToArray();
+        var custom = new ScanAutofocusPresetDefinition(ScanAutofocusPresetKind.Custom, 32, 0.75, 1.25, 500_000, true, true, 2, 3);
+
+        var customResolved = ScanAutofocusPresetResolver.Resolve(custom, ScanMotorMechanicalSettings.CreateDefault());
+
+        Assert.True(quick.Bounds.MaxZSteps < standard.Bounds.MaxZSteps);
+        Assert.Equal(standard.Bounds.MaxZSteps, fine.Bounds.MaxZSteps);
+        Assert.True(quick.Bounds.MaxTiltSteps < standard.Bounds.MaxTiltSteps);
+        Assert.Equal(standard.Bounds.MaxTiltSteps, fine.Bounds.MaxTiltSteps);
+        Assert.True(quick.Bounds.CaptureCount < standard.Bounds.CaptureCount);
+        Assert.True(standard.Bounds.CaptureCount < fine.Bounds.CaptureCount);
+        Assert.True(quick.Bounds.TotalMovementSteps < fine.Bounds.TotalMovementSteps);
+        Assert.True(fine.Bounds.TotalMovementSteps < standard.Bounds.TotalMovementSteps);
+        Assert.True(quick.Bounds.EstimatedDurationMs < fine.Bounds.EstimatedDurationMs);
+        Assert.True(fine.Bounds.EstimatedDurationMs < standard.Bounds.EstimatedDurationMs);
+        Assert.Equal(custom, customResolved.Definition);
+        Assert.Equal(300u, customResolved.TiltProbeSteps);
+        Assert.Equal(500u, customResolved.ZProbeSteps);
+        Assert.Equal(builtInsBeforeCustomResolution, ScanAutofocusPresetCatalog.Definitions.ToArray());
+    }
+
+    [Fact]
+    public void ScanFocusMappingAndPresetContracts_DoNotChangeRoiNormalization()
+    {
+        var malformed = new ScanCalibrationRoiSettings(
+            new ScanColumnRange(7, 1),
+            new ScanColumnRange(17, 14),
+            new ScanColumnRange(9, -4),
+            new ScanColumnRange(0, 23),
+            new ScanColumnRange(12, -2));
+        var legacy = FocusRequest() with { RoiSettings = malformed };
+        var mapped = MappedFocusRequest(new ScanFocusMotorMapping(1, 2)) with { RoiSettings = malformed };
+
+        Assert.Equal(legacy.RoiSettings.Clamp(20), mapped.RoiSettings.Clamp(20));
+        Assert.Equal(new ScanColumnRange(1, 7), mapped.RoiSettings.Clamp(20).EffectiveRange);
+        Assert.Equal(new ScanColumnRange(0, 3), mapped.RoiSettings.Clamp(20).ShieldRange);
+    }
+
+    [Fact]
+    public async Task ScanDeviceSettings_MissingFocusMappingDefaultsAndRoundTripsThroughExistingSettingsKey()
+    {
+        var defaults = ScanDeviceSettings.CreateDefault();
+        var legacyJson = JsonSerializer.Serialize(new
+        {
+            defaults.Motor1,
+            defaults.Motor2,
+            defaults.Motor3,
+            defaults.Channel1Role,
+            defaults.Channel2Role,
+            defaults.Channel3Role,
+            defaults.Channel4Role
+        });
+        var legacySettings = JsonSerializer.Deserialize<ScanDeviceSettings>(legacyJson);
+        Assert.NotNull(legacySettings);
+
+        var store = new InMemoryLocalSettingsService();
+        store.Seed("ScanDeviceSettings", legacySettings!);
+        var missingMappingService = new ScanDeviceSettingsService(store);
+
+        await missingMappingService.InitializeAsync();
+
+        Assert.Equal(new ScanFocusMotorMapping(), missingMappingService.Settings.FocusMotorMapping);
+
+        var mapping = new ScanFocusMotorMapping(1, 2, ZPositiveDirection: true, TiltPositiveDirection: true);
+        var settings = ScanDeviceSettings.CreateDefault() with { FocusMotorMapping = mapping };
+        var serialized = JsonSerializer.Serialize(settings);
+        var deserialized = JsonSerializer.Deserialize<ScanDeviceSettings>(serialized);
+        Assert.NotNull(deserialized);
+        Assert.Contains("\"FocusMotorMapping\"", serialized, StringComparison.Ordinal);
+        Assert.Equal(mapping, deserialized!.FocusMotorMapping);
+
+        var writeService = new ScanDeviceSettingsService(store);
+        await writeService.SetSettingsAsync(settings);
+        Assert.Contains("ScanDeviceSettings", store.SavedKeys);
+
+        var readService = new ScanDeviceSettingsService(store);
+        await readService.InitializeAsync();
+        Assert.Equal(mapping, readService.Settings.FocusMotorMapping);
+    }
+
+    [Fact]
+    public async Task ScanDeviceSettings_InvalidExplicitFocusMappingIsNotNormalizedAndIsRejected()
+    {
+        var invalidMapping = new ScanFocusMotorMapping(1, 1);
+        var explicitInvalidSettings = new ScanDeviceSettings(
+            null,
+            new ScanMotorMechanicalSettings(0, 0, double.NaN),
+            null,
+            " invalid ",
+            " white ",
+            "Red",
+            "Green",
+            invalidMapping);
+        var store = new InMemoryLocalSettingsService();
+        var service = new ScanDeviceSettingsService(store);
+
+        await service.InitializeAsync();
+        var previous = service.Settings;
+        var normalized = explicitInvalidSettings.Normalize();
+
+        Assert.Equal(invalidMapping, normalized.FocusMotorMapping);
+        Assert.Equal(ScanMotorMechanicalSettings.CreateDefault(), normalized.Motor2);
+        Assert.Equal("Blue", normalized.Channel1Role);
+        Assert.Equal("White", normalized.Channel2Role);
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => service.SetSettingsAsync(explicitInvalidSettings));
+        Assert.Empty(store.SavedKeys);
+        Assert.Same(previous, service.Settings);
+    }
+
+    [Fact]
+    public async Task ScanDeviceSettings_MalformedPersistedMappingsInitializeAndRemainInspectable()
+    {
+        var invalidMappings = new[]
+        {
+            new ScanFocusMotorMapping(1, 1),
+            new ScanFocusMotorMapping(3, 2)
+        };
+
+        foreach (var invalidMapping in invalidMappings)
+        {
+            var persisted = new ScanDeviceSettings(
+                null,
+                new ScanMotorMechanicalSettings(0, 0, double.NaN),
+                null,
+                "blue",
+                "bad-role",
+                " red ",
+                "Green",
+                invalidMapping);
+            var store = new InMemoryLocalSettingsService();
+            store.Seed("ScanDeviceSettings", persisted);
+            var service = new ScanDeviceSettingsService(store);
+
+            await service.InitializeAsync();
+
+            Assert.Equal(invalidMapping, service.Settings.FocusMotorMapping);
+            Assert.Equal(ScanMotorMechanicalSettings.CreateDefault(), service.Settings.Motor1);
+            Assert.Equal(ScanMotorMechanicalSettings.CreateDefault(), service.Settings.Motor2);
+            Assert.Equal("Blue", service.Settings.Channel1Role);
+            Assert.Equal("White", service.Settings.Channel2Role);
+            Assert.Empty(store.SavedKeys);
+        }
+    }
+
     private static Task<bool> ConfirmAsync(ScanCalibrationPrompt _)
         => Task.FromResult(true);
 
@@ -461,11 +1233,100 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
     private static ScanAutofocusRequest FocusRequest()
         => new(3, 1, 1, ScanDebugConstants.MotionMinIntervalNs, true, true, 1, 1, new ScanCalibrationRoiSettings(new ScanColumnRange(0, 19), new ScanColumnRange(15, 19), new ScanColumnRange(0, 4), new ScanColumnRange(10, 14), new ScanColumnRange(0, 14)));
 
+    private static ScanAutofocusRequest MappedFocusRequest(
+        ScanFocusMotorMapping mapping,
+        int sampleRows = 3,
+        uint tiltProbeSteps = 1,
+        uint zProbeSteps = 1,
+        uint motorIntervalNs = ScanDebugConstants.MotionMinIntervalNs,
+        int maxTiltIterations = 1,
+        int maxZIterations = 1)
+        => new(
+            sampleRows,
+            tiltProbeSteps,
+            zProbeSteps,
+            motorIntervalNs,
+            maxTiltIterations,
+            maxZIterations,
+            new ScanCalibrationRoiSettings(new ScanColumnRange(0, 19), new ScanColumnRange(15, 19), new ScanColumnRange(0, 4), new ScanColumnRange(10, 14), new ScanColumnRange(0, 14)),
+            mapping);
+
+    private static IReadOnlyList<ScanMotorState> MappedIdleMotionStates()
+        =>
+        [
+            new ScanMotorState(1, true, false, false, 0, ScanDebugConstants.MotionMinIntervalNs, 0),
+            new ScanMotorState(2, true, false, false, 0, ScanDebugConstants.MotionMinIntervalNs, 0)
+        ];
+
+    private static async Task AssertAutoFocusMappingRejectedBeforeSessionIoAsync(ScanAutofocusRequest request)
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([], commands);
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, []));
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => service.AutoFocusAsync(session, request, null, null, CancellationToken.None));
+
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    private static async Task AssertAutoFocusPreflightRejectedAsync(ScanAutofocusRequest request)
+    {
+        var commands = new List<string>();
+        var session = new ScriptedScanSession([], commands);
+        var service = new ScanAutoFocusService(new ScriptedImageDecoder(20, []));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.AutoFocusAsync(session, request, null, null, CancellationToken.None));
+
+        AssertNoSessionIoOrStops(session, commands);
+    }
+
+    private static void AssertNoSessionIoOrStops(ScriptedScanSession session, IReadOnlyList<string> commands)
+    {
+        Assert.Equal(0, session.SessionCallCount);
+        Assert.Equal(0, session.MotorIoCallCount);
+        Assert.Equal(0, session.StopCallCount);
+        Assert.Empty(commands);
+    }
+
+    private static void AssertPresetResolution(
+        ScanAutofocusPresetKind kind,
+        ScanAutofocusPresetDefinition expectedDefinition,
+        uint expectedTiltProbeSteps,
+        uint expectedZProbeSteps,
+        ScanAutofocusBounds expectedBounds)
+    {
+        var definition = ScanAutofocusPresetCatalog.Get(kind);
+        var resolved = ScanAutofocusPresetResolver.Resolve(definition, ScanMotorMechanicalSettings.CreateDefault());
+        var repeated = ScanAutofocusPresetResolver.Resolve(ScanAutofocusPresetCatalog.Get(kind), ScanMotorMechanicalSettings.CreateDefault());
+
+        Assert.Equal(expectedDefinition, definition);
+        Assert.Equal(expectedDefinition, resolved.Definition);
+        Assert.Equal(expectedTiltProbeSteps, resolved.TiltProbeSteps);
+        Assert.Equal(expectedZProbeSteps, resolved.ZProbeSteps);
+        Assert.Equal(expectedBounds, resolved.Bounds);
+        Assert.Equal(resolved, repeated);
+    }
+
+    private static ScanAutofocusResolvedOptions ResolveBuiltInPreset(ScanAutofocusPresetKind kind)
+        => ScanAutofocusPresetResolver.Resolve(ScanAutofocusPresetCatalog.Get(kind), ScanMotorMechanicalSettings.CreateDefault());
+
     private static ScriptedFrame CalibrationFrame(byte id, string name, ushort even, ushort odd, ushort shieldEven, ushort shieldOdd)
         => new(id, name, (x, _) => x <= 7 ? ((x & 1) == 0 ? even : odd) : ((x & 1) == 0 ? shieldEven : shieldOdd));
 
+    private static ScriptedFrame ExactAdcRoiFrame(byte id, string name, ushort even, ushort odd, ushort shieldEven, ushort shieldOdd)
+        => new(id, name, (x, _) => x <= 1 ? ((x & 1) == 0 ? even : odd) : x <= 3 ? ((x & 1) == 0 ? shieldEven : shieldOdd) : (ushort)60000);
+
     private static ScriptedFrame FocusFrame(byte id, string name)
         => new(id, name, static (x, _) => x is 2 or 12 ? (ushort)100 : (ushort)0);
+
+    private static ScriptedFrame ExactFocusRoiFrame(byte id, string name)
+        => new(id, name, static (x, _) => x switch
+        {
+            0 or 1 or 3 or 4 => 0,
+            2 => 10,
+            5 => 20,
+            _ => 1000
+        });
 
     private static ScriptedFrame FlatFocusFrame(byte id, string name)
         => new(id, name, static (_, _) => 100);
@@ -488,6 +1349,24 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
             Assert.True(index >= 0, $"Missing ordered command '{command}' in: {string.Join(", ", commands)}");
             startIndex = index + 1;
         }
+    }
+
+    private static void AssertWarmUpBracketsScan(IReadOnlyList<string> commands, string scanCommand)
+    {
+        var scanIndex = -1;
+        for (var index = 0; index < commands.Count; index++)
+        {
+            if (commands[index] == scanCommand)
+            {
+                scanIndex = index;
+                break;
+            }
+        }
+
+        Assert.True(scanIndex > 0, $"Missing scan command '{scanCommand}' in: {string.Join(", ", commands)}");
+        Assert.True(scanIndex < commands.Count - 1, $"Missing warm-up cleanup after '{scanCommand}' in: {string.Join(", ", commands)}");
+        Assert.Equal("WarmUp:True:False", commands[scanIndex - 1]);
+        Assert.Equal("WarmUp:False:False", commands[scanIndex + 1]);
     }
 
     private sealed record ScriptedFrame(byte Id, string Name, Func<int, int, ushort> SampleAt, string? FailureMessage = null);
@@ -543,6 +1422,9 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public Task<ScanParameterSnapshot> LoadAsync(IScanSessionService session, CancellationToken ct)
             => Task.FromResult(new ScanParameterSnapshot(0, 0, 0, 0, 0, ScanDebugConstants.MinSysClockKhz));
 
+        public Task ApplyGlobalClockAsync(IScanSessionService session, uint sysClockKhz, CancellationToken ct)
+            => Task.CompletedTask;
+
         public Task ApplyAsync(IScanSessionService session, ScanParameterSnapshot snapshot, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -585,6 +1467,16 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public List<string> CapturedFrameNames { get; } = [];
         public CancellationTokenSource? CancelOnStartScan { get; init; }
         public bool ReturnRunningMotionState { get; init; }
+        public IReadOnlyList<ScanMotorState>? MotionStates { get; init; }
+        public bool ThrowOnStop { get; init; }
+        public byte? ThrowOnStopMotorId { get; init; }
+        public List<byte> StopAttemptedMotorIds { get; } = [];
+        public List<byte> StopCompletedMotorIds { get; } = [];
+        public List<bool> StopTokenCanBeCanceled { get; } = [];
+        public int SessionCallCount { get; private set; }
+        public int MotorIoCallCount { get; private set; }
+        public int StopCallCount { get; private set; }
+        public int StopCompletedCount { get; private set; }
         public ScanTargetState Targets => new(true, "fake-bulk-in", "fake-bulk-out");
         public bool IsConnected => true;
         public int SingleTransferMaxRows => ScanDebugConstants.CalibrationSampleRows;
@@ -615,7 +1507,12 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public Task<IReadOnlyList<ScanMotorState>> GetMotionStateAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            SessionCallCount++;
+            MotorIoCallCount++;
             commands.Add("MotionState");
+            if (MotionStates is not null)
+                return Task.FromResult(MotionStates);
+
             return Task.FromResult<IReadOnlyList<ScanMotorState>>(
             [
                 new ScanMotorState(0, true, ReturnRunningMotionState, false, 0, ScanDebugConstants.MotionMinIntervalNs, ReturnRunningMotionState ? 1u : 0u),
@@ -626,6 +1523,8 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public Task SetMotorEnabledAsync(byte motorId, bool enabled, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            SessionCallCount++;
+            MotorIoCallCount++;
             commands.Add($"MotorEnable:{motorId}:{enabled}");
             return Task.CompletedTask;
         }
@@ -633,6 +1532,8 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public Task MoveMotorStepsAsync(byte motorId, bool direction, uint steps, uint intervalNs, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            SessionCallCount++;
+            MotorIoCallCount++;
             commands.Add($"Move:{motorId}:{direction}:{steps}");
             return Task.CompletedTask;
         }
@@ -642,6 +1543,8 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         public Task<ScanMotorState> WaitForMotorMotionCompleteAsync(byte motorId, uint steps, uint intervalNs, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            SessionCallCount++;
+            MotorIoCallCount++;
             commands.Add($"Wait:{motorId}:{steps}");
             return Task.FromResult(new ScanMotorState(motorId, true, false, false, 0, intervalNs, 0));
         }
@@ -651,7 +1554,17 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
 
         public Task StopMotorAsync(byte motorId, CancellationToken ct)
         {
+            SessionCallCount++;
+            MotorIoCallCount++;
+            StopCallCount++;
+            StopAttemptedMotorIds.Add(motorId);
+            StopTokenCanBeCanceled.Add(ct.CanBeCanceled);
             commands.Add($"Stop:{motorId}:{ct.CanBeCanceled}");
+            if (ThrowOnStop || ThrowOnStopMotorId == motorId)
+                throw new IOException("planned stop failure");
+
+            StopCompletedMotorIds.Add(motorId);
+            StopCompletedCount++;
             return Task.CompletedTask;
         }
 
@@ -668,6 +1581,7 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
 
         public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
         {
+            SessionCallCount++;
             var frame = _frames.Dequeue();
             CapturedFrameNames.Add(frame.Name);
             commands.Add($"StartScan:{frame.Name}:{rows}");
@@ -694,5 +1608,25 @@ public sealed class Cal001AutoCalibrationAndFocusTests(ITestOutputHelper output)
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class InMemoryLocalSettingsService : ILocalSettingsService
+    {
+        private readonly Dictionary<string, object?> _values = new(StringComparer.Ordinal);
+
+        public List<string> SavedKeys { get; } = [];
+
+        public void Seed<T>(string key, T value)
+            => _values[key] = value;
+
+        public Task<T?> ReadSettingAsync<T>(string key)
+            => Task.FromResult(_values.TryGetValue(key, out var value) ? (T?)value : default);
+
+        public Task SaveSettingAsync<T>(string key, T value)
+        {
+            SavedKeys.Add(key);
+            _values[key] = value;
+            return Task.CompletedTask;
+        }
     }
 }

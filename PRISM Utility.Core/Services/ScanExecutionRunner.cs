@@ -19,6 +19,7 @@ internal sealed class ScanExecutionRunner
 
     public async Task<ScanStartResult> StartScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
+        ScanRowCountValidation.EnsureValidForHostBuffer(rows, nameof(rows));
         var targetBytes = rows * ScanDebugConstants.BytesPerLine;
         await _transferSettings.InitializeAsync();
         var transferSettings = _transferSettings.Settings;
@@ -71,6 +72,9 @@ internal sealed class ScanExecutionRunner
 
     public async Task<ScanStartResult> StartSegmentedScanAsync(IUsbBulkDuplexSession controlSession, IUsbBulkDuplexSession imageSession, int totalRows, int singleTransferMaxRows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
     {
+        ScanRowCountValidation.EnsureValidForHostBuffer(totalRows, nameof(totalRows));
+        if (singleTransferMaxRows <= 0)
+            throw new ArgumentOutOfRangeException(nameof(singleTransferMaxRows));
         if (totalRows <= singleTransferMaxRows)
             return await StartScanAsync(controlSession, imageSession, totalRows, ct, onStatus, onDiagnostic, onProgress, onRowsAvailable, expectedLineTimeUs);
 

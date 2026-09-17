@@ -14,7 +14,7 @@ public sealed class ScanFilmProfileDraftTests
 
         var document = Assert.IsType<ScanFilmParameterProfileSet>(result.Profile);
         Assert.Null(result.Error);
-        Assert.Equal(5, document.SchemaVersion);
+        Assert.Equal(6, document.SchemaVersion);
         Assert.Equal("Kodak Portra 400", document.ProfileName);
         Assert.Equal("Green", document.SelectedCalibrationChannel);
         Assert.Equal(new[] { "Blue", "Green" }, document.ChannelProfiles.Keys);

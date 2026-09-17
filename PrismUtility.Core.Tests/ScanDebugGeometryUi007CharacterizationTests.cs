@@ -18,6 +18,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
 
         Assert.Contains("NavigationCacheMode=\"Enabled\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PreviewScrollViewer\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"PreviewScrollViewer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ZoomMode=\"Enabled\"", xaml, StringComparison.Ordinal);
         Assert.Contains("MinZoomFactor=\"0.1\"", xaml, StringComparison.Ordinal);
         Assert.Contains("MaxZoomFactor=\"20\"", xaml, StringComparison.Ordinal);
@@ -62,11 +63,14 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
         var pointerPressed = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerPressed(object sender, PointerRoutedEventArgs e)");
         var pointerMoved = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerMoved(object sender, PointerRoutedEventArgs e)");
+        var pointerReleased = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerReleased(object sender, PointerRoutedEventArgs e)");
         var drawOverlays = ExtractMemberBodyAtDeclaration(codeBehind, "private void DrawRoiOverlays()");
-        var endDrag = ExtractMemberBodyAtDeclaration(codeBehind, "private void EndRoiDrag()");
+        var endDrag = ExtractMemberBodyAtDeclaration(codeBehind, "private void EndRoiDrag(PointerRoutedEventArgs e)");
+        var clearDrag = ExtractMemberBodyAtDeclaration(codeBehind, "private void ClearRoiDragState()");
         var drawAxes = ExtractMemberBodyAtDeclaration(codeBehind, "private void DrawAxes(int imageWidth, int imageHeight)");
 
         Assert.Contains("if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview) || ViewModel.PreviewFrame is null)", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.PreviewFrame.Width || point.Position.Y >= ViewModel.PreviewFrame.Height)", pointerPressed, StringComparison.Ordinal);
         Assert.Contains("Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewFrame.Width - 1, 0))", pointerPressed, StringComparison.Ordinal);
         Assert.Contains("_isColumnSampleDrag = ViewModel.CanMutateColumnSampleFromPreview;", pointerPressed, StringComparison.Ordinal);
         Assert.Contains("ViewModel.TryGetColumnSampleRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)", pointerPressed, StringComparison.Ordinal);
@@ -79,10 +83,18 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("SetDefaultCursorText();", pointerMoved, StringComparison.Ordinal);
         Assert.Contains("CursorPositionTextBlock.Text = \"ScanDebug_Runtime_CursorPosition\".GetLocalizedFormat(x, y);", pointerMoved, StringComparison.Ordinal);
         Assert.Contains("ViewModel.TryGetPreviewSample16(x, y, out var sample16)", pointerMoved, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.ShiftColumnSampleRange(x - _roiDragStartX, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.UpdateColumnSampleRange(_roiDragStartX, x, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.Contains("ApplyRoiMoveDragToX(x, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.ShiftColumnSampleRange(x - _roiDragStartX, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.ShiftSelectedRoiRange(x - _roiDragStartX, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.Contains("ApplyRoiDragRangeIfChanged(new ScanColumnRange(_roiDragStartX, x), bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.UpdateColumnSampleRange(_roiDragStartX, x, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.UpdateSelectedRoiRange(_roiDragStartX, x, bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.Contains("if (_isRoiMoveMode)", pointerReleased, StringComparison.Ordinal);
+        Assert.Contains("ApplyRoiMoveDragToX(x, bitmap.Width);", pointerReleased, StringComparison.Ordinal);
+        Assert.True(
+            pointerReleased.IndexOf("ApplyRoiMoveDragToX(x, bitmap.Width);", StringComparison.Ordinal)
+                < pointerReleased.IndexOf("PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);", StringComparison.Ordinal),
+            "Move-mode release should apply the original-range total delta before resize-mode forwarding can run.");
 
         Assert.Contains("if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.Width))", drawOverlays, StringComparison.Ordinal);
@@ -91,13 +103,292 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("StrokeThickness = overlay.IsSelected ? 2.5 : 1.5", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Canvas.SetLeft(rectangle, AxisMarginLeft + overlay.Range.Start);", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Canvas.SetTop(rectangle, AxisMarginTop);", drawOverlays, StringComparison.Ordinal);
-        Assert.Contains("Canvas.SetLeft(label, AxisMarginLeft + overlay.Range.Start + 4);", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("var labels = new List<(TextBlock Element, double AnchorX, bool IsSelected, bool IsBottomAnchored)>();", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("labels.Add((label, overlay.Range.Start, overlay.IsSelected, false));", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("ScanRoiOverlayLabelLayout.Arrange(bitmap.Width, bitmap.Height, layoutInputs)", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("Canvas.SetLeft(label, AxisMarginLeft + placement.X);", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("Canvas.SetTop(label, AxisMarginTop + placement.Y);", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("ViewModel.TryGetColumnSampleRange(bitmap.Width, out var sampleRange)", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("StrokeDashArray = new DoubleCollection { 4, 3 }", drawOverlays, StringComparison.Ordinal);
-        Assert.Contains("_isRoiDragging = false;", endDrag, StringComparison.Ordinal);
-        Assert.Contains("PreviewCanvasControl.ReleasePointerCaptures();", endDrag, StringComparison.Ordinal);
+        Assert.Contains("ClearRoiDragState();", endDrag, StringComparison.Ordinal);
+        Assert.Contains("_isRoiDragging = false;", clearDrag, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl.ReleasePointerCapture(e.Pointer);", endDrag, StringComparison.Ordinal);
+        Assert.DoesNotContain("PreviewCanvasControl.ReleasePointerCaptures();", endDrag, StringComparison.Ordinal);
         Assert.Contains("var xStep = GetTickStep(imageWidth);", drawAxes, StringComparison.Ordinal);
         Assert.Contains("var yStep = GetTickStep(imageHeight);", drawAxes, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(10, 19, 15, 100, 25, 34)]
+    [InlineData(10, 19, -20, 100, 0, 9)]
+    [InlineData(90, 99, 20, 100, 90, 99)]
+    public void Ui007_RoiDragMath_UsesOriginalRangeAndTotalDeltaSoDuplicateCoordinatesAreIdempotent(
+        int originalStart,
+        int originalEndInclusive,
+        int totalDeltaColumns,
+        int imageWidth,
+        int expectedStart,
+        int expectedEndInclusive)
+    {
+        var original = new ScanColumnRange(originalStart, originalEndInclusive);
+
+        var first = ScanRoiDragMath.CalculateMovedRange(original, totalDeltaColumns, imageWidth);
+        var duplicate = ScanRoiDragMath.CalculateMovedRange(original, totalDeltaColumns, imageWidth);
+
+        Assert.Equal(new ScanColumnRange(expectedStart, expectedEndInclusive), first);
+        Assert.Equal(first, duplicate);
+    }
+
+    [Fact]
+    public void Ui007_RoiDragMath_MultipleMoveEventsAndReleaseUseFinalTotalDeltaOnly()
+    {
+        var original = new ScanColumnRange(10, 19);
+        var firstMove = ScanRoiDragMath.CalculateMovedRange(original, 5, 100);
+        var secondMove = ScanRoiDragMath.CalculateMovedRange(original, 15, 100);
+        var releaseAtSameCoordinate = ScanRoiDragMath.CalculateMovedRange(original, 15, 100);
+
+        Assert.Equal(new ScanColumnRange(15, 24), firstMove);
+        Assert.Equal(new ScanColumnRange(25, 34), secondMove);
+        Assert.Equal(secondMove, releaseAtSameCoordinate);
+    }
+
+    [Fact]
+    public void Ui007_Roi_SourceOnly_MoveAndResizeShareCurrentRangeApplyGuardForDuplicateRelease()
+    {
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var pointerMoved = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerMoved(object sender, PointerRoutedEventArgs e)");
+        var pointerReleased = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerReleased(object sender, PointerRoutedEventArgs e)");
+        var moveApply = ExtractMemberBodyAtDeclaration(codeBehind, "private void ApplyRoiMoveDragToX(int x, int imageWidth)");
+        var rangeApply = ExtractMemberBodyAtDeclaration(codeBehind, "private void ApplyRoiDragRangeIfChanged(ScanColumnRange range, int imageWidth)");
+
+        Assert.Contains("ApplyRoiDragRangeIfChanged(range, imageWidth);", moveApply, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.UpdateColumnSampleRange", moveApply, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.UpdateSelectedRoiRange", moveApply, StringComparison.Ordinal);
+        Assert.Contains("ApplyRoiDragRangeIfChanged(new ScanColumnRange(_roiDragStartX, x), bitmap.Width);", pointerMoved, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);", pointerReleased, StringComparison.Ordinal);
+        Assert.Contains("if (_roiDragHasAppliedRange)", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetColumnSampleRange(imageWidth, out var currentRange)", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetSelectedRoiRange(imageWidth, out currentRange)", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("currentRangeValid && currentRange == range", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("_roiDragHasAppliedRange = true;", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.UpdateColumnSampleRange(range.Start, range.EndInclusive, imageWidth);", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.UpdateSelectedRoiRange(range.Start, range.EndInclusive, imageWidth);", rangeApply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_Roi_RangeValidationSeamsPreserveReleaseWithoutMoveAndRejectedResizeSemantics()
+    {
+        var releaseWithoutMoveRange = new ScanColumnRange(12, 12);
+
+        Assert.True(ScanImageReferenceColumnRange.TryCreate(releaseWithoutMoveRange, 32).IsValid);
+        Assert.Equal(releaseWithoutMoveRange, ScanImageReferenceColumnRange.TryCreate(releaseWithoutMoveRange, 32).Value!.ColumnRange);
+
+        var invertedResizeRange = new ScanColumnRange(12, 8);
+        var rejectedReference = ScanImageReferenceColumnRange.TryCreate(invertedResizeRange, 32);
+        var rejectedAdc = ScanAdcCalibrationRoi.TryCreate(
+            ScanCalibrationRoiSettings.CreateDefault() with { EffectiveRange = invertedResizeRange },
+            32);
+
+        Assert.Equal(ScanRoiValidationCode.Inverted, Assert.Single(rejectedReference.Issues).Code);
+        Assert.Contains(rejectedAdc.Issues, issue => issue.Code == ScanRoiValidationCode.Inverted && issue.FieldPath == "EffectiveRange");
+    }
+
+    [Fact]
+    public void Ui007_Roi_ScrollViewerPointerFallbackRoutesVisibleCanvasDragBeforePanning()
+    {
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var scrollPressed = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewScrollViewer_PointerPressed(object sender, PointerRoutedEventArgs e)");
+        var scrollMoved = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewScrollViewer_PointerMoved(object sender, PointerRoutedEventArgs e)");
+        var scrollReleased = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewScrollViewer_PointerReleased(object sender, PointerRoutedEventArgs e)");
+        var scrollCanceled = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewScrollViewer_PointerCanceled(object sender, PointerRoutedEventArgs e)");
+
+        Assert.Contains("PreviewCanvasControl_PointerPressed(PreviewCanvasControl, e);", scrollPressed, StringComparison.Ordinal);
+        Assert.Contains("if (e.Handled)", scrollPressed, StringComparison.Ordinal);
+        Assert.True(
+            scrollPressed.IndexOf("PreviewCanvasControl_PointerPressed(PreviewCanvasControl, e);", StringComparison.Ordinal)
+                < scrollPressed.IndexOf("_isPanning = true;", StringComparison.Ordinal),
+            "ROI drag should get first chance before ScrollViewer panning captures the left button.");
+        Assert.Contains("if (_isRoiDragging)", scrollMoved, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);", scrollMoved, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl_PointerReleased(PreviewCanvasControl, e);", scrollReleased, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl_PointerCanceled(PreviewCanvasControl, e);", scrollCanceled, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_Roi_SourceOnly_CaptureLostCancelsDragOrPanWithoutPhantomCommit()
+    {
+        var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var canvasCaptureLost = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewCanvasControl_PointerCaptureLost(object sender, PointerRoutedEventArgs e)");
+        var scrollCaptureLost = ExtractMemberBodyAtDeclaration(codeBehind, "private void PreviewScrollViewer_PointerCaptureLost(object sender, PointerRoutedEventArgs e)");
+        var endLost = ExtractMemberBodyAtDeclaration(codeBehind, "private void EndRoiDragOrPanForPointer(PointerRoutedEventArgs e)");
+
+        Assert.Contains("PointerCaptureLost=\"PreviewCanvasControl_PointerCaptureLost\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PointerCaptureLost=\"PreviewScrollViewer_PointerCaptureLost\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("EndRoiDragOrPanForPointer(e);", canvasCaptureLost, StringComparison.Ordinal);
+        Assert.Contains("EndRoiDragOrPanForPointer(e);", scrollCaptureLost, StringComparison.Ordinal);
+        Assert.Contains("if (_isRoiDragging && point == _activeRoiPointerId)", endLost, StringComparison.Ordinal);
+        Assert.Contains("if (_isPanning && point == _activePanPointerId)", endLost, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateSelectedRoiRange", endLost, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateColumnSampleRange", endLost, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_Roi_SourceOnly_WindowDeactivationCancelsPreviewInteractionBeforeAsyncLifecycleWork()
+    {
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var loaded = ExtractMemberBodyAtDeclaration(codeBehind, "private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)");
+        var unloaded = ExtractMemberBodyAtDeclaration(codeBehind, "private async void OnUnloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)");
+        var activated = ExtractMemberBodyAtDeclaration(codeBehind, "private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)");
+
+        Assert.Contains("App.MainWindow.Activated -= MainWindow_Activated;", loaded, StringComparison.Ordinal);
+        Assert.Contains("App.MainWindow.Activated += MainWindow_Activated;", loaded, StringComparison.Ordinal);
+        Assert.True(
+            loaded.IndexOf("App.MainWindow.Activated += MainWindow_Activated;", StringComparison.Ordinal)
+                < loaded.IndexOf("await ViewModel.RefreshDeviceSettingsBindingsAsync();", StringComparison.Ordinal),
+            "Window deactivation must be subscribed before the first awaited loaded operation can leave a held preview interaction stale.");
+
+        Assert.Contains("App.MainWindow.Activated -= MainWindow_Activated;", unloaded, StringComparison.Ordinal);
+        Assert.Contains("CancelPreviewVisualInteraction();", unloaded, StringComparison.Ordinal);
+        Assert.True(
+            unloaded.IndexOf("App.MainWindow.Activated -= MainWindow_Activated;", StringComparison.Ordinal)
+                < unloaded.IndexOf("await ViewModel.DeactivateAsync();", StringComparison.Ordinal),
+            "Unloaded must unsubscribe before async teardown to avoid retaining the page through the main window event.");
+        Assert.True(
+            unloaded.IndexOf("CancelPreviewVisualInteraction();", StringComparison.Ordinal)
+                < unloaded.IndexOf("await ViewModel.DeactivateAsync();", StringComparison.Ordinal),
+            "Preview interaction cancel is page-local state cleanup and must run before VM deactivation.");
+
+        Assert.Contains("WindowActivationState.Deactivated", activated, StringComparison.Ordinal);
+        Assert.Contains("CancelPreviewVisualInteraction();", activated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_Roi_SourceOnly_ResponsivePreviewHideCancelsPreviewInteractionBeforeCollapse()
+    {
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var owner = ExtractMemberBodyAtDeclaration(codeBehind, "private void UpdateWorkbenchPreviewLayout(double availableWidth)");
+
+        Assert.Contains("if (!layout.IsPreviewVisible)", owner, StringComparison.Ordinal);
+        Assert.Contains("CancelPreviewVisualInteraction();", owner, StringComparison.Ordinal);
+        Assert.True(
+            owner.IndexOf("CancelPreviewVisualInteraction();", StringComparison.Ordinal)
+                < owner.IndexOf("WorkbenchPreviewColumnContent.Visibility = ToVisibility(layout.IsPreviewVisible);", StringComparison.Ordinal),
+            "Responsive layout owner must clear held preview interactions before collapsing or hiding the preview column.");
+    }
+
+    [Fact]
+    public void Ui007_Roi_SourceOnly_LifecycleCancelClearsPreviewStateBeforeReleasingCapturesWithoutVmMutation()
+    {
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var cancel = ExtractMemberBodyAtDeclaration(codeBehind, "private void CancelPreviewVisualInteraction()");
+        var clearRoi = ExtractMemberBodyAtDeclaration(codeBehind, "private void ClearRoiDragState()");
+        var clearPan = ExtractMemberBodyAtDeclaration(codeBehind, "private void ClearPanState()");
+        var endDrag = ExtractMemberBodyAtDeclaration(codeBehind, "private void EndRoiDrag(PointerRoutedEventArgs e)");
+        var endPan = ExtractMemberBodyAtDeclaration(codeBehind, "private void EndPanning(PointerRoutedEventArgs e)");
+
+        Assert.Contains("_isRoiDragging = false;", clearRoi, StringComparison.Ordinal);
+        Assert.Contains("_isColumnSampleDrag = false;", clearRoi, StringComparison.Ordinal);
+        Assert.Contains("_isPanning = false;", clearPan, StringComparison.Ordinal);
+        Assert.Contains("_activePanPointerId = 0;", clearPan, StringComparison.Ordinal);
+
+        Assert.Contains("ClearRoiDragState();", endDrag, StringComparison.Ordinal);
+        Assert.Contains("ClearPanState();", endPan, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl.ReleasePointerCapture(e.Pointer);", endDrag, StringComparison.Ordinal);
+        Assert.Contains("PreviewScrollViewer.ReleasePointerCapture(e.Pointer);", endPan, StringComparison.Ordinal);
+        Assert.True(
+            endDrag.IndexOf("ClearRoiDragState();", StringComparison.Ordinal)
+                < endDrag.IndexOf("PreviewCanvasControl.ReleasePointerCapture(e.Pointer);", StringComparison.Ordinal),
+            "Pointer-specific ROI cleanup must clear page state before releasing capture because capture release can re-enter handlers.");
+        Assert.True(
+            endPan.IndexOf("ClearPanState();", StringComparison.Ordinal)
+                < endPan.IndexOf("PreviewScrollViewer.ReleasePointerCapture(e.Pointer);", StringComparison.Ordinal),
+            "Pointer-specific pan cleanup must clear page state before releasing capture because capture release can re-enter handlers.");
+
+        Assert.Contains("ClearRoiDragState();", cancel, StringComparison.Ordinal);
+        Assert.Contains("ClearPanState();", cancel, StringComparison.Ordinal);
+        Assert.Contains("PreviewCanvasControl.ReleasePointerCaptures();", cancel, StringComparison.Ordinal);
+        Assert.Contains("PreviewScrollViewer.ReleasePointerCaptures();", cancel, StringComparison.Ordinal);
+        Assert.True(
+            cancel.IndexOf("ClearRoiDragState();", StringComparison.Ordinal)
+                < cancel.IndexOf("PreviewCanvasControl.ReleasePointerCaptures();", StringComparison.Ordinal),
+            "Lifecycle cancel must clear ROI drag state before releasing all canvas captures.");
+        Assert.True(
+            cancel.IndexOf("ClearPanState();", StringComparison.Ordinal)
+                < cancel.IndexOf("PreviewScrollViewer.ReleasePointerCaptures();", StringComparison.Ordinal),
+            "Lifecycle cancel must clear pan state before releasing all scroll viewer captures.");
+
+        Assert.DoesNotContain("ViewModel.", cancel, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateSelectedRoiRange", cancel, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateColumnSampleRange", cancel, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeactivateAsync", cancel, StringComparison.Ordinal);
+        Assert.DoesNotContain("Command.Execute", cancel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_RoiLayout_SourceOnly_EditorsWrapActionsAndKeepTechnicalPathsSecondary()
+    {
+        var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard");
+        var reference = ExtractNamedRegion(xaml, "ImageReferenceRoiEditorCard", "ChannelCalibrationIlluminationCard");
+        var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_ManualFocusTitle");
+        var referenceColumnSampleTextBoxIndex = reference.IndexOf("ReferenceColumnSampleStartTextBox", StringComparison.Ordinal);
+
+        Assert.True(referenceColumnSampleTextBoxIndex >= 0, "Reference editor column sample start input should remain in the reference editor card.");
+        var referenceColumnSampleOwningGridStart = reference.LastIndexOf("<Grid ColumnSpacing=\"{StaticResource ScanDebugInlineSpacing}\"", referenceColumnSampleTextBoxIndex, StringComparison.Ordinal);
+        var referenceColumnSampleOwningGridEnd = reference.IndexOf("ColumnSampleStatusText", referenceColumnSampleTextBoxIndex, StringComparison.Ordinal);
+        Assert.True(referenceColumnSampleOwningGridStart >= 0, "Reference column sample input should be owned by the inline two-column grid.");
+        Assert.True(referenceColumnSampleOwningGridEnd >= 0, "Reference column sample owning grid should precede the column sample status text.");
+        var referenceColumnSampleOwningGrid = reference[referenceColumnSampleOwningGridStart..referenceColumnSampleOwningGridEnd];
+
+        foreach (var editor in new[] { adc, focus })
+        {
+            Assert.Contains("Grid.ColumnSpan=\"2\"", editor, StringComparison.Ordinal);
+            Assert.Contains("<controls:WrapPanel Grid.Row=\"3\"", editor, StringComparison.Ordinal);
+            Assert.Contains("ContentTemplate=\"{StaticResource ScanDebugWrappingButtonContentTemplate}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("ToolTipService.ToolTip=\"{Binding TechnicalPath}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("AutomationProperties.HelpText=\"{Binding TechnicalPath}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("HorizontalContentAlignment=\"Stretch\"", editor, StringComparison.Ordinal);
+            Assert.Contains("TextWrapping=\"Wrap\"", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("Spacing=\"2\"", editor, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("ToolTipService.ToolTip=\"{Binding TechnicalPath}\"", reference, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HelpText=\"{Binding TechnicalPath}\"", reference, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"Wrap\"", reference, StringComparison.Ordinal);
+        Assert.Contains("HorizontalContentAlignment=\"Stretch\"", reference, StringComparison.Ordinal);
+        Assert.Contains("ContentTemplate=\"{StaticResource ScanDebugWrappingButtonContentTemplate}\"", reference, StringComparison.Ordinal);
+        Assert.Contains("HeaderTemplate=\"{StaticResource ScanDebugWrappingToggleHeaderTemplate}\"", reference, StringComparison.Ordinal);
+        Assert.Equal(3, CountOccurrences(referenceColumnSampleOwningGrid, "<RowDefinition Height=\"Auto\"/>"));
+        Assert.Contains("ReferenceColumnSampleStartTextBox", referenceColumnSampleOwningGrid, StringComparison.Ordinal);
+        Assert.Contains("Grid.Row=\"0\"", ExtractNamedRegion(referenceColumnSampleOwningGrid, "ReferenceColumnSampleStartTextBox", "ReferenceColumnSampleEndTextBox"), StringComparison.Ordinal);
+        Assert.Contains("<ToggleSwitch Grid.Row=\"1\"", referenceColumnSampleOwningGrid, StringComparison.Ordinal);
+        Assert.Contains("<TextBlock Grid.Row=\"2\"", referenceColumnSampleOwningGrid, StringComparison.Ordinal);
+        Assert.Contains("Grid.ColumnSpan=\"2\"", ExtractNamedRegion(reference, "ScanDebug_ColumnSampleEditToggleSwitch", "ScanDebug_ImageReferenceRoiEditorScopeText"), StringComparison.Ordinal);
+        Assert.Contains("<TextBlock Grid.Row=\"2\"", ExtractNamedRegion(reference, "ScanDebug_ColumnSampleEditToggleSwitch", "ColumnSampleStatusText"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo22_SourceOnly_WorkbenchPreviewLayoutHasOneCodeBehindOwnerWithoutAdaptiveCompetition()
+    {
+        var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var split = ExtractNamedRegion(xaml, "WorkbenchContentSplitGrid", "BasicInfoSection");
+        var owner = ExtractMemberBodyAtDeclaration(codeBehind, "private void UpdateWorkbenchPreviewLayout(double availableWidth)");
+
+        Assert.DoesNotContain("<AdaptiveTrigger", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("VisualState.Setters", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("WorkbenchPreviewSplitMinimumWidth", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition x:Name=\"WorkbenchEditorRow\"", split, StringComparison.Ordinal);
+        Assert.Contains("Height=\"*\"/>", split, StringComparison.Ordinal);
+        Assert.DoesNotContain("WorkbenchPreviewRow", split, StringComparison.Ordinal);
+        Assert.Contains("<ColumnDefinition x:Name=\"WorkbenchPreviewSeparatorColumn\"", split, StringComparison.Ordinal);
+        Assert.Contains("ScanWorkbenchPreviewLayout.Calculate", owner, StringComparison.Ordinal);
+        Assert.Contains("WorkbenchEditorColumn.Width = new GridLength(layout.EditorWidth);", owner, StringComparison.Ordinal);
+        Assert.Contains("WorkbenchPreviewSeparatorColumn.Width = new GridLength(layout.SeparatorWidth);", owner, StringComparison.Ordinal);
+        Assert.Contains("WorkbenchPreviewColumn.Width = new GridLength(layout.PreviewWidth);", owner, StringComparison.Ordinal);
+        Assert.Contains("WorkbenchEditorColumnContent.Visibility = ToVisibility(layout.IsEditorVisible);", owner, StringComparison.Ordinal);
+        Assert.Contains("WorkbenchPreviewColumnContent.Visibility = ToVisibility(layout.IsPreviewVisible);", owner, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -117,8 +408,10 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         {
             "IsEnabled=\"{x:Bind ViewModel.CanEditRoiSelection, Mode=OneWay}\"",
             "IsOn=\"{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}\"",
-            "ItemsSource=\"{x:Bind ViewModel.RoiSelectionOptions, Mode=OneWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedRoiSelection, Mode=TwoWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.AdcRoiSelectionOptions, Mode=OneWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedAdcRoiSelection, Mode=TwoWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedFocusRoiSelection, Mode=TwoWay}\"",
             "Command=\"{x:Bind ViewModel.ResetSelectedRoiCommand}\"",
             "Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"",
             "IsChecked=\"{x:Bind ViewModel.IsBwActiveRoiOverlayVisible, Mode=TwoWay}\"",
@@ -126,9 +419,10 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
             "IsChecked=\"{x:Bind ViewModel.IsFocusOverallRoiOverlayVisible, Mode=TwoWay}\"",
             "IsChecked=\"{x:Bind ViewModel.IsFocusLeftRoiOverlayVisible, Mode=TwoWay}\"",
             "IsChecked=\"{x:Bind ViewModel.IsFocusRightRoiOverlayVisible, Mode=TwoWay}\"",
+            "IsChecked=\"{x:Bind ViewModel.IsImageReferenceOverlayVisible, Mode=TwoWay}\"",
             "Text=\"{x:Bind ViewModel.RoiStatusText, Mode=OneWay}\"",
-            "Text=\"{x:Bind ViewModel.RoiStartInput, Mode=TwoWay}\"",
-            "Text=\"{x:Bind ViewModel.RoiEndInput, Mode=TwoWay}\"",
+            "Text=\"{x:Bind ViewModel.RoiStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.RoiEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
             "Command=\"{x:Bind ViewModel.ApplySelectedRoiInputsCommand}\"",
             "Text=\"{x:Bind ViewModel.RoiInputStatusText, Mode=OneWay}\""
         })
@@ -138,18 +432,22 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
 
         Assert.Contains("private static readonly string[] RoiSelectionLabels = { \"BW Active\", \"BW Shield\", \"Focus Overall\", \"Focus Left\", \"Focus Right\" };", viewModel, StringComparison.Ordinal);
         Assert.Contains("public ObservableCollection<string> RoiSelectionOptions { get; } = new(RoiSelectionLabels);", viewModel, StringComparison.Ordinal);
-        Assert.Contains("SelectedRoiSelection = RoiSelectionOptions[0];", constructorDefaults, StringComparison.Ordinal);
+        Assert.Contains("SelectedAdcRoiSelection = AdcRoiSelectionOptions[0];", constructorDefaults, StringComparison.Ordinal);
+        Assert.Contains("SelectedFocusRoiSelection = FocusRoiSelectionOptions[0];", constructorDefaults, StringComparison.Ordinal);
+        Assert.Contains("SelectedRoiSelection = SelectedAdcRoiSelection;", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("IsBwActiveRoiOverlayVisible = true;", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("RoiStartInput = \"0\";", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("RoiEndInput = \"0\";", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiStatus();", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiInputTexts();", selectedChanged, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiStatus();", selectedChanged, StringComparison.Ordinal);
+        Assert.Contains("SynchronizeOwnerRoiSelections(value);", selectedChanged, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeChanged\".GetLocalized();", startChanged, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeChanged\".GetLocalized();", endChanged, StringComparison.Ordinal);
-        Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiStartIntegerRequired\".GetLocalized();", applyInputs, StringComparison.Ordinal);
-        Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiEndIntegerRequired\".GetLocalized();", applyInputs, StringComparison.Ordinal);
-        Assert.Contains("UpdateSelectedRoiRange(start, endInclusive, GetRoiEditingWidth());", applyInputs, StringComparison.Ordinal);
+        Assert.Contains("TryBuildRoiEditCandidate(out var candidate, out var issue)", applyInputs, StringComparison.Ordinal);
+        Assert.Contains("RoiInputStatusText = FormatRoiEditIssue(issue);", applyInputs, StringComparison.Ordinal);
+        Assert.Contains("_roiSettings = candidate;", applyInputs, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateSelectedRoiRange", applyInputs, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeApplied\".GetLocalized();", applyInputs, StringComparison.Ordinal);
         Assert.Contains("_isUpdatingRoiInputs = true;", refreshInputs, StringComparison.Ordinal);
         Assert.Contains("RoiStartInput = range.Start.ToString();", refreshInputs, StringComparison.Ordinal);
@@ -305,7 +603,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
             Assert.DoesNotContain(forbidden, app, StringComparison.Ordinal);
         }
 
-        Assert.Contains("services.AddTransient<ScanDebugViewModel>()", app, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<ScanDebugViewModel>()", app, StringComparison.Ordinal);
         Assert.Contains("services.AddTransient<ScanDebugPage>()", app, StringComparison.Ordinal);
     }
 
@@ -367,6 +665,28 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         }
 
         throw new InvalidOperationException($"Could not extract body for: {context}");
+    }
+
+    private static string ExtractNamedRegion(string source, string startName, string endName)
+    {
+        var start = source.IndexOf(startName, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Could not find region start: {startName}");
+        var end = source.IndexOf(endName, start + startName.Length, StringComparison.Ordinal);
+        Assert.True(end >= 0, $"Could not find region end after {startName}: {endName}");
+        return source[start..end];
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     private static string FindHostSoftwareRoot()

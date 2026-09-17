@@ -3,6 +3,13 @@ using PRISM_Utility.Core.Models;
 
 namespace PRISM_Utility.Models;
 
+public enum ScanDebugCaptureMode
+{
+    Single,
+    Continuous,
+    Transport
+}
+
 public sealed record ScanCompositeFrame(ScanCompositePixelBuffer Buffer, WriteableBitmap Bitmap)
 {
     public byte[] Pixels => Buffer.Pixels;

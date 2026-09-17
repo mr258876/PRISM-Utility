@@ -10,14 +10,13 @@ public sealed class ScanIlluminationService : IScanIlluminationService
 
     public async Task ApplyStateAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
     {
-        await session.SetIlluminationLevelsAsync(state.Led1Level, state.Led2Level, state.Led3Level, state.Led4Level, ct);
-        await session.SetSyncPulseClocksAsync(state.Led1PulseClock, state.Led2PulseClock, state.Led3PulseClock, state.Led4PulseClock, ct);
-        await session.SetSteadyIlluminationAsync(state.SteadyMask, ct);
-        await session.ConfigureExposureLightingAsync(state.SyncMask, ct);
+        ValidateState(state);
+        await ApplyValidatedStateAsync(session, state, ct);
     }
 
     public async Task ApplyStateWithSafeTransitionAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
     {
+        ValidateState(state);
         var currentState = await session.GetIlluminationStateAsync(ct);
         if (currentState.SyncMask != 0)
             await session.ConfigureExposureLightingAsync(0, ct);
@@ -25,11 +24,14 @@ public sealed class ScanIlluminationService : IScanIlluminationService
         if (currentState.SteadyMask != 0)
             await session.SetSteadyIlluminationAsync(0, ct);
 
-        await ApplyStateAsync(session, state, ct);
+        await ApplyValidatedStateAsync(session, state, ct);
     }
 
     public async Task ApplySingleChannelAsync(IScanSessionService session, ScanFilmAcquisitionSettings settings, byte ledIndex, CancellationToken ct)
     {
+        if (ledIndex >= ScanDebugConstants.IlluminationChannelCount)
+            throw new ArgumentOutOfRangeException(nameof(ledIndex));
+
         var normalized = settings.Normalize();
         var levels = new ushort[ScanDebugConstants.IlluminationChannelCount];
         levels[ledIndex] = ledIndex switch
@@ -72,9 +74,23 @@ public sealed class ScanIlluminationService : IScanIlluminationService
 
     public async Task RestoreStateAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
     {
+        ValidateState(state);
+        await session.ConfigureExposureLightingAsync(0, ct);
+        await session.SetSteadyIlluminationAsync(0, ct);
         await session.SetIlluminationLevelsAsync(state.Led1Level, state.Led2Level, state.Led3Level, state.Led4Level, ct);
+        await session.SetSyncPulseClocksAsync(state.Led1PulseClock, state.Led2PulseClock, state.Led3PulseClock, state.Led4PulseClock, ct);
         await session.SetSteadyIlluminationAsync(state.SteadyMask, ct);
         await session.ConfigureExposureLightingAsync(state.SyncMask, ct);
+    }
+
+    private static void ValidateState(ScanIlluminationState state)
+        => ScanIlluminationValidator.ValidateState(state, "rawIllumination").ThrowIfInvalid();
+
+    private static async Task ApplyValidatedStateAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
+    {
+        await session.SetIlluminationLevelsAsync(state.Led1Level, state.Led2Level, state.Led3Level, state.Led4Level, ct);
         await session.SetSyncPulseClocksAsync(state.Led1PulseClock, state.Led2PulseClock, state.Led3PulseClock, state.Led4PulseClock, ct);
+        await session.SetSteadyIlluminationAsync(state.SteadyMask, ct);
+        await session.ConfigureExposureLightingAsync(state.SyncMask, ct);
     }
 }

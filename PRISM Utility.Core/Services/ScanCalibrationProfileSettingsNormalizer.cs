@@ -75,7 +75,7 @@ internal static class ScanCalibrationProfileSettingsNormalizer
         foreach (var pair in source)
         {
             var role = RequireRole(pair.Key);
-            if (!TryNormalizeProfile(pair.Value, out var profile))
+            if (!TryValidateProfile(pair.Value, out var profile))
                 throw new ArgumentOutOfRangeException(nameof(source), "Calibration profile contains unsupported scan parameters.");
             if (!normalizedProfiles.TryAdd(role, profile))
                 throw new ArgumentException("Calibration profile roles must be unique ignoring case.", nameof(source));
@@ -86,6 +86,9 @@ internal static class ScanCalibrationProfileSettingsNormalizer
 
     public static bool TryNormalizeProfile(ScanChannelCalibrationProfile? profile, out ScanChannelCalibrationProfile normalized)
     {
+        if (TryValidateProfile(profile, out normalized))
+            return true;
+
         if (profile is null
             || profile.Parameters is null
             || !ScanDebugValidation.TryNormalizeSnapshot(profile.Parameters, out var parameters))
@@ -104,6 +107,24 @@ internal static class ScanCalibrationProfileSettingsNormalizer
             (profile.RoiSettings ?? ScanCalibrationRoiSettings.CreateDefault()).Normalize(),
             blackLevel,
             whiteLevel);
+        return true;
+    }
+
+    public static bool TryValidateProfile(ScanChannelCalibrationProfile? profile, out ScanChannelCalibrationProfile validated)
+    {
+        if (profile is null
+            || profile.Parameters is null
+            || !ScanDebugValidation.TryNormalizeSnapshot(profile.Parameters, out _)
+            || !ScanAdcCalibrationRoi.TryCreate(profile.RoiSettings, ScanDebugConstants.DecodedPixelsPerLine).IsValid
+            || !ScanFocusRoi.TryCreate(profile.RoiSettings, ScanDebugConstants.DecodedPixelsPerLine).IsValid
+            || profile.WhiteLevel is 0
+            || (profile.BlackLevel is not null && profile.WhiteLevel is not null && profile.BlackLevel >= profile.WhiteLevel))
+        {
+            validated = CreateDefaultProfile();
+            return false;
+        }
+
+        validated = profile;
         return true;
     }
 
