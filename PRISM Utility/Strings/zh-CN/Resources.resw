@@ -4138,6 +4138,8 @@
   <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringTools.Text" xml:space="preserve"><value>6. 工程工具</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringToolsComboBoxItem.Content" xml:space="preserve"><value>6. 工程工具</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title" xml:space="preserve"><value>当前配置验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle.Text" xml:space="preserve"><value>当前配置验证</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription.Text" xml:space="preserve"><value>查看当前配置问题；可定位的问题会跳转到对应编辑字段。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>暂存导入验证</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>尚未验证</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>有效</value></data>

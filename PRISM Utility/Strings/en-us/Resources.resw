@@ -4136,6 +4136,8 @@
   <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringTools.Text" xml:space="preserve"><value>6. Engineering tools</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchSectionEngineeringToolsComboBoxItem.Content" xml:space="preserve"><value>6. Engineering tools</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title" xml:space="preserve"><value>Current profile validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle.Text" xml:space="preserve"><value>Current profile validation</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription.Text" xml:space="preserve"><value>Review current profile issues and jump to editable fields when a target is available.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>Staged import validation</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>Not validated</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>Valid</value></data>

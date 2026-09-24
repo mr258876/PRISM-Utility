@@ -66,6 +66,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text", "Start, stop, progress, capture mode, and debug DNG export controls for the current live calibration session. Disabled reasons below each command describe why hardware or capture output is not available yet.", "当前实时校准会话的启动、停止、进度、采集模式和调试 DNG 导出控件。每个命令旁的禁用原因说明硬件或采集输出为何暂不可用。"),
         ("ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text", "Progress appears here while a scan is running.", "扫描运行时会在这里显示进度。"),
         ("ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title", "Current profile validation", "当前配置验证"),
+        ("ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle.Text", "Current profile validation", "当前配置验证"),
         ("ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text", "Staged import validation", "暂存导入验证"),
         ("ScanDebug_FilmProfileWorkbenchValidationNotRun", "Not validated", "尚未验证"),
         ("ScanDebug_FilmProfileWorkbenchValidationValid", "Valid", "有效"),
@@ -387,6 +388,36 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         {
             Assert.Contains(english, key => key.StartsWith(uid + ".", StringComparison.Ordinal));
             Assert.Contains(chinese, key => key.StartsWith(uid + ".", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void ScanDebugCurrentValidationTitleUids_SeparateTextBlockTextResourcesFromInfoBarTitleResources()
+    {
+        const string infoBarUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTitle";
+        const string textBlockUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle";
+        var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
+
+        Assert.Equal(2, CountOccurrences(xaml, $"x:Uid=\"{textBlockUid}\""));
+        Assert.DoesNotContain($"<TextBlock x:Uid=\"{infoBarUid}\"", xaml, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(xaml, $"<InfoBar x:Uid=\"{infoBarUid}\""));
+
+        foreach (var (culture, expectedTitle) in new[]
+        {
+            ("en-us", "Current profile validation"),
+            ("zh-CN", "当前配置验证")
+        })
+        {
+            var resources = ReadResources(culture);
+            var names = resources.Keys.ToHashSet(StringComparer.Ordinal);
+
+            Assert.True(resources.TryGetValue($"{textBlockUid}.Text", out var textBlockTitle), $"Missing {culture} TextBlock title resource.");
+            Assert.Equal(expectedTitle, textBlockTitle);
+            Assert.DoesNotContain($"{textBlockUid}.Title", names);
+
+            Assert.True(resources.TryGetValue($"{infoBarUid}.Title", out var infoBarTitle), $"Missing {culture} InfoBar title resource.");
+            Assert.Equal(expectedTitle, infoBarTitle);
+            Assert.DoesNotContain($"{infoBarUid}.Text", names);
         }
     }
 
@@ -756,4 +787,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             }
         }
     }
+
+    private static int CountOccurrences(string source, string value)
+        => source.Split(value, StringSplitOptions.None).Length - 1;
 }

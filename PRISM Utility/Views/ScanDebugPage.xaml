@@ -10,6 +10,7 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:helpers="using:PRISM_Utility.Helpers"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:views="using:PRISM_Utility.Views"
     behaviors:NavigationViewHeaderBehavior.HeaderMode="Never"
     NavigationCacheMode="Enabled"
     mc:Ignorable="d">
@@ -65,8 +66,49 @@
         </DataTemplate>
         <DataTemplate x:Key="ScanDebugWrappingToggleHeaderTemplate">
             <TextBlock Text="{Binding}"
-                       TextWrapping="WrapWholeWords"/>
+                        TextWrapping="WrapWholeWords"/>
         </DataTemplate>
+        <DataTemplate x:Key="FilmProfileNavigableValidationIssueTemplate">
+            <Button Command="{Binding DataContext.NavigateToCurrentFilmProfileValidationIssueCommand, ElementName=ScanDebugRootGrid}"
+                    CommandParameter="{Binding}"
+                    AutomationProperties.AutomationId="{Binding AutomationId}"
+                    AutomationProperties.Name="{Binding AutomationName}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="4"
+                            ToolTipService.ToolTip="{Binding FieldPath}">
+                    <TextBlock Text="{Binding Message}"
+                               TextWrapping="WrapWholeWords"/>
+                    <TextBlock Text="{Binding FieldPath}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+        <DataTemplate x:Key="FilmProfilePassiveValidationIssueTemplate">
+            <ContentControl AutomationProperties.AutomationId="{Binding AutomationId}"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.AccessibilityView="Content"
+                            IsTabStop="False">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="{StaticResource ScanDebugCardBorderThickness}"
+                        CornerRadius="{StaticResource ScanDebugCardCornerRadius}"
+                        Padding="8">
+                    <StackPanel Spacing="4"
+                                ToolTipService.ToolTip="{Binding FieldPath}">
+                        <TextBlock Text="{Binding Message}"
+                                   TextWrapping="WrapWholeWords"/>
+                        <TextBlock Text="{Binding FieldPath}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </ContentControl>
+        </DataTemplate>
+        <views:FilmProfileValidationIssueTemplateSelector
+            x:Key="FilmProfileValidationIssueTemplateSelector"
+            NavigableTemplate="{StaticResource FilmProfileNavigableValidationIssueTemplate}"
+            PassiveTemplate="{StaticResource FilmProfilePassiveValidationIssueTemplate}"/>
         <Style x:Key="ScanDebugSectionCardStyle"
                TargetType="Border">
             <Setter Property="BorderBrush"
@@ -133,9 +175,16 @@
             AutomationProperties.AutomationId="FilmProfileLifecycleHeader"
             AutomationProperties.AccessibilityView="Control"
             Margin="{StaticResource ScanDebugHeaderMargin}"
+            MaxHeight="360"
             Style="{StaticResource ScanDebugSectionCardStyle}">
-            <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}">
-                <Grid ColumnSpacing="{StaticResource ScanDebugSectionSpacing}"
+            <Grid RowSpacing="{StaticResource ScanDebugSectionSpacing}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0"
+                      ColumnSpacing="{StaticResource ScanDebugSectionSpacing}"
                       RowSpacing="{StaticResource ScanDebugInlineSpacing}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -189,7 +238,8 @@
                         </Grid>
                     </StackPanel>
 
-                    <controls:WrapPanel Grid.Row="1"
+                    <controls:WrapPanel x:Name="FilmProfileLifecycleActionsPanel"
+                                        Grid.Row="1"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Top"
                                         HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
@@ -217,80 +267,141 @@
                     </controls:WrapPanel>
                 </Grid>
 
-                <InfoBar
-                    x:Name="FilmProfileOperationInfoBar"
-                    x:Uid="ScanDebug_FilmProfileWorkbenchOperationInfoBar"
-                    AutomationProperties.AutomationId="FilmProfileOperationInfoBar"
-                    IsOpen="{x:Bind ViewModel.FilmProfileOperationIsOpen, Mode=TwoWay}"
-                    Message="{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}"
-                    Severity="{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}"/>
-
-                <Border
-                    x:Name="StagedFilmProfileImportReview"
-                    x:Uid="ScanDebug_StagedFilmProfileImportReview"
-                    AutomationProperties.AutomationId="StagedFilmProfileImportReview"
-                    AutomationProperties.AccessibilityView="Control"
-                    Style="{StaticResource ScanDebugSectionCardStyle}"
-                    Visibility="{x:Bind ViewModel.FilmProfileImportResultReviewVisibility, Mode=OneWay}">
-                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
-                        <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportTitle"
-                                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                        <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportHelpText"
-                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                              RowSpacing="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0"
-                                       Grid.Column="0"
-                                       x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportNameLabel"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Grid.Row="0"
-                                       Grid.Column="1"
-                                       Text="{x:Bind ViewModel.StagedFilmProfileImportDisplayNameText, Mode=OneWay}"
-                                       TextWrapping="WrapWholeWords"/>
-                            <TextBlock Grid.Row="1"
-                                       Grid.Column="0"
-                                       x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportChannelsLabel"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Grid.Row="1"
-                                       Grid.Column="1"
-                                       Text="{x:Bind ViewModel.StagedFilmProfileImportChannelCountText, Mode=OneWay}"
-                                       TextWrapping="WrapWholeWords"/>
-                        </Grid>
+                <ScrollViewer x:Name="FilmProfileLifecycleDetailsScrollViewer"
+                              Grid.Row="1"
+                              MaxHeight="240"
+                              VerticalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              HorizontalScrollMode="Disabled">
+                    <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}">
                         <InfoBar
-                            x:Uid="ScanDebug_FilmProfileWorkbenchStagedValidationInfoBar"
-                            MaxWidth="560"
-                            IsOpen="True"
-                            Message="{x:Bind ViewModel.StagedFilmProfileImportValidationSummary, Mode=OneWay}"
-                            Severity="{x:Bind ViewModel.StagedFilmProfileImportSeverity, Mode=OneWay}"/>
-                        <TextBlock Text="{x:Bind ViewModel.StagedFilmProfileDirtyReplacementWarningText, Mode=OneWay}"
-                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                   TextWrapping="WrapWholeWords"
-                                   Visibility="{x:Bind ViewModel.StagedFilmProfileDirtyReplacementWarningVisibility, Mode=OneWay}"/>
-                        <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                            VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
-                             <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton"
-                                     TabIndex="50"
-                                     Command="{x:Bind ViewModel.DiscardStagedFilmProfileImportCommand}"/>
-                             <Button x:Uid="ScanDebug_FilmProfileWorkbenchImportChooseOtherFileButton"
-                                     TabIndex="55"
-                                     Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
-                             <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton"
-                                    TabIndex="60"
-                                    Style="{StaticResource AccentButtonStyle}"
-                                    Command="{x:Bind ViewModel.ApplyStagedFilmProfileImportCommand}"/>
-                        </controls:WrapPanel>
+                            x:Name="FilmProfileOperationInfoBar"
+                            x:Uid="ScanDebug_FilmProfileWorkbenchOperationInfoBar"
+                            AutomationProperties.AutomationId="FilmProfileOperationInfoBar"
+                            IsOpen="{x:Bind ViewModel.FilmProfileOperationIsOpen, Mode=TwoWay}"
+                            Severity="{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}">
+                            <TextBlock Text="{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}"
+                                       MaxLines="2"
+                                       TextTrimming="WordEllipsis"
+                                       TextWrapping="WrapWholeWords"/>
+                        </InfoBar>
+
+                        <ContentControl
+                            x:Name="CurrentFilmProfileValidationInspector"
+                            AutomationProperties.AutomationId="CurrentFilmProfileValidationInspector"
+                            AutomationProperties.AccessibilityView="Control"
+                            Visibility="{x:Bind ViewModel.FilmProfileWorkbenchContentVisibility, Mode=OneWay}">
+                            <Border Style="{StaticResource ScanDebugSectionCardStyle}">
+                                <Grid RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords"/>
+                                    <TextBlock Grid.Row="1"
+                                               x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription"
+                                               Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                    <InfoBar Grid.Row="2"
+                                             IsOpen="True"
+                                             Message="{x:Bind ViewModel.CurrentFilmProfileValidationIssueCountText, Mode=OneWay}"
+                                             Severity="{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}"/>
+                                    <ScrollViewer x:Name="CurrentFilmProfileValidationIssueScrollViewer"
+                                                  Grid.Row="3"
+                                                  MaxHeight="224"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled">
+                                        <ItemsControl ItemsSource="{x:Bind ViewModel.CurrentFilmProfileValidationIssueDisplays, Mode=OneWay}"
+                                                      ItemTemplateSelector="{StaticResource FilmProfileValidationIssueTemplateSelector}"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </ContentControl>
+
+                        <Border
+                            x:Name="StagedFilmProfileImportReview"
+                            x:Uid="ScanDebug_StagedFilmProfileImportReview"
+                            AutomationProperties.AutomationId="StagedFilmProfileImportReview"
+                            AutomationProperties.AccessibilityView="Control"
+                            Style="{StaticResource ScanDebugSectionCardStyle}"
+                            Visibility="{x:Bind ViewModel.FilmProfileImportResultReviewVisibility, Mode=OneWay}">
+                            <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportTitle"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportHelpText"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                      RowSpacing="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="0"
+                                               x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportNameLabel"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="1"
+                                               Text="{x:Bind ViewModel.StagedFilmProfileImportDisplayNameText, Mode=OneWay}"
+                                               TextWrapping="WrapWholeWords"/>
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="0"
+                                               x:Uid="ScanDebug_FilmProfileWorkbenchStagedImportChannelsLabel"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="1"
+                                               Text="{x:Bind ViewModel.StagedFilmProfileImportChannelCountText, Mode=OneWay}"
+                                               TextWrapping="WrapWholeWords"/>
+                                </Grid>
+                                <InfoBar
+                                    x:Uid="ScanDebug_FilmProfileWorkbenchStagedValidationInfoBar"
+                                    MaxWidth="560"
+                                    IsOpen="True"
+                                    Message="{x:Bind ViewModel.StagedFilmProfileImportValidationIssueCountText, Mode=OneWay}"
+                                    Severity="{x:Bind ViewModel.StagedFilmProfileImportSeverity, Mode=OneWay}"/>
+                                <ScrollViewer x:Name="StagedFilmProfileImportValidationIssueScrollViewer"
+                                              MaxHeight="160"
+                                              VerticalScrollBarVisibility="Auto"
+                                              VerticalScrollMode="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              HorizontalScrollMode="Disabled">
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.StagedFilmProfileImportValidationIssueDisplays, Mode=OneWay}"
+                                                  ItemTemplate="{StaticResource FilmProfilePassiveValidationIssueTemplate}"/>
+                                </ScrollViewer>
+                                <TextBlock Text="{x:Bind ViewModel.StagedFilmProfileDirtyReplacementWarningText, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                           TextWrapping="WrapWholeWords"
+                                           Visibility="{x:Bind ViewModel.StagedFilmProfileDirtyReplacementWarningVisibility, Mode=OneWay}"/>
+                                <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                    VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                     <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton"
+                                             TabIndex="50"
+                                             Command="{x:Bind ViewModel.DiscardStagedFilmProfileImportCommand}"/>
+                                     <Button x:Uid="ScanDebug_FilmProfileWorkbenchImportChooseOtherFileButton"
+                                             TabIndex="55"
+                                             Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
+                                     <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton"
+                                            TabIndex="60"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            Command="{x:Bind ViewModel.ApplyStagedFilmProfileImportCommand}"/>
+                                </controls:WrapPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                </Border>
-            </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="1"
@@ -501,40 +612,22 @@
                                                    TextWrapping="WrapWholeWords"/>
                                         <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchBasicValidationDescription"
                                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                              RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="0"
-                                                       x:Uid="ScanDebug_FilmProfileWorkspaceDirtyLabel"
-                                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="1"
-                                                       Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
-                                                       TextWrapping="WrapWholeWords"/>
-                                            <TextBlock Grid.Row="1"
-                                                       Grid.Column="0"
-                                                       x:Uid="ScanDebug_FilmProfileWorkspaceValidationLabel"
-                                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                            <TextBlock Grid.Row="1"
-                                                       Grid.Column="1"
-                                                       Text="{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}"
-                                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                        TextWrapping="Wrap"/>
-                                        </Grid>
-                                        <InfoBar x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle"
-                                                 IsOpen="True"
-                                                 Severity="{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}">
-                                            <TextBlock Text="{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}"
-                                                        TextWrapping="Wrap"/>
-                                        </InfoBar>
+                                        <TextBlock Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                         <InfoBar x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle"
+                                                  IsOpen="True"
+                                                  Message="{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueCountText, Mode=OneWay}"
+                                                   Severity="{x:Bind ViewModel.BasicCurrentFilmProfileValidationSeverity, Mode=OneWay}">
+                                         </InfoBar>
+                                         <ScrollViewer x:Name="BasicCurrentFilmProfileValidationIssueScrollViewer"
+                                                      MaxHeight="160"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      VerticalScrollMode="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      HorizontalScrollMode="Disabled">
+                                             <ItemsControl ItemsSource="{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}"
+                                                           ItemTemplateSelector="{StaticResource FilmProfileValidationIssueTemplateSelector}"/>
+                                         </ScrollViewer>
                                      </StackPanel>
                                  </Border>
                             </StackPanel>
@@ -697,40 +790,22 @@
                                                    TextWrapping="WrapWholeWords"/>
                                         <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription"
                                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                              RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="0"
-                                                       x:Uid="ScanDebug_FilmProfileWorkspaceDirtyLabel"
-                                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="1"
-                                                       Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
-                                                       TextWrapping="WrapWholeWords"/>
-                                            <TextBlock Grid.Row="1"
-                                                       Grid.Column="0"
-                                                       x:Uid="ScanDebug_FilmProfileWorkspaceValidationLabel"
-                                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                            <TextBlock Grid.Row="1"
-                                                       Grid.Column="1"
-                                                       Text="{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}"
-                                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                        TextWrapping="Wrap"/>
-                                        </Grid>
-                                        <InfoBar x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle"
-                                                 IsOpen="True"
-                                                 Severity="{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}">
-                                            <TextBlock Text="{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}"
-                                                        TextWrapping="Wrap"/>
-                                        </InfoBar>
+                                        <TextBlock Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                         <InfoBar x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTitle"
+                                                  IsOpen="True"
+                                                  Message="{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueCountText, Mode=OneWay}"
+                                                   Severity="{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationSeverity, Mode=OneWay}">
+                                         </InfoBar>
+                                         <ScrollViewer x:Name="AcquisitionCurrentFilmProfileValidationIssueScrollViewer"
+                                                      MaxHeight="160"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      VerticalScrollMode="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      HorizontalScrollMode="Disabled">
+                                             <ItemsControl ItemsSource="{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}"
+                                                           ItemTemplateSelector="{StaticResource FilmProfileValidationIssueTemplateSelector}"/>
+                                         </ScrollViewer>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -750,6 +825,27 @@
                                       HorizontalScrollMode="Disabled">
                             <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}"
                                          Margin="0,0,12,96">
+                                <Border x:Name="ChannelCalibrationCurrentFilmProfileValidationCard"
+                                        AutomationProperties.AutomationId="ChannelCalibrationCurrentFilmProfileValidationCard"
+                                        Style="{StaticResource ScanDebugSectionCardStyle}">
+                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle"
+                                                   Style="{ThemeResource SubtitleTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                         <InfoBar IsOpen="True"
+                                                  Message="{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueCountText, Mode=OneWay}"
+                                                  Severity="{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity, Mode=OneWay}"/>
+                                         <ScrollViewer x:Name="ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer"
+                                                      MaxHeight="160"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      VerticalScrollMode="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      HorizontalScrollMode="Disabled">
+                                             <ItemsControl ItemsSource="{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}"
+                                                           ItemTemplateSelector="{StaticResource FilmProfileValidationIssueTemplateSelector}"/>
+                                         </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
                                 <Border AutomationProperties.AutomationId="ChannelCalibrationStatusCard"
                                         AutomationProperties.Name="Channel calibration status card"
                                         Style="{StaticResource ScanDebugSectionCardStyle}">
@@ -1875,50 +1971,6 @@
                                        Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                             <TextBlock Text="{x:Bind ViewModel.FilmProfileHardwareUnavailableReasonText, Mode=OneWay}"
                                        Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                            <TextBlock x:Uid="ScanDebug_ParamsTitle"
-                                       Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                            <TextBlock x:Uid="ScanDebug_FilmProfileWorkspaceSummaryTitle"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock x:Uid="ScanDebug_FilmProfileWorkspaceSummaryHelpText"
-                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                            <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                  RowSpacing="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                     <Grid.RowDefinitions>
-                                         <RowDefinition Height="Auto"/>
-                                         <RowDefinition Height="Auto"/>
-                                         <RowDefinition Height="Auto"/>
-                                         <RowDefinition Height="Auto"/>
-                                     </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0"
-                                           Grid.Column="0"
-                                           x:Uid="ScanDebug_FilmProfileWorkspaceNameLabel"
-                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                <TextBlock Grid.Row="0"
-                                           Grid.Column="1"
-                                           Text="{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}"
-                                           TextWrapping="WrapWholeWords"/>
-                                <TextBlock Grid.Row="1"
-                                           Grid.Column="0"
-                                           x:Uid="ScanDebug_FilmProfileWorkspaceDirtyLabel"
-                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                <TextBlock Grid.Row="1"
-                                           Grid.Column="1"
-                                           Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
-                                           TextWrapping="WrapWholeWords"/>
-                                <TextBlock Grid.Row="2"
-                                           Grid.Column="0"
-                                           x:Uid="ScanDebug_FilmProfileWorkspaceValidationLabel"
-                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                <TextBlock Grid.Row="2"
-                                           Grid.Column="1"
-                                           Text="{x:Bind ViewModel.FilmProfileValidationSummary, Mode=OneWay}"
-                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                            </Grid>
                         </StackPanel>
                     </Border>
 

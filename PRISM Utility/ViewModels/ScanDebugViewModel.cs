@@ -777,12 +777,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyPropertyChangedFor(nameof(BasicCurrentFilmProfileValidationIssueDisplays))]
     [NotifyPropertyChangedFor(nameof(BasicCurrentFilmProfileValidationHeadline))]
     [NotifyPropertyChangedFor(nameof(BasicCurrentFilmProfileValidationIssueCountText))]
+    [NotifyPropertyChangedFor(nameof(BasicCurrentFilmProfileValidationSeverity))]
     [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationIssueDisplays))]
     [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationHeadline))]
     [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationIssueCountText))]
+    [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationSeverity))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationIssueDisplays))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationHeadline))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationIssueCountText))]
+    [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationSeverity))]
     [NotifyCanExecuteChangedFor(nameof(SaveFilmProfileJsonCommand))]
     [NotifyCanExecuteChangedFor(nameof(NavigateToCurrentFilmProfileValidationIssueCommand))]
     public partial IReadOnlyList<ScanFilmProfileValidationIssue> CurrentFilmProfileValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
@@ -804,6 +807,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string BasicCurrentFilmProfileValidationIssueCountText => BasicCurrentFilmProfileValidationHeadline;
 
+    public InfoBarSeverity BasicCurrentFilmProfileValidationSeverity => GetCurrentFilmProfileValidationSeverity(
+        ScanFilmProfileIssueNavigationSection.BasicInfo);
+
     public IReadOnlyList<ScanFilmProfileValidationIssueDisplay> AcquisitionCurrentFilmProfileValidationIssueDisplays => BuildCurrentFilmProfileValidationIssueDisplays(
         ScanFilmProfileIssueNavigationSection.AcquisitionPlan);
 
@@ -811,12 +817,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string AcquisitionCurrentFilmProfileValidationIssueCountText => AcquisitionCurrentFilmProfileValidationHeadline;
 
+    public InfoBarSeverity AcquisitionCurrentFilmProfileValidationSeverity => GetCurrentFilmProfileValidationSeverity(
+        ScanFilmProfileIssueNavigationSection.AcquisitionPlan);
+
     public IReadOnlyList<ScanFilmProfileValidationIssueDisplay> ChannelCalibrationCurrentFilmProfileValidationIssueDisplays => BuildCurrentFilmProfileValidationIssueDisplays(
         ScanFilmProfileIssueNavigationSection.ChannelCalibration);
 
     public string ChannelCalibrationCurrentFilmProfileValidationHeadline => FormatFilmProfileValidationCount(ChannelCalibrationCurrentFilmProfileValidationIssueDisplays.Count);
 
     public string ChannelCalibrationCurrentFilmProfileValidationIssueCountText => ChannelCalibrationCurrentFilmProfileValidationHeadline;
+
+    public InfoBarSeverity ChannelCalibrationCurrentFilmProfileValidationSeverity => GetCurrentFilmProfileValidationSeverity(
+        ScanFilmProfileIssueNavigationSection.ChannelCalibration);
 
     public bool IsCurrentFilmProfileValidationValid => new ScanFilmProfileValidationResult(CurrentFilmProfileValidationIssues).IsValid;
 
@@ -827,11 +839,6 @@ public partial class ScanDebugViewModel : ObservableRecipient
             : InfoBarSeverity.Success;
 
     public string SelectedProfileDngExportModeAccessibleText => ScanSelectorDisplayNameConverter.GetDngExportModeDisplayName(SelectedProfileDngExportMode);
-
-    [ObservableProperty]
-    public partial IReadOnlyList<ScanFilmProfileValidationIssue> FilmProfileValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
-
-    public string FilmProfileValidationSummary => FormatFilmProfileValidationIssues(FilmProfileValidationIssues);
 
     public IReadOnlyList<ScanRoiValidationIssue> AdcRoiValidationIssues => BuildAdcRoiValidationIssues();
 
@@ -4125,9 +4132,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!SynchronizeFilmProfileDraftFromInputs())
             {
                 PublishFilmProfileOperation(
-                    string.IsNullOrWhiteSpace(FilmProfileValidationSummary)
+                    string.IsNullOrWhiteSpace(CurrentFilmProfileValidationSummary)
                         ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
-                        : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", FilmProfileValidationSummary),
+                        : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", CurrentFilmProfileValidationSummary),
                     InfoBarSeverity.Error);
                 return;
             }
@@ -4334,9 +4341,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
 
             PublishFilmProfileOperation(
-                string.IsNullOrWhiteSpace(FilmProfileValidationSummary)
+                string.IsNullOrWhiteSpace(CurrentFilmProfileValidationSummary)
                     ? "ScanDebug_Runtime_StatusFilmProfileInvalid".GetLocalizedOrFallback("Film profile settings are invalid.")
-                    : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", FilmProfileValidationSummary),
+                    : "ScanDebug_Runtime_StatusFilmProfileInvalidWithSummary".GetLocalizedFormatOrFallback("Film profile settings are invalid: {0}", CurrentFilmProfileValidationSummary),
                 InfoBarSeverity.Error);
         }
     }
@@ -6761,8 +6768,6 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void SetCurrentFilmProfileValidation(ScanFilmProfileValidationResult validation)
     {
         CurrentFilmProfileValidationIssues = validation.Issues;
-        FilmProfileValidationIssues = validation.Issues;
-        OnPropertyChanged(nameof(FilmProfileValidationSummary));
         SaveFilmProfileJsonCommand.NotifyCanExecuteChanged();
     }
 
@@ -6802,6 +6807,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
             .Where(row => row.Request?.Section == section)
             .Select(row => BuildFilmProfileValidationIssueDisplay(ScanFilmProfileIssueSource.CurrentDraft, row.Issue, row.Request))
             .ToArray();
+
+    private InfoBarSeverity GetCurrentFilmProfileValidationSeverity(ScanFilmProfileIssueNavigationSection section)
+    {
+        var sectionIssues = BuildCurrentFilmProfileValidationIssueDisplays(section)
+            .Select(display => display.Issue)
+            .ToArray();
+        return sectionIssues.Any(issue => issue.Severity == ScanFilmProfileValidationSeverity.Error)
+            ? InfoBarSeverity.Error
+            : sectionIssues.Length > 0
+                ? InfoBarSeverity.Warning
+                : InfoBarSeverity.Success;
+    }
 
     private IReadOnlyList<ScanFilmProfileValidationIssueDisplay> BuildFilmProfileValidationIssueDisplays(
         ScanFilmProfileIssueSource source,

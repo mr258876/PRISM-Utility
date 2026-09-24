@@ -431,6 +431,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ViewModel.FilmProfileDiscardConfirmationRequested += OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested += OnNoticeRequested;
         ViewModel.RoiIssueNavigationRequested += OnRoiIssueNavigationRequested;
+        ViewModel.CurrentFilmProfileIssueNavigationRequested += OnCurrentFilmProfileIssueNavigationRequested;
         _areViewModelEventsSubscribed = true;
     }
 
@@ -444,7 +445,109 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ViewModel.FilmProfileDiscardConfirmationRequested -= OnFilmProfileDiscardConfirmationRequested;
         ViewModel.NoticeRequested -= OnNoticeRequested;
         ViewModel.RoiIssueNavigationRequested -= OnRoiIssueNavigationRequested;
+        ViewModel.CurrentFilmProfileIssueNavigationRequested -= OnCurrentFilmProfileIssueNavigationRequested;
         _areViewModelEventsSubscribed = false;
+    }
+
+    private void OnCurrentFilmProfileIssueNavigationRequested(ScanFilmProfileIssueNavigationRequest request)
+    {
+        if (!TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: false, out var sectionIndex, out var scroller, out var target))
+            return;
+
+        _isNarrowPreviewOpen = false;
+        SetActiveWorkbenchSection(sectionIndex);
+        _ = DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!IsCurrentFilmProfileNavigationStillValid())
+                return;
+
+            if (request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelAssignment)
+            {
+                AcquisitionChannelAssignmentList.StartBringIntoView();
+                AcquisitionChannelAssignmentList.UpdateLayout();
+            }
+
+            if (!TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: true, out _, out scroller, out target))
+            {
+                return;
+            }
+
+            target.StartBringIntoView();
+            _ = target.Focus(FocusState.Programmatic);
+            if (target is TextBox textBox)
+                textBox.SelectAll();
+        });
+    }
+
+    private bool IsCurrentFilmProfileNavigationStillValid()
+        => _areViewModelEventsSubscribed
+            && IsLoaded
+            && ViewModel.FilmProfileImportResultReviewVisibility != Visibility.Visible;
+
+    private bool TryResolveCurrentFilmProfileNavigationTarget(ScanFilmProfileIssueNavigationRequest request, bool allowDeferredRealization, out int sectionIndex, out ScrollViewer scroller, out Control target)
+    {
+        sectionIndex = request.Section switch
+        {
+            ScanFilmProfileIssueNavigationSection.BasicInfo => 0,
+            ScanFilmProfileIssueNavigationSection.AcquisitionPlan => 1,
+            ScanFilmProfileIssueNavigationSection.ChannelCalibration => 2,
+            _ => -1
+        };
+        scroller = request.Section switch
+        {
+            ScanFilmProfileIssueNavigationSection.BasicInfo => BasicInfoScrollViewer,
+            ScanFilmProfileIssueNavigationSection.AcquisitionPlan => AcquisitionPlanScrollViewer,
+            ScanFilmProfileIssueNavigationSection.ChannelCalibration => ChannelCalibrationScrollViewer,
+            _ => null!
+        };
+        Control? targetCandidate = request.EditorTarget switch
+        {
+            ScanFilmProfileIssueEditorTarget.ProfileName => ProfileNameTextBox,
+            ScanFilmProfileIssueEditorTarget.ColorManagement => ProfileColorManagementToggleSwitch,
+            ScanFilmProfileIssueEditorTarget.AlignmentMode => ProfileAlignmentModeComboBox,
+            ScanFilmProfileIssueEditorTarget.DngExportMode => ProfileDngExportModeComboBox,
+            ScanFilmProfileIssueEditorTarget.RedWavelength => ProfileRedWavelengthTextBox,
+            ScanFilmProfileIssueEditorTarget.GreenWavelength => ProfileGreenWavelengthTextBox,
+            ScanFilmProfileIssueEditorTarget.BlueWavelength => ProfileBlueWavelengthTextBox,
+            ScanFilmProfileIssueEditorTarget.OutputGamma => ProfileOutputGammaTextBox,
+            ScanFilmProfileIssueEditorTarget.TargetWhitePointMode => ProfileTargetWhitePointComboBox,
+            ScanFilmProfileIssueEditorTarget.ManualWhitePointColorTemperature => ProfileManualWhitePointColorTemperatureTextBox,
+            ScanFilmProfileIssueEditorTarget.Rows => AcquisitionRowsComboBox,
+            ScanFilmProfileIssueEditorTarget.ScanMotor => AcquisitionScanMotorComboBox,
+            ScanFilmProfileIssueEditorTarget.MotorDistancePerLine => AcquisitionMotorDistancePerLineTextBox,
+            ScanFilmProfileIssueEditorTarget.TransportStrategy => AcquisitionTransportStrategyToggleSwitch,
+            ScanFilmProfileIssueEditorTarget.ChannelAssignment => allowDeferredRealization ? FindFirstEligibleAssignmentCheckBox() : AcquisitionChannelAssignmentList,
+            ScanFilmProfileIssueEditorTarget.Illumination => CurrentCalibrationIlluminationLevelTextBox,
+            ScanFilmProfileIssueEditorTarget.ChannelStatus => CalibrationChannelStatusListView,
+            ScanFilmProfileIssueEditorTarget.ChannelParameters => ExposureMicrosecondsTextBox,
+            ScanFilmProfileIssueEditorTarget.ChannelRoiSettings => AdcRoiStartTextBox,
+            _ => null!
+        };
+
+        target = targetCandidate!;
+        return sectionIndex >= 0 && scroller is not null && target is not null;
+    }
+
+    private CheckBox? FindFirstEligibleAssignmentCheckBox()
+    {
+        return FindDescendantCheckBox(AcquisitionChannelAssignmentList);
+    }
+
+    private static CheckBox? FindDescendantCheckBox(DependencyObject parent)
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (var index = 0; index < childCount; index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is CheckBox { Visibility: Visibility.Visible, IsEnabled: true } checkBox)
+                return checkBox;
+
+            var descendant = FindDescendantCheckBox(child);
+            if (descendant is not null)
+                return descendant;
+        }
+
+        return null;
     }
 
     private void OnRoiIssueNavigationRequested(ScanRoiIssueNavigationRequest request)
@@ -456,7 +559,6 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _ = DispatcherQueue.TryEnqueue(() =>
         {
             target.StartBringIntoView();
-            _ = scroller.ChangeView(null, Math.Max(0, target.ActualOffset.Y - 24), null, true);
             _ = target.Focus(FocusState.Programmatic);
             if (target is TextBox textBox)
                 textBox.SelectAll();
@@ -1491,3 +1593,21 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 #endif
 }
 
+public sealed class FilmProfileValidationIssueTemplateSelector : DataTemplateSelector
+{
+    public DataTemplate? NavigableTemplate { get; set; }
+
+    public DataTemplate? PassiveTemplate { get; set; }
+
+    protected override DataTemplate? SelectTemplateCore(object item)
+        => SelectFilmProfileValidationIssueTemplate(item);
+
+    protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
+        => SelectFilmProfileValidationIssueTemplate(item);
+
+    private DataTemplate? SelectFilmProfileValidationIssueTemplate(object item)
+        => CanNavigateFilmProfileValidationIssue(item) ? NavigableTemplate : PassiveTemplate;
+
+    private static bool CanNavigateFilmProfileValidationIssue(object item)
+        => item is ScanFilmProfileValidationIssueDisplay { CanNavigate: true };
+}

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Core.Contracts.Services;
@@ -4413,6 +4414,94 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCurrentFilmProfileValidationIssueDisplays), notifications);
         Assert.Contains(nameof(ScanDebugViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays), notifications);
         Assert.Contains(nameof(ScanDebugViewModel.StagedFilmProfileImportValidationIssueDisplays), notifications);
+    }
+
+    [Fact]
+    public async Task Todo23_CurrentSectionValidationSeverity_UsesMappedCurrentIssuesOnly()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var basicWarning = CreateFilmProfileIssue(
+            ScanFilmProfileValidationCode.InvalidProfileName,
+            "profileName",
+            "FilmProfile.Validation.ProfileNameInvalid",
+            ScanFilmProfileValidationSeverity.Warning);
+        var acquisitionError = CreateFilmProfileIssue(
+            ScanFilmProfileValidationCode.InvalidAcquisitionInput,
+            "acquisitionSettings.rows",
+            "FilmProfile.Validation.AcquisitionInputInvalid");
+
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [basicWarning, acquisitionError];
+        await harness.FlushAsync();
+
+        Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Warning, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+    }
+
+    [Fact]
+    public async Task Todo23_CurrentSectionValidationSeverity_CurrentChangesNotifyEveryDerivedSectionAndClearToSuccess()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+        var basicWarning = CreateFilmProfileIssue(
+            ScanFilmProfileValidationCode.InvalidProfileName,
+            "profileName",
+            "FilmProfile.Validation.ProfileNameInvalid",
+            ScanFilmProfileValidationSeverity.Warning);
+
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [basicWarning];
+        await harness.FlushAsync();
+
+        Assert.Equal(InfoBarSeverity.Warning, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+        Assert.Contains(nameof(ScanDebugViewModel.CurrentFilmProfileValidationSeverity), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.BasicCurrentFilmProfileValidationSeverity), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCurrentFilmProfileValidationSeverity), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity), notifications);
+
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [];
+        await harness.FlushAsync();
+
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+        Assert.True(notifications.Count(name => name == nameof(ScanDebugViewModel.BasicCurrentFilmProfileValidationSeverity)) >= 2);
+        Assert.True(notifications.Count(name => name == nameof(ScanDebugViewModel.AcquisitionCurrentFilmProfileValidationSeverity)) >= 2);
+        Assert.True(notifications.Count(name => name == nameof(ScanDebugViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity)) >= 2);
+    }
+
+    [Fact]
+    public async Task Todo23_CurrentSectionValidationSeverity_StagedAndUnknownIssuesRemainOutsideSectionState()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var stagedError = CreateFilmProfileIssue(
+            ScanFilmProfileValidationCode.MalformedJson,
+            "document",
+            "FilmProfile.Validation.MalformedJson");
+        var unknownCurrentError = CreateFilmProfileIssue(
+            ScanFilmProfileValidationCode.MissingRequiredProperty,
+            "future.path",
+            "FilmProfile.Validation.GenericInputInvalid");
+
+        harness.ViewModel.StagedFilmProfileImportValidationIssues = [stagedError];
+        await harness.FlushAsync();
+
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [unknownCurrentError];
+        await harness.FlushAsync();
+
+        Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
     }
 
     [Fact]

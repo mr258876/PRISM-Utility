@@ -56,9 +56,12 @@ public sealed class FilmProfileSourceContractTests
             "CalibrationCopySourceComboBox",
             "CopyCalibrationProfileButton",
             "FilmProfileLifecycleHeader",
+            "FilmProfileLifecycleActionsPanel",
         "FilmProfileOperationInfoBar",
+        "FilmProfileLifecycleDetailsScrollViewer",
         "ScanDebugRootGrid",
         "StagedFilmProfileImportReview",
+        "StagedFilmProfileImportValidationIssueScrollViewer",
         "WorkbenchSectionSelectorBar",
         "WorkbenchSectionComboBox",
         "BasicInfoSection",
@@ -79,7 +82,31 @@ public sealed class FilmProfileSourceContractTests
         "PreviewSplitter",
         "PreviewGammaToggleSwitch",
         "PreviewGammaTextBox",
-        "WaterfallPreviewOptionsPanel"
+        "WaterfallPreviewOptionsPanel",
+        "CurrentFilmProfileValidationInspector",
+        "CurrentFilmProfileValidationIssueScrollViewer",
+        "BasicInfoScrollViewer",
+        "BasicCurrentFilmProfileValidationIssueScrollViewer",
+        "AcquisitionPlanScrollViewer",
+        "AcquisitionCurrentFilmProfileValidationIssueScrollViewer",
+        "ProfileNameTextBox",
+        "ProfileAlignmentModeComboBox",
+        "ProfileDngExportModeComboBox",
+        "ProfileColorManagementToggleSwitch",
+        "ProfileRedWavelengthTextBox",
+        "ProfileGreenWavelengthTextBox",
+        "ProfileBlueWavelengthTextBox",
+        "ProfileOutputGammaTextBox",
+        "ProfileTargetWhitePointComboBox",
+        "ProfileManualWhitePointColorTemperatureTextBox",
+        "AcquisitionRowsComboBox",
+        "AcquisitionScanMotorComboBox",
+        "AcquisitionMotorDistancePerLineTextBox",
+        "AcquisitionChannelAssignmentList",
+        "AcquisitionTransportStrategyToggleSwitch",
+        "ChannelCalibrationCurrentFilmProfileValidationCard",
+        "ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer",
+        "ExposureMicrosecondsTextBox"
     ];
 
     private static readonly IReadOnlyDictionary<string, int> ExpectedCommandBindingCounts =
@@ -235,8 +262,9 @@ public sealed class FilmProfileSourceContractTests
         "Text=\"{x:Bind ViewModel.AcquisitionPlanSummaryText, Mode=OneWay}\"",
         "Text=\"{x:Bind ViewModel.ChannelLedBindingSummaryText, Mode=OneWay}\"",
         "Text=\"{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}\"",
-        "Text=\"{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}\"",
-        "Severity=\"{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}\""
+        "Message=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"",
+        "ItemsSource=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\"",
+        "Severity=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationSeverity, Mode=OneWay}\""
     ];
 
     private static readonly string[] Todo10DebugOnlyAcquisitionSwitchBindings =
@@ -324,9 +352,9 @@ public sealed class FilmProfileSourceContractTests
     {
         var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
 
-        Assert.Contains("ScanDebug_FilmProfileWorkspaceSummaryTitle", xaml, StringComparison.Ordinal);
+        Assert.Contains("ScanDebug_FilmProfileWorkbenchCurrentValidationTitle", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileValidationSummary, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Message=\"{x:Bind ViewModel.CurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Uid=\"ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{x:Bind ViewModel.SaveFilmProfileJsonCommand}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Uid=\"ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton\"", xaml, StringComparison.Ordinal);
@@ -356,7 +384,9 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileDeviceStatusText, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileHardwareUnavailableReasonText, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FilmProfileOperationInfoBar\"", header, StringComparison.Ordinal);
-        Assert.Contains("Message=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\"", header, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\"", header, StringComparison.Ordinal);
+        Assert.Contains("MaxLines=\"2\"", header, StringComparison.Ordinal);
+        Assert.DoesNotContain("Message=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("Severity=\"{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("IsOpen=\"{x:Bind ViewModel.FilmProfileOperationIsOpen, Mode=TwoWay}\"", header, StringComparison.Ordinal);
@@ -398,7 +428,9 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("x:Uid=\"ScanDebug_FilmProfileWorkbenchStagedImportHelpText\"", review, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.StagedFilmProfileImportDisplayNameText, Mode=OneWay}\"", review, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.StagedFilmProfileImportChannelCountText, Mode=OneWay}\"", review, StringComparison.Ordinal);
-        Assert.Contains("Message=\"{x:Bind ViewModel.StagedFilmProfileImportValidationSummary, Mode=OneWay}\"", review, StringComparison.Ordinal);
+        Assert.Contains("Message=\"{x:Bind ViewModel.StagedFilmProfileImportValidationIssueCountText, Mode=OneWay}\"", review, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"StagedFilmProfileImportValidationIssueScrollViewer\"", review, StringComparison.Ordinal);
+        Assert.Contains("MaxHeight=\"160\"", review, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.StagedFilmProfileDirtyReplacementWarningText, Mode=OneWay}\"", review, StringComparison.Ordinal);
         Assert.Contains("Command=\"{x:Bind ViewModel.DiscardStagedFilmProfileImportCommand}\"", review, StringComparison.Ordinal);
         Assert.Contains("Command=\"{x:Bind ViewModel.ApplyStagedFilmProfileImportCommand}\"", review, StringComparison.Ordinal);
@@ -418,7 +450,8 @@ public sealed class FilmProfileSourceContractTests
 
         Assert.Contains("FilmProfileImportResultReviewVisibility", review, StringComparison.Ordinal);
         Assert.Contains("StagedFilmProfileImportDisplayNameText", review, StringComparison.Ordinal);
-        Assert.Contains("StagedFilmProfileImportValidationSummary", review, StringComparison.Ordinal);
+        Assert.Contains("StagedFilmProfileImportValidationIssueCountText", review, StringComparison.Ordinal);
+        Assert.Contains("StagedFilmProfileImportValidationIssueDisplays", review, StringComparison.Ordinal);
         Assert.Contains("DiscardStagedFilmProfileImportCommand", review, StringComparison.Ordinal);
         Assert.Contains("LoadFilmProfileJsonCommand", review, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"{x:Bind ViewModel.FilmProfileWorkbenchContentVisibility, Mode=OneWay}\"", GetOpeningTag(xaml, "WorkbenchContentSplitGrid"), StringComparison.Ordinal);
@@ -812,8 +845,9 @@ public sealed class FilmProfileSourceContractTests
             "Text=\"{x:Bind ViewModel.ScanRecipeOutputGamma, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
             "SelectedValue=\"{x:Bind ViewModel.SelectedScanRecipeTargetWhitePointMode, Mode=TwoWay}\"",
             "Text=\"{x:Bind ViewModel.ScanRecipeManualWhitePointColorTemperatureK, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
-            "Text=\"{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}\"",
-            "Severity=\"{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}\"",
+            "Message=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\"",
+            "Severity=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationSeverity, Mode=OneWay}\"",
             "Text=\"{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}\""
         })
         {
@@ -823,7 +857,7 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("HorizontalScrollBarVisibility=\"Disabled\"", basic, StringComparison.Ordinal);
         Assert.Contains("Style=\"{StaticResource ScanDebugSectionCardStyle}\"", basic, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"WrapWholeWords\"", basic, StringComparison.Ordinal);
-        Assert.Contains("TextWrapping=\"Wrap\"", basic, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"Wrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Margin=\"0,0,0,96\"", basic, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{x:Bind ViewModel.IsScanRecipeColorManagementEnabled, Mode=OneWay}\"", basic, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{x:Bind ViewModel.IsScanRecipeManualWhitePointColorTemperatureEnabled, Mode=OneWay}\"", basic, StringComparison.Ordinal);
@@ -832,6 +866,188 @@ public sealed class FilmProfileSourceContractTests
         Assert.DoesNotContain("ExportDngCommand", basic, StringComparison.Ordinal);
         Assert.DoesNotContain("StartScanCommand", basic, StringComparison.Ordinal);
         Assert.DoesNotContain("StopScanCommand", basic, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo23SourceContract_ValidationInspectorUsesCurrentAndStagedIssueDisplaysAndNativeFocusBridge()
+    {
+        var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
+        var codeBehind = ReadAppSource("Views", "ScanDebugPage.xaml.cs");
+        var viewModel = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
+        var header = ExtractNamedRegion(xaml, "FilmProfileLifecycleHeader", "WorkbenchSectionSelectorBar");
+        var currentInspector = ExtractNamedRegion(header, "CurrentFilmProfileValidationInspector", "StagedFilmProfileImportReview");
+        var stagedReview = ExtractNamedRegion(xaml, "StagedFilmProfileImportReview", "WorkbenchSectionSelectorBar");
+        var basic = ExtractNamedRegion(xaml, "BasicInfoSection", "AcquisitionPlanSection");
+        var acquisition = ExtractNamedRegion(xaml, "AcquisitionPlanSection", "ChannelCalibrationSection");
+        var channel = ExtractNamedRegion(xaml, "ChannelCalibrationSection", "LiveCalibrationSection");
+        var engineering = ExtractNamedRegion(xaml, "EngineeringToolsSection", "WorkbenchPreviewColumnContent");
+
+        Assert.Contains("MaxHeight=\"360\"", GetOpeningTag(xaml, "FilmProfileLifecycleHeader"), StringComparison.Ordinal);
+
+        foreach (var required in new[]
+        {
+            "x:Name=\"CurrentFilmProfileValidationInspector\"",
+            "AutomationProperties.AutomationId=\"CurrentFilmProfileValidationInspector\"",
+            "x:Uid=\"ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle\"",
+            "x:Uid=\"ScanDebug_FilmProfileWorkbenchCurrentValidationDescription\"",
+            "Message=\"{x:Bind ViewModel.CurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"",
+            "Severity=\"{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}\"",
+            "x:Name=\"CurrentFilmProfileValidationIssueScrollViewer\"",
+            "MaxHeight=\"224\"",
+            "VerticalScrollBarVisibility=\"Auto\"",
+            "HorizontalScrollBarVisibility=\"Disabled\"",
+            "ItemTemplateSelector=\"{StaticResource FilmProfileValidationIssueTemplateSelector}\"",
+            "ItemsSource=\"{x:Bind ViewModel.CurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\""
+        })
+        {
+            Assert.Contains(required, currentInspector, StringComparison.Ordinal);
+        }
+
+        foreach (var required in new[]
+        {
+            "Command=\"{Binding DataContext.NavigateToCurrentFilmProfileValidationIssueCommand, ElementName=ScanDebugRootGrid}\"",
+            "CommandParameter=\"{Binding}\"",
+            "AutomationProperties.AutomationId=\"{Binding AutomationId}\"",
+            "AutomationProperties.Name=\"{Binding AutomationName}\"",
+            "Text=\"{Binding Message}\"",
+            "Text=\"{Binding FieldPath}\""
+        })
+        {
+            Assert.Contains(required, xaml, StringComparison.Ordinal);
+        }
+
+        foreach (var required in new[]
+        {
+            "Message=\"{x:Bind ViewModel.StagedFilmProfileImportValidationIssueCountText, Mode=OneWay}\"",
+            "x:Name=\"StagedFilmProfileImportValidationIssueScrollViewer\"",
+            "MaxHeight=\"160\"",
+            "ItemsSource=\"{x:Bind ViewModel.StagedFilmProfileImportValidationIssueDisplays, Mode=OneWay}\"",
+            "ItemTemplate=\"{StaticResource FilmProfilePassiveValidationIssueTemplate}\""
+        })
+        {
+            Assert.Contains(required, stagedReview, StringComparison.Ordinal);
+        }
+        Assert.DoesNotContain("StagedFilmProfileImportValidationSummary", stagedReview, StringComparison.Ordinal);
+        Assert.DoesNotContain("NavigateToCurrentFilmProfileValidationIssueCommand", stagedReview, StringComparison.Ordinal);
+
+        Assert.Contains("x:Name=\"BasicCurrentFilmProfileValidationIssueScrollViewer\"", basic, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\"", basic, StringComparison.Ordinal);
+        Assert.Contains("Message=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"", basic, StringComparison.Ordinal);
+        Assert.Contains("Severity=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationSeverity, Mode=OneWay}\"", basic, StringComparison.Ordinal);
+        Assert.Contains("MaxHeight=\"160\"", basic, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationHeadline, Mode=OneWay}\"", basic, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}\"", basic, StringComparison.Ordinal);
+
+        Assert.Contains("x:Name=\"AcquisitionCurrentFilmProfileValidationIssueScrollViewer\"", acquisition, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\"", acquisition, StringComparison.Ordinal);
+        Assert.Contains("Message=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"", acquisition, StringComparison.Ordinal);
+        Assert.Contains("Severity=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationSeverity, Mode=OneWay}\"", acquisition, StringComparison.Ordinal);
+        Assert.Contains("MaxHeight=\"160\"", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.AcquisitionCurrentFilmProfileValidationHeadline, Mode=OneWay}\"", acquisition, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.CurrentFilmProfileValidationSummary, Mode=OneWay}\"", acquisition, StringComparison.Ordinal);
+
+        Assert.Contains("x:Name=\"ChannelCalibrationCurrentFilmProfileValidationCard\"", channel, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer\"", channel, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\"", channel, StringComparison.Ordinal);
+        Assert.Contains("Message=\"{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueCountText, Mode=OneWay}\"", channel, StringComparison.Ordinal);
+        Assert.Contains("Severity=\"{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity, Mode=OneWay}\"", channel, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.ChannelCalibrationCurrentFilmProfileValidationHeadline, Mode=OneWay}\"", channel, StringComparison.Ordinal);
+        Assert.DoesNotContain("CurrentFilmProfileValidationHeadline", engineering, StringComparison.Ordinal);
+        Assert.DoesNotContain("FilmProfileValidationSummary", engineering, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxHeight=\"176\"", currentInspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxHeight=\"96\"", currentInspector, StringComparison.Ordinal);
+
+        Assert.Contains("ViewModel.CurrentFilmProfileIssueNavigationRequested += OnCurrentFilmProfileIssueNavigationRequested;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.CurrentFilmProfileIssueNavigationRequested -= OnCurrentFilmProfileIssueNavigationRequested;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("private void OnCurrentFilmProfileIssueNavigationRequested(ScanFilmProfileIssueNavigationRequest request)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: false, out var sectionIndex, out var scroller, out var target)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("_isNarrowPreviewOpen = false;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("SetActiveWorkbenchSection(sectionIndex);", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: true", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentFilmProfileNavigationStillValid()", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("target.Focus(FocusState.Programmatic)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("textBox.SelectAll();", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("FindFirstEligibleAssignmentCheckBox()", codeBehind, StringComparison.Ordinal);
+        Assert.True(
+            codeBehind.IndexOf("if (!IsCurrentFilmProfileNavigationStillValid()", StringComparison.Ordinal)
+            < codeBehind.IndexOf("AcquisitionChannelAssignmentList.StartBringIntoView();", StringComparison.Ordinal),
+            "The deferred current-navigation lifecycle/import guard must run before channel-assignment reveal work.");
+        Assert.DoesNotContain("fallback ??= checkBox", codeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("target.ActualOffset.Y", codeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("target = AcquisitionChannelAssignmentList", codeBehind, StringComparison.Ordinal);
+
+        var selectorStart = codeBehind.IndexOf("public sealed class FilmProfileValidationIssueTemplateSelector : DataTemplateSelector", StringComparison.Ordinal);
+        Assert.True(selectorStart >= 0, "Missing FilmProfileValidationIssueTemplateSelector.");
+        var selector = codeBehind[selectorStart..];
+        Assert.Contains("protected override DataTemplate? SelectTemplateCore(object item)", selector, StringComparison.Ordinal);
+        Assert.Contains("protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)", selector, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(selector, "=> SelectFilmProfileValidationIssueTemplate(item);"));
+        Assert.Contains("private DataTemplate? SelectFilmProfileValidationIssueTemplate(object item)", selector, StringComparison.Ordinal);
+        Assert.Contains("private static bool CanNavigateFilmProfileValidationIssue(object item)", selector, StringComparison.Ordinal);
+        Assert.Contains("item is ScanFilmProfileValidationIssueDisplay { CanNavigate: true }", selector, StringComparison.Ordinal);
+        Assert.DoesNotContain("XamlReader", selector, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToString", selector, StringComparison.Ordinal);
+
+        foreach (var property in new[]
+        {
+            "public string CurrentFilmProfileValidationHeadline",
+            "public string CurrentFilmProfileValidationIssueCountText",
+            "public IReadOnlyList<ScanFilmProfileValidationIssueDisplay> CurrentFilmProfileValidationIssueDisplays",
+            "public IReadOnlyList<ScanFilmProfileValidationIssueDisplay> StagedFilmProfileImportValidationIssueDisplays",
+            "private async Task NavigateToCurrentFilmProfileValidationIssue(ScanFilmProfileValidationIssueDisplay display)"
+        })
+        {
+            Assert.Contains(property, viewModel, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Todo23SourceContract_LifecycleActionsStayOutsideScrollableHeaderDetails()
+    {
+        var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
+        var header = ExtractNamedRegion(xaml, "FilmProfileLifecycleHeader", "WorkbenchSectionSelectorBar");
+        var actionsStart = header.IndexOf("x:Name=\"FilmProfileLifecycleActionsPanel\"", StringComparison.Ordinal);
+        var detailsScrollStart = header.IndexOf("x:Name=\"FilmProfileLifecycleDetailsScrollViewer\"", StringComparison.Ordinal);
+        var stopStart = header.IndexOf("x:Uid=\"ScanDebug_StopAllMotorsButton\"", StringComparison.Ordinal);
+
+        Assert.True(actionsStart >= 0, "The lifecycle action row needs a named owner so scroll contracts can anchor it.");
+        Assert.True(detailsScrollStart > actionsStart, "Scrollable header details must be below, not around, the persistent lifecycle actions.");
+        Assert.True(stopStart > actionsStart && stopStart < detailsScrollStart, "Stop all motors must remain persistently visible outside the scrollable details region.");
+
+        var detailsTagStart = header.LastIndexOf("<ScrollViewer", detailsScrollStart, detailsScrollStart + 1, StringComparison.Ordinal);
+        Assert.True(detailsTagStart > actionsStart, "The detail scroller tag must start after the persistent action row.");
+        var actionsRegion = header[actionsStart..detailsTagStart];
+        Assert.Contains("Command=\"{x:Bind ViewModel.NewFilmProfileCommand}\"", actionsRegion, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.LoadFilmProfileJsonCommand}\"", actionsRegion, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.ValidateFilmProfileCommand}\"", actionsRegion, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.SaveFilmProfileJsonCommand}\"", actionsRegion, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{x:Bind ViewModel.StopAllMotorsCommand}\"", actionsRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ScrollViewer", actionsRegion, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(header, "Command=\"{x:Bind ViewModel.StopAllMotorsCommand}\""));
+        Assert.Equal(1, CountOccurrences(header, "x:Uid=\"ScanDebug_StopAllMotorsButton\""));
+    }
+
+    [Fact]
+    public void Todo23SourceContract_CurrentValidationViewportUsesBoundedReadableIssueScrolling()
+    {
+        var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
+        var header = ExtractNamedRegion(xaml, "FilmProfileLifecycleHeader", "WorkbenchSectionSelectorBar");
+        var detailsScroll = GetOpeningTag(header, "FilmProfileLifecycleDetailsScrollViewer");
+        var currentInspector = ExtractNamedRegion(header, "CurrentFilmProfileValidationInspector", "StagedFilmProfileImportReview");
+        var issueScroll = GetOpeningTag(currentInspector, "CurrentFilmProfileValidationIssueScrollViewer");
+
+        Assert.Contains("MaxHeight=\"240\"", detailsScroll, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", detailsScroll, StringComparison.Ordinal);
+        Assert.Contains("HorizontalScrollBarVisibility=\"Disabled\"", detailsScroll, StringComparison.Ordinal);
+        Assert.Contains("MaxHeight=\"224\"", issueScroll, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"WrapWholeWords\"", currentInspector, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding FieldPath}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"Wrap\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemTemplateSelector=\"{StaticResource FilmProfileValidationIssueTemplateSelector}\"", currentInspector, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("MaxHeight=\"176\"", currentInspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxHeight=\"96\"", currentInspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScrollViewer MaxHeight=\"360\"", header, StringComparison.Ordinal);
     }
 
     [Fact]

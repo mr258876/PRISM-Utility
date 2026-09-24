@@ -637,6 +637,22 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
     }
 
     [Fact]
+    public void Todo23ValidationOwnership_LegacyMirrorMembersAndCallersAreAbsent()
+    {
+        var source = ReadViewModelSource();
+        var save = ExtractMethod(source, "SaveFilmProfileJson");
+        var validate = ExtractMethod(source, "ValidateFilmProfile");
+        var setCurrent = ExtractMethod(source, "SetCurrentFilmProfileValidation");
+
+        AssertNoExactSymbol(source, "FilmProfileValidationIssues");
+        AssertNoExactSymbol(source, "FilmProfileValidationSummary");
+        Assert.Contains("CurrentFilmProfileValidationSummary", save, StringComparison.Ordinal);
+        Assert.Contains("CurrentFilmProfileValidationSummary", validate, StringComparison.Ordinal);
+        AssertNoExactSymbol(setCurrent, "FilmProfileValidationIssues");
+        AssertNoExactSymbol(setCurrent, "FilmProfileValidationSummary");
+    }
+
+    [Fact]
     public void Todo13DesiredContract_ScanDebugUsesRepositorySnapshotsWithoutFacade()
     {
         var source = ReadViewModelSource();
@@ -1134,6 +1150,9 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         }
         return count;
     }
+
+    private static void AssertNoExactSymbol(string source, string symbol)
+        => Assert.DoesNotMatch($@"\b{System.Text.RegularExpressions.Regex.Escape(symbol)}\b", source);
 
     private enum LexicalState { Code, LineComment, BlockComment, Character, String, VerbatimString, RawString }
 }
