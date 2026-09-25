@@ -739,7 +739,7 @@
     <value>Disconnect</value>
   </data>
   <data name="ScanDebug_StopButton.Content" xml:space="preserve">
-    <value>Stop</value>
+    <value>Stop Scan</value>
   </data>
   <data name="ScanDebug_ExportDngButton.Content" xml:space="preserve">
     <value>Export DNG</value>
@@ -1801,13 +1801,52 @@
     <value>Choose the column range used to compute the current channel mean sample for Save as black or Save as white. This range does not change ADC ROIs or registration adjustment.</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>Black/white reference saving uses the current preview frame and selected channel; clear or change frames to refresh the sampled mean.</value>
+    <value>The Save columns buttons below use the current preview frame and selected channel to persist a sampled value in the local calibration library. They do not fill the manual editor or save configuration JSON. Clear or change frames to refresh the sampled mean.</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>Reference start column</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleEndTextBox.Header" xml:space="preserve">
     <value>Reference end column</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceLevelsTitle.Text" xml:space="preserve">
+    <value>Channel black/white reference (RAW 16-bit ADU)</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceLevelsHelpText.Text" xml:space="preserve">
+    <value>Enter raw integers: black 0-65535, white 1-65535, with black below white. Typing or using a sample changes only the inputs; Apply updates the selected channel draft, not the ADC device, local library or configuration file.</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceTargetLabel.Text" xml:space="preserve">
+    <value>Selected logical channel and LED mapping</value>
+  </data>
+  <data name="ScanDebug_ManualBlackLevelTextBox.Header" xml:space="preserve">
+    <value>Black reference (ADU)</value>
+  </data>
+  <data name="ScanDebug_UseSampleAsManualBlackLevelButton.Content" xml:space="preserve">
+    <value>Use sample for black input</value>
+  </data>
+  <data name="ScanDebug_ManualWhiteLevelTextBox.Header" xml:space="preserve">
+    <value>White reference (ADU)</value>
+  </data>
+  <data name="ScanDebug_UseSampleAsManualWhiteLevelButton.Content" xml:space="preserve">
+    <value>Use sample for white input</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceSourceLabel.Text" xml:space="preserve">
+    <value>Input source</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceStatusLabel.Text" xml:space="preserve">
+    <value>Draft status</value>
+  </data>
+  <data name="ScanDebug_ApplyManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>Apply to channel draft</value>
+  </data>
+  <data name="ScanDebug_RevertManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>Revert this edit</value>
+  </data>
+  <data name="ScanDebug_ClearManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>Clear channel references...</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceClearHelpText.Text" xml:space="preserve">
+    <value>Clearing both channel-draft reference values requires confirmation. Save configuration separately; the local library and device are unchanged.</value>
   </data>
   <data name="ScanDebug_OverlayVisibilityScopeDescription.Text" xml:space="preserve">
     <value>Preview overlay visibility only. Edit ADC, autofocus, and image-reference ranges in their owning feature panels.</value>
@@ -2682,6 +2721,9 @@
   </data>
   <data name="ScanDebug_DisabledReasonScanRunning" xml:space="preserve">
     <value>A scan is running.</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonNoActiveScan" xml:space="preserve">
+    <value>No scan is running to stop.</value>
   </data>
   <data name="ScanDebug_DisabledReasonOutputRunning" xml:space="preserve">
     <value>An output operation is running.</value>
@@ -3886,6 +3928,18 @@
   <data name="ScanDebug_PreviewToolbarLabel.Text" xml:space="preserve">
     <value>Zoom and preview tools stay close to the image canvas.</value>
   </data>
+  <data name="ScanDebug_ZoomOutButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="ScanDebug_ZoomOutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="ScanDebug_ZoomInButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="ScanDebug_ZoomInButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
   <data name="ScanDebug_PreviewEmptyTitle.Text" xml:space="preserve">
     <value>No preview image</value>
   </data>
@@ -4191,8 +4245,8 @@
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>Rows, distance, channel enablement, and order changes update summaries immediately and block Save when invalid.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>Acquisition debug switches</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>Low-level scan flow toggles for engineering validation. Leave these off unless a hardware bring-up procedure explicitly asks for them.</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>Live scan runtime controls</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>Start, stop, progress, capture mode, and debug DNG export controls for the current live calibration session. Disabled reasons below each command describe why hardware or capture output is not available yet.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>Export captured data</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>Export an existing capture as DNG. This does not save profile JSON or apply parameters to the device.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>Progress appears here while a scan is running.</value></data>
   <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Film profile lifecycle header</value></data>
   <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Staged film profile import review</value></data>
@@ -4246,4 +4300,84 @@
   <data name="ScanDebug_Runtime_SessionIlluminationReadyReason" xml:space="preserve"><value>Ready to send a session-only illumination test to the connected device.</value></data>
   <data name="ScanDebug_Runtime_DeviceClockInvalidReason" xml:space="preserve"><value>Enter a device clock from 30 to 200 MHz, with at most three decimal places.</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadRequiredReason" xml:space="preserve"><value>Read or re-apply the device clock before this command can safely touch channel timing or hardware motion.</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>Edit configuration</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationOperationsButton.Content" xml:space="preserve"><value>Configuration operations</value></data>
+  <data name="ScanDebug_WorkbenchAdvancedButton.Content" xml:space="preserve"><value>Advanced settings</value></data>
+  <data name="ScanDebug_WorkbenchReviewButton.Content" xml:space="preserve"><value>Review issues / import</value></data>
+  <data name="ScanDebug_WorkbenchPendingReviewButton.Content" xml:space="preserve"><value>Import needs review</value></data>
+  <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>Review issues / import</value></data>
+  <data name="ScanDebug_WorkbenchPendingReviewAction" xml:space="preserve"><value>Import needs review</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskButton.Content" xml:space="preserve"><value>Sampling</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Content" xml:space="preserve"><value>Black / white</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskButton.Content" xml:space="preserve"><value>Focus</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskButton.Content" xml:space="preserve"><value>Motion</value></data>
+  <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>Signal inspection</value></data>
+  <data name="ScanDebug_WorkbenchInspectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Show or hide existing ROI and sample status. Press again to close.</value></data>
+  <data name="ScanDebug_WorkbenchInspectionTitle.Text" xml:space="preserve"><value>Signal inspection</value></data>
+  <data name="ScanDebug_WorkbenchInspectionSource.Text" xml:space="preserve"><value>These are existing device, ROI and column-sample states. Unavailable means not measured, not zero.</value></data>
+  <data name="ScanDebug_WorkbenchInspectionCaptureSourceLabel.Text" xml:space="preserve"><value>Capture source</value></data>
+  <data name="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel.Text" xml:space="preserve"><value>Device evidence</value></data>
+  <data name="ScanDebug_WorkbenchInspectionCaptureComparisonLabel.Text" xml:space="preserve"><value>Capture / device / draft comparison</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>Current ROI</value></data>
+  <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>Column sample</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>Edit black / white ROI</value></data>
+  <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>Review status</value></data>
+  <data name="ScanDebug_WorkbenchDataExportButton.Content" xml:space="preserve"><value>Captured data / DNG</value></data>
+  <data name="ScanDebug_WorkbenchDataExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Captured data and DNG export options</value></data>
+  <data name="ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Stops the current scan only. Does not cancel autofocus or stop all motors.</value></data>
+  <data name="ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Requests all motors to stop when the device command is available. Not a physical emergency stop or guaranteed light-off.</value></data>
+  <data name="ScanDebug_ManualReferenceChannel" xml:space="preserve"><value>Logical channel: {0}; LED mapping: {1}</value></data>
+  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>Manually edited input; not yet applied to the channel draft.</value></data>
+  <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>Original source not recorded.</value></data>
+  <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>Finish reviewing the pending calibration candidate before applying manual reference values.</value></data>
+  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>No editable profile for the selected channel in the current workspace draft. Configure the channel first.</value></data>
+  <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>The channel or workspace draft changed during this edit. Review the latest values before applying again; nothing was overwritten.</value></data>
+  <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>A conflicting operation temporarily blocks applying manual reference values to the channel draft. You can still edit the inputs; try applying again when it finishes.</value></data>
+  <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>The current preview or capture data has no valid column sample attributable to the selected channel. Check the preview frame and sample column range before filling an input.</value></data>
+  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>Input changed locally; not yet applied to the channel draft.</value></data>
+  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>Reference values loaded from the current channel draft; no device change.</value></data>
+  <data name="ScanDebug_ManualReferenceInvalidValues" xml:space="preserve"><value>Enter blank or an integer from 0 to 65535 for black, blank or 1 to 65535 for white. If both are set, black must be lower than white. Nothing was applied.</value></data>
+  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>Black and white reference values updated in the selected channel draft only. Configuration file, local library and device were not updated.</value></data>
+  <data name="ScanDebug_ManualReferenceClearTitle" xml:space="preserve"><value>Clear channel reference values?</value></data>
+  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>Clear both black and white reference values in the selected channel draft? The configuration file, local calibration library and device will not be changed.</value></data>
+  <data name="ScanDebug_ManualReferenceClearConfirm" xml:space="preserve"><value>Clear both values</value></data>
+  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>Input filled from capture {0}, logical channel {1}, columns {2}-{3}, processing stage {4}; no save or device write.</value></data>
+  <data name="ScanDebug_CaptureSource" xml:space="preserve"><value>Capture {0}; logical channel {1}; mode {2}; completed/requested rows {3}/{4}; data stage {5}; parameter evidence: {6}.</value></data>
+  <data name="ScanDebug_CaptureSourceDetails" xml:space="preserve"><value>&#10;Device ID: {0}; app session generation: {1}; submitted LED index: {2}; raw LED level: {3}.&#10;Request prepared (UTC): {4}; result recorded (UTC): {5}.&#10;Configuration ID: {6}; calibration ID: {7}; result version: {8}.</value></data>
+  <data name="ScanDebug_CaptureUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="ScanDebug_CaptureParametersUnknown" xml:space="preserve"><value>original capture parameters not recorded</value></data>
+  <data name="ScanDebug_CaptureSubmittedParameters" xml:space="preserve"><value>submitted request snapshot {0} (not device readback)</value></data>
+  <data name="ScanDebug_CaptureRawStage" xml:space="preserve"><value>device sample buffer before display processing</value></data>
+  <data name="ScanDebug_CaptureAlignedChannelStage" xml:space="preserve"><value>geometry-aligned channel data (not device RAW)</value></data>
+  <data name="ScanDebug_CaptureSingleMode" xml:space="preserve"><value>single capture</value></data>
+  <data name="ScanDebug_CaptureContinuousMode" xml:space="preserve"><value>continuous capture</value></data>
+  <data name="ScanDebug_CaptureWorkflowMode" xml:space="preserve"><value>multichannel workflow</value></data>
+  <data name="ScanDebug_CaptureComparisonUnknown" xml:space="preserve"><value>Capture-to-current comparison unavailable: capture parameters or current device evidence are insufficient.</value></data>
+  <data name="ScanDebug_CaptureHistorical" xml:space="preserve"><value>The current session or channel cannot be confirmed for this image, including when disconnected. Treat its capture context as historical; do not attribute current device or draft values to it.</value></data>
+  <data name="ScanDebug_CaptureComparisonSubmittedNotReadback" xml:space="preserve"><value>The capture request records submitted parameters for the current session and channel. There is no device parameter readback; equality with the current draft or file is unverified.</value></data>
+  <data name="ScanDebug_DeviceEvidenceConnected" xml:space="preserve"><value>Scanner control link connected; device ID {0}; app session generation {1}; timing state code {2}. Connection and this state do not prove parameter readback.</value></data>
+  <data name="ScanDebug_DeviceEvidenceUnknown" xml:space="preserve"><value>No connected control session. Current device parameters and peripheral reachability are unknown.</value></data>
+  <data name="ScanDebug_ImagePreviewModeItem.Text" xml:space="preserve"><value>Image</value></data>
+  <data name="ScanDebug_RawSignalProfileModeItem.Text" xml:space="preserve"><value>Line profile</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>RAW row (0-based)</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>Completed row index</value></data>
+  <data name="ScanDebug_RawSignalProfileAxis.Text" xml:space="preserve"><value>Full decoded row | X: decoded column | Y: 0-65535 RAW ADU</value></data>
+  <data name="ScanDebug_RawSignalHistogramAxis.Text" xml:space="preserve"><value>ROI histogram | 256 bins | X: 0-65535 RAW ADU | Y: relative sample count</value></data>
+  <data name="ScanDebug_RawSignalSourceLabel.Text" xml:space="preserve"><value>RAW capture source</value></data>
+  <data name="ScanDebug_RawSignalStatisticsLabel.Text" xml:space="preserve"><value>ROI statistics</value></data>
+  <data name="ScanDebug_RawSignalUnavailable" xml:space="preserve"><value>No RAW sample is available. Capture a matching single-channel frame to inspect its signal.</value></data>
+  <data name="ScanDebug_RawSignalCalculating" xml:space="preserve"><value>Calculating RAW signal for the selected completed row and column ROI.</value></data>
+  <data name="ScanDebug_RawSignalReady" xml:space="preserve"><value>RAW signal ready. The profile spans the full row; histogram and statistics use the column ROI.</value></data>
+  <data name="ScanDebug_RawSignalInvalidRow" xml:space="preserve"><value>Enter a valid 0-based completed RAW row index.</value></data>
+  <data name="ScanDebug_RawSignalProcessedUnavailable" xml:space="preserve"><value>Only processed or aligned data is available. RAW ADC statistics cannot be shown.</value></data>
+  <data name="ScanDebug_RawSignalUnavailableSource" xml:space="preserve"><value>A matching RAW capture source could not be verified. The image preview may still be available.</value></data>
+  <data name="ScanDebug_RawSignalUnavailableChannel" xml:space="preserve"><value>The selected channel changed. Capture a matching RAW sample to inspect.</value></data>
+  <data name="ScanDebug_RawSignalUnavailableWorkflowStream" xml:space="preserve"><value>The current workflow stream cannot yet be attributed to one RAW channel. Wait for a completed pass.</value></data>
+  <data name="ScanDebug_RawSignalUnavailableComposite" xml:space="preserve"><value>This composite image cannot be matched to a single RAW channel pass by default. Capture an attributable single-channel RAW frame to inspect its signal; the composite image remains available.</value></data>
+  <data name="ScanDebug_RawSignalUnavailablePreview" xml:space="preserve"><value>No RAW sample is available for this preview. The image preview remains available.</value></data>
+  <data name="ScanDebug_RawSignalUnavailableData" xml:space="preserve"><value>The selected RAW sample could not be decoded. Statistics are unavailable.</value></data>
+  <data name="ScanDebug_RawSignalInvalidRoi" xml:space="preserve"><value>The selected column ROI is invalid for the decoded row. Adjust it in the numeric ROI editor.</value></data>
+  <data name="ScanDebug_RawSignalSource" xml:space="preserve"><value>Capture {0}; pass index {1} (-1 = single capture); logical channel {2}; result version {3}; profile row {4}; ROI columns {5}-{6} inclusive; completed rows {7}. Device samples before display processing.</value></data>
+  <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [RAW pass coordinates, not composite image pixels.]</value></data>
+  <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>N={0}; minimum={1} ADU; maximum={2} ADU; mean={3:F2} ADU; saturation={4}/{0} samples at 65535 ADU.</value></data>
   </root>

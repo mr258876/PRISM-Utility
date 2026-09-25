@@ -21,4 +21,9 @@ public interface IScanFilmProfileWorkspace
     void MarkExported(ScanFilmParameterProfileSet exportedDocument);
     void ResetToDefaultDraft();
     void SetCurrentDraft(ScanFilmProfileDraft draft);
+    ScanFilmProfileReferenceLevelPatchResult TryApplyReferenceLevels(
+        ScanFilmProfileWorkspaceSnapshot expected,
+        string channelRole,
+        ushort? blackLevel,
+        ushort? whiteLevel);
 }

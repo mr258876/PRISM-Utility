@@ -66,6 +66,8 @@
   <ItemGroup>
     <Compile Include="..\PRISM Utility\ViewModels\SettingsViewModel.cs" Link="ViewModels\SettingsViewModel.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.cs" Link="ViewModels\ScanDebugViewModel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.RawSignal.cs" Link="ViewModels\ScanDebugViewModel.RawSignal.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.RawSignal.Worker.cs" Link="ViewModels\ScanDebugViewModel.RawSignal.Worker.cs" />
   </ItemGroup>
 
   <ItemGroup>

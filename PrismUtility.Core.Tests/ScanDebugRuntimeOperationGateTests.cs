@@ -135,6 +135,132 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
+    public void RuntimeGate_ManualReferenceApplyAllowsOfflineDraftClaimWithoutClearingOnDisconnect()
+    {
+        var claims = new ScanDebugRuntimeOperationClaims();
+        var offline = new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false);
+        var command = ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels;
+
+        Assert.False(ScanDebugRuntimeOperationGate.RequiresDeviceConnection(command));
+        Assert.False(ScanDebugRuntimeOperationGate.IsStopOrCancellation(command));
+        Assert.Equal(ScanDebugRuntimeOperation.ProfileLifecycle, ScanDebugRuntimeOperationGate.ClaimedOperationFor(command));
+        Assert.True(claims.TryClaim(offline, command, out var lease, out var result));
+        Assert.Equal(ScanDebugRuntimeOperationGateReason.Allowed, result.ReasonCode);
+        Assert.NotNull(lease);
+        try
+        {
+            claims.ClearDeviceBoundClaims();
+            Assert.Contains(ScanDebugRuntimeOperation.ProfileLifecycle, claims.CreateSnapshot(offline).ActiveOperations);
+            Assert.False(claims.TryClaim(offline, command, out _, out var conflict));
+            Assert.Equal(ScanDebugRuntimeOperationGateReason.RuntimeOperationActive, conflict.ReasonCode);
+        }
+        finally
+        {
+            lease?.Dispose();
+        }
+
+        Assert.True(claims.TryClaim(offline, command, out var nextLease, out _));
+        nextLease?.Dispose();
+    }
+
+    [Theory]
+    [InlineData(ScanDebugRuntimeCommandKind.AutoCalibrate)]
+    [InlineData(ScanDebugRuntimeCommandKind.ApplyParameters)]
+    [InlineData(ScanDebugRuntimeCommandKind.SaveChannelProfile)]
+    [InlineData(ScanDebugRuntimeCommandKind.SaveFilmProfileJson)]
+    [InlineData(ScanDebugRuntimeCommandKind.LoadFilmProfileJson)]
+    [InlineData(ScanDebugRuntimeCommandKind.ApplyStagedFilmProfileImport)]
+    [InlineData(ScanDebugRuntimeCommandKind.StartScan)]
+    public void RuntimeGate_ManualReferenceApplyConflictsWithActiveMutationsInBothClaimOrders(
+        ScanDebugRuntimeCommandKind otherCommand)
+    {
+        var connected = new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: true);
+        var manualCommand = ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels;
+
+        foreach (var firstCommand in new[] { manualCommand, otherCommand })
+        {
+            var claims = new ScanDebugRuntimeOperationClaims();
+            var secondCommand = firstCommand == manualCommand ? otherCommand : manualCommand;
+            Assert.True(claims.TryClaim(connected, firstCommand, out var firstLease, out _));
+            try
+            {
+                Assert.False(claims.TryClaim(connected, secondCommand, out var rejectedLease, out var result));
+                Assert.Null(rejectedLease);
+                Assert.Equal(ScanDebugRuntimeOperationGateReason.RuntimeOperationActive, result.ReasonCode);
+            }
+            finally
+            {
+                firstLease?.Dispose();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RuntimeGate_SimultaneousManualReferenceClaimsAdmitExactlyOne()
+    {
+        var claims = new ScanDebugRuntimeOperationClaims();
+        using var start = new Barrier(2);
+        var accepted = 0;
+        var leases = new List<ScanDebugRuntimeOperationClaims.ScanDebugRuntimeOperationLease>();
+        var leasesGate = new object();
+
+        await Task.WhenAll(Enumerable.Range(0, 2).Select(taskIndex => Task.Run(() =>
+        {
+            start.SignalAndWait();
+            if (!claims.TryClaim(new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false),
+                    ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels, out var lease, out _))
+                return;
+
+            Interlocked.Increment(ref accepted);
+            lock (leasesGate)
+            {
+                if (lease is not null)
+                    leases.Add(lease);
+            }
+        })));
+
+        foreach (var lease in leases)
+            lease.Dispose();
+        Assert.Equal(1, accepted);
+    }
+
+    [Fact]
+    public void RuntimeGate_ManualReferenceLeaseDoesNotDisableExistingStopGates()
+    {
+        var claims = new ScanDebugRuntimeOperationClaims();
+        var connected = new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: true);
+        Assert.True(claims.TryClaim(connected, ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels, out var lease, out _));
+        try
+        {
+            var active = claims.CreateSnapshot(connected);
+            foreach (var stop in new[]
+            {
+                ScanDebugRuntimeCommandKind.StopScan,
+                ScanDebugRuntimeCommandKind.StopMotor,
+                ScanDebugRuntimeCommandKind.StopManualFocus,
+                ScanDebugRuntimeCommandKind.StopAllFocus,
+                ScanDebugRuntimeCommandKind.StopAllMotors
+            })
+            {
+                Assert.True(ScanDebugRuntimeOperationGate.IsStopOrCancellation(stop));
+                Assert.True(ScanDebugRuntimeOperationGate.Evaluate(active, stop).CanExecute);
+            }
+
+            Assert.True(ScanDebugRuntimeOperationGate.Evaluate(
+                claims.CreateSnapshot(new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false)),
+                ScanDebugRuntimeCommandKind.StopScan).CanExecute);
+            Assert.Equal(ScanDebugRuntimeOperationGateReason.DeviceDisconnected,
+                ScanDebugRuntimeOperationGate.Evaluate(
+                    claims.CreateSnapshot(new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false)),
+                    ScanDebugRuntimeCommandKind.StopAllMotors).ReasonCode);
+        }
+        finally
+        {
+            lease?.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task RuntimeGate_ConcurrentConflictingClaims_AllowExactlyOneBoundaryEntry()
     {
         var claims = new ScanDebugRuntimeOperationClaims();
@@ -496,13 +622,17 @@ public sealed class ScanDebugRuntimeOperationGateTests
         var declarationIndex = source.IndexOf(declaration, StringComparison.Ordinal);
 
         Assert.True(declarationIndex >= 0, "Could not find the session snapshot handler.");
+        var handlerStart = source.IndexOf('{', declarationIndex);
+        var handler = source[declarationIndex..FindMethodBodyEnd(source, handlerStart)];
         var projectionDeclaration = "private void ApplySessionCoordinatorSnapshot(";
         var projectionIndex = source.IndexOf(projectionDeclaration, StringComparison.Ordinal);
         Assert.True(projectionIndex >= 0, "Could not find the session snapshot projection.");
         var projectionStart = source.IndexOf('{', projectionIndex);
         var projection = source[projectionStart..FindMethodBodyEnd(source, projectionStart)];
 
-        Assert.Contains("=> _dispatcher.TryEnqueue(() => ApplySessionCoordinatorSnapshot(snapshot));", source, StringComparison.Ordinal);
+        Assert.Contains("_dispatcher.TryEnqueue(() =>", handler, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(snapshot, _sessionCoordinator.Snapshot)", handler, StringComparison.Ordinal);
+        Assert.Contains("ApplySessionCoordinatorSnapshot(snapshot);", handler, StringComparison.Ordinal);
         Assert.Contains("ClearRuntimeOperationClaims();", projection, StringComparison.Ordinal);
         Assert.Contains("IsConnected = false;", projection, StringComparison.Ordinal);
         Assert.Contains("NotifyRuntimeOperationAvailabilityChanged();", projection, StringComparison.Ordinal);
@@ -742,6 +872,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
             [ScanDebugRuntimeCommandKind.ApplyStagedFilmProfileImport] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileImportConflicts),
             [ScanDebugRuntimeCommandKind.DiscardStagedFilmProfileImport] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileOnlyConflicts),
             [ScanDebugRuntimeCommandKind.NewFilmProfile] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileImportConflicts),
+            [ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ManualReferenceLevelConflicts),
             [ScanDebugRuntimeCommandKind.ValidateFilmProfile] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileMutationConflicts),
             [ScanDebugRuntimeCommandKind.ResetSelectedRoi] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileMutationConflicts),
             [ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs] = Expected(false, ScanDebugRuntimeOperation.ProfileLifecycle, ProfileMutationConflicts),
@@ -855,6 +986,12 @@ public sealed class ScanDebugRuntimeOperationGateTests
         ScanDebugRuntimeOperation.ProfileExport,
         ScanDebugRuntimeOperation.ProfileImport,
         ScanDebugRuntimeOperation.CalibrationRepository
+    ];
+
+    private static readonly ScanDebugRuntimeOperation[] ManualReferenceLevelConflicts =
+    [
+        ..ProfileImportConflicts,
+        ScanDebugRuntimeOperation.ProfileImport
     ];
 
     private static readonly ScanDebugRuntimeOperation[] ProfileOnlyConflicts =

@@ -87,6 +87,18 @@ public sealed record ScanFilmProfileWorkspaceSnapshot
     public ScanFilmProfileStagedImport? StagedImport => ImportResult.StagedImport;
 }
 
+public enum ScanFilmProfileReferenceLevelPatchStatus
+{
+    Applied,
+    Stale,
+    MissingTarget,
+    InvalidValues
+}
+
+public sealed record ScanFilmProfileReferenceLevelPatchResult(
+    ScanFilmProfileReferenceLevelPatchStatus Status,
+    ScanFilmProfileWorkspaceSnapshot? CommittedSnapshot = null);
+
 public sealed record ScanFilmProfileStageImportResult(
     bool Staged,
     ScanFilmProfileValidationResult Validation);

@@ -356,6 +356,7 @@ internal sealed class RecordingUiDispatcher : IUiDispatcher
 {
     private readonly Queue<Action> _pending = new();
     public bool AutoDrain { get; set; }
+    public bool RejectEnqueue { get; set; }
     private TaskCompletionSource _pendingSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public RecordingUiDispatcher(bool autoDrain)
@@ -368,6 +369,8 @@ internal sealed class RecordingUiDispatcher : IUiDispatcher
     public bool TryEnqueue(Action action)
     {
         EnqueueCount++;
+        if (RejectEnqueue)
+            return false;
         if (AutoDrain)
         {
             action();

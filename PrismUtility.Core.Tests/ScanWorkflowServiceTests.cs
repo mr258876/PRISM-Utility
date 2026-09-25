@@ -341,20 +341,26 @@ public sealed class ScanWorkflowServiceTests
             PassChannelRoles = ["Blue", "Unused", "Unused", "Unused"]
         };
 
-        await service.ExecuteAsync(session, request, CancellationToken.None, onRowsAvailable: delivered.Add);
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None, onRowsAvailable: delivered.Add);
 
         Assert.Single(queuedWorkItems);
         queuedWorkItems.Single()();
 
+        var pass = Assert.Single(result.Passes);
+        Assert.NotEqual(Guid.Empty, result.CaptureId);
         Assert.Collection(
             delivered,
             first =>
             {
+                Assert.Equal(result.CaptureId, first.CaptureId);
+                Assert.Equal(pass.Provenance!.CaptureId, first.CaptureId);
                 Assert.Equal((0, 1, 1), (first.StartRow, first.RowCount, first.CompletedRows));
                 Assert.All(first.ImageBytes, value => Assert.Equal((byte)0x11, value));
             },
             second =>
             {
+                Assert.Equal(result.CaptureId, second.CaptureId);
+                Assert.Equal(pass.Provenance!.CaptureId, second.CaptureId);
                 Assert.Equal((1, 1, 2), (second.StartRow, second.RowCount, second.CompletedRows));
                 Assert.All(second.ImageBytes, value => Assert.Equal((byte)0x22, value));
             });
@@ -561,6 +567,74 @@ public sealed class ScanWorkflowServiceTests
         Assert.Equal(2, pass.LedChannelIndex);
         Assert.Contains("IlluminationOn:2:0,0,345,0:4:0", log);
         Assert.Equal(1, log.Count(entry => entry == "IlluminationOff"));
+        Assert.Equal("Red", pass.Provenance!.ChannelRole);
+        Assert.Equal((byte)2, pass.Provenance.SubmittedLedChannelIndex);
+        Assert.Equal((ushort)345, pass.Provenance.SubmittedLedLevel);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CaptureProvenancePreservesExecutionSnapshotAfterRequestChanges()
+    {
+        var log = new List<string>();
+        var parameters = new RecordingParameterService(log);
+        var service = new ScanWorkflowService(parameters, new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var request = BuildRequest(alternateMotorDirection: true, enableMotorTransport: false, rows: 2) with
+        {
+            AcquisitionSettings = new ScanFilmAcquisitionSettings(12, 34, 56, 78, 0x0F, 0, 2, 2, 2, 2, 1_000)
+        };
+        var originalProfile = request.PassParameterProfiles[1];
+        var session = new RecordingScanSession(log)
+        {
+            OnScanStarted = () =>
+            {
+                request.PassChannelRoles[1] = "Changed";
+                request.LedLevels[1] = 900;
+                request.PassParameterProfiles[1] = originalProfile with { ExposureTicks = 999 };
+            }
+        };
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None);
+
+        Assert.NotNull(result.CaptureId);
+        Assert.Equal(1, result.CompletedResultVersion);
+        Assert.Equal(4, result.Passes.Count);
+        foreach (var pass in result.Passes)
+        {
+            var provenance = Assert.IsType<ScanPassCaptureProvenance>(pass.Provenance);
+            Assert.Equal(result.CaptureId, provenance.CaptureId);
+            Assert.Equal(result.CompletedResultVersion, provenance.CompletedResultVersion);
+            Assert.Equal((2, 2), (provenance.RequestedRows, provenance.CompletedRows));
+            Assert.True(provenance.RequestedAtUtc <= provenance.CompletedAtUtc);
+            Assert.Null(provenance.DeviceIdentity);
+            Assert.Null(provenance.SessionGeneration);
+            Assert.Null(provenance.ConfigurationIdentity);
+            Assert.Null(provenance.CalibrationIdentity);
+            Assert.Null(provenance.DeviceReadbackParameters);
+        }
+
+        var second = result.Passes[1].Provenance!;
+        Assert.Equal("Green", second.ChannelRole);
+        Assert.Equal((byte)1, second.SubmittedLedChannelIndex);
+        Assert.Equal((ushort)34, second.SubmittedLedLevel);
+        Assert.Equal(originalProfile, second.SubmittedParameters);
+        Assert.Equal(parameters.AppliedSnapshots[1], second.SubmittedParameters);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NoLedControl_LeavesSubmittedLedUnknown()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var result = await service.ExecuteAsync(
+            new RecordingScanSession(log),
+            BuildRequest(alternateMotorDirection: true, enableMotorTransport: false, enableLedAutoControl: false),
+            CancellationToken.None);
+
+        Assert.All(result.Passes, pass =>
+        {
+            Assert.Null(pass.Provenance!.SubmittedLedChannelIndex);
+            Assert.Null(pass.Provenance.SubmittedLedLevel);
+        });
     }
 
     public static IEnumerable<object[]> InvalidHostRows()
@@ -786,6 +860,9 @@ public sealed class ScanWorkflowServiceTests
 
     private static void AssertWorkflowSnapshot(ScanWorkflowRowsAvailable snapshot, ScanWorkflowResult result, int currentPass, int passIndex, byte ledChannelIndex, bool directionPositive, string channelRole)
     {
+        Assert.NotEqual(Guid.Empty, snapshot.CaptureId);
+        Assert.Equal(result.CaptureId, snapshot.CaptureId);
+        Assert.Equal(result.Passes[passIndex].Provenance!.CaptureId, snapshot.CaptureId);
         Assert.Equal(currentPass, snapshot.CurrentPass);
         Assert.Equal(ScanDebugConstants.IlluminationChannelCount, snapshot.TotalPasses);
         Assert.Equal(passIndex, snapshot.PassIndex);
@@ -931,6 +1008,7 @@ public sealed class ScanWorkflowServiceTests
         public byte[]? ScanImageBytes { get; init; }
         public IReadOnlyList<int>? RowsAvailableReports { get; init; }
         public Action? OnRowsAvailableReturned { get; init; }
+        public Action? OnScanStarted { get; init; }
         public ScanRowsAvailableHandler? CapturedRowsAvailable { get; private set; }
         public List<uint?> ExpectedLineTimes { get; } = [];
         public List<byte[]> ControlCommands { get; } = [];
@@ -1031,6 +1109,7 @@ public sealed class ScanWorkflowServiceTests
         public Task<ScanStartResult> StartScanAsync(int rows, CancellationToken ct, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onProgress = null, ScanRowsAvailableHandler? onRowsAvailable = null, uint? expectedLineTimeUs = null)
         {
             log.Add($"Scan:{_scanIndex++}");
+            OnScanStarted?.Invoke();
             ExpectedLineTimes.Add(expectedLineTimeUs);
             CancellationSourceToCancelOnScan?.Cancel();
             ct.ThrowIfCancellationRequested();

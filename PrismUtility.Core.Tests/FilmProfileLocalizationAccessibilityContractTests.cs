@@ -63,7 +63,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Live calibration section", "实时校准区域"),
         ("ScanDebug_DeviceSettingsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Device settings section", "设备设置区域"),
         ("ScanDebug_EngineeringToolsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Engineering tools section", "工程工具区域"),
-        ("ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text", "Start, stop, progress, capture mode, and debug DNG export controls for the current live calibration session. Disabled reasons below each command describe why hardware or capture output is not available yet.", "当前实时校准会话的启动、停止、进度、采集模式和调试 DNG 导出控件。每个命令旁的禁用原因说明硬件或采集输出为何暂不可用。"),
+        ("ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text", "Export an existing capture as DNG. This does not save profile JSON or apply parameters to the device.", "将已有采集数据导出为 DNG；不会保存配置 JSON 或向设备应用参数。"),
         ("ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text", "Progress appears here while a scan is running.", "扫描运行时会在这里显示进度。"),
         ("ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title", "Current profile validation", "当前配置验证"),
         ("ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle.Text", "Current profile validation", "当前配置验证"),
@@ -392,6 +392,66 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     }
 
     [Fact]
+    public void ScanDebugWorkbenchReviewAction_RuntimeAndUidCopyStayPairedInBothLocales()
+    {
+        foreach (var culture in new[] { "en-us", "zh-CN" })
+        {
+            var resources = ReadResources(culture);
+
+            Assert.Equal(resources["ScanDebug_WorkbenchReviewButton.Content"], resources["ScanDebug_WorkbenchReviewAction"]);
+            Assert.Equal(resources["ScanDebug_WorkbenchPendingReviewButton.Content"], resources["ScanDebug_WorkbenchPendingReviewAction"]);
+        }
+    }
+
+    [Fact]
+    public void ScanDebugStopButton_UsesScanOnlyCopyDistinctFromStopAllMotors()
+    {
+        var english = ReadResources("en-us");
+        var chinese = ReadResources("zh-CN");
+
+        Assert.Equal("Stop Scan", english["ScanDebug_StopButton.Content"]);
+        Assert.Equal("停止采集", chinese["ScanDebug_StopButton.Content"]);
+        Assert.Equal("Stop all motors", english["ScanDebug_StopAllMotorsButton.Content"]);
+        Assert.Equal("停止全部电机", chinese["ScanDebug_StopAllMotorsButton.Content"]);
+        Assert.NotEqual(english["ScanDebug_StopButton.Content"], english["ScanDebug_StopAllMotorsButton.Content"]);
+        Assert.NotEqual(chinese["ScanDebug_StopButton.Content"], chinese["ScanDebug_StopAllMotorsButton.Content"]);
+    }
+
+    [Fact]
+    public void Stage01ZoomButtons_HavePairedLocalizedTooltipsAndAutomationNames()
+    {
+        var english = ReadResources("en-us");
+        var chinese = ReadResources("zh-CN");
+
+        foreach (var (uid, expectedEnglish, expectedChinese) in new[]
+        {
+            ("ScanDebug_ZoomOutButton", "Zoom out", "缩小预览"),
+            ("ScanDebug_ZoomInButton", "Zoom in", "放大预览")
+        })
+        {
+            var tooltipKey = $"{uid}.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip";
+            var nameKey = $"{uid}.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name";
+
+            Assert.Equal(expectedEnglish, english[tooltipKey]);
+            Assert.Equal(expectedEnglish, english[nameKey]);
+            Assert.Equal(expectedChinese, chinese[tooltipKey]);
+            Assert.Equal(expectedChinese, chinese[nameKey]);
+        }
+    }
+
+    [Fact]
+    public void ScanDebugStopDisabledReason_HasSpecificNoScanCopyInBothLocales()
+    {
+        var english = ReadResources("en-us");
+        var chinese = ReadResources("zh-CN");
+
+        Assert.Equal("No scan is running to stop.", english["ScanDebug_DisabledReasonNoActiveScan"]);
+        Assert.Equal("当前没有正在进行的采集。", chinese["ScanDebug_DisabledReasonNoActiveScan"]);
+        Assert.NotEqual(english["ScanDebug_DisabledReasonUnavailable"], english["ScanDebug_DisabledReasonNoActiveScan"]);
+        Assert.NotEqual(chinese["ScanDebug_DisabledReasonUnavailable"], chinese["ScanDebug_DisabledReasonNoActiveScan"]);
+    }
+
+    [Fact]
     public void ScanDebugCurrentValidationTitleUids_SeparateTextBlockTextResourcesFromInfoBarTitleResources()
     {
         const string infoBarUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTitle";
@@ -645,7 +705,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     }
 
     [Fact]
-    public void Todo18ScanDebugMotorSurface_UsesPersistentHeaderStopAndVisibleReadRequiredBindings()
+    public void Stage01ScanDebugMotorSurface_UsesPersistentRunBarStopAndVisibleReadRequiredBindings()
     {
         var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
         var english = ReadResources("en-us");
@@ -654,10 +714,16 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         Assert.Contains("x:Uid=\"ScanDebug_StopAllMotorsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.AutomationId=\"StopAllMotorsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{x:Bind ViewModel.StopAllMotorsCommand}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("BorderBrush=\"{ThemeResource SystemFillColorCriticalBrush}\"", xaml, StringComparison.Ordinal);
+        var runStart = xaml.IndexOf("x:Name=\"WorkbenchRunBar\"", StringComparison.Ordinal);
+        var stopStart = xaml.IndexOf("x:Uid=\"ScanDebug_StopAllMotorsButton\"", StringComparison.Ordinal);
+        var workStart = xaml.IndexOf("x:Name=\"WorkbenchSectionSelectorBar\"", StringComparison.Ordinal);
         Assert.True(
-            xaml.IndexOf("ScanDebug_StopAllMotorsButton", StringComparison.Ordinal) < xaml.IndexOf("WorkbenchSectionSelectorBar", StringComparison.Ordinal),
-            "Stop all motors must remain in the persistent lifecycle header, above the section selector and scrollable motor card.");
+            runStart >= 0 && stopStart > runStart && stopStart < workStart,
+            "Stop all motors must remain in the non-scrolling run bar, above the task selector and motor card.");
+        Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", english.Keys);
+        Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", chinese.Keys);
+        Assert.Contains("ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", english.Keys);
+        Assert.Contains("ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", chinese.Keys);
 
         Assert.Contains("x:Uid=\"ScanDebug_MotionReadRequiredTextBlock\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.MotionStateReadRequiredText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);

@@ -237,6 +237,40 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
         Update(draft, snapshot.BaselineDraft, snapshot.ImportResult);
     }
 
+    public ScanFilmProfileReferenceLevelPatchResult TryApplyReferenceLevels(
+        ScanFilmProfileWorkspaceSnapshot expected,
+        string channelRole,
+        ushort? blackLevel,
+        ushort? whiteLevel)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        if (!ReferenceEquals(Snapshot, expected))
+            return new(ScanFilmProfileReferenceLevelPatchStatus.Stale);
+
+        var draft = expected.CurrentDraft;
+        if (string.IsNullOrWhiteSpace(channelRole) || !draft.ChannelProfiles.TryGetValue(channelRole, out var profile))
+            return new(ScanFilmProfileReferenceLevelPatchStatus.MissingTarget);
+
+        if (whiteLevel is 0 || (blackLevel.HasValue && whiteLevel.HasValue && blackLevel >= whiteLevel))
+            return new(ScanFilmProfileReferenceLevelPatchStatus.InvalidValues);
+
+        var profiles = draft.ChannelProfiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        profiles[channelRole] = profile with { BlackLevel = blackLevel, WhiteLevel = whiteLevel };
+        var updatedDraft = new ScanFilmProfileDraft(
+            draft.ProfileName,
+            draft.SavedAtUtc,
+            profiles,
+            draft.SelectedCalibrationChannel,
+            draft.AcquisitionSettings,
+            draft.ScanRecipeSettings);
+        var updated = CreateSnapshot(updatedDraft, expected.BaselineDraft, expected.ImportResult);
+        if (!ReferenceEquals(Interlocked.CompareExchange(ref _snapshot, updated, expected), expected))
+            return new(ScanFilmProfileReferenceLevelPatchStatus.Stale);
+
+        SnapshotChanged?.Invoke(updated);
+        return new(ScanFilmProfileReferenceLevelPatchStatus.Applied, updated);
+    }
+
     private static bool IsPristine(ScanFilmProfileWorkspaceSnapshot snapshot)
     {
         var defaultDraft = ScanFilmProfileDraft.CreateDefault();

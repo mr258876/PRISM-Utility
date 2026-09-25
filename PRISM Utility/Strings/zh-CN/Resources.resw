@@ -739,7 +739,7 @@
     <value>断开连接</value>
   </data>
   <data name="ScanDebug_StopButton.Content" xml:space="preserve">
-    <value>停止</value>
+    <value>停止采集</value>
   </data>
   <data name="ScanDebug_ExportDngButton.Content" xml:space="preserve">
     <value>导出 DNG</value>
@@ -1802,13 +1802,52 @@
     <value>选择列范围以计算当前通道均值，并保存为黑场或白场。不会更改 ADC ROI 或配准。</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>黑场/白场参考保存使用当前预览帧和所选通道；清除或更换帧后会刷新采样均值。</value>
+    <value>下方“将列采样保存”按钮会把当前预览帧中所选通道的采样值写入本地校准库；不会填入手动编辑框，也不会保存配置 JSON。清除或更换预览帧可刷新采样均值。</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>参考起始列</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleEndTextBox.Header" xml:space="preserve">
     <value>参考结束列</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceLevelsTitle.Text" xml:space="preserve">
+    <value>通道黑白参考值（RAW 16 位 ADU）</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceLevelsHelpText.Text" xml:space="preserve">
+    <value>请输入原始整数：黑值 0-65535，白值 1-65535，黑值须小于白值。输入或使用采样只修改编辑框；应用只更新所选通道草稿，不写入 ADC 设备、本地库或配置文件。</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceTargetLabel.Text" xml:space="preserve">
+    <value>所选逻辑通道与 LED 映射</value>
+  </data>
+  <data name="ScanDebug_ManualBlackLevelTextBox.Header" xml:space="preserve">
+    <value>黑参考值（ADU）</value>
+  </data>
+  <data name="ScanDebug_UseSampleAsManualBlackLevelButton.Content" xml:space="preserve">
+    <value>使用采样填入黑值</value>
+  </data>
+  <data name="ScanDebug_ManualWhiteLevelTextBox.Header" xml:space="preserve">
+    <value>白参考值（ADU）</value>
+  </data>
+  <data name="ScanDebug_UseSampleAsManualWhiteLevelButton.Content" xml:space="preserve">
+    <value>使用采样填入白值</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceSourceLabel.Text" xml:space="preserve">
+    <value>输入来源</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceStatusLabel.Text" xml:space="preserve">
+    <value>草稿状态</value>
+  </data>
+  <data name="ScanDebug_ApplyManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>应用到通道草稿</value>
+  </data>
+  <data name="ScanDebug_RevertManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>撤销本次编辑</value>
+  </data>
+  <data name="ScanDebug_ClearManualReferenceLevelsButton.Content" xml:space="preserve">
+    <value>清除通道参考值…</value>
+  </data>
+  <data name="ScanDebug_ManualReferenceClearHelpText.Text" xml:space="preserve">
+    <value>清除通道草稿中的黑白参考值需要确认。配置须另行保存；本地校准库与设备不会改变。</value>
   </data>
   <data name="ScanDebug_OverlayVisibilityScopeDescription.Text" xml:space="preserve">
     <value>预览菜单仅控制叠加层可见性。请在对应功能面板中编辑 ADC、自动对焦和图像参考范围。</value>
@@ -2683,6 +2722,9 @@
   </data>
   <data name="ScanDebug_DisabledReasonScanRunning" xml:space="preserve">
     <value>扫描正在运行。</value>
+  </data>
+  <data name="ScanDebug_DisabledReasonNoActiveScan" xml:space="preserve">
+    <value>当前没有正在进行的采集。</value>
   </data>
   <data name="ScanDebug_DisabledReasonOutputRunning" xml:space="preserve">
     <value>输出操作正在运行。</value>
@@ -3888,6 +3930,18 @@
   <data name="ScanDebug_PreviewToolbarLabel.Text" xml:space="preserve">
     <value>缩放和预览工具保持在图像画布附近。</value>
   </data>
+  <data name="ScanDebug_ZoomOutButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>缩小预览</value>
+  </data>
+  <data name="ScanDebug_ZoomOutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>缩小预览</value>
+  </data>
+  <data name="ScanDebug_ZoomInButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>放大预览</value>
+  </data>
+  <data name="ScanDebug_ZoomInButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>放大预览</value>
+  </data>
   <data name="ScanDebug_PreviewEmptyTitle.Text" xml:space="preserve">
     <value>暂无预览图像</value>
   </data>
@@ -4193,8 +4247,8 @@
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>行数、距离、通道启用和顺序更改会立即更新摘要，输入无效时会阻止保存。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>采集调试开关</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>用于工程验证的底层扫描流程开关。除非硬件调试流程明确要求，否则请保持关闭。</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>实时扫描运行控件</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>当前实时校准会话的启动、停止、进度、采集模式和调试 DNG 导出控件。每个命令旁的禁用原因说明硬件或采集输出为何暂不可用。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>导出已采集数据</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>将已有采集数据导出为 DNG；不会保存配置 JSON 或向设备应用参数。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>扫描运行时会在这里显示进度。</value></data>
   <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>胶片配置生命周期页眉</value></data>
   <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>暂存胶片配置导入审查</value></data>
@@ -4255,4 +4309,84 @@
   <data name="ScanDebug_Runtime_SessionIlluminationReadyReason" xml:space="preserve"><value>可以向已连接设备发送仅当前会话的照明测试。</value></data>
   <data name="ScanDebug_Runtime_DeviceClockInvalidReason" xml:space="preserve"><value>请输入 30 到 200 MHz 的设备时钟，最多三位小数。</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadRequiredReason" xml:space="preserve"><value>读取或重新应用设备时钟后，此命令才能安全触及时序或硬件运动。</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>编辑配置</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationOperationsButton.Content" xml:space="preserve"><value>配置操作</value></data>
+  <data name="ScanDebug_WorkbenchAdvancedButton.Content" xml:space="preserve"><value>高级设置</value></data>
+  <data name="ScanDebug_WorkbenchReviewButton.Content" xml:space="preserve"><value>审查问题与导入</value></data>
+  <data name="ScanDebug_WorkbenchPendingReviewButton.Content" xml:space="preserve"><value>导入待审查</value></data>
+  <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>审查问题与导入</value></data>
+  <data name="ScanDebug_WorkbenchPendingReviewAction" xml:space="preserve"><value>导入待审查</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskButton.Content" xml:space="preserve"><value>采样</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Content" xml:space="preserve"><value>黑白场</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskButton.Content" xml:space="preserve"><value>对焦</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskButton.Content" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>信号检查</value></data>
+  <data name="ScanDebug_WorkbenchInspectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>显示或收起已有 ROI 和列采样状态。再次按下可收起。</value></data>
+  <data name="ScanDebug_WorkbenchInspectionTitle.Text" xml:space="preserve"><value>信号检查</value></data>
+  <data name="ScanDebug_WorkbenchInspectionSource.Text" xml:space="preserve"><value>仅显示已有设备、ROI 和列采样状态。不可用表示尚未测量，不代表零。</value></data>
+  <data name="ScanDebug_WorkbenchInspectionCaptureSourceLabel.Text" xml:space="preserve"><value>采集数据来源</value></data>
+  <data name="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel.Text" xml:space="preserve"><value>设备状态依据</value></data>
+  <data name="ScanDebug_WorkbenchInspectionCaptureComparisonLabel.Text" xml:space="preserve"><value>采集 / 设备 / 草稿对比</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>当前 ROI</value></data>
+  <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>列采样</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
+  <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>审查状态</value></data>
+  <data name="ScanDebug_WorkbenchDataExportButton.Content" xml:space="preserve"><value>采集数据 / DNG</value></data>
+  <data name="ScanDebug_WorkbenchDataExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>采集数据与 DNG 导出选项</value></data>
+  <data name="ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>仅停止当前采集，不取消自动对焦或停止所有电机。</value></data>
+  <data name="ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>设备命令可用时请求停止所有电机；不是物理急停，也不保证关灯。</value></data>
+  <data name="ScanDebug_ManualReferenceChannel" xml:space="preserve"><value>逻辑通道：{0}；LED 映射：{1}</value></data>
+  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>手动编辑的输入值，尚未应用到通道草稿。</value></data>
+  <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>原始来源未记录。</value></data>
+  <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>请先完成待处理校准候选的审查，再应用手动参考值。</value></data>
+  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>当前工作区草稿中没有所选通道的可编辑档案。请先配置该通道。</value></data>
+  <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>编辑期间通道或工作区草稿已改变。请核对最新数值后重试；未覆盖已有值。</value></data>
+  <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>有冲突的操作正在进行，暂不能将手动参考值应用到通道草稿；输入框仍可编辑。操作结束后请重试应用。</value></data>
+  <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>当前预览或采集数据中没有可确认属于所选通道的有效列采样。请检查预览帧和采样列范围后再填入。</value></data>
+  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>仅更改了本地输入，尚未应用到通道草稿。</value></data>
+  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>已从当前通道草稿读取参考值；设备未变更。</value></data>
+  <data name="ScanDebug_ManualReferenceInvalidValues" xml:space="preserve"><value>黑参考值须为空或 0 到 65535 的整数，白参考值须为空或 1 到 65535 的整数；两者均有值时黑值须小于白值。未应用任何更改。</value></data>
+  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>仅更新所选通道草稿的黑白参考值，未保存配置文件，也未更新本地校准库或设备。</value></data>
+  <data name="ScanDebug_ManualReferenceClearTitle" xml:space="preserve"><value>清除通道黑白参考值？</value></data>
+  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>确定清除所选通道草稿中的黑白参考值吗？不会修改配置文件、本地校准库或设备。</value></data>
+  <data name="ScanDebug_ManualReferenceClearConfirm" xml:space="preserve"><value>清除两项参考值</value></data>
+  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>输入取自采集 {0}、逻辑通道 {1}、列 {2}-{3}、处理阶段 {4}；未保存，也未写入设备。</value></data>
+  <data name="ScanDebug_CaptureSource" xml:space="preserve"><value>采集 {0}；逻辑通道 {1}；模式 {2}；已完成/请求行数 {3}/{4}；数据阶段 {5}；参数依据：{6}。</value></data>
+  <data name="ScanDebug_CaptureSourceDetails" xml:space="preserve"><value>&#10;设备 ID：{0}；应用会话代际：{1}；提交的 LED 通道索引：{2}；原始 LED level：{3}。&#10;请求准备时间（UTC）：{4}；结果记录时间（UTC）：{5}。&#10;配置标识：{6}；校准标识：{7}；结果版本：{8}。</value></data>
+  <data name="ScanDebug_CaptureUnknown" xml:space="preserve"><value>未知</value></data>
+  <data name="ScanDebug_CaptureParametersUnknown" xml:space="preserve"><value>原采集参数未记录</value></data>
+  <data name="ScanDebug_CaptureSubmittedParameters" xml:space="preserve"><value>请求时提交的参数快照 {0}（非设备读回值）</value></data>
+  <data name="ScanDebug_CaptureRawStage" xml:space="preserve"><value>设备采样缓冲区（显示处理前）</value></data>
+  <data name="ScanDebug_CaptureAlignedChannelStage" xml:space="preserve"><value>几何对齐后的通道数据（非设备 RAW）</value></data>
+  <data name="ScanDebug_CaptureSingleMode" xml:space="preserve"><value>单次采集</value></data>
+  <data name="ScanDebug_CaptureContinuousMode" xml:space="preserve"><value>连续采集</value></data>
+  <data name="ScanDebug_CaptureWorkflowMode" xml:space="preserve"><value>多通道工作流</value></data>
+  <data name="ScanDebug_CaptureComparisonUnknown" xml:space="preserve"><value>无法比较当前采集与设备/草稿：采集参数或当前设备依据不足。</value></data>
+  <data name="ScanDebug_CaptureHistorical" xml:space="preserve"><value>当前会话或通道无法与此图像对应，断开设备时也应将其视为历史采集；不能将当前设备或草稿参数套用到图像上。</value></data>
+  <data name="ScanDebug_CaptureComparisonSubmittedNotReadback" xml:space="preserve"><value>当前会话及通道的采集请求记录了已提交参数，但未读回设备参数；与当前草稿或文件是否相同尚未确认。</value></data>
+  <data name="ScanDebug_DeviceEvidenceConnected" xml:space="preserve"><value>扫描仪控制链路已连接；设备 ID：{0}；应用会话代际：{1}；时序状态代码：{2}。连接及此状态不代表设备参数已读回。</value></data>
+  <data name="ScanDebug_DeviceEvidenceUnknown" xml:space="preserve"><value>控制链路未连接；当前设备参数与外设可达性未知。</value></data>
+  <data name="ScanDebug_ImagePreviewModeItem.Text" xml:space="preserve"><value>图像</value></data>
+  <data name="ScanDebug_RawSignalProfileModeItem.Text" xml:space="preserve"><value>线剖面</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>RAW 行号（从 0 起）</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>已完成的行号</value></data>
+  <data name="ScanDebug_RawSignalProfileAxis.Text" xml:space="preserve"><value>完整解码行 | 横轴：解码列号 | 纵轴：0-65535 RAW ADU</value></data>
+  <data name="ScanDebug_RawSignalHistogramAxis.Text" xml:space="preserve"><value>列 ROI 直方图 | 256 箱 | 横轴：0-65535 RAW ADU | 纵轴：相对样本数</value></data>
+  <data name="ScanDebug_RawSignalSourceLabel.Text" xml:space="preserve"><value>RAW 采集来源</value></data>
+  <data name="ScanDebug_RawSignalStatisticsLabel.Text" xml:space="preserve"><value>列 ROI 统计</value></data>
+  <data name="ScanDebug_RawSignalUnavailable" xml:space="preserve"><value>暂无 RAW 样本。请采集对应通道的原始帧后查看信号。</value></data>
+  <data name="ScanDebug_RawSignalCalculating" xml:space="preserve"><value>正在计算所选已完成原始行及列 ROI 的信号。</value></data>
+  <data name="ScanDebug_RawSignalReady" xml:space="preserve"><value>RAW 信号已就绪。线剖面覆盖整行；直方图与统计仅使用列 ROI。</value></data>
+  <data name="ScanDebug_RawSignalInvalidRow" xml:space="preserve"><value>请输入有效的已完成 RAW 行号（从 0 起）。</value></data>
+  <data name="ScanDebug_RawSignalProcessedUnavailable" xml:space="preserve"><value>目前只有处理后或对齐后的数据，无法显示 RAW ADC 统计。</value></data>
+  <data name="ScanDebug_RawSignalUnavailableSource" xml:space="preserve"><value>无法确认对应的 RAW 采集来源；图像预览仍可能可用。</value></data>
+  <data name="ScanDebug_RawSignalUnavailableChannel" xml:space="preserve"><value>所选通道已变化；请采集相应通道的 RAW 样本后查看。</value></data>
+  <data name="ScanDebug_RawSignalUnavailableWorkflowStream" xml:space="preserve"><value>当前工作流的数据流尚不能归属于单个 RAW 通道，请等待通道采集完成。</value></data>
+  <data name="ScanDebug_RawSignalUnavailableComposite" xml:space="preserve"><value>当前合成图像不能默认对应单个 RAW 通道遍次。请采集来源可确认的单通道 RAW 帧后查看信号；合成图像仍可查看。</value></data>
+  <data name="ScanDebug_RawSignalUnavailablePreview" xml:space="preserve"><value>此预览没有可用的 RAW 样本，图像预览仍可查看。</value></data>
+  <data name="ScanDebug_RawSignalUnavailableData" xml:space="preserve"><value>无法解码所选 RAW 样本；统计数据不可用。</value></data>
+  <data name="ScanDebug_RawSignalInvalidRoi" xml:space="preserve"><value>所选列 ROI 对解码行无效，请在数值 ROI 编辑器中调整。</value></data>
+  <data name="ScanDebug_RawSignalSource" xml:space="preserve"><value>采集 {0}；通道遍次索引 {1}（-1 表示单次采集）；逻辑通道 {2}；结果版本 {3}；剖面行号 {4}；列 ROI {5}-{6}（含端点）；已完成 {7} 行。数据为显示处理前的设备样本。</value></data>
+  <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [原始遍次坐标，非合成图像像素坐标。]</value></data>
+  <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>样本数 N={0}；最小值={1} ADU；最大值={2} ADU；均值={3:F2} ADU；饱和样本={4}/{0}（阈值 65535 ADU）。</value></data>
   </root>

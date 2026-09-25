@@ -18,12 +18,19 @@
         <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter"/>
         <Thickness x:Key="ScanDebugPagePadding">12,12,12,24</Thickness>
         <Thickness x:Key="ScanDebugCardPadding">12</Thickness>
+        <Thickness x:Key="ScanDebugStatusPadding">8,4</Thickness>
         <Thickness x:Key="ScanDebugHeaderMargin">0,0,0,12</Thickness>
         <Thickness x:Key="ScanDebugPreviewPadding">0</Thickness>
         <Thickness x:Key="ScanDebugCardBorderThickness">1</Thickness>
         <CornerRadius x:Key="ScanDebugCardCornerRadius">8</CornerRadius>
         <x:Double x:Key="ScanDebugInlineSpacing">8</x:Double>
         <x:Double x:Key="ScanDebugSectionSpacing">12</x:Double>
+        <x:Double x:Key="ScanDebugProfileNameMaximum">240</x:Double>
+        <x:Double x:Key="ScanDebugHeaderMaximumHeight">320</x:Double>
+        <x:Double x:Key="ScanDebugReviewMaximumHeight">96</x:Double>
+        <x:Double x:Key="ScanDebugCaptureMinimumWidth">180</x:Double>
+        <x:Double x:Key="ScanDebugCaptureMaximumWidth">240</x:Double>
+        <x:Double x:Key="ScanDebugRawSignalChartHeight">320</x:Double>
         <DataTemplate x:Key="ScanMotorOptionTemplate">
             <TextBlock Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Motor}"/>
         </DataTemplate>
@@ -156,6 +163,7 @@
     </Page.Resources>
     <Grid
         x:Name="ScanDebugRootGrid"
+        AutomationProperties.AutomationId="ScanDebugRootGrid"
         DataContext="{x:Bind ViewModel}"
         Margin="{StaticResource ScanDebugPagePadding}"
         HorizontalAlignment="Stretch"
@@ -166,6 +174,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Border
@@ -174,11 +183,11 @@
             Grid.Row="0"
             AutomationProperties.AutomationId="FilmProfileLifecycleHeader"
             AutomationProperties.AccessibilityView="Control"
-            Margin="{StaticResource ScanDebugHeaderMargin}"
-            MaxHeight="360"
+            MaxHeight="{StaticResource ScanDebugHeaderMaximumHeight}"
             Style="{StaticResource ScanDebugSectionCardStyle}">
-            <Grid RowSpacing="{StaticResource ScanDebugSectionSpacing}">
+            <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
@@ -191,52 +200,50 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0"
-                                Spacing="{StaticResource ScanDebugInlineSpacing}">
-                        <TextBlock
-                            x:Uid="ScanDebug_WorkstationTitle"
-                            Style="{ThemeResource TitleTextBlockStyle}"
-                            TextWrapping="WrapWholeWords"/>
-                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                    <Grid x:Name="WorkbenchIdentityGrid"
+                          Grid.Row="0"
+                          ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                          RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="WorkbenchTitleTextBlock"
+                                   Grid.ColumnSpan="2"
+                                   x:Uid="ScanDebug_WorkstationTitle"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}"
+                                   TextWrapping="WrapWholeWords"/>
+                        <Grid x:Name="WorkbenchProfileSummaryGrid"
+                              Grid.Row="1"
+                              Grid.ColumnSpan="2"
+                              ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
                               RowSpacing="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0"
-                                       Grid.Column="0"
+                            <TextBlock Grid.Column="0"
                                        x:Uid="ScanDebug_FilmProfileWorkbenchCurrentConfigLabel"
                                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <StackPanel Grid.Row="0"
-                                        Grid.Column="1"
-                                        Spacing="4">
+                            <controls:WrapPanel Grid.Column="1"
+                                                HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                VerticalSpacing="4">
                                 <TextBlock Text="{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}"
-                                           TextWrapping="WrapWholeWords"
+                                           TextWrapping="NoWrap"
+                                           MaxWidth="{StaticResource ScanDebugProfileNameMaximum}"
+                                           ToolTipService.ToolTip="{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}"
                                            TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="{x:Bind ViewModel.ProfileSaveStateText, Mode=OneWay}"
                                            Style="{StaticResource ScanDebugQuietTextBlockStyle}"
                                            TextWrapping="WrapWholeWords"
                                            TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                            <TextBlock Grid.Row="1"
-                                       Grid.Column="0"
-                                       x:Uid="ScanDebug_FilmProfileWorkbenchDeviceStatusTitle"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <StackPanel Grid.Row="1"
-                                        Grid.Column="1"
-                                        Spacing="4">
-                                <TextBlock Text="{x:Bind ViewModel.FilmProfileDeviceStatusText, Mode=OneWay}"
-                                           TextWrapping="WrapWholeWords"/>
-                                <TextBlock Text="{x:Bind ViewModel.FilmProfileHardwareUnavailableReasonText, Mode=OneWay}"
-                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                           TextWrapping="WrapWholeWords"/>
-                            </StackPanel>
+                            </controls:WrapPanel>
                         </Grid>
-                    </StackPanel>
+                    </Grid>
 
                     <controls:WrapPanel x:Name="FilmProfileLifecycleActionsPanel"
                                         Grid.Row="1"
@@ -244,50 +251,69 @@
                                         VerticalAlignment="Top"
                                         HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
                                         VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
-                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleNewButton"
-                                TabIndex="10"
-                                Command="{x:Bind ViewModel.NewFilmProfileCommand}"/>
-                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton"
-                                TabIndex="20"
-                                Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
-                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton"
-                                TabIndex="30"
-                                Command="{x:Bind ViewModel.ValidateFilmProfileCommand}"/>
                         <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton"
-                                TabIndex="40"
+                                TabIndex="10"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Command="{x:Bind ViewModel.SaveFilmProfileJsonCommand}"/>
-                        <Button x:Uid="ScanDebug_StopAllMotorsButton"
-                                AutomationProperties.AutomationId="StopAllMotorsButton"
-                                TabIndex="45"
-                                BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
-                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                Command="{x:Bind ViewModel.StopAllMotorsCommand}"
-                                ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                        <Button x:Uid="ScanDebug_WorkbenchConfigurationButton"
+                                AutomationProperties.AutomationId="WorkbenchConfigurationButton"
+                                TabIndex="20"
+                                Click="OpenConfigurationButton_Click"/>
+                        <Button x:Uid="ScanDebug_WorkbenchConfigurationOperationsButton"
+                                TabIndex="30">
+                            <Button.Flyout>
+                                <Flyout>
+                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleNewButton"
+                                                HorizontalAlignment="Stretch"
+                                                Command="{x:Bind ViewModel.NewFilmProfileCommand}"/>
+                                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton"
+                                                HorizontalAlignment="Stretch"
+                                                Command="{x:Bind ViewModel.LoadFilmProfileJsonCommand}"/>
+                                        <Button x:Uid="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton"
+                                                HorizontalAlignment="Stretch"
+                                                Command="{x:Bind ViewModel.ValidateFilmProfileCommand}"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button x:Uid="ScanDebug_WorkbenchAdvancedButton"
+                                AutomationProperties.AutomationId="WorkbenchAdvancedButton"
+                                TabIndex="40"
+                                Click="OpenAdvancedButton_Click"/>
+                        <Button x:Name="WorkbenchReviewButton"
+                                x:Uid="ScanDebug_WorkbenchReviewButton"
+                                AutomationProperties.AutomationId="WorkbenchReviewButton"
+                                TabIndex="50"
+                                Click="WorkbenchReviewButton_Click"/>
                     </controls:WrapPanel>
                 </Grid>
 
+                <InfoBar
+                    x:Name="FilmProfileOperationInfoBar"
+                    x:Uid="ScanDebug_FilmProfileWorkbenchOperationInfoBar"
+                    Grid.Row="1"
+                    Margin="{StaticResource XSmallTopMargin}"
+                    AutomationProperties.AutomationId="FilmProfileOperationInfoBar"
+                    IsOpen="{x:Bind ViewModel.FilmProfileOperationIsOpen, Mode=TwoWay}"
+                    Severity="{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}"
+                               MaxLines="2"
+                               TextTrimming="WordEllipsis"
+                               TextWrapping="WrapWholeWords"/>
+                </InfoBar>
+
                 <ScrollViewer x:Name="FilmProfileLifecycleDetailsScrollViewer"
-                              Grid.Row="1"
-                              MaxHeight="240"
+                              Grid.Row="2"
+                              Margin="{StaticResource XSmallTopMargin}"
+                              MaxHeight="{StaticResource ScanDebugReviewMaximumHeight}"
+                              Visibility="Collapsed"
                               VerticalScrollBarVisibility="Auto"
                               VerticalScrollMode="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               HorizontalScrollMode="Disabled">
                     <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}">
-                        <InfoBar
-                            x:Name="FilmProfileOperationInfoBar"
-                            x:Uid="ScanDebug_FilmProfileWorkbenchOperationInfoBar"
-                            AutomationProperties.AutomationId="FilmProfileOperationInfoBar"
-                            IsOpen="{x:Bind ViewModel.FilmProfileOperationIsOpen, Mode=TwoWay}"
-                            Severity="{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}"
-                            Visibility="{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}">
-                            <TextBlock Text="{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}"
-                                       MaxLines="2"
-                                       TextTrimming="WordEllipsis"
-                                       TextWrapping="WrapWholeWords"/>
-                        </InfoBar>
-
                         <ContentControl
                             x:Name="CurrentFilmProfileValidationInspector"
                             AutomationProperties.AutomationId="CurrentFilmProfileValidationInspector"
@@ -305,11 +331,11 @@
                                                x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle"
                                                Style="{ThemeResource BodyStrongTextBlockStyle}"
                                                TextWrapping="WrapWholeWords"/>
-                                    <TextBlock Grid.Row="1"
-                                               x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription"
-                                               Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                    <InfoBar Grid.Row="2"
-                                             IsOpen="True"
+                                     <TextBlock Grid.Row="2"
+                                                x:Uid="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription"
+                                                Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                     <InfoBar Grid.Row="1"
+                                              IsOpen="True"
                                              Message="{x:Bind ViewModel.CurrentFilmProfileValidationIssueCountText, Mode=OneWay}"
                                              Severity="{x:Bind ViewModel.CurrentFilmProfileValidationSeverity, Mode=OneWay}"/>
                                     <ScrollViewer x:Name="CurrentFilmProfileValidationIssueScrollViewer"
@@ -404,18 +430,107 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1"
-              ColumnSpacing="{StaticResource ScanDebugInlineSpacing}">
+        <Border x:Name="WorkbenchRunBar"
+                AutomationProperties.AutomationId="WorkbenchRunBar"
+                AutomationProperties.AccessibilityView="Control"
+                Grid.Row="1"
+                Style="{StaticResource ScanDebugSectionCardStyle}">
+            <Grid RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <controls:WrapPanel Grid.Row="0"
+                                    HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                    VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                    <ComboBox x:Name="CaptureModeComboBox"
+                              x:Uid="ScanDebug_CaptureModeComboBox"
+                              AutomationProperties.AutomationId="CaptureModeComboBox"
+                              AutomationProperties.HelpText="{x:Bind ViewModel.CaptureModeScopeText, Mode=OneWay}"
+                              MinWidth="{StaticResource ScanDebugCaptureMinimumWidth}"
+                              MaxWidth="{StaticResource ScanDebugCaptureMaximumWidth}"
+                              IsEnabled="{x:Bind ViewModel.CanEditCaptureMode, Mode=OneWay}"
+                              ItemsSource="{x:Bind ViewModel.CaptureModeOptions, Mode=OneWay}"
+                              ItemTemplate="{StaticResource ScanCaptureModeOptionTemplate}"
+                              SelectedItem="{x:Bind ViewModel.SelectedCaptureMode, Mode=TwoWay}"/>
+                    <Button MinWidth="104"
+                            x:Uid="ScanDebug_StartButton"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Command="{x:Bind ViewModel.StartScanCommand}"/>
+                    <Button MinWidth="88"
+                            x:Uid="ScanDebug_StopButton"
+                            BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
+                            Command="{x:Bind ViewModel.StopScanCommand}"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                    <Button x:Uid="ScanDebug_StopAllMotorsButton"
+                            AutomationProperties.AutomationId="StopAllMotorsButton"
+                            BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
+                            Command="{x:Bind ViewModel.StopAllMotorsCommand}"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                </controls:WrapPanel>
+                <Grid Grid.Row="1" RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <ProgressBar Grid.Row="0"
+                                 HorizontalAlignment="Stretch"
+                                 Maximum="{x:Bind ViewModel.ScanReadProgressMaximum, Mode=OneWay}"
+                                 Value="{x:Bind ViewModel.ScanReadProgressValue, Mode=OneWay}"
+                                 Visibility="{x:Bind ViewModel.ScanReadProgressVisibility, Mode=OneWay}"/>
+                    <controls:WrapPanel Grid.Row="1"
+                                        HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                        VerticalSpacing="4">
+                        <TextBlock Text="{x:Bind ViewModel.CaptureModeUnavailableReasonText, Mode=OneWay}"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.CaptureModeUnavailableReasonText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.StartDisabledReasonText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="StartDisabledReasonText"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.StartDisabledReasonText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.StopDisabledReasonText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="StopDisabledReasonText"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.StopDisabledReasonText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                    </controls:WrapPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" RowSpacing="{StaticResource ScanDebugSectionSpacing}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+        <Grid Grid.Row="0"
+              ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+              RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <controls:WrapPanel Grid.Column="0"
+                                HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                <Button x:Name="SamplingTaskButton" x:Uid="ScanDebug_WorkbenchSamplingTaskButton" AutomationProperties.AutomationId="WorkbenchSamplingTaskButton" Tag="1" Click="SelectWorkbenchTaskButton_Click"/>
+                <Button x:Name="BlackWhiteTaskButton" x:Uid="ScanDebug_WorkbenchBlackWhiteTaskButton" AutomationProperties.AutomationId="WorkbenchBlackWhiteTaskButton" Tag="2" Click="SelectWorkbenchTaskButton_Click"/>
+                <Button x:Name="FocusTaskButton" x:Uid="ScanDebug_WorkbenchFocusTaskButton" AutomationProperties.AutomationId="WorkbenchFocusTaskButton" Tag="3" Click="SelectWorkbenchTaskButton_Click"/>
+                <Button x:Name="MotionTaskButton" x:Uid="ScanDebug_WorkbenchMotionTaskButton" AutomationProperties.AutomationId="WorkbenchMotionTaskButton" Tag="5" Click="SelectWorkbenchTaskButton_Click"/>
+            </controls:WrapPanel>
             <SelectorBar
                 x:Name="WorkbenchSectionSelectorBar"
-                Grid.Column="0"
+                Grid.Row="1"
+                Grid.ColumnSpan="3"
                 AutomationProperties.AutomationId="WorkbenchSectionSelectorBar"
                 HorizontalAlignment="Stretch"
-                SelectionChanged="WorkbenchSectionSelectorBar_SelectionChanged">
+                SelectionChanged="WorkbenchSectionSelectorBar_SelectionChanged"
+                Visibility="Collapsed">
                 <SelectorBarItem x:Uid="ScanDebug_FilmProfileWorkbenchSectionBasicInfo"
                                  IsSelected="True"/>
                 <SelectorBarItem x:Uid="ScanDebug_FilmProfileWorkbenchSectionAcquisitionPlan"/>
@@ -426,7 +541,8 @@
             </SelectorBar>
             <ComboBox
                 x:Name="WorkbenchSectionComboBox"
-                Grid.Column="0"
+                Grid.Row="1"
+                Grid.ColumnSpan="3"
                 AutomationProperties.AutomationId="WorkbenchSectionComboBox"
                 HorizontalAlignment="Stretch"
                 MaxWidth="360"
@@ -441,16 +557,22 @@
                 <ComboBoxItem x:Uid="ScanDebug_FilmProfileWorkbenchSectionEngineeringToolsComboBoxItem"/>
             </ComboBox>
             <Button x:Name="OpenPreviewButton"
-                    Grid.Column="1"
+                     Grid.Column="1"
                     x:Uid="ScanDebug_OpenPreviewButton"
                     AutomationProperties.AutomationId="OpenPreviewButton"
-                    Click="OpenPreviewButton_Click"
+                     Click="OpenPreviewButton_Click"
+                     Visibility="Collapsed"/>
+            <Button x:Name="InspectionToggleButton"
+                    Grid.Column="2"
+                    x:Uid="ScanDebug_WorkbenchInspectionButton"
+                    AutomationProperties.AutomationId="WorkbenchInspectionButton"
+                    Click="InspectionToggleButton_Click"
                     Visibility="Collapsed"/>
         </Grid>
 
         <Grid
             x:Name="WorkbenchContentSplitGrid"
-            Grid.Row="2"
+            Grid.Row="1"
             Visibility="{x:Bind ViewModel.FilmProfileWorkbenchContentVisibility, Mode=OneWay}"
             ColumnSpacing="0">
             <Grid.RowDefinitions>
@@ -463,7 +585,9 @@
                 <ColumnDefinition x:Name="WorkbenchPreviewSeparatorColumn"
                                   Width="12"/>
                 <ColumnDefinition x:Name="WorkbenchPreviewColumn"
-                                   Width="7*"/>
+                                    Width="7*"/>
+                <ColumnDefinition x:Name="WorkbenchInspectionSeparatorColumn" Width="0"/>
+                <ColumnDefinition x:Name="WorkbenchInspectionColumn" Width="0"/>
             </Grid.ColumnDefinitions>
 
             <Grid x:Name="WorkbenchEditorColumnContent" Grid.Row="0" Grid.Column="0">
@@ -779,6 +903,61 @@
                                         <TextBlock x:Uid="ScanDebug_AcquisitionTransportStrategySafetyText"
                                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"
                                                    TextWrapping="WrapWholeWords"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border AutomationProperties.AutomationId="SessionIlluminationTestCard"
+                                        Style="{StaticResource ScanDebugSectionCardStyle}">
+                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <TextBlock x:Uid="ScanDebug_IlluminationSessionTestTitle"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock x:Uid="ScanDebug_IlluminationSessionTestHelpText"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                              RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                     x:Uid="ScanDebug_SessionTestLedIndexTextBox"
+                                                     AutomationProperties.AutomationId="SessionTestLedIndexTextBox"
+                                                     Text="{x:Bind ViewModel.SessionTestLedIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBox Grid.Column="1"
+                                                     x:Uid="ScanDebug_SessionTestLedLevelTextBox"
+                                                     AutomationProperties.AutomationId="SessionTestLedLevelTextBox"
+                                                     Text="{x:Bind ViewModel.SessionTestLedLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBox Grid.Column="2"
+                                                     x:Uid="ScanDebug_SessionTestPulseClockTextBox"
+                                                     AutomationProperties.AutomationId="SessionTestPulseClockTextBox"
+                                                     Text="{x:Bind ViewModel.SessionTestPulseClock, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </Grid>
+                                        <TextBlock x:Uid="ScanDebug_SessionTestInputHint"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock x:Uid="ScanDebug_IlluminationPulseClockHardwareHint"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.SessionIlluminationDisabledReasonText, Mode=OneWay}"
+                                                   AutomationProperties.AutomationId="SessionIlluminationDisabledReasonText"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                            VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                            <Button x:Uid="ScanDebug_TestIlluminationOffButton"
+                                                    AutomationProperties.AutomationId="TestIlluminationOffButton"
+                                                    Command="{x:Bind ViewModel.TestIlluminationOffCommand}"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                            <Button x:Uid="ScanDebug_TestIlluminationSteadyButton"
+                                                    AutomationProperties.AutomationId="TestIlluminationSteadyButton"
+                                                    Command="{x:Bind ViewModel.TestIlluminationSteadyCommand}"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                            <Button x:Uid="ScanDebug_TestIlluminationAcquisitionSyncButton"
+                                                    AutomationProperties.AutomationId="TestIlluminationAcquisitionSyncButton"
+                                                    Command="{x:Bind ViewModel.TestIlluminationAcquisitionSyncCommand}"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                        </controls:WrapPanel>
                                     </StackPanel>
                                 </Border>
 
@@ -1362,11 +1541,87 @@
                                             <Button x:Uid="ScanDebug_SaveColumnWhiteLevelButton"
                                                     Command="{x:Bind ViewModel.SaveColumnSampleAsWhiteLevelCommand}"
                                                     ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                         </controls:WrapPanel>
+                                     </StackPanel>
+                                 </Border>
+
+                                <Border x:Name="ManualReferenceLevelsCard"
+                                        AutomationProperties.AutomationId="ManualReferenceLevelsCard"
+                                        Style="{StaticResource ScanDebugSectionCardStyle}">
+                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceLevelsTitle"
+                                                   Style="{ThemeResource SubtitleTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceLevelsHelpText"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceTargetLabel"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock AutomationProperties.AutomationId="ManualReferenceChannelText"
+                                                   Text="{x:Bind ViewModel.ManualReferenceChannelText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                            <TextBox x:Name="ManualBlackLevelTextBox"
+                                                     x:Uid="ScanDebug_ManualBlackLevelTextBox"
+                                                     AutomationProperties.AutomationId="ManualBlackLevelTextBox"
+                                                     Text="{x:Bind ViewModel.ManualBlackLevelInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <Button x:Uid="ScanDebug_UseSampleAsManualBlackLevelButton"
+                                                    AutomationProperties.AutomationId="UseSampleAsManualBlackLevelButton"
+                                                    HorizontalAlignment="Stretch"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                    Command="{x:Bind ViewModel.UseColumnSampleAsManualBlackLevelCommand}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                            <TextBox x:Name="ManualWhiteLevelTextBox"
+                                                     x:Uid="ScanDebug_ManualWhiteLevelTextBox"
+                                                     AutomationProperties.AutomationId="ManualWhiteLevelTextBox"
+                                                     Text="{x:Bind ViewModel.ManualWhiteLevelInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <Button x:Uid="ScanDebug_UseSampleAsManualWhiteLevelButton"
+                                                    AutomationProperties.AutomationId="UseSampleAsManualWhiteLevelButton"
+                                                    HorizontalAlignment="Stretch"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                    Command="{x:Bind ViewModel.UseColumnSampleAsManualWhiteLevelCommand}"/>
+                                        </StackPanel>
+                                        <TextBlock AutomationProperties.AutomationId="ManualReferenceSampleDisabledReasonText"
+                                                   Text="{x:Bind ViewModel.ManualReferenceSampleDisabledReasonText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceSourceLabel"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock AutomationProperties.AutomationId="ManualReferenceSourceText"
+                                                   Text="{x:Bind ViewModel.ManualReferenceSourceText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceStatusLabel"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock AutomationProperties.AutomationId="ManualReferenceStatusText"
+                                                   Text="{x:Bind ViewModel.ManualReferenceStatusText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock AutomationProperties.AutomationId="ManualReferenceDisabledReasonText"
+                                                   Text="{x:Bind ViewModel.ManualReferenceDisabledReasonText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                            VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                            <Button x:Uid="ScanDebug_ApplyManualReferenceLevelsButton"
+                                                    AutomationProperties.AutomationId="ApplyManualReferenceLevelsButton"
+                                                    Style="{StaticResource AccentButtonStyle}"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                    Command="{x:Bind ViewModel.ApplyManualReferenceLevelsCommand}"/>
+                                            <Button x:Uid="ScanDebug_RevertManualReferenceLevelsButton"
+                                                    AutomationProperties.AutomationId="RevertManualReferenceLevelsButton"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                    Command="{x:Bind ViewModel.RevertManualReferenceLevelsCommand}"/>
+                                            <Button x:Uid="ScanDebug_ClearManualReferenceLevelsButton"
+                                                    AutomationProperties.AutomationId="ClearManualReferenceLevelsButton"
+                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                    Command="{x:Bind ViewModel.ClearManualReferenceLevelsCommand}"/>
                                         </controls:WrapPanel>
+                                        <TextBlock x:Uid="ScanDebug_ManualReferenceClearHelpText"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border AutomationProperties.AutomationId="ChannelCalibrationIlluminationCard"
+                                 <Border AutomationProperties.AutomationId="ChannelCalibrationIlluminationCard"
                                         AutomationProperties.Name="Channel calibration illumination card"
                                         Style="{StaticResource ScanDebugSectionCardStyle}">
                                     <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
@@ -1404,137 +1659,6 @@
                             HorizontalScrollBarVisibility="Disabled"
                             HorizontalScrollMode="Disabled">
                             <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}">
-                                <Border Style="{StaticResource ScanDebugSectionCardStyle}">
-                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
-                                        <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle"
-                                                   Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                                         <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription"
-                                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                        <ComboBox x:Name="CaptureModeComboBox"
-                                                  x:Uid="ScanDebug_CaptureModeComboBox"
-                                                  AutomationProperties.AutomationId="CaptureModeComboBox"
-                                                  AutomationProperties.HelpText="{x:Bind ViewModel.CaptureModeScopeText, Mode=OneWay}"
-                                                  HorizontalAlignment="Stretch"
-                                                  MaxWidth="360"
-                                                  IsEnabled="{x:Bind ViewModel.CanEditCaptureMode, Mode=OneWay}"
-                                                  ItemsSource="{x:Bind ViewModel.CaptureModeOptions, Mode=OneWay}"
-                                                  ItemTemplate="{StaticResource ScanCaptureModeOptionTemplate}"
-                                                  SelectedItem="{x:Bind ViewModel.SelectedCaptureMode, Mode=TwoWay}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.CaptureModeScopeText, Mode=OneWay}"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <TextBlock Text="{x:Bind ViewModel.CaptureModeUnavailableReasonText, Mode=OneWay}"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <TextBlock
-                                            Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                                            Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                            TextWrapping="WrapWholeWords"/>
-                                        <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                                            VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                            <Button MinWidth="104"
-                                                    x:Uid="ScanDebug_StartButton"
-                                                    Style="{StaticResource AccentButtonStyle}"
-                                                    Command="{x:Bind ViewModel.StartScanCommand}"/>
-                                            <Button
-                                                MinWidth="88"
-                                                x:Uid="ScanDebug_StopButton"
-                                                BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
-                                                Command="{x:Bind ViewModel.StopScanCommand}"
-                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                                            <ComboBox
-                                                MinWidth="180"
-                                                MaxWidth="320"
-                                                x:Uid="ScanDebug_DebugDngExportModeComboBox"
-                                                ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
-                                                ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
-                                                SelectedItem="{x:Bind ViewModel.SelectedDebugDngExportMode, Mode=TwoWay}"
-                                                VerticalAlignment="Center"/>
-                                            <Button MinWidth="104"
-                                                    x:Uid="ScanDebug_ExportDngButton"
-                                                    Command="{x:Bind ViewModel.ExportDngCommand}"/>
-                                        </controls:WrapPanel>
-                                        <TextBlock Text="{x:Bind ViewModel.StartDisabledReasonText, Mode=OneWay}"
-                                                   AutomationProperties.AutomationId="StartDisabledReasonText"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <TextBlock Text="{x:Bind ViewModel.ExportDngDisabledReasonText, Mode=OneWay}"
-                                                   AutomationProperties.AutomationId="ExportDngDisabledReasonText"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <ProgressBar
-                                            HorizontalAlignment="Stretch"
-                                            IsIndeterminate="False"
-                                            Maximum="{x:Bind ViewModel.ScanReadProgressMaximum, Mode=OneWay}"
-                                            Value="{x:Bind ViewModel.ScanReadProgressValue, Mode=OneWay}"
-                                            Visibility="{x:Bind ViewModel.ScanReadProgressVisibility, Mode=OneWay}"/>
-                                        <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchLiveProgressLabel"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <InfoBar
-                                            x:Uid="ScanDebug_DngAlignmentWarningInfoBar"
-                                            IsOpen="True"
-                                            Message="{x:Bind ViewModel.DngAlignmentWarningMessage, Mode=OneWay}"
-                                            Severity="Warning"
-                                            Visibility="{x:Bind ViewModel.DngAlignmentWarningVisibility, Mode=OneWay}"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border AutomationProperties.AutomationId="SessionIlluminationTestCard"
-                                        Style="{StaticResource ScanDebugSectionCardStyle}">
-                                    <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
-                                        <TextBlock x:Uid="ScanDebug_IlluminationSessionTestTitle"
-                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <TextBlock x:Uid="ScanDebug_IlluminationSessionTestHelpText"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                              RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0"
-                                                     x:Uid="ScanDebug_SessionTestLedIndexTextBox"
-                                                     AutomationProperties.AutomationId="SessionTestLedIndexTextBox"
-                                                     Text="{x:Bind ViewModel.SessionTestLedIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBox Grid.Column="1"
-                                                     x:Uid="ScanDebug_SessionTestLedLevelTextBox"
-                                                     AutomationProperties.AutomationId="SessionTestLedLevelTextBox"
-                                                     Text="{x:Bind ViewModel.SessionTestLedLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBox Grid.Column="2"
-                                                     x:Uid="ScanDebug_SessionTestPulseClockTextBox"
-                                                     AutomationProperties.AutomationId="SessionTestPulseClockTextBox"
-                                                     Text="{x:Bind ViewModel.SessionTestPulseClock, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </Grid>
-                                        <TextBlock x:Uid="ScanDebug_SessionTestInputHint"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                        <TextBlock x:Uid="ScanDebug_IlluminationPulseClockHardwareHint"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.SessionIlluminationDisabledReasonText, Mode=OneWay}"
-                                                   AutomationProperties.AutomationId="SessionIlluminationDisabledReasonText"
-                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords"/>
-                                        <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                                            VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                            <Button x:Uid="ScanDebug_TestIlluminationOffButton"
-                                                    AutomationProperties.AutomationId="TestIlluminationOffButton"
-                                                    Command="{x:Bind ViewModel.TestIlluminationOffCommand}"
-                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                            <Button x:Uid="ScanDebug_TestIlluminationSteadyButton"
-                                                    AutomationProperties.AutomationId="TestIlluminationSteadyButton"
-                                                    Command="{x:Bind ViewModel.TestIlluminationSteadyCommand}"
-                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                            <Button x:Uid="ScanDebug_TestIlluminationAcquisitionSyncButton"
-                                                    AutomationProperties.AutomationId="TestIlluminationAcquisitionSyncButton"
-                                                    Command="{x:Bind ViewModel.TestIlluminationAcquisitionSyncCommand}"
-                                                    ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                        </controls:WrapPanel>
-                                    </StackPanel>
-                                </Border>
-
                                 <Border x:Name="LiveFocusCard"
                                         Style="{StaticResource ScanDebugSectionCardStyle}">
                                     <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
@@ -2663,9 +2787,29 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0"
-                                   x:Uid="ScanDebug_Preview"
-                                   Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <Grid Grid.Row="0"
+                              ColumnSpacing="{StaticResource ScanDebugInlineSpacing}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       x:Uid="ScanDebug_Preview"
+                                       VerticalAlignment="Center"
+                                       Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                            <SelectorBar x:Name="RawSignalModeSelector"
+                                         Grid.Column="1"
+                                         HorizontalAlignment="Right"
+                                         VerticalAlignment="Center"
+                                         AutomationProperties.AutomationId="RawSignalModeSelector"
+                                         SelectionChanged="RawSignalModeSelector_SelectionChanged">
+                                <SelectorBarItem x:Name="ImagePreviewModeItem"
+                                                 x:Uid="ScanDebug_ImagePreviewModeItem"
+                                                 IsSelected="True"/>
+                                <SelectorBarItem x:Name="RawSignalProfileModeItem"
+                                                 x:Uid="ScanDebug_RawSignalProfileModeItem"/>
+                            </SelectorBar>
+                        </Grid>
                         <controls:WrapPanel
                             Grid.Row="1"
                             HorizontalAlignment="Left"
@@ -2678,31 +2822,22 @@
                                     AutomationProperties.AutomationId="BackToEditorButton"
                                     Click="BackToEditorButton_Click"
                                     Visibility="Collapsed"/>
-                            <Button Content="-"
-                                    Click="ZoomOutButton_Click"/>
-                            <Button Content="+"
-                                    Click="ZoomInButton_Click"/>
+                            <Button x:Name="ZoomOutButton"
+                                    x:Uid="ScanDebug_ZoomOutButton"
+                                     Content="-"
+                                     AutomationProperties.AutomationId="ZoomOutButton"
+                                     Click="ZoomOutButton_Click"/>
+                            <Button x:Name="ZoomInButton"
+                                    x:Uid="ScanDebug_ZoomInButton"
+                                     Content="+"
+                                     AutomationProperties.AutomationId="ZoomInButton"
+                                     Click="ZoomInButton_Click"/>
                             <ComboBox
                                 x:Name="ZoomScaleComboBox"
                                 Width="120"
                                 SelectionChanged="ZoomScaleComboBox_SelectionChanged"/>
-                            <ToggleSwitch
-                                x:Uid="ScanDebug_WaterfallToggleSwitch"
-                                IsEnabled="{x:Bind ViewModel.CanEditWaterfall, Mode=OneWay}"
-                                IsOn="{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}"/>
-                            <ToggleSwitch
-                                x:Name="PreviewGammaToggleSwitch"
-                                x:Uid="ScanDebug_PreviewGammaToggleSwitch"
-                                AutomationProperties.AutomationId="PreviewGammaToggleSwitch"
-                                IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}"/>
-                            <TextBox
-                                x:Name="PreviewGammaTextBox"
-                                x:Uid="ScanDebug_PreviewGammaTextBox"
-                                AutomationProperties.AutomationId="PreviewGammaTextBox"
-                                Width="120"
-                                IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
-                                Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}"/>
-                            <Button x:Uid="ScanDebug_PreviewDisplayToolsButton"
+                            <Button x:Name="PreviewDisplayToolsButton"
+                                    x:Uid="ScanDebug_PreviewDisplayToolsButton"
                                     AutomationProperties.AutomationId="PreviewDisplayToolsButton">
                                 <Button.Flyout>
                                     <Flyout x:Name="PreviewDisplayToolsFlyout"
@@ -2718,6 +2853,21 @@
                                                         Spacing="{StaticResource ScanDebugInlineSpacing}">
                                                 <TextBlock x:Uid="ScanDebug_PreviewDisplayToolsDescription"
                                                             Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                                <ToggleSwitch
+                                                    x:Uid="ScanDebug_WaterfallToggleSwitch"
+                                                    IsEnabled="{x:Bind ViewModel.CanEditWaterfall, Mode=OneWay}"
+                                                    IsOn="{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}"/>
+                                                <ToggleSwitch
+                                                    x:Name="PreviewGammaToggleSwitch"
+                                                    x:Uid="ScanDebug_PreviewGammaToggleSwitch"
+                                                    AutomationProperties.AutomationId="PreviewGammaToggleSwitch"
+                                                    IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}"/>
+                                                <TextBox
+                                                    x:Name="PreviewGammaTextBox"
+                                                    x:Uid="ScanDebug_PreviewGammaTextBox"
+                                                    AutomationProperties.AutomationId="PreviewGammaTextBox"
+                                                    IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
+                                                    Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}"/>
                                                 <StackPanel x:Name="WaterfallPreviewOptionsPanel"
                                                             Spacing="{StaticResource ScanDebugInlineSpacing}"
                                                             Visibility="{x:Bind ViewModel.WaterfallPreviewOptionsVisibility, Mode=OneWay}">
@@ -2733,7 +2883,8 @@
                                     </Flyout>
                                 </Button.Flyout>
                             </Button>
-                            <Button x:Uid="ScanDebug_OverlayToolsButton"
+                            <Button x:Name="OverlayToolsButton"
+                                    x:Uid="ScanDebug_OverlayToolsButton"
                                     AutomationProperties.AutomationId="OverlayToolsButton">
                                 <Button.Flyout>
                                     <Flyout x:Name="OverlayToolsFlyout"
@@ -2780,6 +2931,46 @@
                                                               AutomationProperties.AutomationId="ImageReferenceOverlayCheckBox"
                                                               IsChecked="{x:Bind ViewModel.IsImageReferenceOverlayVisible, Mode=TwoWay}"/>
                                                 </controls:WrapPanel>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button x:Uid="ScanDebug_WorkbenchDataExportButton"
+                                    AutomationProperties.AutomationId="WorkbenchDataExportButton">
+                                <Button.Flyout>
+                                    <Flyout x:Name="WorkbenchDataExportFlyout"
+                                            FlyoutPresenterStyle="{StaticResource ScanDebugLocalFlyoutPresenterBaseStyle}"
+                                            Opening="WorkbenchDataExportFlyout_Opening">
+                                        <ScrollViewer x:Name="WorkbenchDataExportScrollViewer"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      VerticalScrollMode="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      HorizontalScrollMode="Disabled">
+                                            <StackPanel x:Name="WorkbenchDataExportContent"
+                                                        Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                                <TextBlock x:Uid="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription"
+                                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                                <controls:WrapPanel HorizontalSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                                    VerticalSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                                    <ComboBox MinWidth="180"
+                                                              MaxWidth="320"
+                                                              x:Uid="ScanDebug_DebugDngExportModeComboBox"
+                                                              ItemsSource="{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}"
+                                                              ItemTemplate="{StaticResource ScanDngExportModeOptionTemplate}"
+                                                              SelectedItem="{x:Bind ViewModel.SelectedDebugDngExportMode, Mode=TwoWay}"/>
+                                                    <Button MinWidth="104"
+                                                            x:Uid="ScanDebug_ExportDngButton"
+                                                            Command="{x:Bind ViewModel.ExportDngCommand}"/>
+                                                </controls:WrapPanel>
+                                                <TextBlock Text="{x:Bind ViewModel.ExportDngDisabledReasonText, Mode=OneWay}"
+                                                           AutomationProperties.AutomationId="ExportDngDisabledReasonText"
+                                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                                <InfoBar x:Uid="ScanDebug_DngAlignmentWarningInfoBar"
+                                                         IsOpen="True"
+                                                         Message="{x:Bind ViewModel.DngAlignmentWarningMessage, Mode=OneWay}"
+                                                         Severity="Warning"
+                                                         Visibility="{x:Bind ViewModel.DngAlignmentWarningVisibility, Mode=OneWay}"/>
                                             </StackPanel>
                                         </ScrollViewer>
                                     </Flyout>
@@ -2850,6 +3041,72 @@
                                                Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                 </StackPanel>
                             </Grid>
+                            <ScrollViewer x:Name="RawSignalProfileScrollViewer"
+                                          AutomationProperties.AutomationId="RawSignalProfileScrollViewer"
+                                          Visibility="Collapsed"
+                                          VerticalScrollBarVisibility="Auto"
+                                          VerticalScrollMode="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          HorizontalScrollMode="Disabled">
+                                <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}"
+                                            Padding="{StaticResource ScanDebugCardPadding}">
+                                    <TextBlock x:Name="RawSignalStatusTextBlock"
+                                               AutomationProperties.AutomationId="RawSignalStatusText"
+                                               AutomationProperties.LiveSetting="Polite"
+                                               Text="{x:Bind ViewModel.RawSignalStatusText, Mode=OneWay}"
+                                               TextWrapping="WrapWholeWords"
+                                               Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                    <TextBox x:Name="RawSignalRowTextBox"
+                                             x:Uid="ScanDebug_RawSignalRowTextBox"
+                                             AutomationProperties.AutomationId="RawSignalRowTextBox"
+                                             InputScope="Number"
+                                             Text="{x:Bind ViewModel.RawSignalRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <StackPanel x:Name="RawSignalResultDetails"
+                                                Visibility="Collapsed"
+                                                Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                        <TextBlock x:Uid="ScanDebug_RawSignalProfileAxis"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <canvas:CanvasControl x:Name="RawSignalCanvasControl"
+                                                              AutomationProperties.AutomationId="RawSignalCanvasControl"
+                                                              AutomationProperties.AccessibilityView="Raw"
+                                                              IsHitTestVisible="False"
+                                                              Height="{StaticResource ScanDebugRawSignalChartHeight}"
+                                                              HorizontalAlignment="Stretch"
+                                                              ClearColor="Transparent"
+                                                              Tag="{x:Bind ViewModel.RawSignalResult, Mode=OneWay}"
+                                                              CreateResources="RawSignalCanvasControl_CreateResources"
+                                                              Draw="RawSignalCanvasControl_Draw"
+                                                              SizeChanged="RawSignalCanvasControl_SizeChanged"
+                                                              ActualThemeChanged="RawSignalCanvasControl_ActualThemeChanged"/>
+                                        <TextBlock x:Uid="ScanDebug_RawSignalHistogramAxis"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                                        <TextBlock x:Uid="ScanDebug_RawSignalSourceLabel"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock AutomationProperties.AutomationId="RawSignalSourceText"
+                                                   Text="{x:Bind ViewModel.RawSignalSourceText, Mode=OneWay}"
+                                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                        <TextBlock x:Uid="ScanDebug_RawSignalStatisticsLabel"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock AutomationProperties.AutomationId="RawSignalStatisticsText"
+                                                   Text="{x:Bind ViewModel.RawSignalStatisticsText, Mode=OneWay}"
+                                                   TextWrapping="WrapWholeWords"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="RawSignalAxisSwatch"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Visibility="Collapsed"/>
+                                    <TextBlock x:Name="RawSignalProfileSwatch"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                               Visibility="Collapsed"/>
+                                    <TextBlock x:Name="RawSignalHistogramSwatch"
+                                               Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                               Visibility="Collapsed"/>
+                                    <TextBlock x:Name="RawSignalGridSwatch"
+                                               Foreground="{ThemeResource CardStrokeColorDefaultBrush}"
+                                               Visibility="Collapsed"/>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Grid>
                     </Border>
 
@@ -2869,6 +3126,99 @@
                     </Grid>
                 </Grid>
             </Border>
+            <Border x:Name="WorkbenchInspectionRail"
+                    Grid.Row="0"
+                    Grid.Column="4"
+                    AutomationProperties.AutomationId="WorkbenchInspectionRail"
+                    AutomationProperties.AccessibilityView="Control"
+                    Style="{StaticResource ScanDebugSectionCardStyle}"
+                    Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              HorizontalScrollMode="Disabled">
+                    <StackPanel Spacing="{StaticResource ScanDebugSectionSpacing}">
+                        <TextBlock x:Uid="ScanDebug_WorkbenchInspectionTitle"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock x:Uid="ScanDebug_WorkbenchInspectionSource"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.FilmProfileDeviceStatusText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.FilmProfileHardwareUnavailableReasonText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                            <TextBlock x:Uid="ScanDebug_WorkbenchInspectionCaptureSourceLabel"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       TextWrapping="WrapWholeWords"/>
+                            <TextBlock AutomationProperties.AutomationId="CaptureSourceText"
+                                       Text="{x:Bind ViewModel.CaptureSourceText, Mode=OneWay}"
+                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                        TextWrapping="WrapWholeWords"/>
+                        </StackPanel>
+                        <StackPanel x:Name="RawSignalInspectionDetails"
+                                    Visibility="Collapsed"
+                                    Spacing="{StaticResource ScanDebugInlineSpacing}">
+                            <TextBlock x:Uid="ScanDebug_RawSignalSourceLabel"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.RawSignalSourceText, Mode=OneWay}"
+                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                            <TextBlock x:Uid="ScanDebug_RawSignalStatisticsLabel"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.RawSignalStatisticsText, Mode=OneWay}"
+                                       TextWrapping="WrapWholeWords"/>
+                        </StackPanel>
+                        <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                            <TextBlock x:Uid="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       TextWrapping="WrapWholeWords"/>
+                            <TextBlock AutomationProperties.AutomationId="DeviceEvidenceText"
+                                       Text="{x:Bind ViewModel.DeviceEvidenceText, Mode=OneWay}"
+                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                       TextWrapping="WrapWholeWords"/>
+                        </StackPanel>
+                        <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                            <TextBlock x:Uid="ScanDebug_WorkbenchInspectionCaptureComparisonLabel"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       TextWrapping="WrapWholeWords"/>
+                            <TextBlock AutomationProperties.AutomationId="CaptureComparisonText"
+                                       Text="{x:Bind ViewModel.CaptureComparisonText, Mode=OneWay}"
+                                       Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                       TextWrapping="WrapWholeWords"/>
+                        </StackPanel>
+                        <TextBlock x:Uid="ScanDebug_WorkbenchInspectionRoiTitle"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.RoiStatusText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <TextBlock x:Uid="ScanDebug_WorkbenchInspectionColumnTitle"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.ColumnSampleStatusText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                        <Button x:Uid="ScanDebug_WorkbenchInspectionEditButton"
+                                HorizontalAlignment="Left"
+                                Click="OpenBlackWhiteTaskButton_Click"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
         </Grid>
+        </Grid>
+        <Border Grid.Row="3"
+                Padding="{StaticResource ScanDebugStatusPadding}"
+                Style="{StaticResource ScanDebugSectionCardStyle}">
+            <Grid ColumnSpacing="{StaticResource ScanDebugSectionSpacing}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                           MaxLines="1"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTipService.ToolTip="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                           AutomationProperties.LiveSetting="Polite"
+                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
+                <Button Grid.Column="1"
+                        x:Uid="ScanDebug_WorkbenchEventReviewButton"
+                        Click="WorkbenchReviewButton_Click"/>
+            </Grid>
+        </Border>
     </Grid>
 </Page>

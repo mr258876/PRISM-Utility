@@ -444,6 +444,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly ScanMotionRuntimeState _motionRuntimeState = new();
     private int _calibrationWorkspaceGeneration;
     private int _calibrationDeviceSessionGeneration;
+    private int _deviceParameterCommandGeneration;
     private string? _calibrationDeviceSessionId;
     private readonly SemaphoreSlim _selectedCalibrationChannelPersistenceGate = new(1, 1);
     private readonly TimeProvider _operationTimeProvider;
@@ -515,6 +516,28 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private long _columnSampleOwnerVersion;
     private int _columnSampleFrameVersion = -1;
     private ScanColumnRange? _columnSampleMeanRange;
+    private ScanFilmProfileWorkspaceSnapshot? _manualReferenceExpectedSnapshot;
+    private string? _manualReferenceRole;
+    private int _manualReferenceSelectionVersion;
+    private bool _isManualReferencePatchPublishing;
+    private bool _isLoadingManualReference;
+    private bool _manualReferenceHasLocalEdit;
+    private string? _manualReferenceSampleSource;
+    private CaptureEvidence? _displayedCaptureEvidence;
+    private CaptureEvidence? _pendingCaptureEvidence;
+    private sealed record CaptureEvidence(Guid Id, string? DeviceId, int SessionGeneration, int WorkspaceGeneration, string Role,
+        int RequestedRows, int CompletedRows, string Mode, string Parameters, string Stage)
+    {
+        public byte? LedChannelIndex { get; init; }
+        public ushort? LedLevel { get; init; }
+        public DateTimeOffset? RequestedAtUtc { get; init; }
+        public DateTimeOffset? CompletedAtUtc { get; init; }
+        public int? ResultVersion { get; init; }
+        public string? ConfigurationIdentity { get; init; }
+        public string? CalibrationIdentity { get; init; }
+        public bool HasSubmittedParameters { get; init; }
+        public int DeviceParameterCommandGeneration { get; init; }
+    }
 #if PRISM_VISUAL_QA
     private object _visualQaLastRoiEditAttempt = new { operation = "none" };
     private object _visualQaLastColumnSampleEditAttempt = new { operation = "none" };
@@ -659,6 +682,269 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string ColumnSampleEndInput { get; set; }
+
+    [ObservableProperty]
+    public partial string ManualBlackLevelInput { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ManualWhiteLevelInput { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ManualReferenceStatusText { get; set; } = string.Empty;
+
+    public string ManualReferenceChannelText => "ScanDebug_ManualReferenceChannel".GetLocalizedFormat(
+        GetCalibrationChannelDisplayName(SelectedCalibrationChannel), GetBoundLedName(SelectedCalibrationChannel));
+
+    public string ManualReferenceSourceText => _manualReferenceSampleSource
+        ?? (_manualReferenceHasLocalEdit ? "ScanDebug_ManualReferenceManualSource".GetLocalized()
+            : "ScanDebug_ManualReferenceUnknownSource".GetLocalized());
+
+    public string ManualReferenceDisabledReasonText
+    {
+        get
+        {
+            if (PendingCalibrationResult is { State: PendingCalibrationResultState.Pending })
+                return "ScanDebug_ManualReferencePendingCandidate".GetLocalized();
+            if (!HasManualReferenceTarget())
+                return "ScanDebug_ManualReferenceMissingTarget".GetLocalized();
+            if (!ReferenceEquals(_manualReferenceExpectedSnapshot, _filmProfileWorkspace.Snapshot))
+                return "ScanDebug_ManualReferenceConflict".GetLocalized();
+            return CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels)
+                ? string.Empty : "ScanDebug_ManualReferenceBusy".GetLocalized();
+        }
+    }
+
+    public string ManualReferenceSampleDisabledReasonText => HasCurrentColumnSample()
+        && _displayedCaptureEvidence is { CompletedRows: > 0 } evidence
+        && string.Equals(evidence.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+        ? string.Empty : "ScanDebug_ManualReferenceSampleUnavailable".GetLocalized();
+
+    public string CaptureSourceText => _displayedCaptureEvidence is { } capture
+        ? "ScanDebug_CaptureSource".GetLocalizedFormatOrFallback("Capture {0}; logical channel {1}; mode {2}; completed/requested rows {3}/{4}; data stage {5}; parameter evidence: {6}.", capture.Id, capture.Role, capture.Mode,
+            capture.CompletedRows, capture.RequestedRows, capture.Stage, capture.Parameters)
+            + "ScanDebug_CaptureSourceDetails".GetLocalizedFormatOrFallback(
+                "\nDevice ID: {0}; app session generation: {1}; submitted LED index: {2}; raw LED level: {3}.\nRequest prepared (UTC): {4}; result recorded (UTC): {5}.\nConfiguration ID: {6}; calibration ID: {7}; result version: {8}.",
+                capture.DeviceId ?? "ScanDebug_CaptureUnknown".GetLocalized(), capture.SessionGeneration,
+                capture.LedChannelIndex?.ToString(CultureInfo.InvariantCulture) ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.LedLevel?.ToString(CultureInfo.InvariantCulture) ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.RequestedAtUtc?.ToString("O", CultureInfo.InvariantCulture) ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.CompletedAtUtc?.ToString("O", CultureInfo.InvariantCulture) ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.ConfigurationIdentity ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.CalibrationIdentity ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+                capture.ResultVersion?.ToString(CultureInfo.InvariantCulture) ?? "ScanDebug_CaptureUnknown".GetLocalized())
+        : "ScanDebug_CaptureUnknown".GetLocalized();
+
+    public string DeviceEvidenceText => IsConnected
+        ? "ScanDebug_DeviceEvidenceConnected".GetLocalizedFormatOrFallback(
+            "Scanner control link connected; device ID {0}; app session generation {1}; timing state code {2}. Connection and this state do not prove parameter readback.",
+            _calibrationDeviceSessionId ?? _sessionCoordinator.Snapshot.DeviceId ?? "ScanDebug_CaptureUnknown".GetLocalized(),
+            _calibrationDeviceSessionGeneration, _deviceTimingState.StateKind)
+        : "ScanDebug_DeviceEvidenceUnknown".GetLocalized();
+
+    public string CaptureComparisonText => _displayedCaptureEvidence is not { } capture
+        ? "ScanDebug_CaptureComparisonUnknown".GetLocalized()
+        : !IsConnected || capture.SessionGeneration != _calibrationDeviceSessionGeneration
+            || capture.DeviceParameterCommandGeneration != _deviceParameterCommandGeneration
+            || !string.Equals(capture.DeviceId, _calibrationDeviceSessionId, StringComparison.Ordinal)
+            || !string.Equals(capture.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+            ? "ScanDebug_CaptureHistorical".GetLocalized()
+            : !capture.HasSubmittedParameters || _deviceTimingState.StateKind != ScanDeviceClockStateKind.DeviceKnown
+                ? "ScanDebug_CaptureComparisonUnknown".GetLocalized()
+                : "ScanDebug_CaptureComparisonSubmittedNotReadback".GetLocalized();
+
+    private void NotifyCaptureEvidenceChanged()
+    {
+        OnPropertyChanged(nameof(CaptureSourceText));
+        OnPropertyChanged(nameof(DeviceEvidenceText));
+        OnPropertyChanged(nameof(CaptureComparisonText));
+        NotifyManualReferenceAvailabilityChanged();
+    }
+
+    private CaptureEvidence CreateCaptureEvidence(int rows, string mode, string role, string parameters)
+        => new(Guid.NewGuid(), _calibrationDeviceSessionId ?? _sessionCoordinator.Snapshot.DeviceId,
+            _calibrationDeviceSessionGeneration, _calibrationWorkspaceGeneration, role, rows, 0, mode, parameters,
+            "ScanDebug_CaptureRawStage".GetLocalized())
+        {
+            RequestedAtUtc = DateTimeOffset.UtcNow,
+            DeviceParameterCommandGeneration = _deviceParameterCommandGeneration
+        };
+
+    partial void OnManualBlackLevelInputChanged(string value) => OnManualReferenceInputChanged(value);
+    partial void OnManualWhiteLevelInputChanged(string value) => OnManualReferenceInputChanged(value);
+
+    private void OnManualReferenceInputChanged(string value)
+    {
+        if (_isLoadingManualReference)
+            return;
+        _manualReferenceHasLocalEdit = true;
+        _manualReferenceSampleSource = null;
+        ManualReferenceStatusText = "ScanDebug_ManualReferenceEdited".GetLocalized();
+        OnPropertyChanged(nameof(ManualReferenceSourceText));
+    }
+
+    private void LoadManualReferenceFromCurrentTarget()
+    {
+        var snapshot = _filmProfileWorkspace.Snapshot;
+        _manualReferenceExpectedSnapshot = snapshot;
+        _manualReferenceRole = SelectedCalibrationChannel;
+        _manualReferenceHasLocalEdit = false;
+        _manualReferenceSampleSource = null;
+        snapshot.CurrentDraft.ChannelProfiles.TryGetValue(SelectedCalibrationChannel, out var profile);
+        _isLoadingManualReference = true;
+        try
+        {
+            ManualBlackLevelInput = profile?.BlackLevel?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            ManualWhiteLevelInput = profile?.WhiteLevel?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+        finally
+        {
+            _isLoadingManualReference = false;
+        }
+        ManualReferenceStatusText = profile is null
+            ? "ScanDebug_ManualReferenceMissingTarget".GetLocalized()
+            : "ScanDebug_ManualReferenceLoaded".GetLocalized();
+        OnPropertyChanged(nameof(ManualReferenceChannelText));
+        OnPropertyChanged(nameof(ManualReferenceSourceText));
+        NotifyManualReferenceAvailabilityChanged();
+    }
+
+    private bool HasManualReferenceTarget()
+        => _manualReferenceExpectedSnapshot is not null
+            && string.Equals(_manualReferenceRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+            && _manualReferenceExpectedSnapshot.CurrentDraft.ChannelProfiles.ContainsKey(SelectedCalibrationChannel);
+
+    private bool CanApplyManualReferenceLevels()
+        => HasManualReferenceTarget()
+            && ReferenceEquals(_manualReferenceExpectedSnapshot, _filmProfileWorkspace.Snapshot)
+            && PendingCalibrationResult is not { State: PendingCalibrationResultState.Pending }
+            && CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels);
+
+    private static bool TryParseManualReferenceLevel(string input, int minimum, out ushort? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(input))
+            return true;
+        if (!ushort.TryParse(input, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed < minimum)
+            return false;
+        value = parsed;
+        return true;
+    }
+
+    private void NotifyManualReferenceAvailabilityChanged()
+    {
+        ApplyManualReferenceLevelsCommand.NotifyCanExecuteChanged();
+        ClearManualReferenceLevelsCommand.NotifyCanExecuteChanged();
+        UseColumnSampleAsManualBlackLevelCommand.NotifyCanExecuteChanged();
+        UseColumnSampleAsManualWhiteLevelCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ManualReferenceDisabledReasonText));
+        OnPropertyChanged(nameof(ManualReferenceSampleDisabledReasonText));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanApplyManualReferenceLevels))]
+    private void ApplyManualReferenceLevels()
+    {
+        if (!TryParseManualReferenceLevel(ManualBlackLevelInput, 0, out var black)
+            || !TryParseManualReferenceLevel(ManualWhiteLevelInput, 1, out var white)
+            || (black.HasValue && white.HasValue && black >= white))
+        {
+            ManualReferenceStatusText = "ScanDebug_ManualReferenceInvalidValues".GetLocalized();
+            return;
+        }
+        CommitManualReferenceLevels(black, white);
+    }
+
+    private void CommitManualReferenceLevels(ushort? black, ushort? white)
+    {
+        if (!CanApplyManualReferenceLevels() || _manualReferenceExpectedSnapshot is not { } expected)
+        {
+            ManualReferenceStatusText = ManualReferenceDisabledReasonText;
+            return;
+        }
+        var role = SelectedCalibrationChannel;
+        var selectionVersion = _manualReferenceSelectionVersion;
+        if (!TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels, out var claim))
+        {
+            ManualReferenceStatusText = "ScanDebug_ManualReferenceBusy".GetLocalized();
+            return;
+        }
+        try
+        {
+            if (selectionVersion != _manualReferenceSelectionVersion
+                || !string.Equals(role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+                || PendingCalibrationResult is { State: PendingCalibrationResultState.Pending })
+            {
+                ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+                return;
+            }
+            _isManualReferencePatchPublishing = true;
+            var result = _filmProfileWorkspace.TryApplyReferenceLevels(expected, role, black, white);
+            _isManualReferencePatchPublishing = false;
+            if (result.Status == ScanFilmProfileReferenceLevelPatchStatus.Applied
+                && selectionVersion == _manualReferenceSelectionVersion)
+            {
+                LoadManualReferenceFromCurrentTarget();
+                ManualReferenceStatusText = "ScanDebug_ManualReferenceApplied".GetLocalized();
+            }
+            else if (selectionVersion == _manualReferenceSelectionVersion)
+                ManualReferenceStatusText = (result.Status == ScanFilmProfileReferenceLevelPatchStatus.MissingTarget
+                    ? "ScanDebug_ManualReferenceMissingTarget" : "ScanDebug_ManualReferenceConflict").GetLocalized();
+        }
+        finally
+        {
+            _isManualReferencePatchPublishing = false;
+            claim?.Dispose();
+        }
+    }
+
+    [RelayCommand]
+    private void RevertManualReferenceLevels() => LoadManualReferenceFromCurrentTarget();
+
+    [RelayCommand(CanExecute = nameof(CanApplyManualReferenceLevels))]
+    private async Task ClearManualReferenceLevels()
+    {
+        var expected = _manualReferenceExpectedSnapshot;
+        var role = SelectedCalibrationChannel;
+        var selectionVersion = _manualReferenceSelectionVersion;
+        if (!await RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest(
+            "ScanDebug_ManualReferenceClearTitle", "ScanDebug_ManualReferenceClearMessage",
+            "ScanDebug_ManualReferenceClearConfirm", "ScanDebug_Runtime_FilmProfileDirtyConfirmationStayButton")))
+            return;
+        if (!ReferenceEquals(expected, _manualReferenceExpectedSnapshot)
+            || !ReferenceEquals(expected, _filmProfileWorkspace.Snapshot)
+            || selectionVersion != _manualReferenceSelectionVersion
+            || !string.Equals(role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+            return;
+        }
+        CommitManualReferenceLevels(null, null);
+    }
+
+    private bool CanUseColumnSampleAsManualLevel()
+        => HasManualReferenceTarget() && string.IsNullOrEmpty(ManualReferenceSampleDisabledReasonText);
+
+    [RelayCommand(CanExecute = nameof(CanUseColumnSampleAsManualLevel))]
+    private void UseColumnSampleAsManualBlackLevel() => FillManualReferenceFromSample(black: true);
+
+    [RelayCommand(CanExecute = nameof(CanUseColumnSampleAsManualLevel))]
+    private void UseColumnSampleAsManualWhiteLevel() => FillManualReferenceFromSample(black: false);
+
+    private void FillManualReferenceFromSample(bool black)
+    {
+        if (!CanUseColumnSampleAsManualLevel() || !TryGetCurrentColumnSampleMean(out var mean, out _)
+            || _displayedCaptureEvidence is not { } evidence)
+        {
+            ManualReferenceStatusText = "ScanDebug_ManualReferenceSampleUnavailable".GetLocalized();
+            return;
+        }
+        if (black) ManualBlackLevelInput = mean.ToString(CultureInfo.InvariantCulture);
+        else ManualWhiteLevelInput = mean.ToString(CultureInfo.InvariantCulture);
+        _manualReferenceSampleSource = "ScanDebug_ManualReferenceSampleSource".GetLocalizedFormatOrFallback(
+            "Input filled from capture {0}, logical channel {1}, columns {2}-{3}, processing stage {4}; no save or device write.",
+            evidence.Id, evidence.Role, _columnSampleRange.Start, _columnSampleRange.EndInclusive,
+            evidence.Stage);
+        OnPropertyChanged(nameof(ManualReferenceSourceText));
+    }
 
     [ObservableProperty]
     public partial int ColumnSampleOverlayVersion { get; set; }
@@ -1103,6 +1389,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         AcceptAndSavePendingCalibrationCommand.NotifyCanExecuteChanged();
         RestorePendingCalibrationCommand.NotifyCanExecuteChanged();
         CancelPendingCalibrationCommand.NotifyCanExecuteChanged();
+        NotifyManualReferenceAvailabilityChanged();
     }
 
     partial void OnPreviewFrameChanged(ScanPreviewFrame? value)
@@ -1110,6 +1397,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         InvalidateColumnSampleCache();
         NotifyColumnSampleAvailabilityChanged();
         NotifyPreviewStatePropertiesChanged();
+        NotifyManualReferenceAvailabilityChanged();
     }
 
     partial void OnIlluminationSummaryTextChanged(string value)
@@ -1941,6 +2229,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         stepStopwatch.Restart();
         IsConnected = IsDeviceConnected;
+        if (IsConnected)
+        {
+            _calibrationDeviceSessionId = _sessionCoordinator.Snapshot.DeviceId;
+            _calibrationDeviceSessionGeneration++;
+        }
         if (IsConnected && _sessionCoordinator.ConnectedSession is { } connectedSession)
         {
             _session = connectedSession;
@@ -1956,6 +2249,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         UpdateMotorSemanticProjection();
         _isSynchronizingFilmProfileWorkspace = false;
         RefreshFilmProfileWorkspaceProjection();
+        LoadManualReferenceFromCurrentTarget();
         _ = InitializeTransferSettingsAsync();
         _ = InitializeDeviceSettingsProjectionAsync();
         NavigationTimingLogger.Write($"ScanDebugViewModel.ctor runtimeRefresh={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
@@ -2289,9 +2583,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnSelectedCalibrationChannelChanged(string value)
     {
+        ClearRawSignal(_pendingCaptureEvidence is null && _displayedCaptureEvidence is null
+            ? "ScanDebug_RawSignalUnavailable" : "ScanDebug_RawSignalUnavailableChannel");
+        if (_lastWorkflowResult is not null && PreviewFrame is not null && _displayedCaptureEvidence is { } displayed
+            && _rawRenderedCaptureId == displayed.Id)
+            PublishRawFinal(_lineBuffer, _previewRows, displayed.Id);
         if (_isSynchronizingFilmProfileWorkspace)
             return;
 
+        _manualReferenceSelectionVersion++;
         InvalidateColumnSampleOwnership();
         ClearSelectedCalibrationEditorBaseline();
         SynchronizeFilmProfileDraftFromInputs(_calibrationChannelBeforeSelectionChange);
@@ -2309,6 +2609,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         NotifyPreviewStatePropertiesChanged();
         _ = HandleSelectedCalibrationChannelChangedAsync(value, Volatile.Read(ref _calibrationProjectionVersion));
         InvalidatePendingCalibrationIfStale();
+        LoadManualReferenceFromCurrentTarget();
+        NotifyCaptureEvidenceChanged();
     }
 
     partial void OnIsChannel1ReversedChanged(bool value)
@@ -2525,6 +2827,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(FilmProfileHardwareUnavailableReasonText));
         NotifyDeviceActionAvailabilityChanged();
         NotifyPreviewStatePropertiesChanged();
+        NotifyCaptureEvidenceChanged();
     }
 
     partial void OnIsConnectingChanged(bool value)
@@ -2818,6 +3121,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ? "ScanDebug_DisabledReasonReady".GetLocalized()
         : BuildStartDisabledReason();
 
+    public string StopDisabledReasonText => CanStopScan()
+        ? string.Empty
+        : IsRunning
+            ? BuildRuntimeCommandDisabledReason(ScanDebugRuntimeCommandKind.StopScan)
+            : "ScanDebug_DisabledReasonNoActiveScan".GetLocalized();
+
     public string ExportDngDisabledReasonText => CanExportDng()
         ? "ScanDebug_DisabledReasonReady".GetLocalized()
         : BuildExportDngDisabledReason();
@@ -2887,6 +3196,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public void AttachRuntimeBindings()
     {
+        if (!_areRuntimeBindingsAttached)
+            ActivateRawPage();
         SubscribeFilmProfileWorkspace();
         if (_areRuntimeBindingsAttached)
             return;
@@ -2930,8 +3241,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void OnFilmProfileWorkspaceSnapshotChanged(ScanFilmProfileWorkspaceSnapshot snapshot)
     {
         Interlocked.Increment(ref _calibrationWorkspaceGeneration);
+        if (_isManualReferencePatchPublishing)
+        {
+            _lastProjectedFilmProfileDraft = snapshot.CurrentDraft;
+            _lastProjectedFilmProfileImportResult = snapshot.ImportResult;
+            RefreshFilmProfileWorkspaceProjection();
+            NotifyCaptureEvidenceChanged();
+            return;
+        }
+
+        var previous = _manualReferenceExpectedSnapshot;
         ApplyExternalFilmProfileWorkspaceSnapshot(snapshot);
+        if (_manualReferenceHasLocalEdit && previous is not null && !ReferenceEquals(previous, snapshot))
+            ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+        else
+            LoadManualReferenceFromCurrentTarget();
         InvalidatePendingCalibrationIfStale();
+        NotifyCaptureEvidenceChanged();
     }
 
     private void ApplyExternalFilmProfileWorkspaceSnapshot(ScanFilmProfileWorkspaceSnapshot snapshot)
@@ -3113,7 +3439,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => _runtimeOperationClaims.ClearDeviceBoundClaims();
 
     private void OnSessionCoordinatorSnapshotChanged(object? sender, ScannerDeviceSessionSnapshot snapshot)
-        => _dispatcher.TryEnqueue(() => ApplySessionCoordinatorSnapshot(snapshot));
+        => _dispatcher.TryEnqueue(() =>
+        {
+            if (ReferenceEquals(snapshot, _sessionCoordinator.Snapshot))
+                ApplySessionCoordinatorSnapshot(snapshot);
+        });
 
     private void ApplySessionCoordinatorSnapshot(ScannerDeviceSessionSnapshot snapshot)
     {
@@ -3136,6 +3466,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             IsConnected = true;
             SwitchToConnectedSession();
             NotifyRuntimeOperationAvailabilityChanged();
+            NotifyCaptureEvidenceChanged();
             return;
         }
 
@@ -3144,6 +3475,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _autoCalibrationCts?.Cancel();
         Interlocked.Increment(ref _calibrationDeviceSessionGeneration);
         _calibrationDeviceSessionId = null;
+        NotifyCaptureEvidenceChanged();
         InvalidatePendingCalibrationIfStale();
         _manualFocusCts?.Cancel();
         _focusMappingTestCts?.Cancel();
@@ -3578,6 +3910,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
             if (TryParseSysClockMhzText(SysClockMhz, out var currentSysClockKhz) && currentSysClockKhz == sysClockKhz)
                 SetDeviceTimingState(new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown, GetKnownCalibrationChannelRoles()));
+            _deviceParameterCommandGeneration++;
+            NotifyCaptureEvidenceChanged();
             StatusText = "ScanDebug_Runtime_StatusDeviceClockUpdated".GetLocalized();
         }
         catch (OperationCanceledException)
@@ -3655,6 +3989,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     ScanDeviceClockStateKind.DeviceKnown,
                     revalidationRequiredChannelRoles));
             }
+            _deviceParameterCommandGeneration++;
+            NotifyCaptureEvidenceChanged();
             StatusText = "ScanDebug_Runtime_StatusParametersUpdated".GetLocalized();
         }
         catch (OperationCanceledException)
@@ -5121,6 +5457,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private async Task RunSingleScanAsync(int rows, CancellationToken ct)
     {
+        var capture = CreateCaptureEvidence(rows, "ScanDebug_CaptureSingleMode".GetLocalized(),
+            GetSingleSelectedAcquisitionChannelRole() ?? SelectedCalibrationChannel,
+            "ScanDebug_CaptureParametersUnknown".GetLocalized());
+        _pendingCaptureEvidence = capture;
+        BeginRawCapture();
         ScanStartResult result;
         if (CanRunExtendedScan() || rows <= _session.SingleTransferMaxRows)
         {
@@ -5135,7 +5476,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
                         status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
                         diagnostic => _debugOutputMirror.Mirror("ScanDebug.Diagnostic", diagnostic),
                         ReportScanReadProgress,
-                        (imageBytes, completedRows) => QueueStreamingPreviewFrame(previewSessionVersion, imageBytes, completedRows),
+                        (imageBytes, completedRows) =>
+                        {
+                            CopyRawStreamingRow(previewSessionVersion, capture.Id, imageBytes, completedRows);
+                            QueueStreamingPreviewFrame(previewSessionVersion, imageBytes, completedRows);
+                        },
                         null),
                     ct,
                     waitForAvailability: false);
@@ -5150,6 +5495,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             result = await RunScanAsync(rows, ct);
         }
 
+        if (!IsRawPageCaptureCurrent())
+            return;
         StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
         if (!result.Success || result.ImageBytes is null)
             return;
@@ -5160,7 +5507,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _lastWorkflowChannelAssignment = null;
         _lastMonochromeChannelRole = GetSingleSelectedAcquisitionChannelRole();
         _lastWorkflowResult = null;
-        ApplyScanFrame(result.ImageBytes, rows, ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message));
+        _displayedCaptureEvidence = capture with { CompletedRows = rows, CompletedAtUtc = DateTimeOffset.UtcNow };
+        NotifyCaptureEvidenceChanged();
+        ApplyScanFrame(result.ImageBytes, rows, ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message), capture.Id);
     }
 
     private async Task RunContinuousScanLoopAsync(int rows, CancellationToken ct)
@@ -5168,7 +5517,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var frameCount = 0;
         while (!ct.IsCancellationRequested)
         {
+            var capture = CreateCaptureEvidence(rows, "ScanDebug_CaptureContinuousMode".GetLocalized(),
+                GetSingleSelectedAcquisitionChannelRole() ?? SelectedCalibrationChannel,
+                "ScanDebug_CaptureParametersUnknown".GetLocalized());
+            _pendingCaptureEvidence = capture;
+            BeginRawCapture();
             var result = await RunScanAsync(rows, ct);
+            if (!IsRawPageCaptureCurrent())
+                return;
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
@@ -5188,7 +5544,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _lastWorkflowChannelAssignment = null;
             _lastMonochromeChannelRole = GetSingleSelectedAcquisitionChannelRole();
             _lastWorkflowResult = null;
-            ApplyScanFrame(result.ImageBytes, rows, "ScanDebug_Runtime_StatusContinuousPreviewUpdated".GetLocalizedFormat(frameCount));
+            _displayedCaptureEvidence = capture with { CompletedRows = rows, CompletedAtUtc = DateTimeOffset.UtcNow };
+            NotifyCaptureEvidenceChanged();
+            ApplyScanFrame(result.ImageBytes, rows, "ScanDebug_Runtime_StatusContinuousPreviewUpdated".GetLocalizedFormat(frameCount), capture.Id);
         }
     }
 
@@ -5287,6 +5645,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private async Task RunWorkflowScanAsync(ScanWorkflowRequest request, CancellationToken ct)
     {
+        var firstPassIndex = Array.FindIndex(request.PassChannelRoles, ScanChannelRoleHelper.IsActiveRole);
+        var capture = CreateCaptureEvidence(request.Rows, "ScanDebug_CaptureWorkflowMode".GetLocalized(),
+            firstPassIndex >= 0 ? request.PassChannelRoles[firstPassIndex] : "ScanDebug_CaptureUnknown".GetLocalized(),
+            firstPassIndex >= 0 && firstPassIndex < request.PassParameterProfiles.Length
+                ? "ScanDebug_CaptureSubmittedParameters".GetLocalizedFormatOrFallback("submitted request snapshot {0} (not device readback)", request.PassParameterProfiles[firstPassIndex])
+                : "ScanDebug_CaptureParametersUnknown".GetLocalized()) with
+        {
+            HasSubmittedParameters = firstPassIndex >= 0 && firstPassIndex < request.PassParameterProfiles.Length
+        };
+        _pendingCaptureEvidence = capture;
+        BeginRawCapture();
         var previewSessionVersion = BeginStreamingScanPreview(request.Rows);
         var requestAssignment = BuildResultChannelAssignment(request.PassChannelRoles);
         try
@@ -5305,6 +5674,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 ct,
                 waitForAvailability: false);
 
+            if (!IsRawPageCaptureCurrent())
+                return;
+
+            var singleActiveIndex = GetSingleActiveRoleIndex(requestAssignment);
             var previewPass = result.Passes.FirstOrDefault();
             if (previewPass is null || previewPass.ImageBytes.Length == 0)
             {
@@ -5323,10 +5696,33 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _lastWorkflowChannelAssignment = requestAssignment;
             _lastMonochromeChannelRole = GetSingleActiveRole(requestAssignment);
             _lastWorkflowResult = result;
+            var provenance = previewPass.Provenance;
+            _displayedCaptureEvidence = capture with
+            {
+                Id = provenance?.CaptureId ?? result.CaptureId ?? capture.Id,
+                Role = provenance?.ChannelRole ?? capture.Role,
+                CompletedRows = provenance?.CompletedRows ?? previewPass.Rows,
+                Parameters = provenance is null ? capture.Parameters
+                    : "ScanDebug_CaptureSubmittedParameters".GetLocalizedFormatOrFallback("submitted request snapshot {0} (not device readback)", provenance.SubmittedParameters),
+                HasSubmittedParameters = provenance is not null || capture.HasSubmittedParameters,
+                LedChannelIndex = provenance?.SubmittedLedChannelIndex,
+                LedLevel = provenance?.SubmittedLedLevel,
+                RequestedAtUtc = provenance?.RequestedAtUtc ?? capture.RequestedAtUtc,
+                CompletedAtUtc = provenance?.CompletedAtUtc ?? DateTimeOffset.UtcNow,
+                ResultVersion = provenance?.CompletedResultVersion ?? result.CompletedResultVersion,
+                DeviceId = provenance?.DeviceIdentity ?? capture.DeviceId,
+                ConfigurationIdentity = provenance?.ConfigurationIdentity,
+                CalibrationIdentity = provenance?.CalibrationIdentity,
+                Stage = singleActiveIndex >= 0
+                    ? "ScanDebug_CaptureRawStage".GetLocalized()
+                    : "Scan_Runtime_PreviewModeRgbComposite".GetLocalized()
+            };
+            NotifyCaptureEvidenceChanged();
             ApplyScanFrame(
                 previewPass.ImageBytes,
                 previewPass.Rows,
-                "ScanDebug_Runtime_StatusMultiChannelScanCompleted".GetLocalizedFormat(result.Passes.Count, previewPass.PassIndex));
+                "ScanDebug_Runtime_StatusMultiChannelScanCompleted".GetLocalizedFormat(result.Passes.Count, previewPass.PassIndex),
+                _displayedCaptureEvidence.Id);
         }
         catch (OperationCanceledException)
         {
@@ -5809,11 +6205,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return new ScanColorManagementOptions(IsGammaCorrectionEnabled, defaults.RedWavelengthNm, defaults.GreenWavelengthNm, defaults.BlueWavelengthNm, TryParsePreviewGamma(out var gamma) ? gamma : defaults.OutputGamma, defaults.TargetWhitePointMode, defaults.ManualWhitePointColorTemperatureK);
     }
 
-    private void ApplyScanFrame(byte[] imageBytes, int rows, string successStatus)
+    private void ApplyScanFrame(byte[] imageBytes, int rows, string successStatus, Guid? captureId = null)
     {
+        if (!IsRawPageCaptureCurrent())
+            return;
+        if (captureId is null || _displayedCaptureEvidence?.Id != captureId)
+        {
+            _displayedCaptureEvidence = null;
+            NotifyCaptureEvidenceChanged();
+        }
         _lineBuffer = imageBytes;
         _previewRows = rows;
         _hasValidScanBuffer = true;
+        ClearRawSignal("ScanDebug_RawSignalCalculating");
         MarkColumnSampleSourceCurrentOwner();
         ExportDngCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsExportDngActionAvailable));
@@ -5835,6 +6239,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!RenderPreview(rows))
             return;
 
+        _rawRenderedCaptureId = captureId;
+        PublishRawFinal(imageBytes, rows, captureId);
         StatusText = successStatus;
     }
 
@@ -6644,7 +7050,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var hasCurrentEditorProfile = isSelected && TryBuildCurrentCalibrationProfile(out profile!);
         var hasInvalidEditorValues = isSelected && hasState && !hasCurrentEditorProfile;
         var editorProfile = isSelected
-            ? hasCurrentEditorProfile ? profile : null
+            ? hasCurrentEditorProfile && profile is not null
+                ? draftProfile is null ? profile : profile with
+                {
+                    BlackLevel = draftProfile.BlackLevel,
+                    WhiteLevel = draftProfile.WhiteLevel
+                }
+                : null
             : draftProfile;
         return ResolveCalibrationChannelStatus(
             persistedProfile,
@@ -7130,8 +7542,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             if (delayMs > 0)
                 _ = QueueDelayedStreamingPreviewFrameAsync(previewSessionVersion, delayMs);
-            else
-                _dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion));
+            else if (!_dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion)))
+                ResetRejectedStreamingPreviewEnqueue(previewSessionVersion);
         }
     }
 
@@ -7173,8 +7585,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             if (delayMs > 0)
                 _ = QueueDelayedStreamingPreviewFrameAsync(previewSessionVersion, delayMs);
-            else
-                _dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion));
+            else if (!_dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion)))
+                ResetRejectedStreamingPreviewEnqueue(previewSessionVersion);
         }
     }
 
@@ -7189,11 +7601,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _lastStreamingPreviewEnqueueTick = Environment.TickCount64;
         }
 
-        _dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion));
+        if (!_dispatcher.TryEnqueue(() => ApplyStreamingPreviewFrame(previewSessionVersion)))
+            ResetRejectedStreamingPreviewEnqueue(previewSessionVersion);
+    }
+
+    private void ResetRejectedStreamingPreviewEnqueue(int previewSessionVersion)
+    {
+        lock (_streamingPreviewLock)
+        {
+            if (_isStreamingPreviewActive && _streamingPreviewSessionVersion == previewSessionVersion)
+                _isStreamingPreviewQueued = false;
+        }
     }
 
     private void ApplyStreamingPreviewFrame(int previewSessionVersion)
     {
+        if (!IsRawPageCaptureCurrent())
+            return;
         int completedRows;
         int targetRows;
         ScanWorkflowRequest? workflowRequest;
@@ -7204,7 +7628,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         uint[]? workflowPassMotorIntervals;
         lock (_streamingPreviewLock)
         {
-            if (!_isStreamingPreviewActive || _streamingPreviewSessionVersion != previewSessionVersion)
+            if (!IsRawPageCaptureCurrent() || !_isStreamingPreviewActive || _streamingPreviewSessionVersion != previewSessionVersion)
                 return;
 
             completedRows = _pendingStreamingPreviewRows;
@@ -7246,7 +7670,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         lock (_streamingPreviewLock)
         {
-            if (!_isStreamingPreviewActive || _streamingPreviewSessionVersion != previewSessionVersion)
+            if (!IsRawPageCaptureCurrent() || !_isStreamingPreviewActive || _streamingPreviewSessionVersion != previewSessionVersion)
                 return;
 
             if (workflowPreviewResult is not null)
@@ -7266,7 +7690,43 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _lastWorkflowResult = null;
         }
 
-        RenderPreview(workflowPreviewResult is null ? completedRows : targetRows);
+        if (!IsRawPageCaptureCurrent())
+            return;
+        var rendered = RenderPreview(workflowPreviewResult is null ? completedRows : targetRows);
+        if (!rendered)
+            return;
+        if (workflowPreviewResult is not null)
+            ClearRawSignal("ScanDebug_RawSignalUnavailableWorkflowStream");
+        else
+            ApplyRawStreamingPublication(previewSessionVersion, completedRows);
+        if (_pendingCaptureEvidence is { } capture)
+        {
+            var passIndex = workflowCompletedRows is null ? 0 : Array.FindIndex(workflowCompletedRows, rows => rows > 0);
+            var availableRows = workflowCompletedRows is null ? completedRows
+                : passIndex >= 0 ? workflowCompletedRows[passIndex] : 0;
+            if (availableRows > 0)
+            {
+                var role = workflowRequest is not null && passIndex >= 0 && passIndex < workflowRequest.PassChannelRoles.Length
+                    ? workflowRequest.PassChannelRoles[passIndex] : capture.Role;
+                _displayedCaptureEvidence = capture with
+                {
+                    Role = role,
+                    CompletedRows = availableRows,
+                    Parameters = workflowRequest is not null && passIndex >= 0
+                        && passIndex < workflowRequest.PassParameterProfiles.Length
+                        ? "ScanDebug_CaptureSubmittedParameters".GetLocalizedFormatOrFallback("submitted request snapshot {0} (not device readback)", workflowRequest.PassParameterProfiles[passIndex])
+                        : capture.Parameters,
+                    HasSubmittedParameters = workflowRequest is not null && passIndex >= 0
+                        && passIndex < workflowRequest.PassParameterProfiles.Length || capture.HasSubmittedParameters,
+                    Stage = workflowRequest is null || workflowAssignment is null
+                        ? capture.Stage
+                        : GetSingleActiveRoleIndex(workflowAssignment) >= 0
+                            ? "ScanDebug_CaptureRawStage".GetLocalized()
+                            : "Scan_Runtime_PreviewModeRgbComposite".GetLocalized()
+                };
+                NotifyCaptureEvidenceChanged();
+            }
+        }
     }
 
     private async Task InitializeTransferSettingsAsync()
@@ -7391,6 +7851,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void ShowCalibrationFrame(byte[] imageBytes, int rows, string phase)
     {
+        _displayedCaptureEvidence = null;
+        _pendingCaptureEvidence = null;
+        NotifyCaptureEvidenceChanged();
         ApplyScanFrame(imageBytes, rows, "ScanDebug_Runtime_StatusPhasePreviewUpdated".GetLocalizedFormat(phase));
     }
 
@@ -7569,6 +8032,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void RefreshRoiStatus()
     {
+        RefreshRawRoiIfChanged();
         EnsureRoiEditModeAvailability();
         EnsureColumnSampleEditModeAvailability();
         RefreshRoiInputTexts();
@@ -8182,6 +8646,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         SaveColumnSampleAsBlackLevelCommand.NotifyCanExecuteChanged();
         SaveColumnSampleAsWhiteLevelCommand.NotifyCanExecuteChanged();
+        NotifyManualReferenceAvailabilityChanged();
     }
 
     private string BuildRoiStatusText()
@@ -8307,6 +8772,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(SessionIlluminationDisabledReasonText));
         NotifyDeviceActionAvailabilityChanged();
         NotifyRuntimeOperationAvailabilityChanged();
+        NotifyCaptureEvidenceChanged();
     }
 
     private IReadOnlyList<string> GetKnownCalibrationChannelRoles()
@@ -8509,6 +8975,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ConnectDevicesCommand.NotifyCanExecuteChanged();
         DisconnectDevicesCommand.NotifyCanExecuteChanged();
         StartScanCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(StopDisabledReasonText));
         StopScanCommand.NotifyCanExecuteChanged();
         ExportDngCommand.NotifyCanExecuteChanged();
         ApplyDeviceClockCommand.NotifyCanExecuteChanged();
@@ -8535,6 +9002,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ClearChannelProfileCommand.NotifyCanExecuteChanged();
         SaveColumnSampleAsBlackLevelCommand.NotifyCanExecuteChanged();
         SaveColumnSampleAsWhiteLevelCommand.NotifyCanExecuteChanged();
+        NotifyManualReferenceAvailabilityChanged();
         SaveFilmProfileJsonCommand.NotifyCanExecuteChanged();
         LoadFilmProfileJsonCommand.NotifyCanExecuteChanged();
         ApplyStagedFilmProfileImportCommand.NotifyCanExecuteChanged();
@@ -10860,6 +11328,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void ClearPreview()
     {
+        _rawRenderedCaptureId = null;
+        ClearRawSignal("ScanDebug_RawSignalUnavailablePreview");
         _previewPresenter.Reset();
         PreviewFrame = null;
         OnPropertyChanged(nameof(CanEditRoiSelection));
@@ -10892,6 +11362,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public async Task DeactivateAsync()
     {
         await Task.CompletedTask;
+        DeactivateRawPage();
+        EndStreamingScanPreview(_streamingPreviewSessionVersion);
         DetachRuntimeBindings();
         UnsubscribeFilmProfileWorkspace();
         CancelFilmProfileOperationAutoCloseTimer();

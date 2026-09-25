@@ -67,13 +67,35 @@ public sealed class ScanWorkflowTransportValidationException : InvalidOperationE
     public ScanLinePitchPlanResult? LinePitchPlan { get; }
 }
 
+public sealed record ScanPassCaptureProvenance(
+    Guid CaptureId,
+    string ChannelRole,
+    byte? SubmittedLedChannelIndex,
+    ushort? SubmittedLedLevel,
+    ScanParameterSnapshot SubmittedParameters,
+    int RequestedRows,
+    int CompletedRows,
+    DateTimeOffset RequestedAtUtc,
+    DateTimeOffset CompletedAtUtc,
+    int CompletedResultVersion)
+{
+    public string? DeviceIdentity { get; init; }
+    public long? SessionGeneration { get; init; }
+    public string? ConfigurationIdentity { get; init; }
+    public string? CalibrationIdentity { get; init; }
+    public ScanParameterSnapshot? DeviceReadbackParameters { get; init; }
+}
+
 public sealed record ScanPassCapture(
     int PassIndex,
     byte LedChannelIndex,
     bool DirectionPositive,
     int Rows,
     uint MotorSteps,
-    byte[] ImageBytes);
+    byte[] ImageBytes)
+{
+    public ScanPassCaptureProvenance? Provenance { get; init; }
+}
 
 public sealed record ScanWorkflowResult(
     int Rows,
@@ -81,7 +103,11 @@ public sealed record ScanWorkflowResult(
     uint ComputedMotorStepsPerPass,
     uint MotorIntervalNs,
     ushort ExposureTicks,
-    uint SysClockKhz);
+    uint SysClockKhz)
+{
+    public Guid? CaptureId { get; init; }
+    public int? CompletedResultVersion { get; init; }
+}
 
 public sealed record ScanWorkflowProgress(
     int CurrentPass,
@@ -102,6 +128,8 @@ public sealed record ScanWorkflowRowsAvailable(
     uint MotorSteps = 0,
     uint MotorIntervalNanoseconds = 0)
 {
+    public Guid? CaptureId { get; init; }
+
     public int StartRow { get; init; }
 
     public int RowCount { get; init; } = -1;

@@ -52,6 +52,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             : null;
 
         var totalPasses = workflowPasses.Count;
+        var captureId = Guid.NewGuid();
         var computedMotorSteps = 0u;
         var computedMotorIntervalNanoseconds = 0u;
         var captures = new List<ScanPassCapture>(totalPasses);
@@ -95,6 +96,9 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var expectedLineTimeUs = ScanTimingMath.ExposureTicksToMicrosecondsCeil(effectivePassProfile.ExposureTicks, effectivePassProfile.SysClockKhz);
                 var passMotorSteps = workflowPass.MotorSteps;
                 var passMotorIntervalNanoseconds = workflowPass.MotorIntervalNanoseconds;
+                var passAcquisitionSettings = executionRequest.EnableLedAutoControl
+                    ? BuildAcquisitionSettings(executionRequest, passMotorIntervalNanoseconds)
+                    : null;
                 if (activePassIndex == 0)
                 {
                     computedMotorSteps = passMotorSteps;
@@ -105,8 +109,8 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, effectivePassProfile, ct);
 
-                if (executionRequest.EnableLedAutoControl)
-                    await _illumination.ApplySingleChannelAsync(session, BuildAcquisitionSettings(executionRequest, passMotorIntervalNanoseconds), ledIndex, ct);
+                if (passAcquisitionSettings is not null)
+                    await _illumination.ApplySingleChannelAsync(session, passAcquisitionSettings, ledIndex, ct);
 
                 if (passMotorSteps > 0)
                 {
@@ -122,6 +126,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var rowsCallbackOpen = true;
                 var lastReportedRows = 0;
                 ScanStartResult scanResult;
+                var requestedAtUtc = DateTimeOffset.UtcNow;
                 try
                 {
                     scanResult = await RunScanAsync(
@@ -180,6 +185,7 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                                     passMotorSteps,
                                     passMotorIntervalNanoseconds)
                                 {
+                                    CaptureId = captureId,
                                     StartRow = startRow,
                                     RowCount = rowCount
                                 };
@@ -197,7 +203,27 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {activePassIndex + 1} failed: {scanResult.Message}");
 
-                captures.Add(new ScanPassCapture(activePassIndex + 1, ledIndex, directionPositive, executionRequest.Rows, passMotorSteps, scanResult.ImageBytes));
+                var submittedLedLevel = passAcquisitionSettings is null ? (ushort?)null : ledIndex switch
+                {
+                    0 => passAcquisitionSettings.Led1Level,
+                    1 => passAcquisitionSettings.Led2Level,
+                    2 => passAcquisitionSettings.Led3Level,
+                    _ => passAcquisitionSettings.Led4Level
+                };
+                captures.Add(new ScanPassCapture(activePassIndex + 1, ledIndex, directionPositive, executionRequest.Rows, passMotorSteps, scanResult.ImageBytes)
+                {
+                    Provenance = new ScanPassCaptureProvenance(
+                        captureId,
+                        passRole,
+                        passAcquisitionSettings is null ? null : ledIndex,
+                        submittedLedLevel,
+                        effectivePassProfile,
+                        executionRequest.Rows,
+                        executionRequest.Rows,
+                        requestedAtUtc,
+                        DateTimeOffset.UtcNow,
+                        1)
+                });
 
                 if (passMotorSteps > 0)
                 {
@@ -223,7 +249,11 @@ public sealed class ScanWorkflowService : IScanWorkflowService
             }
 
             onStatus?.Invoke($"Scan workflow completed with {totalPasses} pass(es).");
-            return new ScanWorkflowResult(executionRequest.Rows, captures, computedMotorSteps, computedMotorIntervalNanoseconds, executionRequest.ExposureTicks, executionRequest.SysClockKhz);
+            return new ScanWorkflowResult(executionRequest.Rows, captures, computedMotorSteps, computedMotorIntervalNanoseconds, executionRequest.ExposureTicks, executionRequest.SysClockKhz)
+            {
+                CaptureId = captureId,
+                CompletedResultVersion = 1
+            };
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
@@ -21,6 +22,779 @@ public sealed class ScanDebugCalibrationStatusTests
         new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
 
     private static ScanParameterSnapshot Todo15InputSnapshot { get; } = new(1_000, 0, 1, 0, 1, 48_000);
+
+    [Fact]
+    public async Task RawSignal_WhenNoCaptureExists_InitialChannelSelectionReportsNoSample()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true);
+
+        Assert.Equal("ScanDebug_RawSignalUnavailable".GetLocalized(), harness.ViewModel.RawSignalStatusText);
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+
+        Assert.Equal("ScanDebug_RawSignalUnavailable".GetLocalized(), harness.ViewModel.RawSignalStatusText);
+        Assert.Null(harness.ViewModel.RawSignalResult);
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenSingleCaptureHasNoVersion_DisplaysUnknownAndRetainsChannelChangeReason()
+    {
+        var session = new StatusSession(isConnected: true,
+            startScan: (rows, _, _) => Task.FromResult(new ScanStartResult(true, "sampled", new byte[rows * ScanDebugConstants.BytesPerLine])));
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 42,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        await InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+
+        Assert.IsType<ScanRawSignalResult>(harness.ViewModel.RawSignalResult);
+        Assert.Contains("ScanDebug_CaptureUnknown".GetLocalized(), harness.ViewModel.RawSignalSourceText);
+        Assert.DoesNotContain("version 0", harness.ViewModel.RawSignalSourceText, StringComparison.Ordinal);
+
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        Assert.Equal("ScanDebug_RawSignalUnavailableChannel".GetLocalized(), harness.ViewModel.RawSignalStatusText);
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenWorkflowPassHasProvenance_UsesActualPassAndInvalidatesOnRowAndChannel()
+    {
+        var captureId = Guid.NewGuid();
+        var pass = new ScanPassCapture(0, 0, true, 1, 101, new byte[ScanDebugConstants.BytesPerLine])
+        {
+            Provenance = new ScanPassCaptureProvenance(captureId, "Blue", 0, 0,
+                CreateProfile(1000).Parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 7)
+        };
+        var result = CreateStreamingPreviewFinalResult() with
+        {
+            Passes = [pass], CaptureId = captureId, CompletedResultVersion = 7
+        };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            previewSample: 321, connected: true, workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)),
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        harness.ViewModel.IsPreviewEnabled = true;
+        harness.ViewModel.SelectedCalibrationChannel = "Blue";
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+
+        Assert.Equal("0", harness.ViewModel.RawSignalRowInput);
+        Assert.Equal((ushort)321, Assert.IsType<ScanRawSignalResult>(harness.ViewModel.RawSignalResult).Minimum);
+        Assert.Contains(captureId.ToString(), harness.ViewModel.RawSignalSourceText);
+        Assert.Contains("pass 0", harness.ViewModel.RawSignalSourceText);
+        Assert.Contains("version 7", harness.ViewModel.RawSignalSourceText);
+        var rawResult = harness.ViewModel.RawSignalResult;
+        harness.ViewModel.IsGammaCorrectionEnabled = !harness.ViewModel.IsGammaCorrectionEnabled;
+        harness.ViewModel.IsWhiteLevelPreviewEnabled = !harness.ViewModel.IsWhiteLevelPreviewEnabled;
+        Assert.Same(rawResult, harness.ViewModel.RawSignalResult);
+
+        harness.ViewModel.RawSignalRowInput = "1";
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Empty(harness.ViewModel.RawSignalStatisticsText);
+        harness.ViewModel.RawSignalRowInput = "0";
+        harness.ViewModel.RawSignalRowInput = "1";
+        await harness.FlushAsync();
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Empty(harness.ViewModel.RawSignalSourceText);
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenFrameHasNoMatchingCapture_ReportsUnavailableWithoutNumbers()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, previewSample: 123);
+
+        InvokeApplyScanFrame(harness.ViewModel);
+        await harness.FlushAsync();
+
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Empty(harness.ViewModel.RawSignalStatisticsText);
+        Assert.Empty(harness.ViewModel.RawSignalSourceText);
+        Assert.NotEmpty(harness.ViewModel.RawSignalStatusText);
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenFinalRenderFails_DoesNotAdmitCompletedSamples()
+    {
+        var captureId = Guid.NewGuid();
+        var pass = CreateStreamingPreviewFinalResult().Passes[0] with
+        {
+            Provenance = new ScanPassCaptureProvenance(captureId, "Blue", 0, 0,
+                CreateProfile(1000).Parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 3)
+        };
+        var result = CreateStreamingPreviewFinalResult() with { Passes = [pass], CaptureId = captureId };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)));
+        harness.ViewModel.SelectedCalibrationChannel = "Blue";
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        await harness.FlushAsync();
+
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Null(ReadPrivateField<byte[]>(harness.ViewModel, "_rawFinalRows"));
+        Assert.Empty(harness.ViewModel.RawSignalSourceText);
+        harness.ViewModel.PreviewFrame = new ScanPreviewFrame(new byte[4], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.SelectedCalibrationChannel = "Blue";
+        Assert.Null(ReadPrivateField<byte[]>(harness.ViewModel, "_rawFinalRows"));
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenCompositeIsRendered_UsesUniqueSelectedRawPassAndItsCoordinates()
+    {
+        var captureId = Guid.NewGuid();
+        var red = new byte[ScanDebugConstants.BytesPerLine];
+        var green = new byte[ScanDebugConstants.BytesPerLine];
+        green[0] = 42;
+        var parameters = CreateProfile(1000).Parameters;
+        var result = CreateStreamingPreviewFinalResult() with
+        {
+            CaptureId = captureId,
+            Passes = [
+                new ScanPassCapture(0, 0, true, 1, 101, red) { Provenance = new(captureId, "Red", 0, 0, parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 2) },
+                new ScanPassCapture(1, 1, true, 1, 101, green) { Provenance = new(captureId, "Green", 1, 0, parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 2) }
+            ]
+        };
+        var request = CreateStreamingPreviewRequest() with { LedLevels = [0, 0], PassChannelRoles = ["Red", "Green"], PassParameterProfiles = [parameters, parameters] };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            previewSample: 42, connected: true, workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)),
+            channelImages: new StatusChannelImages(succeed: true));
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, request);
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+
+        Assert.Same(green, ReadPrivateField<byte[]>(harness.ViewModel, "_rawFinalRows"));
+        Assert.Contains("pass 1", harness.ViewModel.RawSignalSourceText);
+        Assert.EndsWith("ScanDebug_RawSignalCompositeCoordinates".GetLocalized(), harness.ViewModel.RawSignalSourceText, StringComparison.Ordinal);
+        Assert.Equal((ushort)42, Assert.IsType<ScanRawSignalResult>(harness.ViewModel.RawSignalResult).Minimum);
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenPageDeactivatesBeforeFinalCallback_RejectsOldCaptureAfterReattach()
+    {
+        var release = new TaskCompletionSource<ScanWorkflowResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, workflow: new StatusWorkflow((_, _, _) => release.Task),
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        harness.ViewModel.IsPreviewEnabled = true;
+        harness.ViewModel.SelectedCalibrationChannel = "Blue";
+
+        var scan = InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        await harness.ViewModel.DeactivateAsync();
+        harness.ViewModel.AttachRuntimeBindings();
+        release.SetResult(CreateStreamingPreviewFinalResult());
+        await scan;
+        await harness.FlushAsync();
+
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Null(harness.ViewModel.PreviewFrame);
+        Assert.Null(ReadPrivateField<byte[]>(harness.ViewModel, "_rawFinalRows"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RawSignal_WhenStreamingRowIsQueued_AdmitsOnlyAfterSuccessfulPreview(bool renderSucceeds)
+    {
+        var release = new TaskCompletionSource<ScanStartResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScanRowsAvailableHandler? callback = null;
+        var session = new StatusSession(true, (_, _, available) =>
+        {
+            callback = available;
+            return release.Task;
+        });
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 47,
+            previewPresenter: new StatusPreviewPresenter(succeed: renderSucceeds));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        var scan = InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        Assert.NotNull(callback);
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        Assert.Equal("ScanDebug_RawSignalUnavailableChannel".GetLocalized(), harness.ViewModel.RawSignalStatusText);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        callback!(new byte[ScanDebugConstants.BytesPerLine], 1);
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Null(harness.ViewModel.PreviewFrame);
+        harness.Dispatcher.DrainAll();
+        for (var attempt = 0; attempt < 100 && renderSucceeds && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+
+        Assert.Equal(renderSucceeds, harness.ViewModel.RawSignalResult is not null);
+        if (renderSucceeds)
+            Assert.Contains("ScanDebug_CaptureUnknown".GetLocalized(), harness.ViewModel.RawSignalSourceText);
+        release.SetResult(new ScanStartResult(false, "Stopped", null));
+        await scan;
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenWorkerPublicationIsRejected_NextRowEditCanStartAnotherWorker()
+    {
+        var captureId = Guid.NewGuid();
+        var pass = CreateStreamingPreviewFinalResult().Passes[0] with
+        {
+            Provenance = new ScanPassCaptureProvenance(captureId, "Blue", 0, 0,
+                CreateProfile(1000).Parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 4)
+        };
+        var result = CreateStreamingPreviewFinalResult() with { CaptureId = captureId, Passes = [pass] };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            previewSample: 42, connected: true, workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)),
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        harness.ViewModel.SelectedCalibrationChannel = "Blue";
+        harness.ViewModel.IsPreviewEnabled = true;
+        harness.Dispatcher.RejectEnqueue = true;
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        Assert.Same(pass.ImageBytes, ReadPrivateField<byte[]>(harness.ViewModel, "_rawFinalRows"));
+        for (var attempt = 0; attempt < 100 && ReadPrivateField<int>(harness.ViewModel, "_rawWorkerRunning") != 0; attempt++)
+            await Task.Delay(10);
+        Assert.Equal(0, ReadPrivateField<int>(harness.ViewModel, "_rawWorkerRunning"));
+        Assert.Null(harness.ViewModel.RawSignalResult);
+
+        harness.Dispatcher.RejectEnqueue = false;
+        harness.ViewModel.RawSignalRowInput = "1";
+        harness.ViewModel.RawSignalRowInput = "0";
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+        Assert.True(harness.ViewModel.RawSignalResult is not null,
+            $"status={harness.ViewModel.RawSignalStatusText}; running={ReadPrivateField<int>(harness.ViewModel, "_rawWorkerRunning")}; row={harness.ViewModel.RawSignalRowInput}; epoch={ReadPrivateField<int>(harness.ViewModel, "_rawPageEpoch")}");
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenPreviewIsThrottled_DoesNotPublishUntilDelayedRenderCommits()
+    {
+        var release = new TaskCompletionSource<ScanStartResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScanRowsAvailableHandler? callback = null;
+        var session = new StatusSession(true, (_, _, available) =>
+        {
+            callback = available;
+            return release.Task;
+        });
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 47,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        var scan = InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        harness.Dispatcher.DrainAll();
+        SetPrivateField(harness.ViewModel, "_lastStreamingPreviewEnqueueTick", Environment.TickCount64);
+        callback!(new byte[ScanDebugConstants.BytesPerLine], 1);
+        Assert.Null(harness.ViewModel.RawSignalResult);
+        Assert.Null(harness.ViewModel.PreviewFrame);
+
+        await harness.Dispatcher.WaitForPendingAsync();
+        harness.Dispatcher.DrainAll();
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+        Assert.NotNull(harness.ViewModel.PreviewFrame);
+        Assert.NotNull(harness.ViewModel.RawSignalResult);
+        release.SetResult(new ScanStartResult(false, "Stopped", null));
+        await scan;
+    }
+
+    [Fact]
+    public async Task RawSignal_WhenPreviewEnqueueIsRejected_NextRowCanRenderAndPublish()
+    {
+        var release = new TaskCompletionSource<ScanStartResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScanRowsAvailableHandler? callback = null;
+        var session = new StatusSession(true, (_, _, available) =>
+        {
+            callback = available;
+            return release.Task;
+        });
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 47,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+
+        var scan = InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        harness.Dispatcher.RejectEnqueue = true;
+        callback!(new byte[ScanDebugConstants.BytesPerLine], 1);
+        Assert.False(ReadPrivateField<bool>(harness.ViewModel, "_isStreamingPreviewQueued"));
+        Assert.Null(harness.ViewModel.RawSignalResult);
+
+        harness.Dispatcher.RejectEnqueue = false;
+        callback!(new byte[ScanDebugConstants.BytesPerLine], 1);
+        harness.Dispatcher.DrainAll();
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult is null; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+        Assert.NotNull(harness.ViewModel.RawSignalResult);
+        release.SetResult(new ScanStartResult(false, "Stopped", null));
+        await scan;
+    }
+
+    [Fact]
+    public async Task ManualReference_EditAndApply_PatchesOnlyDraftAndUndoReadsLatest()
+    {
+        var red = CreateProfile(1000, blackLevel: 100, whiteLevel: 200);
+        var green = CreateProfile(2000, blackLevel: 300, whiteLevel: 400);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red, ["Green"] = green }, "Red"));
+        var before = harness.Workspace.Snapshot;
+        harness.ViewModel.ManualBlackLevelInput = "0";
+        harness.ViewModel.ManualWhiteLevelInput = "65535";
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+        Assert.Equal(0, harness.Repository.SaveProfileCount);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.True(harness.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+
+        var draft = harness.Workspace.Snapshot.CurrentDraft;
+        Assert.Equal((ushort)0, draft.ChannelProfiles["Red"].BlackLevel);
+        Assert.Equal(ushort.MaxValue, draft.ChannelProfiles["Red"].WhiteLevel);
+        Assert.Equal(red.Parameters, draft.ChannelProfiles["Red"].Parameters);
+        Assert.Equal(red.RoiSettings, draft.ChannelProfiles["Red"].RoiSettings);
+        Assert.Equal(green, draft.ChannelProfiles["Green"]);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+        Assert.Equal(0, harness.Repository.SaveProfileCount);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.True(harness.Workspace.Snapshot.IsDirty);
+
+        harness.ViewModel.ManualBlackLevelInput = "1";
+        harness.ViewModel.RevertManualReferenceLevelsCommand.Execute(null);
+        Assert.Equal("0", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Equal("65535", harness.ViewModel.ManualWhiteLevelInput);
+    }
+
+    [Theory]
+    [InlineData("-1", "200")]
+    [InlineData("1.5", "200")]
+    [InlineData("NaN", "200")]
+    [InlineData("65536", "200")]
+    [InlineData("100", "65536")]
+    [InlineData("100", "Infinity")]
+    [InlineData("100", "0.5")]
+    [InlineData("100", "0")]
+    [InlineData("200", "200")]
+    [InlineData("201", "200")]
+    public async Task ManualReference_InvalidInputs_DoNotPatch(string black, string white)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"));
+        var before = harness.Workspace.Snapshot;
+        harness.ViewModel.ManualBlackLevelInput = black;
+        harness.ViewModel.ManualWhiteLevelInput = white;
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal(black, harness.ViewModel.ManualBlackLevelInput);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Theory]
+    [InlineData("65535", "", (ushort)65535, null)]
+    [InlineData("", "1", null, (ushort)1)]
+    [InlineData("", "", null, null)]
+    public async Task ManualReference_OptionalLevelsAreCommittedOnlyOnApply(
+        string black, string white, ushort? expectedBlack, ushort? expectedWhite)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, blackLevel: 100, whiteLevel: 200)
+            }, "Red"));
+        var original = harness.Workspace.Snapshot;
+        harness.ViewModel.ManualBlackLevelInput = black;
+        harness.ViewModel.ManualWhiteLevelInput = white;
+        Assert.Same(original, harness.Workspace.Snapshot);
+
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+
+        var saved = harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"];
+        Assert.Equal(expectedBlack, saved.BlackLevel);
+        Assert.Equal(expectedWhite, saved.WhiteLevel);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+    }
+
+    [Fact]
+    public async Task ManualReference_ChannelSwitchDropsOldLocalEditWithoutChangingOtherChannel()
+    {
+        var red = CreateProfile(1000, blackLevel: 100, whiteLevel: 200);
+        var green = CreateProfile(2000, blackLevel: 300, whiteLevel: 400);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red, ["Green"] = green }, "Red"));
+        harness.ViewModel.ManualBlackLevelInput = "150";
+        await harness.SelectChannelAsync("Green");
+        Assert.Equal("300", harness.ViewModel.ManualBlackLevelInput);
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+        Assert.Equal(red, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
+        Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"]);
+    }
+
+    [Fact]
+    public async Task ManualReference_LegacyFrameWithoutCaptureEvidenceCannotFillSample()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"),
+            previewSample: 321, connected: true);
+        InvokeApplyScanFrame(harness.ViewModel);
+        await harness.FlushAsync();
+        Assert.True(harness.ViewModel.SaveColumnSampleAsBlackLevelCommand.CanExecute(null));
+        Assert.False(harness.ViewModel.UseColumnSampleAsManualBlackLevelCommand.CanExecute(null));
+        Assert.False(harness.ViewModel.UseColumnSampleAsManualWhiteLevelCommand.CanExecute(null));
+        Assert.Equal("14", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+    }
+
+    [Fact]
+    public async Task ManualReference_AbsentTargetAndPendingCandidate_BlockCommit()
+    {
+        var absent = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        Assert.False(absent.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"));
+        var before = harness.Workspace.Snapshot;
+        harness.ViewModel.PendingCalibrationResult = PendingCalibrationResult.Create(
+            CreateProfile(1000).Parameters, CreateProfile(1001).Parameters,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0),
+            new CalibrationCandidateContext("Red", "workspace", "device"));
+        Assert.False(harness.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+        Assert.Same(before, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
+    public async Task ManualReference_ExternalUpdatePreservesUnsavedInputAndRejectsStaleApply()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, blackLevel: 100) }, "Red"));
+        harness.ViewModel.ManualBlackLevelInput = "321";
+        var external = harness.Workspace.Snapshot.CurrentDraft;
+        harness.Workspace.SetCurrentDraft(new ScanFilmProfileDraft(
+            "external", external.SavedAtUtc, external.ChannelProfiles, external.SelectedCalibrationChannel,
+            external.AcquisitionSettings, external.ScanRecipeSettings));
+        Assert.Equal("321", harness.ViewModel.ManualBlackLevelInput);
+        Assert.False(harness.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+        harness.ViewModel.RevertManualReferenceLevelsCommand.Execute(null);
+        Assert.Equal("100", harness.ViewModel.ManualBlackLevelInput);
+        Assert.True(harness.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ManualReference_ClearRequiresConfirmationAndRejectsChangedContext()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, blackLevel: 100, whiteLevel: 200) }, "Red"));
+        harness.ViewModel.AttachRuntimeBindings();
+        ScanFilmProfileDiscardConfirmationRequest? confirmation = null;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => confirmation = request;
+        var clear = harness.ViewModel.ClearManualReferenceLevelsCommand.ExecuteAsync(null);
+        Assert.NotNull(confirmation);
+        await harness.SelectChannelAsync("Green");
+        confirmation!.CompletionSource.TrySetResult(true);
+        await clear;
+        Assert.Equal((ushort)100, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].BlackLevel);
+        await harness.SelectChannelAsync("Red");
+        confirmation = null;
+        clear = harness.ViewModel.ClearManualReferenceLevelsCommand.ExecuteAsync(null);
+        confirmation!.CompletionSource.TrySetResult(true);
+        await clear;
+        Assert.Null(harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].BlackLevel);
+        Assert.Null(harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].WhiteLevel);
+    }
+
+    [Fact]
+    public async Task CaptureEvidence_WorkflowResultRetainsPassProvenanceAcrossDisplayEditsAndContextChange()
+    {
+        var captureId = Guid.NewGuid();
+        var result = CreateStreamingPreviewFinalResult();
+        var pass = result.Passes[0];
+        result = result with
+        {
+            Passes = [pass with
+            {
+                Provenance = new ScanPassCaptureProvenance(captureId, "Red", 0, 1,
+                    CreateProfile(1000).Parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1)
+            }],
+            CaptureId = captureId
+        };
+        var parameters = new StatusParameters();
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)), parameters: parameters);
+        var request = CreateStreamingPreviewRequest();
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, request);
+        var source = harness.ViewModel.CaptureSourceText;
+        Assert.Contains(captureId.ToString(), source);
+        Assert.Contains("Red", source);
+        Assert.Contains("1000", source);
+        Assert.Contains("ScanDebug_CaptureRawStage".GetLocalized(), source);
+        Assert.DoesNotContain("ScanDebug_CaptureAlignedChannelStage".GetLocalized(), source);
+        Assert.Equal(0, parameters.ChannelApplyCount);
+        Assert.Equal(0, parameters.GlobalClockApplyCount);
+        harness.ViewModel.IsGammaCorrectionEnabled = !harness.ViewModel.IsGammaCorrectionEnabled;
+        await harness.FlushAsync();
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal(0, parameters.ChannelApplyCount);
+        Assert.Equal(0, parameters.GlobalClockApplyCount);
+        harness.ViewModel.IsWhiteLevelPreviewEnabled = !harness.ViewModel.IsWhiteLevelPreviewEnabled;
+        await harness.FlushAsync();
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal(0, parameters.ChannelApplyCount);
+        Assert.Equal(0, parameters.GlobalClockApplyCount);
+        await harness.SelectChannelAsync("Green");
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal("ScanDebug_CaptureHistorical".GetLocalized(), harness.ViewModel.CaptureComparisonText);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CaptureEvidence_DelayedOldSessionCallbackCannotReplaceCurrentSession(bool reconnect)
+    {
+        var captureId = Guid.NewGuid();
+        var result = CreateStreamingPreviewFinalResult();
+        result = result with
+        {
+            Passes = [result.Passes[0] with
+            {
+                Provenance = new ScanPassCaptureProvenance(captureId, "Red", 0, 1,
+                    CreateProfile(1000).Parameters, 1, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1)
+            }],
+            CaptureId = captureId
+        };
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session, useConnectedSession: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: coordinator,
+            workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)));
+        var oldSnapshot = new ScannerDeviceSessionSnapshot(ScannerSessionState.Connected, "old-device", null, null,
+            ScannerReconnectPromptState.None, DateTimeOffset.UtcNow);
+        coordinator.PublishSnapshot(oldSnapshot);
+        await harness.FlushAsync();
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        var source = harness.ViewModel.CaptureSourceText;
+        Assert.Contains(captureId.ToString(), source);
+        Assert.Contains("old-device", source);
+
+        coordinator.PublishSnapshot(ScannerDeviceSessionSnapshot.Disconnected(DateTimeOffset.UtcNow));
+        await harness.FlushAsync();
+        if (reconnect)
+            coordinator.PublishSnapshot(new ScannerDeviceSessionSnapshot(ScannerSessionState.Connected, "new-device", null, null,
+                ScannerReconnectPromptState.None, DateTimeOffset.UtcNow));
+
+        var currentSnapshot = coordinator.Snapshot;
+        Assert.NotSame(oldSnapshot, currentSnapshot);
+        typeof(ScanDebugViewModel).GetMethod("OnSessionCoordinatorSnapshotChanged", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, [coordinator, oldSnapshot]);
+        await harness.FlushAsync();
+
+        Assert.Same(currentSnapshot, coordinator.Snapshot);
+        Assert.Equal(reconnect, harness.ViewModel.IsConnected);
+        if (reconnect)
+        {
+            Assert.Contains("new-device", harness.ViewModel.DeviceEvidenceText);
+            Assert.DoesNotContain("old-device", harness.ViewModel.DeviceEvidenceText);
+        }
+        else
+        {
+            Assert.Equal("ScanDebug_DeviceEvidenceUnknown".GetLocalized(), harness.ViewModel.DeviceEvidenceText);
+        }
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal("ScanDebug_CaptureHistorical".GetLocalized(), harness.ViewModel.CaptureComparisonText);
+    }
+
+    [Fact]
+    public async Task CaptureEvidence_MultipleWorkflowRolesReportCompositeDisplayStage()
+    {
+        var firstPass = CreateStreamingPreviewFinalResult().Passes[0];
+        var result = CreateStreamingPreviewFinalResult() with
+        {
+            Passes = [firstPass, firstPass with { PassIndex = 2, LedChannelIndex = 1 }]
+        };
+        var request = CreateStreamingPreviewRequest() with
+        {
+            LedLevels = [0, 0],
+            PassChannelRoles = ["Red", "Green"],
+            PassParameterProfiles = [CreateProfile(1000).Parameters, CreateProfile(2000).Parameters]
+        };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)));
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, request);
+
+        Assert.Contains("Scan_Runtime_PreviewModeRgbComposite".GetLocalized(), harness.ViewModel.CaptureSourceText);
+        Assert.DoesNotContain("ScanDebug_CaptureAlignedChannelStage".GetLocalized(), harness.ViewModel.CaptureSourceText);
+    }
+
+    [Fact]
+    public async Task CaptureEvidence_DraftOnlyReferenceEditDoesNotMakeCaptureHistorical()
+    {
+        var session = new StatusSession(isConnected: true,
+            startScan: (rows, _, _) => Task.FromResult(new ScanStartResult(true, "sampled", new byte[rows * ScanDebugConstants.BytesPerLine])));
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"),
+            connected: true, scanSession: session);
+        harness.ViewModel.AttachRuntimeBindings();
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.IsPreviewEnabled = true;
+        await InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        var source = harness.ViewModel.CaptureSourceText;
+        var comparison = harness.ViewModel.CaptureComparisonText;
+        Assert.Contains("Red", source);
+        Assert.Contains("ScanDebug_CaptureRawStage".GetLocalized(), source);
+        Assert.NotEqual("ScanDebug_CaptureHistorical".GetLocalized(), comparison);
+
+        harness.ViewModel.ManualBlackLevelInput = "25";
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+
+        Assert.Equal((ushort)25, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].BlackLevel);
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal(comparison, harness.ViewModel.CaptureComparisonText);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+    }
+
+    [Fact]
+    public async Task CaptureEvidence_SuccessfulChannelApplyMakesEarlierCaptureHistoricalWithoutChangingItsSource()
+    {
+        var captureId = Guid.NewGuid();
+        var result = CreateStreamingPreviewFinalResult() with { CaptureId = captureId };
+        var request = CreateStreamingPreviewRequest();
+        var applyEntered = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseApply = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var parameters = new StatusParameters(applyEntered, releaseApply);
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)),
+            scanSession: session,
+            sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true),
+            parameters: parameters);
+        await harness.SelectChannelAsync("Blue");
+
+        await InvokeRunWorkflowScanAsync(harness.ViewModel, request);
+        var source = harness.ViewModel.CaptureSourceText;
+        Assert.Contains(captureId.ToString(), source);
+        Assert.Contains(request.PassParameterProfiles[0].ToString(), source);
+        await SetValidParameterInputsAsync(harness, "125");
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+        var workspaceBeforeApply = harness.Workspace.Snapshot;
+        var comparisonBeforeApply = harness.ViewModel.CaptureComparisonText;
+        var loadCountBeforeApply = parameters.LoadCount;
+        Assert.Equal("ScanDebug_CaptureComparisonSubmittedNotReadback".GetLocalized(), comparisonBeforeApply);
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.True(harness.ViewModel.ApplyParametersCommand.CanExecute(null));
+
+        var applyTask = harness.ViewModel.ApplyParametersCommand.ExecuteAsync(null);
+        await applyEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(comparisonBeforeApply, harness.ViewModel.CaptureComparisonText);
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.NotEqual("ScanDebug_Runtime_StatusParametersUpdated".GetLocalized(), harness.ViewModel.StatusText);
+        releaseApply.TrySetResult(null);
+        await applyTask;
+        await harness.FlushAsync();
+
+        Assert.Equal(1, parameters.ChannelApplyCount);
+        Assert.Equal(0, parameters.GlobalClockApplyCount);
+        Assert.NotEqual(request.PassParameterProfiles[0], Assert.Single(parameters.AppliedSnapshots));
+        Assert.Equal(loadCountBeforeApply, parameters.LoadCount);
+        Assert.Same(workspaceBeforeApply, harness.Workspace.Snapshot);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+        Assert.Equal(0, harness.Repository.SaveProfileCount);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Equal(source, harness.ViewModel.CaptureSourceText);
+        Assert.Equal("ScanDebug_CaptureHistorical".GetLocalized(), harness.ViewModel.CaptureComparisonText);
+        Assert.Equal("ScanDebug_Runtime_StatusParametersUpdated".GetLocalized(), harness.ViewModel.StatusText);
+    }
+
+    [Fact]
+    public async Task ManualReference_SampleFillUsesRawMeanWithoutSavingAndRejectsStaleOwner()
+    {
+        const ushort rawSample = 321;
+        var session = new StatusSession(isConnected: true,
+            startScan: (rows, _, _) => Task.FromResult(new ScanStartResult(true, "sampled", new byte[rows * ScanDebugConstants.BytesPerLine])));
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"),
+            connected: true, previewSample: rawSample, scanSession: session);
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.IsPreviewEnabled = true;
+        var before = harness.Workspace.Snapshot;
+        await InvokeRunSingleScanAsync(harness.ViewModel, 1, CancellationToken.None);
+        var width = ScanDebugConstants.DecodedPixelsPerLine;
+        harness.ViewModel.PreviewFrame = new ScanPreviewFrame(new byte[width * 4], width, 1,
+            width * 4, ScanPreviewPixelFormat.Bgra8, 1);
+        typeof(ScanDebugViewModel).GetMethod("RefreshColumnSampleStatus", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, null);
+        Assert.True(harness.ViewModel.UseColumnSampleAsManualBlackLevelCommand.CanExecute(null));
+        harness.ViewModel.UseColumnSampleAsManualBlackLevelCommand.Execute(null);
+        Assert.Equal(rawSample.ToString(CultureInfo.InvariantCulture), harness.ViewModel.ManualBlackLevelInput);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Empty(harness.Repository.Snapshot.Profiles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Contains("Red", harness.ViewModel.ManualReferenceSourceText);
+        var captureId = Regex.Match(harness.ViewModel.CaptureSourceText,
+            @"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").Value;
+        Assert.True(Guid.TryParse(captureId, out _));
+        Assert.Contains(captureId, harness.ViewModel.ManualReferenceSourceText);
+
+        await harness.SelectChannelAsync("Green");
+        Assert.False(harness.ViewModel.UseColumnSampleAsManualBlackLevelCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task StopScanDisabledReason_TracksActualCommandAvailabilityWithoutInvokingHardware()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true);
+        var viewModel = harness.ViewModel;
+        var changes = new List<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => changes.Add(eventArgs.PropertyName);
+
+        Assert.False(viewModel.StopScanCommand.CanExecute(null));
+        Assert.Equal("ScanDebug_DisabledReasonNoActiveScan".GetLocalized(), viewModel.StopDisabledReasonText);
+
+        viewModel.IsRunning = true;
+        Assert.True(viewModel.StopScanCommand.CanExecute(null));
+        Assert.Equal(string.Empty, viewModel.StopDisabledReasonText);
+        Assert.Contains(nameof(viewModel.StopDisabledReasonText), changes);
+
+        changes.Clear();
+        viewModel.IsRunning = false;
+        Assert.False(viewModel.StopScanCommand.CanExecute(null));
+        Assert.Equal("ScanDebug_DisabledReasonNoActiveScan".GetLocalized(), viewModel.StopDisabledReasonText);
+        Assert.Contains(nameof(viewModel.StopDisabledReasonText), changes);
+    }
 
     [Fact]
     public async Task StatusOwnership_PersistedRedDraftDiffersThenSelectGreen_ReportsRedModified()
@@ -2905,7 +3679,7 @@ public sealed class ScanDebugCalibrationStatusTests
     {
         typeof(ScanDebugViewModel)
             .GetMethod("ApplyScanFrame", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(viewModel, [new byte[ScanDebugConstants.BytesPerLine], 1, "test frame"]);
+            .Invoke(viewModel, [new byte[ScanDebugConstants.BytesPerLine], 1, "test frame", null]);
         var width = ScanDebugConstants.DecodedPixelsPerLine;
         viewModel.PreviewFrame = new ScanPreviewFrame(new byte[width * 4], width, 1, width * 4, ScanPreviewPixelFormat.Bgra8, 1);
         typeof(ScanDebugViewModel)
@@ -5661,13 +6435,15 @@ public sealed class ScanDebugCalibrationStatusTests
     {
         private readonly TaskCompletionSource<object?>? _renderEntered;
         private readonly TaskCompletionSource<object?>? _releaseRender;
+        private readonly bool _succeed;
 
         public StatusPreviewPresenter(
             TaskCompletionSource<object?>? renderEntered = null,
-            TaskCompletionSource<object?>? releaseRender = null)
+            TaskCompletionSource<object?>? releaseRender = null, bool succeed = false)
         {
             _renderEntered = renderEntered;
             _releaseRender = releaseRender;
+            _succeed = succeed;
         }
 
         public int RenderCallCount { get; private set; }
@@ -5679,9 +6455,9 @@ public sealed class ScanDebugCalibrationStatusTests
             RenderedBuffers.Add(lineBuffer);
             _renderEntered?.TrySetResult(null);
             _releaseRender?.Task.GetAwaiter().GetResult();
-            frame = null;
+            frame = _succeed ? new ScanPreviewFrame(new byte[4], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, RenderCallCount) : null;
             error = "Preview rendering is not part of status ownership tests.";
-            return false;
+            return _succeed;
         }
 
         public bool TryRender(byte[] lineBuffer, int rows, ScanPreviewRenderOptions options, WriteableBitmap? currentBitmap, out WriteableBitmap? bitmap, out string error)
@@ -5702,6 +6478,10 @@ public sealed class ScanDebugCalibrationStatusTests
 
     private sealed class StatusChannelImages : IScanChannelImageService
     {
+        private readonly bool _succeed;
+
+        public StatusChannelImages(bool succeed = false) => _succeed = succeed;
+
         public List<ScanWorkflowResult> PartialResults { get; } = [];
         public List<IReadOnlyDictionary<int, int>> PartialCompletedRows { get; } = [];
 
@@ -5714,18 +6494,18 @@ public sealed class ScanDebugCalibrationStatusTests
 
         public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, ScanChannelAlignmentMode alignmentMode, WriteableBitmap? currentBitmap, out ScanCompositeFrame? frame, out string error, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
         {
-            frame = null;
+            frame = _succeed ? new ScanCompositeFrame(new ScanCompositePixelBuffer(new byte[4], 1, 1), null!) : null;
             error = "Channel image rendering is not part of status ownership tests.";
-            return false;
+            return _succeed;
         }
 
         public bool TryBuildPartialRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, IReadOnlyDictionary<int, int> completedRowsByPassIndex, WriteableBitmap? currentBitmap, out ScanCompositeFrame? frame, out string error, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
         {
             PartialResults.Add(result);
             PartialCompletedRows.Add(new Dictionary<int, int>(completedRowsByPassIndex));
-            frame = null;
+            frame = _succeed ? new ScanCompositeFrame(new ScanCompositePixelBuffer(new byte[4], 1, 1), null!) : null;
             error = "Channel image rendering is not part of status ownership tests.";
-            return false;
+            return _succeed;
         }
 
         public Task<ScanCompositePixelBuffer> BuildRgbCompositeBufferAsync(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, ScanChannelAlignmentMode alignmentMode, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false, CancellationToken cancellationToken = default)

@@ -66,6 +66,7 @@ public enum ScanDebugRuntimeCommandKind
     ,RestoreCalibrationCandidate
     ,AcceptCalibrationCandidate
     ,AcceptAndSaveCalibrationCandidate
+    ,ApplyManualReferenceLevels
 }
 
 public enum ScanDebugRuntimeOperationGateReason
@@ -257,6 +258,10 @@ public static class ScanDebugRuntimeOperationGate
                 requiresDeviceConnection: false,
                 claimedOperation: ScanDebugRuntimeOperation.ProfileLifecycle,
                 ProfileImportConflicts),
+            ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels => Policy(
+                requiresDeviceConnection: false,
+                claimedOperation: ScanDebugRuntimeOperation.ProfileLifecycle,
+                ManualReferenceLevelConflicts),
             ScanDebugRuntimeCommandKind.DiscardStagedFilmProfileImport => Policy(
                 requiresDeviceConnection: false,
                 claimedOperation: ScanDebugRuntimeOperation.ProfileLifecycle,
@@ -389,6 +394,12 @@ public static class ScanDebugRuntimeOperationGate
         ScanDebugRuntimeOperation.CalibrationRepository,
         ScanDebugRuntimeOperation.DeviceGlobal,
         ScanDebugRuntimeOperation.RawHardware
+    ];
+
+    private static readonly ScanDebugRuntimeOperation[] ManualReferenceLevelConflicts =
+    [
+        ..ProfileImportConflicts,
+        ScanDebugRuntimeOperation.ProfileImport
     ];
 
     private static readonly ScanDebugRuntimeOperation[] ProfileMutationConflicts =

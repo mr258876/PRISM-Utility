@@ -126,6 +126,165 @@ public sealed class ScanFilmProfileWorkspaceTests
         => Assert.Equal(DateTimeOffset.UnixEpoch, ScanFilmProfileDraft.CreateDefault().SavedAtUtc);
 
     [Fact]
+    public void TryApplyReferenceLevels_PatchesOnlyExistingRoleAndPreservesBaselineImportAndOtherFields()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        IScanFilmProfileWorkspace workspace = CreateWorkspace(repository);
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+        workspace.StageImport(ReadFixture("full-v6.json"));
+        var before = workspace.Snapshot;
+        var original = before.CurrentDraft.ChannelProfiles["Blue"];
+        var notifications = new List<ScanFilmProfileWorkspaceSnapshot>();
+        workspace.SnapshotChanged += notifications.Add;
+
+        var result = workspace.TryApplyReferenceLevels(before, "blue", 0, ushort.MaxValue);
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.Applied, result.Status);
+        var committed = Assert.IsType<ScanFilmProfileWorkspaceSnapshot>(result.CommittedSnapshot);
+        Assert.Same(committed, workspace.Snapshot);
+        Assert.Same(committed, Assert.Single(notifications));
+        Assert.Equal(original with { BlackLevel = (ushort)0, WhiteLevel = ushort.MaxValue }, committed.CurrentDraft.ChannelProfiles["Blue"]);
+        Assert.Equal(before.CurrentDraft.ChannelProfiles["Green"], committed.CurrentDraft.ChannelProfiles["Green"]);
+        Assert.Equal(before.CurrentDraft.ProfileName, committed.CurrentDraft.ProfileName);
+        Assert.Equal(before.CurrentDraft.SavedAtUtc, committed.CurrentDraft.SavedAtUtc);
+        Assert.Equal(before.CurrentDraft.SelectedCalibrationChannel, committed.CurrentDraft.SelectedCalibrationChannel);
+        Assert.Equal(before.CurrentDraft.AcquisitionSettings, committed.CurrentDraft.AcquisitionSettings);
+        Assert.Equal(before.CurrentDraft.ScanRecipeSettings, committed.CurrentDraft.ScanRecipeSettings);
+        Assert.Same(before.BaselineDraft, committed.BaselineDraft);
+        Assert.Same(before.ImportResult, committed.ImportResult);
+        Assert.True(committed.IsDirty);
+        Assert.Empty(repository.CallLog);
+        Assert.Equal(0, repository.ReadCount);
+        Assert.Equal(0, repository.ReplaceCount);
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(100, 0)]
+    [InlineData(200, 100)]
+    [InlineData(100, 100)]
+    public void TryApplyReferenceLevels_InvalidPairNeverWritesEitherValue(int? black, int? white)
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+        var before = workspace.Snapshot;
+        var notifications = 0;
+        workspace.SnapshotChanged += _ => notifications++;
+
+        var result = workspace.TryApplyReferenceLevels(before, "Blue", (ushort?)black, (ushort?)white);
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.InvalidValues, result.Status);
+        Assert.Null(result.CommittedSnapshot);
+        Assert.Same(before, workspace.Snapshot);
+        Assert.Equal(0, notifications);
+        Assert.Empty(repository.CallLog);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(65535, null)]
+    [InlineData(null, 1)]
+    [InlineData(100, 200)]
+    public void TryApplyReferenceLevels_ValidNullablePairsRemainExact(int? black, int? white)
+    {
+        var workspace = CreateWorkspace(new RecordingCalibrationProfileRepository());
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+        ushort? blackLevel = black is null ? null : checked((ushort)black.Value);
+        ushort? whiteLevel = white is null ? null : checked((ushort)white.Value);
+
+        var result = workspace.TryApplyReferenceLevels(workspace.Snapshot, "Blue", blackLevel, whiteLevel);
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.Applied, result.Status);
+        Assert.Equal(blackLevel, result.CommittedSnapshot!.CurrentDraft.ChannelProfiles["Blue"].BlackLevel);
+        Assert.Equal(whiteLevel, result.CommittedSnapshot.CurrentDraft.ChannelProfiles["Blue"].WhiteLevel);
+    }
+
+    [Fact]
+    public void TryApplyReferenceLevels_MissingRoleDoesNotCreateProfileOrPublishSnapshot()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+        var before = workspace.Snapshot;
+        var notifications = 0;
+        workspace.SnapshotChanged += _ => notifications++;
+
+        var result = workspace.TryApplyReferenceLevels(before, "Blue", 100, 200);
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.MissingTarget, result.Status);
+        Assert.Null(result.CommittedSnapshot);
+        Assert.Same(before, workspace.Snapshot);
+        Assert.Empty(workspace.Snapshot.CurrentDraft.ChannelProfiles);
+        Assert.Equal(0, notifications);
+        Assert.Empty(repository.CallLog);
+    }
+
+    [Fact]
+    public async Task TryApplyReferenceLevels_ConcurrentCapturedSubmissionsCommitExactlyOnePair()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var workspace = CreateWorkspace(repository);
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+        var expected = workspace.Snapshot;
+        using var start = new ManualResetEventSlim();
+        var first = Task.Run(() => { start.Wait(); return workspace.TryApplyReferenceLevels(expected, "Blue", 100, 200); });
+        var second = Task.Run(() => { start.Wait(); return workspace.TryApplyReferenceLevels(expected, "Blue", 300, 400); });
+        start.Set();
+
+        var results = await Task.WhenAll(first, second);
+
+        var applied = Assert.Single(results, result => result.Status == ScanFilmProfileReferenceLevelPatchStatus.Applied);
+        var stale = Assert.Single(results, result => result.Status == ScanFilmProfileReferenceLevelPatchStatus.Stale);
+        Assert.Null(stale.CommittedSnapshot);
+        Assert.Same(applied.CommittedSnapshot, workspace.Snapshot);
+        var profile = workspace.Snapshot.CurrentDraft.ChannelProfiles["Blue"];
+        Assert.True((profile.BlackLevel == 100 && profile.WhiteLevel == 200)
+            || (profile.BlackLevel == 300 && profile.WhiteLevel == 400));
+        Assert.Empty(repository.CallLog);
+    }
+
+    [Fact]
+    public void TryApplyReferenceLevels_OldWorkspaceIdentityCannotWriteAfterTargetChange()
+    {
+        var workspace = CreateWorkspace(new RecordingCalibrationProfileRepository());
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+        var before = workspace.Snapshot;
+        workspace.ResetToDefaultDraft();
+        var switched = workspace.Snapshot;
+
+        var result = workspace.TryApplyReferenceLevels(before, "Blue", 100, 200);
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.Stale, result.Status);
+        Assert.Same(switched, workspace.Snapshot);
+        Assert.Empty(switched.CurrentDraft.ChannelProfiles);
+    }
+
+    [Fact]
+    public void TryApplyReferenceLevels_OfflineDraftExportsThroughExistingSchemaWithoutRepositorySync()
+    {
+        var repository = new RecordingCalibrationProfileRepository();
+        var documents = new ScanFilmProfileDocumentService();
+        var workspace = CreateWorkspace(repository, documents: documents);
+        workspace.SetCurrentDraft(CreateCapturedDraft());
+
+        var result = workspace.TryApplyReferenceLevels(workspace.Snapshot, "Blue", 100, 200);
+        var export = workspace.BuildExportDocument();
+        var document = Assert.IsType<ScanFilmParameterProfileSet>(export.Document.Document);
+        var reloaded = documents.Parse(documents.Serialize(document));
+
+        Assert.Equal(ScanFilmProfileReferenceLevelPatchStatus.Applied, result.Status);
+        Assert.True(export.Document.CanApply);
+        Assert.Equal(documents.CurrentSchemaVersion, document.SchemaVersion);
+        Assert.True(reloaded.CanApply);
+        var profile = Assert.IsType<ScanFilmParameterProfileSet>(reloaded.Document).ChannelProfiles["Blue"];
+        Assert.Equal((ushort)100, profile.BlackLevel);
+        Assert.Equal((ushort)200, profile.WhiteLevel);
+        Assert.Empty(repository.CallLog);
+        Assert.Equal(0, repository.ReplaceCount);
+        Assert.Equal(0, repository.ReadCount);
+    }
+
+    [Fact]
     public void Todo2Baseline_DefaultReset_IsDeterministicAndClearsStagingWithoutRepositoryWrites()
     {
         var repository = new RecordingCalibrationProfileRepository();
