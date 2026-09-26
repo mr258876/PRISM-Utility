@@ -61,6 +61,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private bool _isPageActive;
     private int _activationEpoch;
     private object? _pageActivationOwner;
+    private readonly ScanDebugDialogLifetime _dialogLifetime = ScanDebugDialogLifetime.ForCurrentThread;
     private bool _isUpdatingCurrentCalibrationIlluminationEditor;
     private bool _isSynchronizingWorkbenchSection;
     private int _activeWorkbenchSectionIndex = 1;
@@ -660,6 +661,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _isPageActive = false;
         var unloadEpoch = ++_activationEpoch;
         var pageOwner = _pageActivationOwner;
+        ViewModel.InvalidatePageActivation(pageOwner);
+        _dialogLifetime.Retire(this, unloadEpoch - 1);
         var totalStopwatch = Stopwatch.StartNew();
         var stepStopwatch = Stopwatch.StartNew();
         App.MainWindow.Activated -= MainWindow_Activated;
@@ -1073,7 +1076,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         try
         {
-            var dialog = new ContentDialog
+            await ShowPageDialogAsync(() => new ContentDialog
             {
                 XamlRoot = XamlRoot,
                 Title = e.Prompt.Title,
@@ -1081,10 +1084,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
                 PrimaryButtonText = e.Prompt.PrimaryButtonText,
                 CloseButtonText = e.Prompt.CloseButtonText,
                 DefaultButton = ContentDialogButton.Primary
-            };
-
-            var result = await dialog.ShowAsync();
-            e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);
+            }, e.HostCancellationToken,
+                result => e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary),
+                () => e.CompletionSource.TrySetResult(false),
+                ex => e.CompletionSource.TrySetException(ex));
         }
         catch (Exception ex)
         {
@@ -1096,7 +1099,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         try
         {
-            var dialog = new ContentDialog
+            await ShowPageDialogAsync(() => new ContentDialog
             {
                 XamlRoot = XamlRoot,
                 Title = e.TitleResourceKey.GetLocalized(),
@@ -1104,10 +1107,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
                 PrimaryButtonText = e.PrimaryButtonResourceKey.GetLocalized(),
                 CloseButtonText = e.CloseButtonResourceKey.GetLocalized(),
                 DefaultButton = ContentDialogButton.Close
-            };
-
-            var result = await dialog.ShowAsync();
-            e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);
+            }, e.HostCancellationToken,
+                result => e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary),
+                () => e.CompletionSource.TrySetResult(false),
+                ex => e.CompletionSource.TrySetException(ex));
         }
         catch (Exception ex)
         {
@@ -1119,22 +1122,88 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         try
         {
-            var dialog = new ContentDialog
+            Action completeOnPageRetirement = () => e.CompletionSource.TrySetResult();
+            await ShowPageDialogAsync(() => new ContentDialog
             {
                 XamlRoot = XamlRoot,
                 Title = e.Title,
                 Content = e.Content,
                 CloseButtonText = e.CloseButtonText,
                 DefaultButton = ContentDialogButton.Close
-            };
-
-            await dialog.ShowAsync();
-            e.CompletionSource.TrySetResult();
+            }, e.HostCancellationToken,
+                _ => e.CompletionSource.TrySetResult(),
+                () =>
+                {
+                    if (e.HostCancellationToken.IsCancellationRequested)
+                        e.CompletionSource.TrySetCanceled(e.HostCancellationToken);
+                    else
+                        completeOnPageRetirement();
+                },
+                ex => e.CompletionSource.TrySetException(ex));
         }
         catch (Exception ex)
         {
             e.CompletionSource.TrySetException(ex);
         }
+    }
+
+    private Task ShowPageDialogAsync(
+        Func<ContentDialog> createDialog,
+        CancellationToken hostCancellationToken,
+        Action<ContentDialogResult> complete,
+        Action retire,
+        Action<Exception> fault)
+    {
+        var activationEpoch = _activationEpoch;
+        var pageOwner = _pageActivationOwner;
+        if (pageOwner is null || !IsCurrentActivation(activationEpoch)
+            || !ViewModel.IsCurrentPageOwner(pageOwner) || hostCancellationToken.IsCancellationRequested)
+        {
+            retire();
+            return Task.CompletedTask;
+        }
+
+        var dialog = createDialog();
+        var dispatcher = DispatcherQueue;
+        var lease = _dialogLifetime.TryAcquire(this, activationEpoch, showStarted =>
+        {
+            retire();
+            if (!showStarted)
+                return;
+
+            try
+            {
+                if (!dispatcher.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        dialog.Hide();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debugger.Log(0, "ScanDebugDialog", $"Dialog hide failed: {ex}\n");
+                    }
+                }))
+                {
+                    Debugger.Log(0, "ScanDebugDialog", "Dialog hide dispatch was rejected; request retired.\n");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debugger.Log(0, "ScanDebugDialog", $"Dialog hide dispatch failed; request retired: {ex}\n");
+            }
+        });
+        if (lease is null)
+        {
+            retire();
+            return Task.CompletedTask;
+        }
+
+        return lease.RunAsync(hostCancellationToken,
+            () => IsCurrentActivation(activationEpoch)
+                && ReferenceEquals(_pageActivationOwner, pageOwner)
+                && ViewModel.IsCurrentPageOwner(pageOwner),
+            async () => await dialog.ShowAsync(), complete, fault);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

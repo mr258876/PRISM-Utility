@@ -51,6 +51,7 @@
     <Compile Include="..\PRISM Utility\Helpers\RuntimeHelper.cs" Link="Helpers\RuntimeHelper.cs" />
     <Compile Include="..\PRISM Utility\Helpers\ScanRuntimeMessageLocalizer.cs" Link="Helpers\ScanRuntimeMessageLocalizer.cs" />
     <Compile Include="..\PRISM Utility\Helpers\ScanSelectorDisplayNameConverter.cs" Link="Helpers\ScanSelectorDisplayNameConverter.cs" />
+    <Compile Include="..\PRISM Utility\Views\ScanDebugDialogLifetime.cs" Link="Views\ScanDebugDialogLifetime.cs" />
     <Compile Include="..\PRISM Utility\Models\AppLanguageOption.cs" Link="Models\AppLanguageOption.cs" />
     <Compile Include="..\PRISM Utility\Models\LocalSettingsOptions.cs" Link="Models\LocalSettingsOptions.cs" />
     <Compile Include="..\PRISM Utility\Models\ScanWorkflowModels.cs" Link="Models\ScanWorkflowModels.cs" />

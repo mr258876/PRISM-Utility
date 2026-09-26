@@ -302,6 +302,7 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         var newProfile = ExtractMethod(source, "NewFilmProfile");
         var validate = ExtractMethod(source, "ValidateFilmProfile");
         var confirmation = ExtractMethod(source, "RequestFilmProfileDiscardConfirmationAsync");
+        var boundedConfirmation = ExtractMethod(source, "RequestFilmProfileImportConfirmationAsync");
         var currentChannelPatch = ExtractMethod(source, "BuildCurrentChannelPatch");
 
         Assert.Contains("public event EventHandler<ScanFilmProfileDiscardConfirmationRequest>? FilmProfileDiscardConfirmationRequested;", source, StringComparison.Ordinal);
@@ -311,12 +312,13 @@ public sealed class ScanDebugFilmProfileOrchestrationSourceTests
         Assert.DoesNotContain("_filmProfileFiles", newProfile, StringComparison.Ordinal);
         Assert.DoesNotContain("_session", newProfile, StringComparison.Ordinal);
         Assert.DoesNotContain("_deviceSettings", newProfile, StringComparison.Ordinal);
-        Assert.Contains("var handler = FilmProfileDiscardConfirmationRequested;", confirmation, StringComparison.Ordinal);
-        Assert.Contains("if (handler is null)", confirmation, StringComparison.Ordinal);
-        Assert.Contains("return Task.FromResult(false);", confirmation, StringComparison.Ordinal);
+        Assert.Contains("RequestFilmProfileImportConfirmationAsync", confirmation, StringComparison.Ordinal);
         Assert.Contains("new ScanFilmProfileDiscardConfirmationRequest()", confirmation, StringComparison.Ordinal);
-        Assert.Contains("handler(this, request);", confirmation, StringComparison.Ordinal);
-        Assert.Contains("return request.CompletionSource.Task;", confirmation, StringComparison.Ordinal);
+        Assert.Contains("var handler = FilmProfileDiscardConfirmationRequested;", boundedConfirmation, StringComparison.Ordinal);
+        Assert.Contains("if (handler is null)", boundedConfirmation, StringComparison.Ordinal);
+        Assert.Contains("return false;", boundedConfirmation, StringComparison.Ordinal);
+        Assert.Contains("handler(this, request);", boundedConfirmation, StringComparison.Ordinal);
+        Assert.Contains("return await request.CompletionSource.Task;", boundedConfirmation, StringComparison.Ordinal);
         Assert.Contains("SynchronizeFilmProfileDraftFromInputs();", validate, StringComparison.Ordinal);
         Assert.DoesNotContain("SetStagedFilmProfileImportValidation", validate, StringComparison.Ordinal);
         Assert.DoesNotContain("_filmProfileFiles", validate, StringComparison.Ordinal);

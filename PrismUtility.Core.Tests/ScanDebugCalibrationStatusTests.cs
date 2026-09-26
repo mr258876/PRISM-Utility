@@ -1994,6 +1994,277 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task FilmProfileConfirmation_TerminalCleanupDuringDirtyDraftNew_CancelsWaitAndIgnoresLateYes()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        harness.ViewModel.FilmProfileName = "Unsaved draft";
+        await harness.FlushAsync();
+        Assert.True(harness.ViewModel.HasUnsavedProfileChanges);
+
+        await AssertTerminalFilmProfileConfirmationAsync(
+            harness, () => harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null));
+    }
+
+    [Fact]
+    public async Task FilmProfileConfirmation_TerminalCleanupDuringStagedImportDiscardNew_CancelsWaitAndIgnoresLateYes()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
+        await harness.FlushAsync();
+        Assert.True(harness.ViewModel.HasPendingFilmProfileImportResult);
+
+        await AssertTerminalFilmProfileConfirmationAsync(
+            harness, () => harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null));
+    }
+
+    [Fact]
+    public async Task FilmProfileConfirmation_TerminalCleanupDuringStagedImportReplacement_CancelsWaitAndIgnoresLateYes()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
+        harness.FilmProfileFiles.ImportedProfile = CreateFilmProfileDocument("Replacement profile");
+        await harness.FlushAsync();
+        Assert.True(harness.ViewModel.HasPendingFilmProfileImportResult);
+
+        await AssertTerminalFilmProfileConfirmationAsync(
+            harness, () => harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FilmProfileConfirmation_DirtyDraftNewHonorsNormalResponse(bool confirmed)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        harness.ViewModel.FilmProfileName = "Unsaved draft";
+        await harness.FlushAsync();
+        var before = harness.Workspace.Snapshot;
+        var requested = new TaskCompletionSource<ScanFilmProfileDiscardConfirmationRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => requested.TrySetResult(request);
+
+        var operation = harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        var request = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        request.CompletionSource.TrySetResult(confirmed);
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+        await harness.FlushAsync();
+
+        if (confirmed)
+            Assert.NotSame(before, harness.Workspace.Snapshot);
+        else
+            Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
+    }
+
+    [Fact]
+    public async Task FilmProfileConfirmation_DirtyDraftNewShowFailurePreservesWorkspaceAndReportsFailure()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        harness.ViewModel.FilmProfileName = "Unsaved draft";
+        await harness.FlushAsync();
+        Assert.True(harness.ViewModel.HasUnsavedProfileChanges);
+        var before = harness.Workspace.Snapshot;
+        var requested = new TaskCompletionSource<ScanFilmProfileDiscardConfirmationRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => requested.TrySetResult(request);
+
+        var operation = harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        var request = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        request.CompletionSource.TrySetException(new InvalidOperationException("show rejected"));
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+        await harness.FlushAsync();
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Same(before.CurrentDraft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Same(before.ImportResult, harness.Workspace.Snapshot.ImportResult);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
+        Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.FilmProfileOperationSeverity);
+    }
+
+    [Fact]
+    public async Task ManualReference_ClearShowFailurePreservesLevelsAndReportsError()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, blackLevel: 100, whiteLevel: 200) }, "Red"));
+        var before = harness.Workspace.Snapshot;
+        ScanFilmProfileDiscardConfirmationRequest? request = null;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, confirmation) => request = confirmation;
+
+        var operation = harness.ViewModel.ClearManualReferenceLevelsCommand.ExecuteAsync(null);
+        Assert.NotNull(request);
+        request.CompletionSource.TrySetException(new InvalidOperationException("show rejected"));
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal("ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat("show rejected"), harness.ViewModel.ManualReferenceStatusText);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task FilmProfileConfirmation_YesAfterPageReentryCannotReplaceWorkspace(bool load, bool yesBeforeReentry)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        if (load)
+        {
+            Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
+            harness.FilmProfileFiles.ImportedProfile = CreateFilmProfileDocument("Replacement profile");
+        }
+        else
+        {
+            harness.ViewModel.FilmProfileName = "Unsaved draft";
+            await harness.FlushAsync();
+        }
+        var before = harness.Workspace.Snapshot;
+        var requested = new TaskCompletionSource<ScanFilmProfileDiscardConfirmationRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => requested.TrySetResult(request);
+
+        var operation = load
+            ? harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null)
+            : harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        var confirmation = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        if (yesBeforeReentry)
+            confirmation.CompletionSource.TrySetResult(true);
+        var newOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(newOwner));
+        if (!yesBeforeReentry)
+            confirmation.CompletionSource.TrySetResult(true);
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+    }
+
+    [Fact]
+    public async Task PageUnload_InvalidatesOnlyItsReservationWithoutDetachingOrCanceling()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        var invalidate = typeof(ScanDebugViewModel).GetMethod("InvalidatePageActivation", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(invalidate);
+
+        invalidate.Invoke(harness.ViewModel, [new object()]);
+        Assert.True(harness.ViewModel.IsCurrentPageOwner(oldOwner));
+        invalidate.Invoke(harness.ViewModel, [oldOwner]);
+        Assert.False(harness.ViewModel.IsCurrentPageOwner(oldOwner));
+        Assert.True(ReadPrivateField<bool>(harness.ViewModel, "_areRuntimeBindingsAttached"));
+        Assert.False(ReadPrivateField<CancellationTokenSource>(harness.ViewModel, "_terminalCleanupCts")!.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task FilmProfileConfirmation_AfterTerminalCleanupDoesNotRequestOrResetWorkspace()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.ViewModel.FilmProfileName = "Unsaved draft";
+        await harness.FlushAsync();
+        var before = harness.Workspace.Snapshot;
+        var requests = 0;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, _) => requests++;
+
+        await harness.ViewModel.CleanupAsync();
+        await harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Equal(0, requests);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+    }
+
+    [Fact]
+    public async Task FilmProfileImport_PageReentryDuringImportCannotStageResult()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        var before = harness.Workspace.Snapshot;
+        var import = new TaskCompletionSource<ScanFilmProfileFileImportResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.FilmProfileFiles.PendingImport = import.Task;
+
+        var operation = harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null);
+        Assert.False(operation.IsCompleted);
+        var newOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(newOwner));
+        import.TrySetResult(new ScanFilmProfileFileImportResult(false, CreateFilmProfileDocument("Late profile"), null));
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+    }
+
+    [Fact]
+    public async Task FilmProfileConfirmation_WithoutSubscriberDeclinesStagedImportReplacement()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
+        Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
+        harness.FilmProfileFiles.ImportedProfile = CreateFilmProfileDocument("Replacement profile");
+        var before = harness.Workspace.Snapshot;
+
+        await harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(3));
+        await harness.FlushAsync();
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
+        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+    }
+
+    private static ScanFilmParameterProfileSet CreateFilmProfileDocument(string name)
+        => new(
+            ScanFilmProfileDocumentService.CurrentSchemaVersionValue,
+            name,
+            DateTimeOffset.UnixEpoch.AddDays(1),
+            new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Red"] = CreateProfile(1_000)
+            },
+            "Red",
+            ScanFilmAcquisitionSettings.CreateDefault(),
+            null);
+
+    private static async Task AssertTerminalFilmProfileConfirmationAsync(StatusHarness harness, Func<Task> execute)
+    {
+        var before = harness.Workspace.Snapshot;
+        var requested = new TaskCompletionSource<ScanFilmProfileDiscardConfirmationRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => requested.TrySetResult(request);
+
+        var operation = execute();
+        var request = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(operation.IsCompleted);
+        Assert.True(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.Contains(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
+
+        await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        try
+        {
+            await operation.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            request.CompletionSource.TrySetResult(true);
+        }
+        await harness.FlushAsync();
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Same(before.CurrentDraft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Same(before.ImportResult, harness.Workspace.Snapshot.ImportResult);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
+        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.True(operation.IsCompleted);
+        Assert.Same(before, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
     public async Task Notice_TerminalCleanupCancelsSubscribedWait()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
@@ -2008,6 +2279,27 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => noticeTask.WaitAsync(TimeSpan.FromSeconds(3)));
         request.CompletionSource.TrySetResult();
+        Assert.True(noticeTask.IsCanceled);
+    }
+
+    [Fact]
+    public async Task Notice_TerminalCleanupCancelsEvenWhenLaterCallbackCompletesSuccessfullyFirst()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        ScanNoticeRequest? request = null;
+        harness.ViewModel.NoticeRequested += (_, notice) =>
+        {
+            request = notice;
+            notice.HostCancellationToken.Register(() => notice.CompletionSource.TrySetResult());
+        };
+        var noticeTask = (Task)typeof(ScanDebugViewModel)
+            .GetMethod("RequestNoticeAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, ["title", "content", "close"])!;
+        Assert.NotNull(request);
+
+        await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => noticeTask.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.True(noticeTask.IsCanceled);
     }
 
@@ -6969,6 +7261,7 @@ public sealed class ScanDebugCalibrationStatusTests
         public ScanFilmParameterProfileSet? ExportedProfile { get; private set; }
         public ScanFilmParameterProfileSet? ImportedProfile { get; set; }
         public ScanFilmProfileFileImportResult? ImportResult { get; set; }
+        public Task<ScanFilmProfileFileImportResult>? PendingImport { get; set; }
 
         public Task<bool> ExportAsync(ScanFilmParameterProfileSet profileSet, CancellationToken ct)
         {
@@ -6977,7 +7270,7 @@ public sealed class ScanDebugCalibrationStatusTests
         }
 
         public Task<ScanFilmProfileFileImportResult> ImportAsync(CancellationToken ct)
-            => Task.FromResult(ImportResult ?? new ScanFilmProfileFileImportResult(false, ImportedProfile, null));
+            => PendingImport ?? Task.FromResult(ImportResult ?? new ScanFilmProfileFileImportResult(false, ImportedProfile, null));
     }
 
     private sealed class StatusDebugOutputMirror : IDebugOutputMirrorService

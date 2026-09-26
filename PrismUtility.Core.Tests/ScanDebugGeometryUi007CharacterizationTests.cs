@@ -470,6 +470,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var propertyChanged = ExtractMemberBodyAtDeclaration(codeBehind, "private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)");
         var calibrationDialog = ExtractMemberBodyAtDeclaration(codeBehind, "private async void OnCalibrationPromptRequested(object? sender, ScanCalibrationPromptRequest e)");
         var noticeDialog = ExtractMemberBodyAtDeclaration(codeBehind, "private async void OnNoticeRequested(object? sender, ScanNoticeRequest e)");
+        var showDialog = ExtractMemberBodyAtDeclaration(codeBehind, "private Task ShowPageDialogAsync(");
 
         Assert.Contains("SubscribeViewModelEvents();", loaded, StringComparison.Ordinal);
         Assert.Contains("ViewModel.AttachRuntimeBindingsForPage(pageOwner)", loaded, StringComparison.Ordinal);
@@ -498,11 +499,28 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("new ContentDialog", calibrationDialog, StringComparison.Ordinal);
         Assert.Contains("XamlRoot = XamlRoot", calibrationDialog, StringComparison.Ordinal);
         Assert.Contains("DefaultButton = ContentDialogButton.Primary", calibrationDialog, StringComparison.Ordinal);
-        Assert.Contains("e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary);", calibrationDialog, StringComparison.Ordinal);
+        Assert.Contains("e.HostCancellationToken", calibrationDialog, StringComparison.Ordinal);
+        Assert.Contains("result => e.CompletionSource.TrySetResult(result == ContentDialogResult.Primary)", calibrationDialog, StringComparison.Ordinal);
+        Assert.Contains("() => e.CompletionSource.TrySetResult(false)", calibrationDialog, StringComparison.Ordinal);
         Assert.Contains("new ContentDialog", noticeDialog, StringComparison.Ordinal);
         Assert.Contains("XamlRoot = XamlRoot", noticeDialog, StringComparison.Ordinal);
         Assert.Contains("DefaultButton = ContentDialogButton.Close", noticeDialog, StringComparison.Ordinal);
-        Assert.Contains("e.CompletionSource.TrySetResult();", noticeDialog, StringComparison.Ordinal);
+        Assert.Contains("e.HostCancellationToken", noticeDialog, StringComparison.Ordinal);
+        Assert.Contains("_ => e.CompletionSource.TrySetResult()", noticeDialog, StringComparison.Ordinal);
+        Assert.Contains("Action completeOnPageRetirement = () => e.CompletionSource.TrySetResult();", noticeDialog, StringComparison.Ordinal);
+        Assert.Matches(@"if \(e\.HostCancellationToken\.IsCancellationRequested\)\s+e\.CompletionSource\.TrySetCanceled\(e\.HostCancellationToken\);\s+else\s+completeOnPageRetirement\(\);", noticeDialog);
+        Assert.Contains("_dialogLifetime.Retire(this, unloadEpoch - 1);", unloaded, StringComparison.Ordinal);
+        Assert.True(unloaded.IndexOf("_dialogLifetime.Retire(this, unloadEpoch - 1);", StringComparison.Ordinal)
+            < unloaded.IndexOf("await PrismVisualQaCaptureService.StopAsync(this);", StringComparison.Ordinal));
+        Assert.Contains("_dialogLifetime.TryAcquire(this, activationEpoch", showDialog, StringComparison.Ordinal);
+        Assert.Contains("dialog.Hide();", showDialog, StringComparison.Ordinal);
+        Assert.Contains("dispatcher.TryEnqueue(", showDialog, StringComparison.Ordinal);
+        Assert.Contains("Dialog hide dispatch was rejected", showDialog, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnqueueForCurrentActivation", showDialog, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(_pageActivationOwner, pageOwner)", showDialog, StringComparison.Ordinal);
+        Assert.True(showDialog.IndexOf("!IsCurrentActivation(activationEpoch)", StringComparison.Ordinal)
+            < showDialog.IndexOf("var dialog = createDialog();", StringComparison.Ordinal));
+        Assert.Contains("return lease.RunAsync(hostCancellationToken", showDialog, StringComparison.Ordinal);
 
         Assert.DoesNotContain("PickDngExportFolderAsync", codeBehind, StringComparison.Ordinal);
         Assert.Contains("_channelImages.PickDngExportFolderAsync()", viewModel, StringComparison.Ordinal);

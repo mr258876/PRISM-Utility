@@ -34,6 +34,10 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         Assert.Contains("if (!_isPageActive)", unloaded, StringComparison.Ordinal);
         Assert.Contains("_isPageActive = false;", unloaded, StringComparison.Ordinal);
         Assert.Contains("var unloadEpoch = ++_activationEpoch;", unloaded, StringComparison.Ordinal);
+        AssertBefore(unloaded, "var unloadEpoch = ++_activationEpoch;", "ViewModel.InvalidatePageActivation(pageOwner);");
+        AssertBefore(unloaded, "var pageOwner = _pageActivationOwner;", "ViewModel.InvalidatePageActivation(pageOwner);");
+        AssertBefore(unloaded, "ViewModel.InvalidatePageActivation(pageOwner);", "_dialogLifetime.Retire(this, unloadEpoch - 1);");
+        AssertBefore(unloaded, "ViewModel.InvalidatePageActivation(pageOwner);", "await PrismVisualQaCaptureService.StopAsync(this);");
         AssertBefore(unloaded, "var unloadEpoch = ++_activationEpoch;", "App.MainWindow.Activated -= MainWindow_Activated;");
         AssertBefore(unloaded, "var unloadEpoch = ++_activationEpoch;", "await PrismVisualQaCaptureService.StopAsync(this);");
         AssertBefore(unloaded, "await PrismVisualQaCaptureService.StopAsync(this);", "if (_isPageActive || unloadEpoch != _activationEpoch)");

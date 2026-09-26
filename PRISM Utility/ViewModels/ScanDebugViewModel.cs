@@ -36,6 +36,8 @@ public sealed class ScanCalibrationPromptRequest
     {
         get;
     }
+
+    public CancellationToken HostCancellationToken { get; internal set; }
 }
 
 public sealed class ScanFilmProfileDiscardConfirmationRequest
@@ -61,6 +63,8 @@ public sealed class ScanFilmProfileDiscardConfirmationRequest
     public string CloseButtonResourceKey { get; }
 
     public TaskCompletionSource<bool> CompletionSource { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public CancellationToken HostCancellationToken { get; internal set; }
 }
 
 public sealed class ScanNoticeRequest
@@ -80,6 +84,8 @@ public sealed class ScanNoticeRequest
     public string CloseButtonText { get; }
 
     public TaskCompletionSource CompletionSource { get; }
+
+    public CancellationToken HostCancellationToken { get; internal set; }
 }
 
 public sealed class ScanRoiValidationIssueDisplay
@@ -909,9 +915,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var expected = _manualReferenceExpectedSnapshot;
         var role = SelectedCalibrationChannel;
         var selectionVersion = _manualReferenceSelectionVersion;
-        if (!await RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest(
-            "ScanDebug_ManualReferenceClearTitle", "ScanDebug_ManualReferenceClearMessage",
-            "ScanDebug_ManualReferenceClearConfirm", "ScanDebug_Runtime_FilmProfileDirtyConfirmationStayButton")))
+        var pageOwner = _attachedPageOwner;
+        try
+        {
+            if (!await RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest(
+                "ScanDebug_ManualReferenceClearTitle", "ScanDebug_ManualReferenceClearMessage",
+                "ScanDebug_ManualReferenceClearConfirm", "ScanDebug_Runtime_FilmProfileDirtyConfirmationStayButton")))
+                return;
+        }
+        catch (Exception ex)
+        {
+            if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
+                ManualReferenceStatusText = "ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat(ex.Message);
+            return;
+        }
+        if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner)))
             return;
         if (!ReferenceEquals(expected, _manualReferenceExpectedSnapshot)
             || !ReferenceEquals(expected, _filmProfileWorkspace.Snapshot)
@@ -3226,6 +3244,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     internal bool IsCurrentPageOwner(object owner)
         => !_isCleanedUp && ReferenceEquals(_reservedPageOwner, owner);
 
+    internal void InvalidatePageActivation(object? owner)
+    {
+        if (ReferenceEquals(_reservedPageOwner, owner))
+            _reservedPageOwner = null;
+    }
+
     internal bool AttachRuntimeBindingsForPage(object owner)
     {
         if (_isCleanedUp || !IsCurrentPageOwner(owner))
@@ -4563,16 +4587,26 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         IsFilmProfileOperationRunning = true;
+        var workspaceSnapshot = _filmProfileWorkspace.Snapshot;
+        var pageOwner = _attachedPageOwner;
         try
         {
             if (HasPendingFilmProfileImportResult && !await RequestFilmProfileImportReplacementConfirmationAsync())
             {
-                PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
+                if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner))
+                    && ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                    PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
                 return;
             }
+            if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner))
+                || !ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                return;
 
             PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationBusy".GetLocalized(), InfoBarSeverity.Informational);
             var imported = await _filmProfileFiles.ImportAsync(CancellationToken.None);
+            if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner))
+                || !ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                return;
             if (imported.WasCanceled)
             {
                 PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileCanceled".GetLocalized(), InfoBarSeverity.Informational);
@@ -4599,11 +4633,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         catch (Exception ex)
         {
-            PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
+            if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
+                PublishFilmProfileOperation("ScanDebug_Runtime_StatusLoadFilmProfileFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
         }
         finally
         {
-            RefreshFilmProfileWorkspaceProjection();
+            if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
+                RefreshFilmProfileWorkspaceProjection();
             runtimeClaim?.Dispose();
             IsFilmProfileOperationRunning = false;
         }
@@ -4673,19 +4709,31 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         IsFilmProfileOperationRunning = true;
+        var workspaceSnapshot = _filmProfileWorkspace.Snapshot;
+        var pageOwner = _attachedPageOwner;
         try
         {
             if (HasPendingFilmProfileImportResult && !await RequestFilmProfileImportDiscardConfirmationAsync())
             {
-                PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
+                if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner))
+                    && ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                    PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
                 return;
             }
+            if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner))
+                || !ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                return;
 
             if (HasUnsavedProfileChanges && !await RequestFilmProfileDiscardConfirmationAsync())
             {
-                PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
+                if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner))
+                    && ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                    PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationCanceled".GetLocalized(), InfoBarSeverity.Informational);
                 return;
             }
+            if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner))
+                || !ReferenceEquals(workspaceSnapshot, _filmProfileWorkspace.Snapshot))
+                return;
 
             _copiedUnverifiedCalibrationProfiles.Clear();
             ClearSelectedCalibrationEditorBaseline();
@@ -4693,6 +4741,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _isNewFilmProfilePendingExport = true;
             RefreshFilmProfileWorkspaceProjection();
             PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationSucceeded".GetLocalized(), InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
+                PublishFilmProfileOperation("ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat(ex.Message), InfoBarSeverity.Error);
         }
         finally
         {
@@ -7390,26 +7443,27 @@ public partial class ScanDebugViewModel : ObservableRecipient
         SelectedProfileDngExportMode = DngExportModeOptions[0];
     }
 
-    private Task<bool> RequestCalibrationPromptAsync(ScanCalibrationPrompt prompt)
+    private async Task<bool> RequestCalibrationPromptAsync(ScanCalibrationPrompt prompt)
     {
+        if (_terminalCleanupCts.IsCancellationRequested)
+            return false;
         var handler = CalibrationPromptRequested;
         if (handler is null)
-            return Task.FromResult(false);
+            return false;
 
-        var request = new ScanCalibrationPromptRequest(prompt);
+        var request = new ScanCalibrationPromptRequest(prompt) { HostCancellationToken = _terminalCleanupCts.Token };
+        using var registration = request.HostCancellationToken.Register(() => request.CompletionSource.TrySetResult(false));
+        if (request.HostCancellationToken.IsCancellationRequested)
+            return false;
         handler(this, request);
-        return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);
+        var confirmed = await request.CompletionSource.Task;
+        request.HostCancellationToken.ThrowIfCancellationRequested();
+        return confirmed;
     }
 
     private Task<bool> RequestFilmProfileDiscardConfirmationAsync()
     {
-        var handler = FilmProfileDiscardConfirmationRequested;
-        if (handler is null)
-            return Task.FromResult(false);
-
-        var request = new ScanFilmProfileDiscardConfirmationRequest();
-        handler(this, request);
-        return request.CompletionSource.Task;
+        return RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest());
     }
 
     private Task<bool> RequestFilmProfileImportDiscardConfirmationAsync()
@@ -7426,25 +7480,35 @@ public partial class ScanDebugViewModel : ObservableRecipient
             "ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton",
             "ScanDebug_Runtime_FilmProfileDirtyConfirmationStayButton"));
 
-    private Task<bool> RequestFilmProfileImportConfirmationAsync(ScanFilmProfileDiscardConfirmationRequest request)
+    private async Task<bool> RequestFilmProfileImportConfirmationAsync(ScanFilmProfileDiscardConfirmationRequest request)
     {
+        if (_terminalCleanupCts.IsCancellationRequested)
+            return false;
         var handler = FilmProfileDiscardConfirmationRequested;
         if (handler is null)
-            return Task.FromResult(false);
+            return false;
 
+        request.HostCancellationToken = _terminalCleanupCts.Token;
+        using var registration = request.HostCancellationToken.Register(() => request.CompletionSource.TrySetResult(false));
+        if (request.HostCancellationToken.IsCancellationRequested)
+            return false;
         handler(this, request);
-        return request.CompletionSource.Task;
+        return await request.CompletionSource.Task;
     }
 
-    private Task RequestNoticeAsync(string title, string content, string closeButtonText)
+    private async Task RequestNoticeAsync(string title, string content, string closeButtonText)
     {
+        _terminalCleanupCts.Token.ThrowIfCancellationRequested();
         var handler = NoticeRequested;
         if (handler is null)
-            return Task.CompletedTask;
+            return;
 
-        var request = new ScanNoticeRequest(title, content, closeButtonText);
+        var request = new ScanNoticeRequest(title, content, closeButtonText) { HostCancellationToken = _terminalCleanupCts.Token };
+        using var registration = request.HostCancellationToken.Register(() => request.CompletionSource.TrySetCanceled(request.HostCancellationToken));
+        request.HostCancellationToken.ThrowIfCancellationRequested();
         handler(this, request);
-        return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);
+        await request.CompletionSource.Task;
+        request.HostCancellationToken.ThrowIfCancellationRequested();
     }
 
     private bool CanRunExtendedScan() =>
