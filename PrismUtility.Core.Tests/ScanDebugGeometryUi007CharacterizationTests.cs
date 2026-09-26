@@ -252,11 +252,11 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("CancelPreviewVisualInteraction();", unloaded, StringComparison.Ordinal);
         Assert.True(
             unloaded.IndexOf("App.MainWindow.Activated -= MainWindow_Activated;", StringComparison.Ordinal)
-                < unloaded.IndexOf("await ViewModel.DeactivateAsync();", StringComparison.Ordinal),
+                < unloaded.IndexOf("await ViewModel.DeactivateForPageAsync(pageOwner);", StringComparison.Ordinal),
             "Unloaded must unsubscribe before async teardown to avoid retaining the page through the main window event.");
         Assert.True(
             unloaded.IndexOf("CancelPreviewVisualInteraction();", StringComparison.Ordinal)
-                < unloaded.IndexOf("await ViewModel.DeactivateAsync();", StringComparison.Ordinal),
+                < unloaded.IndexOf("await ViewModel.DeactivateForPageAsync(pageOwner);", StringComparison.Ordinal),
             "Preview interaction cancel is page-local state cleanup and must run before VM deactivation.");
 
         Assert.Contains("WindowActivationState.Deactivated", activated, StringComparison.Ordinal);
@@ -472,12 +472,12 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var noticeDialog = ExtractMemberBodyAtDeclaration(codeBehind, "private async void OnNoticeRequested(object? sender, ScanNoticeRequest e)");
 
         Assert.Contains("SubscribeViewModelEvents();", loaded, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.AttachRuntimeBindings();", loaded, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.AttachRuntimeBindingsForPage(pageOwner)", loaded, StringComparison.Ordinal);
         Assert.Contains("await ViewModel.RefreshDeviceSettingsBindingsAsync();", loaded, StringComparison.Ordinal);
         Assert.Contains("RefreshPreviewLayout();", loaded, StringComparison.Ordinal);
         Assert.Contains("UnsubscribeViewModelEvents();", unloaded, StringComparison.Ordinal);
         Assert.Contains("DisposePreviewBitmap();", unloaded, StringComparison.Ordinal);
-        Assert.Contains("await ViewModel.DeactivateAsync();", unloaded, StringComparison.Ordinal);
+        Assert.Contains("await ViewModel.DeactivateForPageAsync(pageOwner);", unloaded, StringComparison.Ordinal);
         Assert.Contains("if (_areViewModelEventsSubscribed)", subscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.PropertyChanged += OnViewModelPropertyChanged;", subscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;", subscribe, StringComparison.Ordinal);

@@ -2,7 +2,9 @@
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 using PRISM_Utility.Activation;
 using PRISM_Utility.Contracts.Services;
@@ -20,9 +22,18 @@ public partial class App : Application
 {
     private static readonly TimeSpan MirrorShutdownTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan SettingsShutdownTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ViewModelShutdownTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ScannerShutdownTimeout = TimeSpan.FromSeconds(10);
     private readonly IScannerDeviceSessionManager _scannerDeviceSessionManager;
     private readonly SettingsSaveCoordinator _settingsSaveCoordinator;
-    private int _scannerShutdownCleanupStarted;
+    private readonly object _viewModelGate = new();
+    private readonly List<WeakReference<ScanViewModel>> _createdScanViewModels = [];
+    private ScanDebugViewModel? _createdScanDebugViewModel;
+    private int _windowShutdownStarted;
+    private bool _allowWindowClose;
+#if PRISM_VISUAL_QA
+    internal static bool IsShuttingDown => Current is App app && Volatile.Read(ref app._windowShutdownStarted) != 0;
+#endif
 
     // The .NET Generic Host provides dependency injection, configuration, logging, and other services.
     // https://docs.microsoft.com/dotnet/core/extensions/generic-host
@@ -37,12 +48,31 @@ public partial class App : Application
     public static T GetService<T>()
         where T : class
     {
-        if ((App.Current as App)!.Host.Services.GetService(typeof(T)) is not T service)
+        var app = (App)Current;
+        if (app.Host.Services.GetService(typeof(T)) is not T service)
         {
             throw new ArgumentException($"{typeof(T)} needs to be registered in ConfigureServices within App.xaml.cs.");
         }
 
+        app.TrackResolvedViewModel(service);
         return service;
+    }
+
+    private void TrackResolvedViewModel(object service)
+    {
+        lock (_viewModelGate)
+        {
+            switch (service)
+            {
+                case ScanViewModel scanViewModel:
+                    _createdScanViewModels.RemoveAll(reference => !reference.TryGetTarget(out _));
+                    _createdScanViewModels.Add(new WeakReference<ScanViewModel>(scanViewModel));
+                    break;
+                case ScanDebugViewModel scanDebugViewModel:
+                    _createdScanDebugViewModel = scanDebugViewModel;
+                    break;
+            }
+        }
     }
 
     private static WindowEx? _mainWindow;
@@ -158,46 +188,165 @@ public partial class App : Application
         await App.GetService<ILanguageSelectorService>().InitializeAsync();
         await App.GetService<ILanguageSelectorService>().ApplyLanguageAsync();
         await App.GetService<IDebugOutputSettingsService>().InitializeAsync();
-        await App.GetService<IActivationService>().ActivateAsync(args);
 
-        MainWindow.Closed -= MainWindow_Closed;
-        MainWindow.Closed += MainWindow_Closed;
+        MainWindow.AppWindow.Closing -= MainWindow_Closing;
+        MainWindow.AppWindow.Closing += MainWindow_Closing;
+        await App.GetService<IActivationService>().ActivateAsync(args);
     }
 
-    private async void MainWindow_Closed(object sender, WindowEventArgs args)
+    private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (Interlocked.Exchange(ref _scannerShutdownCleanupStarted, 1) != 0)
+        if (_allowWindowClose)
             return;
+
+        args.Cancel = true;
+        if (Interlocked.Exchange(ref _windowShutdownStarted, 1) != 0)
+            return;
+
+#if PRISM_VISUAL_QA
+        PrismVisualQaCaptureService.BeginShutdown();
+#endif
+        try
+        {
+            await Task.Yield();
+            await ShutdownAsync();
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"Window shutdown failed: {ex}\n");
+#if PRISM_VISUAL_QA
+            PrismVisualQaCaptureService.CancelShutdown();
+#endif
+            Interlocked.Exchange(ref _windowShutdownStarted, 0);
+            return;
+        }
+
+        _allowWindowClose = true;
+        MainWindow.Close();
+    }
+
+    private async Task ShutdownAsync()
+    {
+#if PRISM_VISUAL_QA
+        try
+        {
+            await PrismVisualQaCaptureService.DrainActiveAsync();
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"Visual QA capture drain failed: {ex}\n");
+            throw;
+        }
+#endif
+
+        if (MainWindow.Content is Control content)
+            content.IsEnabled = false;
 
         try
         {
-            _settingsSaveCoordinator.CancelPendingOperations();
-            try
-            {
-                using var settingsShutdownTimeout = new CancellationTokenSource(SettingsShutdownTimeout);
-                await _settingsSaveCoordinator.WhenIdleAsync().WaitAsync(settingsShutdownTimeout.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.WriteLine("Settings persistence shutdown flush timed out.");
-            }
-
-            var result = await _scannerDeviceSessionManager.ShutdownAsync(CancellationToken.None);
-            if (!result.Success)
-                Debug.WriteLine($"Scanner shutdown cleanup incomplete: {result.Message}");
+            await CleanupCreatedViewModelsAsync();
         }
-        finally
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"View model shutdown failed: {ex}\n");
+        }
+
+        using var settingsShutdownTimeout = new CancellationTokenSource(SettingsShutdownTimeout);
+        try
+        {
+            _settingsSaveCoordinator.CancelPendingOperations();
+            await _settingsSaveCoordinator.WhenIdleAsync().WaitAsync(settingsShutdownTimeout.Token);
+        }
+        catch (OperationCanceledException) when (settingsShutdownTimeout.IsCancellationRequested)
+        {
+            Debugger.Log(0, "AppShutdown", "Settings persistence shutdown flush timed out.\n");
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"Settings persistence shutdown failed: {ex}\n");
+        }
+
+        using var scannerShutdownTimeout = new CancellationTokenSource(ScannerShutdownTimeout);
+        try
+        {
+            var result = await _scannerDeviceSessionManager.ShutdownAsync(scannerShutdownTimeout.Token).WaitAsync(scannerShutdownTimeout.Token);
+            if (!result.Success)
+                Debugger.Log(0, "AppShutdown", $"Scanner shutdown cleanup incomplete: {result.Message}\n");
+        }
+        catch (OperationCanceledException) when (scannerShutdownTimeout.IsCancellationRequested)
+        {
+            Debugger.Log(0, "AppShutdown", "Scanner shutdown cleanup timed out.\n");
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"Scanner shutdown cleanup failed: {ex}\n");
+        }
+
+        try
         {
             _settingsSaveCoordinator.Dispose();
-            using var mirrorShutdownTimeout = new CancellationTokenSource(MirrorShutdownTimeout);
-            try
-            {
-                await GetService<IDebugOutputMirrorService>().ShutdownAsync(mirrorShutdownTimeout.Token);
-            }
-            catch (OperationCanceledException) when (mirrorShutdownTimeout.IsCancellationRequested)
-            {
-                Debugger.Log(0, "DebugOutputMirror", "Timed out waiting for debug output mirror shutdown.\n");
-            }
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"Settings persistence disposal failed: {ex}\n");
+        }
+
+        using var mirrorShutdownTimeout = new CancellationTokenSource(MirrorShutdownTimeout);
+        try
+        {
+            await GetService<IDebugOutputMirrorService>().ShutdownAsync(mirrorShutdownTimeout.Token);
+        }
+        catch (OperationCanceledException) when (mirrorShutdownTimeout.IsCancellationRequested)
+        {
+            Debugger.Log(0, "DebugOutputMirror", "Timed out waiting for debug output mirror shutdown.\n");
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "DebugOutputMirror", $"Debug output mirror shutdown failed: {ex}\n");
+        }
+    }
+
+    private async Task CleanupCreatedViewModelsAsync()
+    {
+        WeakReference<ScanViewModel>[] scanViewModels;
+        ScanDebugViewModel? scanDebugViewModel;
+        lock (_viewModelGate)
+        {
+            scanViewModels = _createdScanViewModels.ToArray();
+            scanDebugViewModel = _createdScanDebugViewModel;
+            _createdScanViewModels.Clear();
+            _createdScanDebugViewModel = null;
+        }
+
+        var cleanupTasks = new List<Task>();
+        foreach (var reference in scanViewModels)
+        {
+            if (reference.TryGetTarget(out var scanViewModel))
+                cleanupTasks.Add(CleanupViewModelAsync(scanViewModel.CleanupAsync, nameof(ScanViewModel)));
+        }
+
+        if (scanDebugViewModel is not null)
+            cleanupTasks.Add(CleanupViewModelAsync(scanDebugViewModel.CleanupAsync, nameof(ScanDebugViewModel)));
+
+        try
+        {
+            await Task.WhenAll(cleanupTasks).WaitAsync(ViewModelShutdownTimeout);
+        }
+        catch (TimeoutException)
+        {
+            Debugger.Log(0, "AppShutdown", "View model shutdown cleanup timed out.\n");
+        }
+    }
+
+    private static async Task CleanupViewModelAsync(Func<Task> cleanup, string viewModelName)
+    {
+        try
+        {
+            await cleanup();
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "AppShutdown", $"{viewModelName} shutdown cleanup failed: {ex}\n");
         }
     }
 }

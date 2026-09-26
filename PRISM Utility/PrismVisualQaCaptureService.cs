@@ -1,4 +1,5 @@
 #if PRISM_VISUAL_QA
+using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -22,9 +23,17 @@ internal static class PrismVisualQaCaptureService
     private static DispatcherTimer? _timer;
     private static Task? _processingTask;
     private static bool _stopping;
+    private static bool _shutdownRequested;
+
+    internal static void BeginShutdown() => _shutdownRequested = true;
+
+    internal static void CancelShutdown() => _shutdownRequested = false;
 
     internal static void Start(ScanDebugPage page)
     {
+        if (_shutdownRequested || _stopping || _processingTask is { IsCompleted: false })
+            return;
+
         _page = page;
         _stopping = false;
         Directory.CreateDirectory(GetRequestDirectory());
@@ -35,6 +44,9 @@ internal static class PrismVisualQaCaptureService
         _timer.Tick += ProcessRequests;
         _timer.Start();
     }
+
+    internal static Task DrainActiveAsync()
+        => _page is { } page ? StopAsync(page) : Task.CompletedTask;
 
     internal static async Task StopAsync(ScanDebugPage page)
     {
@@ -50,21 +62,31 @@ internal static class PrismVisualQaCaptureService
         }
 
         var processingTask = _processingTask;
-        if (processingTask is not null)
-            await processingTask;
-
-        if (!ReferenceEquals(_page, page)
-            || !ReferenceEquals(_processingTask, processingTask)
-            || !_stopping)
-            return;
-
-        _page = null;
-        _timer = null;
-        _processingTask = null;
+        try
+        {
+            if (processingTask is not null)
+                await processingTask;
+        }
+        finally
+        {
+            if ((processingTask is null || processingTask.IsCompleted)
+                && ReferenceEquals(_page, page)
+                && ReferenceEquals(_processingTask, processingTask)
+                && _stopping)
+            {
+                _page = null;
+                _timer = null;
+                _processingTask = null;
+                _stopping = false;
+            }
+        }
     }
 
     private static async void ProcessRequests(object? sender, object e)
     {
+        if (_shutdownRequested)
+            return;
+
         if (_stopping)
             return;
 
@@ -76,13 +98,23 @@ internal static class PrismVisualQaCaptureService
             return;
 
         _processingTask = ProcessRequestsAsync(page);
-        await _processingTask;
+        try
+        {
+            await _processingTask;
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "VisualQaCapture", $"Capture request processing failed: {ex}\n");
+        }
     }
 
     private static async Task ProcessRequestsAsync(ScanDebugPage page)
     {
         foreach (var requestPath in Directory.GetFiles(GetRequestDirectory(), "*.request.json"))
         {
+            if (_shutdownRequested)
+                break;
+
             if (_stopping)
                 break;
 

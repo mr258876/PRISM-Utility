@@ -58,6 +58,9 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private string _roiDragCalibrationChannel = string.Empty;
     private bool _roiDragHasAppliedRange;
     private bool _areViewModelEventsSubscribed;
+    private bool _isPageActive;
+    private int _activationEpoch;
+    private object? _pageActivationOwner;
     private bool _isUpdatingCurrentCalibrationIlluminationEditor;
     private bool _isSynchronizingWorkbenchSection;
     private int _activeWorkbenchSectionIndex = 1;
@@ -139,21 +142,21 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _isConfigurationWorkspaceOpen = false;
         _inspectionOpenOverride = false;
         SetActiveWorkbenchSection(2);
-        _ = DispatcherQueue.TryEnqueue(() => BlackWhiteTaskButton.Focus(FocusState.Programmatic));
+        EnqueueForCurrentActivation(() => BlackWhiteTaskButton.Focus(FocusState.Programmatic));
     }
 
     private void OpenConfigurationButton_Click(object sender, RoutedEventArgs e)
     {
         _isConfigurationWorkspaceOpen = true;
         SetActiveWorkbenchSection(0);
-        _ = DispatcherQueue.TryEnqueue(() => ProfileNameTextBox.Focus(FocusState.Programmatic));
+        EnqueueForCurrentActivation(() => ProfileNameTextBox.Focus(FocusState.Programmatic));
     }
 
     private void OpenAdvancedButton_Click(object sender, RoutedEventArgs e)
     {
         _isConfigurationWorkspaceOpen = true;
         SetActiveWorkbenchSection(4);
-        _ = DispatcherQueue.TryEnqueue(() =>
+        EnqueueForCurrentActivation(() =>
         {
             if (WorkbenchSectionComboBox.Visibility == Visibility.Visible)
                 WorkbenchSectionComboBox.Focus(FocusState.Programmatic);
@@ -210,7 +213,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         _inspectionOpenOverride = WorkbenchInspectionRail.Visibility != Visibility.Visible;
         UpdateWorkbenchPreviewLayout();
-        _ = DispatcherQueue.TryEnqueue(() => InspectionToggleButton.Focus(FocusState.Programmatic));
+        EnqueueForCurrentActivation(() => InspectionToggleButton.Focus(FocusState.Programmatic));
     }
 
     private void ScanDebugRootGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
@@ -218,7 +221,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!IsWorkbenchSectionUiReady())
             return;
 
-        _ = DispatcherQueue.TryEnqueue(UpdateWorkbenchPreviewLayout);
+        EnqueueForCurrentActivation(UpdateWorkbenchPreviewLayout);
     }
 
     private void UpdateWorkbenchPreviewLayout()
@@ -250,6 +253,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         var focusedElement = XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
         var focusReplacement = FindWorkbenchFocusReplacement(focusedElement, layout, isWideSelectorAvailable);
         var focusHandoffVersion = ++_workbenchFocusHandoffVersion;
+        var activationEpoch = _activationEpoch;
         if (!layout.IsPreviewVisible)
             CancelPreviewVisualInteraction();
         if (WorkbenchEditorColumnContent.Visibility == Visibility.Visible && !layout.IsEditorVisible && _activeWorkbenchSectionIndex == 3)
@@ -278,7 +282,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (focusReplacement is not null)
             _ = DispatcherQueue.TryEnqueue(() =>
             {
-                if (focusHandoffVersion != _workbenchFocusHandoffVersion || XamlRoot is not { } currentRoot
+                if (!IsCurrentActivation(activationEpoch) || focusHandoffVersion != _workbenchFocusHandoffVersion || XamlRoot is not { } currentRoot
                     || focusReplacement.Visibility != Visibility.Visible || !focusReplacement.IsEnabled)
                     return;
 
@@ -371,7 +375,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         _isNarrowPreviewOpen = true;
         UpdateWorkbenchPreviewLayout();
-        _ = DispatcherQueue.TryEnqueue(() =>
+        EnqueueForCurrentActivation(() =>
         {
             if (WorkbenchPreviewColumnContent.Visibility == Visibility.Visible && BackToEditorButton.Visibility == Visibility.Visible)
                 _ = BackToEditorButton.Focus(FocusState.Programmatic);
@@ -383,7 +387,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _isNarrowPreviewOpen = false;
         UpdateWorkbenchPreviewLayout();
         var taskButton = GetActiveWorkbenchTaskButton();
-        _ = DispatcherQueue.TryEnqueue(() => taskButton.Focus(FocusState.Programmatic));
+        EnqueueForCurrentActivation(() => taskButton.Focus(FocusState.Programmatic));
     }
 
     private void PreviewSplitter_DragDelta(object sender, DragDeltaEventArgs e)
@@ -587,14 +591,39 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
+#if PRISM_VISUAL_QA
+        if (App.IsShuttingDown)
+            return;
+#endif
+        if (_isPageActive)
+            return;
+
+        _isPageActive = true;
+        var activationEpoch = ++_activationEpoch;
+        var pageOwner = ViewModel.ReservePageActivation();
         var totalStopwatch = Stopwatch.StartNew();
         var stepStopwatch = Stopwatch.StartNew();
+#if PRISM_VISUAL_QA
+        try
+        {
+            await PrismVisualQaCaptureService.DrainActiveAsync();
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "VisualQaCapture", $"Page load capture drain failed: {ex}\n");
+        }
+#endif
+        if (!IsCurrentActivation(activationEpoch) || !ViewModel.IsCurrentPageOwner(pageOwner))
+            return;
+
         SubscribeViewModelEvents();
         UpdateWorkbenchReviewEntry();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded SubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         stepStopwatch.Restart();
-        ViewModel.AttachRuntimeBindings();
+        if (!ViewModel.AttachRuntimeBindingsForPage(pageOwner))
+            return;
+        _pageActivationOwner = pageOwner;
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded AttachRuntimeBindings={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         App.MainWindow.Activated -= MainWindow_Activated;
@@ -602,6 +631,9 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         stepStopwatch.Restart();
         await ViewModel.RefreshDeviceSettingsBindingsAsync();
+        if (!IsCurrentActivation(activationEpoch) || !ViewModel.IsCurrentPageOwner(pageOwner))
+            return;
+
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded RefreshDeviceSettingsBindingsAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         stepStopwatch.Restart();
@@ -622,26 +654,66 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private async void OnUnloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
+        if (!_isPageActive)
+            return;
+
+        _isPageActive = false;
+        var unloadEpoch = ++_activationEpoch;
+        var pageOwner = _pageActivationOwner;
         var totalStopwatch = Stopwatch.StartNew();
         var stepStopwatch = Stopwatch.StartNew();
         App.MainWindow.Activated -= MainWindow_Activated;
         CancelPreviewVisualInteraction();
 #if PRISM_VISUAL_QA
-        await PrismVisualQaCaptureService.StopAsync(this);
+        try
+        {
+            await PrismVisualQaCaptureService.StopAsync(this);
+        }
+        catch (Exception ex)
+        {
+            Debugger.Log(0, "VisualQaCapture", $"Page unload capture drain failed: {ex}\n");
+        }
 #endif
+        if (_isPageActive || unloadEpoch != _activationEpoch)
+            return;
+
         UnsubscribeViewModelEvents();
         NavigationTimingLogger.Write($"ScanDebugPage.Unloaded UnsubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         stepStopwatch.Restart();
+        if (pageOwner is not null)
+            await ViewModel.DeactivateForPageAsync(pageOwner);
+        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded DeactivateAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        if (_isPageActive || unloadEpoch != _activationEpoch)
+            return;
+
+        _pageActivationOwner = null;
+        stepStopwatch.Restart();
         DisposePreviewBitmap();
         NavigationTimingLogger.Write($"ScanDebugPage.Unloaded DisposePreviewBitmap={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
-        stepStopwatch.Restart();
-        await ViewModel.DeactivateAsync();
-        NavigationTimingLogger.Write($"ScanDebugPage.Unloaded DeactivateAsync={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
-
         totalStopwatch.Stop();
         NavigationTimingLogger.Write($"ScanDebugPage.Unloaded total={totalStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
+    }
+
+    private bool IsCurrentActivation(int activationEpoch)
+    {
+#if PRISM_VISUAL_QA
+        return !App.IsShuttingDown && _isPageActive && activationEpoch == _activationEpoch;
+#else
+        return _isPageActive && activationEpoch == _activationEpoch;
+#endif
+    }
+
+    private void EnqueueForCurrentActivation(Action action)
+    {
+        var activationEpoch = _activationEpoch;
+        _ = DispatcherQueue.TryEnqueue(() =>
+        {
+            if (IsCurrentActivation(activationEpoch))
+                action();
+        });
     }
 
     private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
@@ -687,7 +759,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _inspectionOpenOverride = false;
         _isConfigurationWorkspaceOpen = sectionIndex is 0 or 1;
         SetActiveWorkbenchSection(sectionIndex);
-        _ = DispatcherQueue.TryEnqueue(() =>
+        EnqueueForCurrentActivation(() =>
         {
             if (!IsCurrentFilmProfileNavigationStillValid())
                 return;
@@ -789,7 +861,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _inspectionOpenOverride = false;
         _isConfigurationWorkspaceOpen = false;
         SetActiveWorkbenchSection(sectionIndex);
-        _ = DispatcherQueue.TryEnqueue(() =>
+        EnqueueForCurrentActivation(() =>
         {
             target.StartBringIntoView();
             _ = target.Focus(FocusState.Programmatic);
@@ -1068,17 +1140,17 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ScanDebugViewModel.FilmProfileImportResultReviewVisibility))
-            _ = DispatcherQueue.TryEnqueue(UpdateWorkbenchReviewEntry);
+            EnqueueForCurrentActivation(UpdateWorkbenchReviewEntry);
 
         if (e.PropertyName == nameof(ScanDebugViewModel.PreviewFrame))
-            _ = DispatcherQueue.TryEnqueue(() =>
+            EnqueueForCurrentActivation(() =>
             {
                 RefreshPreviewLayout();
                 PreviewCanvasControl.Invalidate();
             });
 
         if (e.PropertyName == nameof(ScanDebugViewModel.RawSignalResult))
-            _ = DispatcherQueue.TryEnqueue(UpdateRawSignalResultSurface);
+            EnqueueForCurrentActivation(UpdateRawSignalResultSurface);
 
         if (e.PropertyName == nameof(ScanDebugViewModel.RoiOverlayVersion)
             || e.PropertyName == nameof(ScanDebugViewModel.SelectedRoiSelection)
@@ -1087,7 +1159,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             || e.PropertyName == nameof(ScanDebugViewModel.ColumnSampleOverlayVersion)
             || e.PropertyName == nameof(ScanDebugViewModel.IsColumnSampleEditModeEnabled))
         {
-            _ = DispatcherQueue.TryEnqueue(DrawRoiOverlays);
+            EnqueueForCurrentActivation(DrawRoiOverlays);
         }
 
         if (e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationChannel)
@@ -1096,7 +1168,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             || e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationPulseClock)
             || e.PropertyName == nameof(ScanDebugViewModel.CurrentCalibrationIlluminationWorkMode))
         {
-            _ = DispatcherQueue.TryEnqueue(RefreshCurrentCalibrationIlluminationEditor);
+            EnqueueForCurrentActivation(RefreshCurrentCalibrationIlluminationEditor);
         }
     }
 
@@ -1149,7 +1221,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         UpdateZoomScaleComboBoxSelection();
 
         if (_pendingInitialFitZoom)
-            _ = DispatcherQueue.TryEnqueue(ApplyInitialFitZoom);
+            EnqueueForCurrentActivation(ApplyInitialFitZoom);
     }
 
     private void UpdatePreviewEmptyStateVisibility()

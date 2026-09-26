@@ -1015,7 +1015,7 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("private double _workbenchPreviewEditorRatio = ScanWorkbenchPreviewLayout.DefaultEditorRatio;", codeBehind, StringComparison.Ordinal);
         Assert.Contains("SizeChanged=\"ScanDebugRootGrid_SizeChanged\"", xaml, StringComparison.Ordinal);
         Assert.Contains("private void ScanDebugRootGrid_SizeChanged", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("_ = DispatcherQueue.TryEnqueue(UpdateWorkbenchPreviewLayout);", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("EnqueueForCurrentActivation(UpdateWorkbenchPreviewLayout);", codeBehind, StringComparison.Ordinal);
         Assert.Contains("private void SetActiveWorkbenchSection(int index)", codeBehind, StringComparison.Ordinal);
         Assert.True(CountOccurrences(codeBehind, "SetActiveWorkbenchSection(") >= 5);
         Assert.Contains("if (_isSynchronizingWorkbenchSection || !IsWorkbenchSectionUiReady())", codeBehind, StringComparison.Ordinal);
@@ -2939,10 +2939,11 @@ public sealed class FilmProfileSourceContractTests
         Assert.True(awaitProcessingTaskIndex < clearPageIndex);
 
         var postAwaitGuard = stop[awaitProcessingTaskIndex..clearPageIndex];
-        Assert.Contains("!ReferenceEquals(_page, page)", postAwaitGuard, StringComparison.Ordinal);
-        Assert.Contains("!ReferenceEquals(_processingTask, processingTask)", postAwaitGuard, StringComparison.Ordinal);
-        Assert.Contains("|| !_stopping", postAwaitGuard, StringComparison.Ordinal);
-        Assert.Contains("return;", postAwaitGuard, StringComparison.Ordinal);
+        Assert.Contains("finally", postAwaitGuard, StringComparison.Ordinal);
+        Assert.Contains("processingTask is null || processingTask.IsCompleted", postAwaitGuard, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(_page, page)", postAwaitGuard, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(_processingTask, processingTask)", postAwaitGuard, StringComparison.Ordinal);
+        Assert.Contains("&& _stopping", postAwaitGuard, StringComparison.Ordinal);
 
         var processEventStart = captureService.IndexOf("    private static async void ProcessRequests", StringComparison.Ordinal);
         Assert.True(processEventStart > 0, "The DispatcherTimer event must remain an async void shim.");
@@ -2979,7 +2980,7 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("#endif", unload, StringComparison.Ordinal);
         Assert.True(unload.IndexOf("await PrismVisualQaCaptureService.StopAsync(this);", StringComparison.Ordinal) < unload.IndexOf("UnsubscribeViewModelEvents();", StringComparison.Ordinal));
         Assert.True(unload.IndexOf("await PrismVisualQaCaptureService.StopAsync(this);", StringComparison.Ordinal) < unload.IndexOf("DisposePreviewBitmap();", StringComparison.Ordinal));
-        Assert.True(unload.IndexOf("await PrismVisualQaCaptureService.StopAsync(this);", StringComparison.Ordinal) < unload.IndexOf("await ViewModel.DeactivateAsync();", StringComparison.Ordinal));
+        Assert.True(unload.IndexOf("await PrismVisualQaCaptureService.StopAsync(this);", StringComparison.Ordinal) < unload.IndexOf("await ViewModel.DeactivateForPageAsync(pageOwner);", StringComparison.Ordinal));
     }
 
     [Fact]

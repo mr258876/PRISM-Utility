@@ -10,6 +10,8 @@ namespace PRISM_Utility.Views;
 
 public sealed partial class ScanPage : Page, IPageViewModelHost<ScanViewModel>
 {
+    private bool _isLoaded;
+
     public ScanViewModel ViewModel
     {
         get;
@@ -34,8 +36,12 @@ public sealed partial class ScanPage : Page, IPageViewModelHost<ScanViewModel>
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_isLoaded)
+            return;
+
         var stopwatch = Stopwatch.StartNew();
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        _isLoaded = true;
         ViewModel.Activate();
         stopwatch.Stop();
         NavigationTimingLogger.Write($"ScanPage.Loaded Activate={stopwatch.Elapsed.TotalMilliseconds:0.0} ms");
@@ -43,8 +49,12 @@ public sealed partial class ScanPage : Page, IPageViewModelHost<ScanViewModel>
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (!_isLoaded)
+            return;
+
         var stopwatch = Stopwatch.StartNew();
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _isLoaded = false;
         ViewModel.Deactivate();
         stopwatch.Stop();
         NavigationTimingLogger.Write($"ScanPage.Unloaded Deactivate={stopwatch.Elapsed.TotalMilliseconds:0.0} ms");

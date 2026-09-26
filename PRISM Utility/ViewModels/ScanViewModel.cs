@@ -1209,7 +1209,7 @@ public partial class ScanViewModel : ObservableRecipient
     private async Task StartScan()
     {
         var request = await ValidateStartScanAsync();
-        if (request is null)
+        if (_isDisposed || request is null)
             return;
 
         ClearStartValidationState();
@@ -1236,12 +1236,20 @@ public partial class ScanViewModel : ObservableRecipient
                     progress =>
                     {
                         if (!uiToken.IsCancellationRequested)
-                            _dispatcher.TryEnqueue(() => ApplyProgress(progress));
+                            _dispatcher.TryEnqueue(() =>
+                            {
+                                if (!uiToken.IsCancellationRequested)
+                                    ApplyProgress(progress);
+                            });
                     },
                     status =>
                     {
                         if (!uiToken.IsCancellationRequested)
-                            _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status));
+                            _dispatcher.TryEnqueue(() =>
+                            {
+                                if (!uiToken.IsCancellationRequested)
+                                    StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus(status);
+                            });
                     },
                     diagnostic => _debugOutputMirror.Mirror("Scan.Diagnostic", diagnostic)),
                 CancellationToken.None,
@@ -2112,6 +2120,7 @@ public partial class ScanViewModel : ObservableRecipient
 
         _isDisposed = true;
         _uiLifetimeCts.Cancel();
+        _scanCts?.Cancel();
         Deactivate();
         IsOutputAvailable = false;
         PreviewImage = null;

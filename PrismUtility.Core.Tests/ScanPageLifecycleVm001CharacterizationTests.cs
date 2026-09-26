@@ -8,7 +8,7 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanPageLifecycleVm001CharacterizationTests
 {
     [Fact]
-    public void Vm001_ScanPageCharacterizesCachedLoadedUnloadedSubscriptionLifecycle()
+    public void Vm001_SourceOnly_ScanPageCharacterizesCachedLoadedUnloadedSubscriptionLifecycle()
     {
         var scanPage = ReadAppSource("Views", "ScanPage.xaml.cs");
         var scanPageXaml = ReadAppSource("Views", "ScanPage.xaml");
@@ -27,7 +27,7 @@ public sealed class ScanPageLifecycleVm001CharacterizationTests
     }
 
     [Fact]
-    public void Vm001_ScanPageCharacterizesDuplicateLoadedAsUnguardedPropertyChangedSubscription()
+    public void Vm001_SourceOnly_ScanPageGuardsDuplicateLoadedAndSymmetricallyDetachesOnUnloaded()
     {
         var scanPage = ReadAppSource("Views", "ScanPage.xaml.cs");
         var loaded = ExtractMemberBodyAtDeclaration(scanPage, "private void OnLoaded(object sender, RoutedEventArgs e)");
@@ -35,17 +35,23 @@ public sealed class ScanPageLifecycleVm001CharacterizationTests
 
         Assert.Single(Regex.Matches(loaded, "PropertyChanged \\+= OnViewModelPropertyChanged", RegexOptions.CultureInvariant));
         Assert.Single(Regex.Matches(unloaded, "PropertyChanged -= OnViewModelPropertyChanged", RegexOptions.CultureInvariant));
-        Assert.DoesNotContain("_isLoaded", scanPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("_isPropertyChangedSubscribed", scanPage, StringComparison.Ordinal);
+        Assert.Contains("private bool _isLoaded;", scanPage, StringComparison.Ordinal);
+        Assert.Matches(@"\A\{\s*if \(_isLoaded\)\s*return;[\s\S]*?ViewModel.PropertyChanged \+= OnViewModelPropertyChanged;\s*_isLoaded = true;\s*ViewModel.Activate\(\);", loaded);
+        Assert.Matches(@"\A\{\s*if \(!_isLoaded\)\s*return;[\s\S]*?ViewModel.PropertyChanged -= OnViewModelPropertyChanged;\s*_isLoaded = false;\s*ViewModel.Deactivate\(\);", unloaded);
         Assert.DoesNotContain("Loaded -= OnLoaded", scanPage, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Vm001_ScanViewModelCharacterizesConstructorActivationAndCleanupOwnershipGap()
+    public void Vm001_ScanViewModelCharacterizesConstructorActivationAndAppOwnedTerminalCleanup()
     {
         var app = ReadAppSource("App.xaml.cs");
         var scanPage = ReadAppSource("Views", "ScanPage.xaml.cs");
         var scanViewModel = ReadAppSource("ViewModels", "ScanViewModel.cs");
+        var resolve = ExtractMemberBodyAtDeclaration(app, "public static T GetService<T>()");
+        var track = ExtractMemberBodyAtDeclaration(app, "private void TrackResolvedViewModel(object service)");
+        var closing = ExtractMemberBodyAtDeclaration(app, "private async void MainWindow_Closing(");
+        var shutdown = ExtractMemberBodyAtDeclaration(app, "private async Task ShutdownAsync()");
+        var appCleanup = ExtractMemberBodyAtDeclaration(app, "private async Task CleanupCreatedViewModelsAsync()");
         var constructor = ExtractMemberBodyAtDeclaration(scanViewModel, "public ScanViewModel(");
         var activate = ExtractMemberBodyAtDeclaration(scanViewModel, "public void Activate()");
         var deactivate = ExtractMemberBodyAtDeclaration(scanViewModel, "public void Deactivate()");
@@ -60,7 +66,14 @@ public sealed class ScanPageLifecycleVm001CharacterizationTests
         Assert.Contains("_areSessionEventsSubscribed = false;", deactivate, StringComparison.Ordinal);
         Assert.Contains("_uiLifetimeCts.Cancel();", cleanup, StringComparison.Ordinal);
         Assert.Contains("Deactivate();", cleanup, StringComparison.Ordinal);
-        Assert.DoesNotContain("CleanupAsync", app, StringComparison.Ordinal);
+        Assert.Contains("app.TrackResolvedViewModel(service);", resolve, StringComparison.Ordinal);
+        Assert.Contains("new WeakReference<ScanViewModel>(scanViewModel)", track, StringComparison.Ordinal);
+        Assert.Contains("await ShutdownAsync();", closing, StringComparison.Ordinal);
+        Assert.Contains("scanViewModels = _createdScanViewModels.ToArray();", appCleanup, StringComparison.Ordinal);
+        Assert.Contains("reference.TryGetTarget(out var scanViewModel)", appCleanup, StringComparison.Ordinal);
+        Assert.Contains("scanViewModel.CleanupAsync", appCleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetService<ScanViewModel>", appCleanup, StringComparison.Ordinal);
+        Assert.Matches(@"await CleanupCreatedViewModelsAsync\(\);[\s\S]*?_scannerDeviceSessionManager\.ShutdownAsync\(", shutdown);
         Assert.DoesNotContain("ViewModel.CleanupAsync()", scanPage, StringComparison.Ordinal);
     }
 
@@ -74,6 +87,46 @@ public sealed class ScanPageLifecycleVm001CharacterizationTests
         Assert.Contains("var uiToken = _uiLifetimeCts.Token;", scanViewModel, StringComparison.Ordinal);
         Assert.Contains("_uiLifetimeCts.Cancel();", cleanup, StringComparison.Ordinal);
         Assert.DoesNotContain("_uiLifetimeCts.Dispose", scanViewModel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Vm001_SourceOnly_TerminalCleanupCancelsScanWithoutReleasingHardware()
+    {
+        var scanViewModel = ReadAppSource("ViewModels", "ScanViewModel.cs");
+        var cleanup = ExtractMemberBodyAtDeclaration(scanViewModel, "public Task CleanupAsync()");
+        var deactivate = ExtractMemberBodyAtDeclaration(scanViewModel, "public void Deactivate()");
+        var startScan = ExtractMemberBodyAtDeclaration(scanViewModel, "private async Task StartScan()");
+
+        Assert.Matches(@"_isDisposed = true;\s*_uiLifetimeCts.Cancel\(\);\s*_scanCts\?\.Cancel\(\);", cleanup);
+        Assert.Contains("_scanCts?.Dispose();", startScan, StringComparison.Ordinal);
+        Assert.DoesNotContain("_scanCts", deactivate, StringComparison.Ordinal);
+        Assert.DoesNotContain("_scanCts?.Dispose()", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("StopMotorAsync", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShutdownAsync", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("DisconnectAsync", cleanup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Vm001_SourceOnly_QueuedScanProgressAndStatusCheckUiLifetimeAtDispatch()
+    {
+        var startScan = ExtractMemberBodyAtDeclaration(ReadAppSource("ViewModels", "ScanViewModel.cs"), "private async Task StartScan()");
+
+        Assert.Matches(@"progress\s*=>\s*\{\s*if \(!uiToken.IsCancellationRequested\)\s*_dispatcher.TryEnqueue\(\(\) =>\s*\{\s*if \(!uiToken.IsCancellationRequested\)\s*ApplyProgress\(progress\);\s*\}\);", startScan);
+        Assert.Matches(@"status\s*=>\s*\{\s*if \(!uiToken.IsCancellationRequested\)\s*_dispatcher.TryEnqueue\(\(\) =>\s*\{\s*if \(!uiToken.IsCancellationRequested\)\s*StatusText = ScanRuntimeMessageLocalizer.LocalizeScanViewStatus\(status\);\s*\}\);", startScan);
+    }
+
+    [Fact]
+    public void Vm001_SourceOnly_DelayedValidationCannotStartScanAfterTerminalCleanup()
+    {
+        var scanViewModel = ReadAppSource("ViewModels", "ScanViewModel.cs");
+        var startScan = ExtractMemberBodyAtDeclaration(scanViewModel, "private async Task StartScan()");
+        var cleanup = ExtractMemberBodyAtDeclaration(scanViewModel, "public Task CleanupAsync()");
+        var deactivate = ExtractMemberBodyAtDeclaration(scanViewModel, "public void Deactivate()");
+
+        Assert.Contains("_isDisposed = true;", cleanup, StringComparison.Ordinal);
+        Assert.Matches(@"\A\{\s*var request = await ValidateStartScanAsync\(\);\s*if \(_isDisposed \|\| request is null\)\s*return;\s*ClearStartValidationState\(\);[\s\S]*?_scanCts = new CancellationTokenSource\(\);", startScan);
+        Assert.DoesNotContain("_isDisposed = true;", deactivate, StringComparison.Ordinal);
+        Assert.DoesNotContain("_scanCts", deactivate, StringComparison.Ordinal);
     }
 
     private static string ReadAppSource(params string[] relativePath)

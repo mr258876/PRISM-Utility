@@ -269,8 +269,11 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         var handler = ExtractMemberBodyAtDeclaration(page, "private async void OnCalibrationPromptRequested(");
 
         Assert.Contains("new ScanCalibrationPromptRequest(prompt);", request, StringComparison.Ordinal);
-        Assert.Contains("CalibrationPromptRequested?.Invoke(this, request);", request, StringComparison.Ordinal);
-        Assert.Contains("return request.CompletionSource.Task;", request, StringComparison.Ordinal);
+        Assert.Contains("var handler = CalibrationPromptRequested;", request, StringComparison.Ordinal);
+        Assert.Contains("if (handler is null)", request, StringComparison.Ordinal);
+        Assert.Contains("return Task.FromResult(false);", request, StringComparison.Ordinal);
+        Assert.Contains("handler(this, request);", request, StringComparison.Ordinal);
+        Assert.Contains("return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);", request, StringComparison.Ordinal);
         Assert.Contains("ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;", subscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;", unsubscribe, StringComparison.Ordinal);
         Assert.Contains("e.CompletionSource.TrySetResult", handler, StringComparison.Ordinal);
@@ -319,11 +322,11 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         var noticeRequest = ExtractMemberBodyAtDeclaration(viewModel, "private Task RequestNoticeAsync(");
 
         Assert.Contains("SubscribeViewModelEvents();", loaded, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.AttachRuntimeBindings();", loaded, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.AttachRuntimeBindingsForPage(pageOwner)", loaded, StringComparison.Ordinal);
         Assert.Contains("await ViewModel.RefreshDeviceSettingsBindingsAsync();", loaded, StringComparison.Ordinal);
         Assert.Contains("UnsubscribeViewModelEvents();", unloaded, StringComparison.Ordinal);
         Assert.Contains("DisposePreviewBitmap();", unloaded, StringComparison.Ordinal);
-        Assert.Contains("await ViewModel.DeactivateAsync();", unloaded, StringComparison.Ordinal);
+        Assert.Contains("await ViewModel.DeactivateForPageAsync(pageOwner);", unloaded, StringComparison.Ordinal);
         Assert.Contains("if (_areViewModelEventsSubscribed)", subscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.PropertyChanged += OnViewModelPropertyChanged;", subscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.CalibrationPromptRequested += OnCalibrationPromptRequested;", subscribe, StringComparison.Ordinal);
@@ -365,8 +368,14 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("session.StopScanAsync(CancellationToken.None)", stop, StringComparison.Ordinal);
         Assert.Contains("_workflow.ExecuteAsync", workflow, StringComparison.Ordinal);
         Assert.Contains("_debugOutputMirror.Mirror(\"ScanDebug.WorkflowDiagnostic\", diagnostic)", workflow, StringComparison.Ordinal);
-        Assert.Contains("CalibrationPromptRequested?.Invoke(this, request);", promptRequest, StringComparison.Ordinal);
-        Assert.Contains("NoticeRequested?.Invoke(this, request);", noticeRequest, StringComparison.Ordinal);
+        Assert.Contains("var handler = CalibrationPromptRequested;", promptRequest, StringComparison.Ordinal);
+        Assert.Contains("return Task.FromResult(false);", promptRequest, StringComparison.Ordinal);
+        Assert.Contains("handler(this, request);", promptRequest, StringComparison.Ordinal);
+        Assert.Contains("return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);", promptRequest, StringComparison.Ordinal);
+        Assert.Contains("var handler = NoticeRequested;", noticeRequest, StringComparison.Ordinal);
+        Assert.Contains("return Task.CompletedTask;", noticeRequest, StringComparison.Ordinal);
+        Assert.Contains("handler(this, request);", noticeRequest, StringComparison.Ordinal);
+        Assert.Contains("return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);", noticeRequest, StringComparison.Ordinal);
         Assert.Contains("services.AddSingleton<ScanDebugViewModel>()", app, StringComparison.Ordinal);
         Assert.Contains("services.AddTransient<ScanDebugPage>()", app, StringComparison.Ordinal);
     }

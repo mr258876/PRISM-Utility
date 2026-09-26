@@ -356,18 +356,27 @@ public sealed class Log001DebugOutputMirrorLifecycleTests
     public void Log001_AppClose_BoundsMirrorShutdownAfterScannerCleanupWithoutSynchronouslyBlocking()
     {
         var source = File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), "PRISM Utility", "App.xaml.cs"));
-        var handler = ExtractMethod(source, "private async void MainWindow_Closed");
+        var handler = ExtractMethod(source, "private async Task ShutdownAsync()");
+        var closing = ExtractMethod(source, "private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)");
 
         Assert.Contains("using var mirrorShutdownTimeout = new CancellationTokenSource(MirrorShutdownTimeout);", handler, StringComparison.Ordinal);
         Assert.Contains("await GetService<IDebugOutputMirrorService>().ShutdownAsync(mirrorShutdownTimeout.Token);", handler, StringComparison.Ordinal);
         Assert.Contains("catch (OperationCanceledException) when (mirrorShutdownTimeout.IsCancellationRequested)", handler, StringComparison.Ordinal);
         Assert.Contains("Debugger.Log", handler, StringComparison.Ordinal);
+        Assert.Contains("_scannerDeviceSessionManager.ShutdownAsync", handler, StringComparison.Ordinal);
         Assert.True(
             handler.IndexOf("_scannerDeviceSessionManager.ShutdownAsync", StringComparison.Ordinal) <
             handler.IndexOf("GetService<IDebugOutputMirrorService>().ShutdownAsync", StringComparison.Ordinal),
             "Scanner cleanup must begin before bounded mirror shutdown.");
         Assert.DoesNotContain("GetAwaiter().GetResult", handler, StringComparison.Ordinal);
         Assert.DoesNotContain(".Wait()", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", handler, StringComparison.Ordinal);
+        Assert.Contains("MainWindow.AppWindow.Closing += MainWindow_Closing;", source, StringComparison.Ordinal);
+        Assert.Contains("args.Cancel = true;", closing, StringComparison.Ordinal);
+        Assert.Contains("await ShutdownAsync();", closing, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAwaiter().GetResult", closing, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Wait()", closing, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Result", closing, StringComparison.Ordinal);
     }
 
     private static Log001Fixture CreateFixture(

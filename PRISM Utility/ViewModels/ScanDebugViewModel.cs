@@ -442,6 +442,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly IUiDispatcher _dispatcher;
     private readonly ScanDebugRuntimeOperationClaims _runtimeOperationClaims = new();
     private readonly ScanMotionRuntimeState _motionRuntimeState = new();
+    private readonly CancellationTokenSource _terminalCleanupCts = new();
     private int _calibrationWorkspaceGeneration;
     private int _calibrationDeviceSessionGeneration;
     private int _deviceParameterCommandGeneration;
@@ -461,6 +462,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _hasValidScanBuffer;
     private DateTime _lastApplyParametersAtUtc = DateTime.MinValue;
     private bool _areRuntimeBindingsAttached;
+    private object? _reservedPageOwner;
+    private object? _attachedPageOwner;
+    private bool _isCleanedUp;
     private bool _isFilmProfileWorkspaceSubscribed;
     private ScanFilmProfileDraft? _lastProjectedFilmProfileDraft;
     private ScanFilmProfileImportResult? _lastProjectedFilmProfileImportResult;
@@ -3196,6 +3200,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public void AttachRuntimeBindings()
     {
+        if (_isCleanedUp)
+            return;
+
+        _attachedPageOwner = null;
         if (!_areRuntimeBindingsAttached)
             ActivateRawPage();
         SubscribeFilmProfileWorkspace();
@@ -3207,6 +3215,29 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _runtimeOperationClaims.Changed += OnRuntimeOperationClaimsChanged;
         _areRuntimeBindingsAttached = true;
     }
+
+    internal object ReservePageActivation()
+    {
+        var owner = new object();
+        _reservedPageOwner = owner;
+        return owner;
+    }
+
+    internal bool IsCurrentPageOwner(object owner)
+        => !_isCleanedUp && ReferenceEquals(_reservedPageOwner, owner);
+
+    internal bool AttachRuntimeBindingsForPage(object owner)
+    {
+        if (_isCleanedUp || !IsCurrentPageOwner(owner))
+            return false;
+
+        AttachRuntimeBindings();
+        _attachedPageOwner = owner;
+        return true;
+    }
+
+    internal Task DeactivateForPageAsync(object owner)
+        => ReferenceEquals(_attachedPageOwner, owner) ? DeactivateAsync() : Task.CompletedTask;
 
     private void DetachRuntimeBindings()
     {
@@ -3381,7 +3412,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private bool CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind command)
-        => (!IsMotionProducingCommand(command) || !_motionRuntimeState.RequiresRead)
+        => !_isCleanedUp
+            && (!IsMotionProducingCommand(command) || !_motionRuntimeState.RequiresRead)
             && (!IsSelectedChannelParameterApplyCommand(command) || HasDeviceKnownTimingForSelectedChannelParameterApply())
             && !(IsTimingHazardousDeviceCommand(command) && HasUnsafeDeviceTimingForActiveRoles(GetActiveRoles(BuildDebugChannelAssignment())))
             && GetRuntimeOperationGateResult(command).CanExecute;
@@ -3425,6 +3457,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         out ScanDebugRuntimeOperationClaims.ScanDebugRuntimeOperationLease? lease)
     {
         lease = null;
+        if (_isCleanedUp)
+            return false;
+
         if (IsMotionProducingCommand(command) && _motionRuntimeState.RequiresRead)
             return false;
         if (IsSelectedChannelParameterApplyCommand(command) && !HasDeviceKnownTimingForSelectedChannelParameterApply())
@@ -3439,11 +3474,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => _runtimeOperationClaims.ClearDeviceBoundClaims();
 
     private void OnSessionCoordinatorSnapshotChanged(object? sender, ScannerDeviceSessionSnapshot snapshot)
-        => _dispatcher.TryEnqueue(() =>
+    {
+        if (_isCleanedUp)
+            return;
+
+        _dispatcher.TryEnqueue(() =>
         {
-            if (ReferenceEquals(snapshot, _sessionCoordinator.Snapshot))
+            if (!_isCleanedUp && ReferenceEquals(snapshot, _sessionCoordinator.Snapshot))
                 ApplySessionCoordinatorSnapshot(snapshot);
         });
+    }
 
     private void ApplySessionCoordinatorSnapshot(ScannerDeviceSessionSnapshot snapshot)
     {
@@ -4967,7 +5007,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         finally
         {
-            if (restoreWarmUp && IsDeviceConnected)
+            if (restoreWarmUp && !_isCleanedUp && IsDeviceConnected)
             {
                 try
                 {
@@ -5135,7 +5175,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             holdCts.Dispose();
             stopAllCts.Dispose();
 
-            if (IsConnected)
+            if (!_isCleanedUp && IsConnected)
             {
                 try
                 {
@@ -7352,9 +7392,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private Task<bool> RequestCalibrationPromptAsync(ScanCalibrationPrompt prompt)
     {
+        var handler = CalibrationPromptRequested;
+        if (handler is null)
+            return Task.FromResult(false);
+
         var request = new ScanCalibrationPromptRequest(prompt);
-        CalibrationPromptRequested?.Invoke(this, request);
-        return request.CompletionSource.Task;
+        handler(this, request);
+        return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);
     }
 
     private Task<bool> RequestFilmProfileDiscardConfirmationAsync()
@@ -7394,9 +7438,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private Task RequestNoticeAsync(string title, string content, string closeButtonText)
     {
+        var handler = NoticeRequested;
+        if (handler is null)
+            return Task.CompletedTask;
+
         var request = new ScanNoticeRequest(title, content, closeButtonText);
-        NoticeRequested?.Invoke(this, request);
-        return request.CompletionSource.Task;
+        handler(this, request);
+        return request.CompletionSource.Task.WaitAsync(_terminalCleanupCts.Token);
     }
 
     private bool CanRunExtendedScan() =>
@@ -11362,6 +11410,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public async Task DeactivateAsync()
     {
         await Task.CompletedTask;
+        _attachedPageOwner = null;
         DeactivateRawPage();
         EndStreamingScanPreview(_streamingPreviewSessionVersion);
         DetachRuntimeBindings();
@@ -11373,6 +11422,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public async Task CleanupAsync()
     {
+        if (_isCleanedUp)
+            return;
+
+        _isCleanedUp = true;
+        _terminalCleanupCts.Cancel();
+        _sessionCoordinator.SnapshotChanged -= OnSessionCoordinatorSnapshotChanged;
+        _motionRuntimeState.AdvanceSession();
+        _motionRuntimeState.BeginGlobalStop();
+        _scanCts?.Cancel();
+        _autoCalibrationCts?.Cancel();
+        _autoFocusCts?.Cancel();
+        _manualFocusCts?.Cancel();
+        _manualFocusStopAllCts?.Cancel();
+        _focusMappingTestCts?.Cancel();
         await DeactivateAsync();
     }
 }

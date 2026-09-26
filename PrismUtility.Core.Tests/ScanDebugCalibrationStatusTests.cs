@@ -24,6 +24,111 @@ public sealed class ScanDebugCalibrationStatusTests
     private static ScanParameterSnapshot Todo15InputSnapshot { get; } = new(1_000, 0, 1, 0, 1, 48_000);
 
     [Fact]
+    public async Task PageReentry_ReservationKeepsPreviewAndStaleOwnerCannotDetachNewAttachment()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var oldOwner = viewModel.ReservePageActivation();
+        Assert.True(viewModel.AttachRuntimeBindingsForPage(oldOwner));
+        var frame = new ScanPreviewFrame(new byte[4], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+        viewModel.PreviewFrame = frame;
+
+        var newOwner = viewModel.ReservePageActivation();
+        Assert.Same(frame, viewModel.PreviewFrame);
+        Assert.False(viewModel.IsCurrentPageOwner(oldOwner));
+        Assert.False(viewModel.AttachRuntimeBindingsForPage(oldOwner));
+        Assert.True(viewModel.AttachRuntimeBindingsForPage(newOwner));
+
+        await viewModel.DeactivateForPageAsync(oldOwner);
+        Assert.Same(frame, viewModel.PreviewFrame);
+        Assert.True(ReadPrivateField<bool>(viewModel, "_areRuntimeBindingsAttached"));
+
+        await viewModel.DeactivateForPageAsync(newOwner);
+        Assert.Null(viewModel.PreviewFrame);
+        Assert.False(ReadPrivateField<bool>(viewModel, "_areRuntimeBindingsAttached"));
+    }
+
+    [Fact]
+    public async Task Cleanup_ReservedPageOwnerCannotActivateAfterTerminalCleanup()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var owner = viewModel.ReservePageActivation();
+        Assert.True(viewModel.IsCurrentPageOwner(owner));
+
+        await viewModel.CleanupAsync();
+
+        Assert.False(viewModel.IsCurrentPageOwner(owner));
+        Assert.False(viewModel.AttachRuntimeBindingsForPage(owner));
+        var lateOwner = viewModel.ReservePageActivation();
+        Assert.False(viewModel.IsCurrentPageOwner(lateOwner));
+        Assert.False(viewModel.AttachRuntimeBindingsForPage(lateOwner));
+        Assert.False(ReadPrivateField<bool>(viewModel, "_areRuntimeBindingsAttached"));
+    }
+
+    [Fact]
+    public async Task Cleanup_WhenCalledTwice_RejectsClaimsAndIgnoresQueuedAndNewCoordinatorSnapshots()
+    {
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: coordinator, attachRuntimeBindings: true);
+        Assert.Equal(1, coordinator.SnapshotSubscriberCount);
+        Assert.True(harness.ViewModel.GetRuntimeOperationGateResult(ScanDebugRuntimeCommandKind.RefreshMotion).CanExecute);
+
+        coordinator.PublishSnapshot(new ScannerDeviceSessionSnapshot(ScannerSessionState.Connecting, null, null, null,
+            ScannerReconnectPromptState.None, DateTimeOffset.UtcNow));
+        await harness.ViewModel.CleanupAsync();
+        await harness.ViewModel.CleanupAsync();
+        harness.ViewModel.AttachRuntimeBindings();
+        coordinator.PublishSnapshot(new ScannerDeviceSessionSnapshot(ScannerSessionState.Connected, "late-device", null, null,
+            ScannerReconnectPromptState.None, DateTimeOffset.UtcNow));
+        await harness.FlushAsync();
+
+        Assert.Equal(0, coordinator.SnapshotSubscriberCount);
+        Assert.True(harness.ViewModel.IsConnected);
+        Assert.False(harness.ViewModel.IsConnecting);
+        var claimArguments = new object?[] { ScanDebugRuntimeCommandKind.RefreshMotion, null };
+        Assert.False(Assert.IsType<bool>(typeof(ScanDebugViewModel)
+            .GetMethod("TryClaimRuntimeOperation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, claimArguments)));
+        Assert.Null(claimArguments[1]);
+        Assert.False(harness.ViewModel.RefreshMotionCommand.CanExecute(null));
+        Assert.False(ReadPrivateField<bool>(harness.ViewModel, "_areRuntimeBindingsAttached"));
+        Assert.False(ReadPrivateField<bool>(harness.ViewModel, "_isFilmProfileWorkspaceSubscribed"));
+    }
+
+    [Fact]
+    public async Task Cleanup_WhenVmWorkIsActive_CancelsOwnedTokensWithoutDisposingThem()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true);
+        var producer = ReadPrivateField<ScanMotionRuntimeState>(harness.ViewModel, "_motionRuntimeState")!;
+        var captured = producer.CaptureProducer();
+        var fields = new[] { "_scanCts", "_autoCalibrationCts", "_autoFocusCts", "_manualFocusCts",
+            "_manualFocusStopAllCts", "_focusMappingTestCts" };
+        var sources = fields.Select(field =>
+        {
+            var source = new CancellationTokenSource();
+            SetPrivateField(harness.ViewModel, field, source);
+            return source;
+        }).ToArray();
+        var activeWork = Task.Delay(Timeout.InfiniteTimeSpan, sources[0].Token);
+
+        await harness.ViewModel.CleanupAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => activeWork.WaitAsync(TimeSpan.FromSeconds(2)));
+
+        Assert.All(sources, source =>
+        {
+            Assert.True(source.IsCancellationRequested);
+            Assert.True(source.Token.CanBeCanceled);
+        });
+        Assert.False(producer.IsCurrent(captured));
+        Assert.Equal(0, ReadPrivateField<StatusSessionCoordinator>(harness.ViewModel, "_sessionCoordinator")!.StopAllMotionCallCount);
+        foreach (var source in sources)
+            source.Dispose();
+    }
+
+    [Fact]
     public async Task RawSignal_WhenNoCaptureExists_InitialChannelSelectionReportsNoSample()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true);
@@ -1834,6 +1939,76 @@ public sealed class ScanDebugCalibrationStatusTests
         AssertCurrentParameters(harness.ViewModel, green.Parameters);
         Assert.Equal("green-current-status", harness.ViewModel.StatusText);
         Assert.Equal("green-current-calibration-status", harness.ViewModel.CalibrationChannelStatusText);
+    }
+
+    [Fact]
+    public async Task CalibrationPrompt_WithoutSubscriberDeclinesAndNoticeCompletes()
+    {
+        var profile = CreateProfile(1_000);
+        var calibration = new StatusAutoCalibration(profile.Parameters, requestPrompt: true);
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session, useConnectedSession: true);
+        var harness = await StatusHarness.CreateAsync(
+            new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase) { ["Red"] = profile },
+            null, autoCalibration: calibration, connected: true, scanSession: session, sessionCoordinator: coordinator);
+        await PrepareTodo15CandidateAsync(harness, coordinator);
+
+        await harness.ViewModel.AutoBlackAdjustCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(calibration.PromptAccepted);
+        Assert.False(harness.ViewModel.IsAutoCalibrating);
+        Assert.Null(harness.ViewModel.PendingCalibrationResult);
+
+        var notice = (Task)typeof(ScanDebugViewModel)
+            .GetMethod("RequestNoticeAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, ["title", "content", "close"])!;
+        Assert.True(notice.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public async Task CalibrationPrompt_TerminalCleanupCancelsWaitAndLateConfirmationCannotPublishCandidate()
+    {
+        var profile = CreateProfile(1_000);
+        var calibration = new StatusAutoCalibration(profile.Parameters, requestPrompt: true);
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session, useConnectedSession: true);
+        var harness = await StatusHarness.CreateAsync(
+            new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase) { ["Red"] = profile },
+            null, autoCalibration: calibration, connected: true, scanSession: session, sessionCoordinator: coordinator);
+        await PrepareTodo15CandidateAsync(harness, coordinator);
+        var promptEntered = new TaskCompletionSource<ScanCalibrationPromptRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.CalibrationPromptRequested += (_, request) => promptEntered.TrySetResult(request);
+
+        var operation = harness.ViewModel.AutoBlackAdjustCommand.ExecuteAsync(null);
+        var prompt = await promptEntered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(operation.IsCompleted);
+        await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Null(calibration.PromptAccepted);
+        Assert.Null(harness.ViewModel.PendingCalibrationResult);
+        Assert.False(harness.ViewModel.IsAutoCalibrating);
+
+        prompt.CompletionSource.TrySetResult(true);
+        await Task.Yield();
+        Assert.Null(calibration.PromptAccepted);
+        Assert.Null(harness.ViewModel.PendingCalibrationResult);
+    }
+
+    [Fact]
+    public async Task Notice_TerminalCleanupCancelsSubscribedWait()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        ScanNoticeRequest? request = null;
+        harness.ViewModel.NoticeRequested += (_, notice) => request = notice;
+        var noticeTask = (Task)typeof(ScanDebugViewModel)
+            .GetMethod("RequestNoticeAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, ["title", "content", "close"])!;
+        Assert.NotNull(request);
+        Assert.False(noticeTask.IsCompleted);
+
+        await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => noticeTask.WaitAsync(TimeSpan.FromSeconds(3)));
+        request.CompletionSource.TrySetResult();
+        Assert.True(noticeTask.IsCanceled);
     }
 
     [Fact]
@@ -6551,6 +6726,7 @@ public sealed class ScanDebugCalibrationStatusTests
         private readonly ScanCalibrationMetrics _beforeMetrics;
         private readonly ScanCalibrationMetrics _afterMetrics;
         private readonly ScanCalibrationCandidateValidation _validation;
+        private readonly bool _requestPrompt;
 
         public StatusAutoCalibration(
             ScanParameterSnapshot? autoBlackResult = null,
@@ -6565,7 +6741,8 @@ public sealed class ScanDebugCalibrationStatusTests
             Exception? autoBlackFailure = null,
             ScanCalibrationMetrics? beforeMetrics = null,
             ScanCalibrationMetrics? afterMetrics = null,
-            ScanCalibrationCandidateValidation? validation = null)
+            ScanCalibrationCandidateValidation? validation = null,
+            bool requestPrompt = false)
         {
             _autoBlackResult = autoBlackResult;
             _captureFrame = captureFrame;
@@ -6579,11 +6756,14 @@ public sealed class ScanDebugCalibrationStatusTests
             _beforeMetrics = beforeMetrics ?? new ScanCalibrationMetrics(20m, 80m, 2m, 4m);
             _afterMetrics = afterMetrics ?? new ScanCalibrationMetrics(5m, 20m, 0.5m, 1m);
             _validation = validation ?? ScanCalibrationCandidateValidation.Valid;
+            _requestPrompt = requestPrompt;
         }
 
         public ScanCalibrationRoiSettings? LastAutoBlackRoiSettings { get; private set; }
 
         public ScanParameterSnapshot? LastAutoBlackInput { get; private set; }
+
+        public bool? PromptAccepted { get; private set; }
 
         public async Task<ScanParameterSnapshot> AutoBlackAdjustAsync(IScanSessionService session, ScanParameterSnapshot currentSnapshot, ScanCalibrationRoiSettings roiSettings, Func<ScanCalibrationPrompt, Task<bool>> promptAsync, Action<string>? onStatus, Action<ScanParameterSnapshot>? onSnapshotApplied, Action<byte[], int, string>? onFrameCaptured, CancellationToken ct)
         {
@@ -6592,6 +6772,12 @@ public sealed class ScanDebugCalibrationStatusTests
 
             LastAutoBlackRoiSettings = roiSettings;
             LastAutoBlackInput = currentSnapshot;
+            if (_requestPrompt)
+            {
+                PromptAccepted = await promptAsync(new ScanCalibrationPrompt("Calibration", "Ready?", "Start", "Cancel"));
+                if (!PromptAccepted.Value)
+                    throw new OperationCanceledException("Calibration declined.");
+            }
             _autoBlackEntered?.TrySetResult(null);
             if (_autoBlackProgressRelease is not null)
                 await _autoBlackProgressRelease.Task.WaitAsync(ct);
@@ -6838,6 +7024,8 @@ public sealed class ScanDebugCalibrationStatusTests
         }
 
         public event EventHandler<ScannerDeviceSessionSnapshot>? SnapshotChanged;
+
+        public int SnapshotSubscriberCount => SnapshotChanged?.GetInvocationList().Length ?? 0;
 
         public ScannerDeviceSessionSnapshot Snapshot { get; private set; }
 

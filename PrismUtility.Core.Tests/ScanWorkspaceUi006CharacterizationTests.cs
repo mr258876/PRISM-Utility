@@ -152,12 +152,15 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
     }
 
     [Fact]
-    public void Ui006_SourceOnly_CachedLeaveReturnLifecycleIsCharacterizedAsBlockedNotFixed()
+    public void Ui006_SourceOnly_CachedLeaveReturnGuardsPageEventsWhileAppOwnsTerminalVmCleanup()
     {
         var scanPage = ReadHostSource("PRISM Utility", "Views", "ScanPage.xaml.cs");
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanPage.xaml");
         var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanViewModel.cs");
         var app = ReadHostSource("PRISM Utility", "App.xaml.cs");
+        var closing = ExtractMemberBodyAtDeclaration(app, "private async void MainWindow_Closing(");
+        var shutdown = ExtractMemberBodyAtDeclaration(app, "private async Task ShutdownAsync()");
+        var appCleanup = ExtractMemberBodyAtDeclaration(app, "private async Task CleanupCreatedViewModelsAsync()");
         var constructor = ExtractMemberBodyAtDeclaration(scanPage, "public ScanPage()");
         var loaded = ExtractMemberBodyAtDeclaration(scanPage, "private void OnLoaded(object sender, RoutedEventArgs e)");
         var unloaded = ExtractMemberBodyAtDeclaration(scanPage, "private void OnUnloaded(object sender, RoutedEventArgs e)");
@@ -174,7 +177,9 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
         Assert.Contains("ViewModel.Deactivate();", unloaded, StringComparison.Ordinal);
         Assert.Single(Regex.Matches(loaded, "PropertyChanged \\+= OnViewModelPropertyChanged", RegexOptions.CultureInvariant));
         Assert.Single(Regex.Matches(unloaded, "PropertyChanged -= OnViewModelPropertyChanged", RegexOptions.CultureInvariant));
-        Assert.DoesNotContain("_isPropertyChangedSubscribed", scanPage, StringComparison.Ordinal);
+        Assert.Contains("private bool _isLoaded;", scanPage, StringComparison.Ordinal);
+        Assert.Matches(@"\A\{\s*if \(_isLoaded\)\s*return;[\s\S]*?ViewModel.PropertyChanged \+= OnViewModelPropertyChanged;\s*_isLoaded = true;\s*ViewModel.Activate\(\);", loaded);
+        Assert.Matches(@"\A\{\s*if \(!_isLoaded\)\s*return;[\s\S]*?ViewModel.PropertyChanged -= OnViewModelPropertyChanged;\s*_isLoaded = false;\s*ViewModel.Deactivate\(\);", unloaded);
 
         Assert.Contains("if (!_areSessionEventsSubscribed)", activate, StringComparison.Ordinal);
         Assert.Contains("_sessionManager.TargetsChanged += OnSessionTargetsChanged;", activate, StringComparison.Ordinal);
@@ -184,7 +189,12 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
         Assert.Contains("_sessionManager.TargetsChanged -= OnSessionTargetsChanged;", deactivate, StringComparison.Ordinal);
         Assert.Contains("_sessionManager.SnapshotChanged -= OnSessionSnapshotChanged;", deactivate, StringComparison.Ordinal);
 
-        Assert.DoesNotContain("CleanupAsync", app, StringComparison.Ordinal);
+        Assert.Contains("await ShutdownAsync();", closing, StringComparison.Ordinal);
+        Assert.Contains("scanViewModels = _createdScanViewModels.ToArray();", appCleanup, StringComparison.Ordinal);
+        Assert.Contains("reference.TryGetTarget(out var scanViewModel)", appCleanup, StringComparison.Ordinal);
+        Assert.Contains("scanViewModel.CleanupAsync", appCleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetService<ScanViewModel>", appCleanup, StringComparison.Ordinal);
+        Assert.Matches(@"await CleanupCreatedViewModelsAsync\(\);[\s\S]*?_scannerDeviceSessionManager\.ShutdownAsync\(", shutdown);
         Assert.DoesNotContain("ViewModel.CleanupAsync()", scanPage, StringComparison.Ordinal);
         Assert.DoesNotContain("_lastResult = null;", unloaded, StringComparison.Ordinal);
         Assert.DoesNotContain("_loadedSnapshot = null;", unloaded, StringComparison.Ordinal);
