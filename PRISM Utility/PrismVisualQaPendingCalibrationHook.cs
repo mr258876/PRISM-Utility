@@ -17,28 +17,36 @@ internal static class PrismVisualQaPendingCalibrationHook
     internal static void Activate(INavigationService navigationService)
     {
         navigationService.NavigateTo(AppRoute.ScanDebug, clearNavigation: true);
-        Seed(App.GetService<ScanDebugViewModel>());
+        if (!IsEmptyStateCapture())
+            Seed(App.GetService<ScanDebugViewModel>());
     }
 
     internal static void ApplyPageState(ScanDebugPage page, Action<int> setActiveWorkbenchSection)
     {
-        Seed(page.ViewModel);
+        if (!IsEmptyStateCapture())
+            Seed(page.ViewModel);
         var forceMotionReadRequired = string.Equals(
             Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_MOTION_READ_REQUIRED"),
             "1",
             StringComparison.Ordinal);
-        setActiveWorkbenchSection(forceMotionReadRequired ? 5 : 2);
+        if (IsEmptyStateCapture())
+            setActiveWorkbenchSection(1);
+        else
+            setActiveWorkbenchSection(forceMotionReadRequired ? 5 : 2);
         if (int.TryParse(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_SECTION_INDEX"), out var sectionIndex)
             && sectionIndex is >= 0 and <= 5)
         {
             setActiveWorkbenchSection(sectionIndex);
         }
 
-        if (forceMotionReadRequired)
+        if (forceMotionReadRequired && !IsEmptyStateCapture())
             MarkMotionReadRequired(page.ViewModel);
 
         PrismVisualQaCaptureService.Start(page);
     }
+
+    internal static bool IsEmptyStateCapture()
+        => string.Equals(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_EMPTY_STATE"), "1", StringComparison.Ordinal);
 
     private static void Seed(ScanDebugViewModel viewModel)
     {

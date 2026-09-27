@@ -1,0 +1,1 @@
+{"ScanTransferSettingsDocument":"{\"SchemaVersion\":1,\"Payload\":{\"ReadMode\":1,\"RequestBytes\":524288,\"OutstandingReads\":4,\"TimeoutMs\":1000,\"RawIoEnabled\":true}}","ScanCalibrationProfileSettingsDocument":"{\"SchemaVersion\":1,\"Payload\":{\"Profiles\":{},\"SelectedChannel\":null}}"}

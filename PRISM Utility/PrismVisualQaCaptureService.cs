@@ -163,6 +163,12 @@ internal static class PrismVisualQaCaptureService
         if (string.Equals(request.Kind, "capturePreviewFrame", StringComparison.OrdinalIgnoreCase))
             return await CapturePreviewFrameAsync(page, request);
 
+        if (string.Equals(request.Kind, "geometry", StringComparison.OrdinalIgnoreCase))
+        {
+            page.UpdateLayout();
+            return StateResult.Succeeded(request.Id, BuildGeometry(page), DateTimeOffset.UtcNow);
+        }
+
         if (string.Equals(request.Kind, "state", StringComparison.OrdinalIgnoreCase))
         {
             BringTargetIntoView(page, request.TargetAutomationId);
@@ -443,6 +449,60 @@ internal static class PrismVisualQaCaptureService
             scrollViewer.ZoomFactor,
             scrollViewer.MinZoomFactor,
             scrollViewer.MaxZoomFactor
+        };
+    }
+
+    private static object BuildGeometry(ScanDebugPage page)
+    {
+        var root = ResolveTarget(page, "ScanDebugRootGrid")
+            ?? throw new InvalidOperationException("ScanDebugRootGrid is unavailable.");
+        var preview = ResolveTarget(page, "PreviewScrollViewer") as ScrollViewer
+            ?? throw new InvalidOperationException("PreviewScrollViewer is unavailable.");
+        var previewBounds = preview.TransformToVisual(page).TransformBounds(
+            new Windows.Foundation.Rect(0, 0, preview.ActualWidth, preview.ActualHeight));
+        var visibleLeft = 0d;
+        var visibleTop = 0d;
+        var visibleRight = page.ActualWidth;
+        var visibleBottom = page.ActualHeight;
+        for (DependencyObject? parent = VisualTreeHelper.GetParent(preview); parent is FrameworkElement element; parent = VisualTreeHelper.GetParent(parent))
+        {
+            var parentBounds = element.TransformToVisual(page).TransformBounds(
+                new Windows.Foundation.Rect(0, 0, element.ActualWidth, element.ActualHeight));
+            visibleLeft = Math.Max(visibleLeft, parentBounds.Left);
+            visibleTop = Math.Max(visibleTop, parentBounds.Top);
+            visibleRight = Math.Min(visibleRight, parentBounds.Right);
+            visibleBottom = Math.Min(visibleBottom, parentBounds.Bottom);
+            if (ReferenceEquals(element, page))
+                break;
+        }
+        visibleLeft = Math.Max(visibleLeft, previewBounds.Left);
+        visibleTop = Math.Max(visibleTop, previewBounds.Top);
+        visibleRight = Math.Min(visibleRight, previewBounds.Right);
+        visibleBottom = Math.Min(visibleBottom, previewBounds.Bottom);
+        var visibleWidth = Math.Max(0, visibleRight - visibleLeft);
+        var visibleHeight = Math.Max(0, visibleBottom - visibleTop);
+        var visibleViewportWidth = Math.Min(preview.ViewportWidth, visibleWidth);
+        var visibleViewportHeight = Math.Min(preview.ViewportHeight, visibleHeight);
+
+        return new
+        {
+            xamlRootRasterizationScale = page.XamlRoot.RasterizationScale,
+            scanDebugRootGrid = new { root.ActualWidth, root.ActualHeight },
+            page = new { page.ActualWidth, page.ActualHeight },
+            previewScrollViewer = new
+            {
+                preview.ActualWidth,
+                preview.ActualHeight,
+                preview.ViewportWidth,
+                preview.ViewportHeight,
+                preview.Visibility,
+                visibleViewportWidth,
+                visibleViewportHeight,
+                visibleRectInPage = new { x = visibleLeft, y = visibleTop, width = visibleWidth, height = visibleHeight }
+            },
+            previewFramePresent = page.ViewModel.PreviewFrame is not null,
+            pendingCalibrationPresent = page.ViewModel.PendingCalibrationResult is not null,
+            emptyStateCapture = PrismVisualQaPendingCalibrationHook.IsEmptyStateCapture()
         };
     }
 

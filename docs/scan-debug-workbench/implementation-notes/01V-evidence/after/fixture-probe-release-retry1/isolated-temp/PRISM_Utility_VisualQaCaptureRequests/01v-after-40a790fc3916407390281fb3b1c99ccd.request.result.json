@@ -1,0 +1,35 @@
+{
+  "id": "01v-after-40a790fc3916407390281fb3b1c99ccd",
+  "success": true,
+  "error": "",
+  "state": {
+    "xamlRootRasterizationScale": 2,
+    "scanDebugRootGrid": {
+      "actualWidth": 977,
+      "actualHeight": 604
+    },
+    "page": {
+      "actualWidth": 1001,
+      "actualHeight": 640
+    },
+    "previewScrollViewer": {
+      "actualWidth": 645,
+      "actualHeight": 230,
+      "viewportWidth": 645,
+      "viewportHeight": 230,
+      "visibility": 0,
+      "visibleViewportWidth": 645,
+      "visibleViewportHeight": 230,
+      "visibleRectInPage": {
+        "x": 334,
+        "y": 326,
+        "width": 645,
+        "height": 230
+      }
+    },
+    "previewFramePresent": true,
+    "pendingCalibrationPresent": true,
+    "emptyStateCapture": false
+  },
+  "completedUtc": "2026-09-27T08:08:43.2362702+00:00"
+}

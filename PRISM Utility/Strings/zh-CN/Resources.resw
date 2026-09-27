@@ -908,7 +908,7 @@
     <value>通道状态</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
-    <value>此处显示所有校准通道。选择一个通道，只编辑该通道在校准库中的条目。</value>
+    <value>此列表仅显示通道状态。请使用上方的通道选择框选择要编辑的校准库条目。</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
     <value>所选通道校准库</value>
@@ -4316,10 +4316,32 @@
   <data name="ScanDebug_WorkbenchPendingReviewButton.Content" xml:space="preserve"><value>导入待审查</value></data>
   <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>审查问题与导入</value></data>
   <data name="ScanDebug_WorkbenchPendingReviewAction" xml:space="preserve"><value>导入待审查</value></data>
-  <data name="ScanDebug_WorkbenchSamplingTaskButton.Content" xml:space="preserve"><value>采样</value></data>
-  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Content" xml:space="preserve"><value>黑白场</value></data>
-  <data name="ScanDebug_WorkbenchFocusTaskButton.Content" xml:space="preserve"><value>对焦</value></data>
-  <data name="ScanDebug_WorkbenchMotionTaskButton.Content" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskButton.Text" xml:space="preserve"><value>采样</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Text" xml:space="preserve"><value>黑白场</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskButton.Text" xml:space="preserve"><value>对焦</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskButton.Text" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskComboBoxItem.Content" xml:space="preserve"><value>采样</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskComboBoxItem.Content" xml:space="preserve"><value>黑白场</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>对焦</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>返回上次任务</value></data>
+  <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>移动方向</value></data>
+  <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>电机移动方向</value></data>
+  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>采集计划与通道详情</value></data>
+  <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>输片设置</value></data>
+  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>通道库与参数</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>采样来源与清除选项</value></data>
+  <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>黑白参考值 (RAW ADU)</value></data>
+  <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>轴控制与配置</value></data>
+  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
+  <data name="ScanDebug_FocusRoiDetailsExpander.Header" xml:space="preserve"><value>编辑对焦 ROI</value></data>
+  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>更多工具</value></data>
+  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>来源与完整 RAW 统计</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRawReadoutsTitle.Text" xml:space="preserve"><value>RAW 行读数</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>来源与设备详情</value></data>
+  <data name="ScanDebug_InspectionMeanReadout" xml:space="preserve"><value>均值：{0} RAW ADU</value></data>
+  <data name="ScanDebug_InspectionRangeReadout" xml:space="preserve"><value>范围：{0}–{1} RAW ADU</value></data>
+  <data name="ScanDebug_InspectionSamplesReadout" xml:space="preserve"><value>样本 {0} · 饱和 {1}</value></data>
   <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>信号检查</value></data>
   <data name="ScanDebug_WorkbenchInspectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>显示或收起已有 ROI 和列采样状态。再次按下可收起。</value></data>
   <data name="ScanDebug_WorkbenchInspectionTitle.Text" xml:space="preserve"><value>信号检查</value></data>

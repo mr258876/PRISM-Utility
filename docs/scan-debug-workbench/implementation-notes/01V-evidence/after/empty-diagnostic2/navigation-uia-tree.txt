@@ -1,0 +1,120 @@
+ControlType.Pane:Non Client Input Sink Window:
+ControlType.Pane:AppWindow Custom Title Bar:
+ControlType.Button:Minimize:Minimize
+ControlType.Button:Maximize:Maximize
+ControlType.Button:Close:Close
+ControlType.Pane::
+ControlType.Pane::
+ControlType.Image::
+ControlType.Text:PRISM 实用工具:AppTitleBarText
+ControlType.Custom::NavigationViewControl
+ControlType.Button:返回:NavigationViewBackButton
+ControlType.Button:关闭导航:TogglePaneButton
+ControlType.Text::PaneTitleTextBlock
+ControlType.Window::PaneRoot
+ControlType.Pane::MenuItemsScrollViewer
+ControlType.Group::MenuItemsHost
+ControlType.ListItem:主页:
+ControlType.ListItem:日志:
+ControlType.ListItem:扫描:
+ControlType.ListItem:胶片配置与校准:
+ControlType.Pane::FooterItemsScrollViewer
+ControlType.Group::FooterMenuItemsHost
+ControlType.ListItem:未检测到扫描仪。请连接扫描仪 USB 设备。:ScannerConnectionItem
+ControlType.ListItem:设置:SettingsItem
+ControlType.Group:胶片配置生命周期页眉:FilmProfileLifecycleHeader
+ControlType.Text:胶片配置与校准:WorkbenchTitleTextBlock
+ControlType.Text:未命名胶片配置:
+ControlType.Text:已保存:
+ControlType.Button:导出配置 JSON:
+ControlType.Button:编辑配置:WorkbenchConfigurationButton
+ControlType.Button:配置操作:
+ControlType.Button:审查问题与导入:WorkbenchReviewButton
+ControlType.ComboBox:采集模式:CaptureModeComboBox
+ControlType.Button:开始:
+ControlType.Button:停止采集:
+ControlType.Button:停止全部扫描仪电机:StopAllMotorsButton
+ControlType.Text:停止全部电机:
+ControlType.Text::
+ControlType.Text:请先连接设备。:StartDisabledReasonText
+ControlType.Text:当前没有正在进行的采集。:StopDisabledReasonText
+ControlType.List::PART_ItemsView
+ControlType.Pane::PART_ScrollPresenter
+ControlType.ListItem:采样:WorkbenchSamplingTaskButton
+ControlType.Text:采样:PART_TextVisual
+ControlType.ListItem:黑白场:WorkbenchBlackWhiteTaskButton
+ControlType.Text:黑白场:PART_TextVisual
+ControlType.ListItem:对焦:WorkbenchFocusTaskButton
+ControlType.Text:对焦:PART_TextVisual
+ControlType.ListItem:运动:WorkbenchMotionTaskButton
+ControlType.Text:运动:PART_TextVisual
+ControlType.Button:信号检查:WorkbenchInspectionButton
+ControlType.Group:采集计划区域:AcquisitionPlanSection
+ControlType.Pane::AcquisitionPlanScrollViewer
+ControlType.Text:采集设置:
+ControlType.ComboBox:行数:AcquisitionRowsComboBox
+ControlType.Edit:行数:EditableText
+ControlType.Text:采集通道:
+ControlType.CheckBox:蓝：LED1:
+ControlType.Text:蓝：LED1:
+ControlType.Text:缺少校准:
+ControlType.CheckBox:白：LED2:
+ControlType.Text:白：LED2:
+ControlType.Text:缺少校准:
+ControlType.CheckBox:红：LED3:
+ControlType.Text:红：LED3:
+ControlType.Text:缺少校准:
+ControlType.CheckBox:绿：LED4:
+ControlType.Text:绿：LED4:
+ControlType.Text:缺少校准:
+ControlType.Button:预览 开:
+ControlType.Button:采集计划与通道详情:AcquisitionPlanDetailsExpander
+ControlType.Text:采集计划与通道详情:
+ControlType.Button:输片设置:AcquisitionTransportDetailsExpander
+ControlType.Text:输片设置:
+ControlType.Button:传送策略:AcquisitionTransportStrategyCard
+ControlType.Text:传送策略:
+ControlType.Text:仅当前会话的照明测试:
+ControlType.Text:这些测试动作只会立即影响当前设备会话，不会修改采集配置。:
+ControlType.Edit:LED 序号:SessionTestLedIndexTextBox
+ControlType.Text:LED 序号:
+ControlType.Edit:会话测试电平:SessionTestLedLevelTextBox
+ControlType.Text:会话测试电平:
+ControlType.Edit:会话测试脉冲时钟数:SessionTestPulseClockTextBox
+ControlType.Text:会话测试脉冲时钟数:
+ControlType.Text:LED 序号范围：1-4。电平范围：0-65535。:
+ControlType.Text:脉冲时钟数是原始硬件 cycles/clocks；此处不进行物理时间换算。:
+ControlType.Text:请先连接设备。:SessionIlluminationDisabledReasonText
+ControlType.Button:全部关闭（会话）:TestIlluminationOffButton
+ControlType.Text:全部关闭（会话）:
+ControlType.Button:常亮测试:TestIlluminationSteadyButton
+ControlType.Text:常亮测试:
+ControlType.Button:采集同步测试:TestIlluminationAcquisitionSyncButton
+ControlType.Text:采集同步测试:
+ControlType.Text:保存与验证状态:
+ControlType.Text:行数、距离、通道启用和顺序更改会立即更新摘要，输入无效时会阻止保存。:
+ControlType.Text:已保存:
+ControlType.StatusBar::
+ControlType.Text:“成功”图标:StandardIcon
+ControlType.Text:当前配置验证:Title
+ControlType.Text:有效:Message
+ControlType.Button:关闭:CloseButton
+ControlType.Pane::AcquisitionCurrentFilmProfileValidationIssueScrollViewer
+ControlType.ScrollBar:垂直:VerticalScrollBar
+ControlType.List::PART_ItemsView
+ControlType.Pane::PART_ScrollPresenter
+ControlType.ListItem:图像:ImagePreviewModeItem
+ControlType.Text:图像:PART_TextVisual
+ControlType.ListItem:线剖面:RawSignalProfileModeItem
+ControlType.Text:线剖面:PART_TextVisual
+ControlType.Text:光标：(-, -) px:CursorPositionTextBlock
+ControlType.Text:Intensity16: -:CursorIntensityTextBlock
+ControlType.Button:缩小预览:ZoomOutButton
+ControlType.Button:放大预览:ZoomInButton
+ControlType.ComboBox::ZoomScaleComboBox
+ControlType.Button:更多工具:PreviewAuxiliaryToolsButton
+ControlType.Pane::PreviewScrollViewer
+ControlType.Text:暂无预览图像:
+ControlType.Text:连接扫描仪并开始采集后将在此显示实时预览。:
+ControlType.Text:正在等待扫描仪设备 1D50:619C 和 1D50:619D。:
+ControlType.Button:审查状态:

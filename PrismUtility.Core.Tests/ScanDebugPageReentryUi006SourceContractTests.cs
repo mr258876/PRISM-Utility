@@ -163,7 +163,8 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         AssertBefore(enqueue, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(enqueue, "DispatcherQueue.TryEnqueue(() =>", "if (IsCurrentActivation(activationEpoch))");
         AssertBefore(enqueue, "if (IsCurrentActivation(activationEpoch))", "action();");
-        Assert.Equal(5, Count(propertyChanged, "EnqueueForCurrentActivation("));
+        Assert.Equal(6, Count(propertyChanged, "EnqueueForCurrentActivation("));
+        Assert.Contains("EnqueueForCurrentActivation(UpdateChannelCalibrationValidationNotice);", propertyChanged, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherQueue.TryEnqueue", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(() =>", profileNavigation, StringComparison.Ordinal);
         Assert.Contains("IsCurrentFilmProfileNavigationStillValid()", profileNavigation, StringComparison.Ordinal);

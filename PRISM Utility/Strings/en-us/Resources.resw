@@ -907,7 +907,7 @@
     <value>Channel status</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
-    <value>All calibration channels are visible here. Select one to edit only that channel's calibration-library entry.</value>
+    <value>This list shows channel status only. Use the channel selector above to choose the calibration-library entry to edit.</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
     <value>Selected channel calibration library</value>
@@ -4307,10 +4307,32 @@
   <data name="ScanDebug_WorkbenchPendingReviewButton.Content" xml:space="preserve"><value>Import needs review</value></data>
   <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>Review issues / import</value></data>
   <data name="ScanDebug_WorkbenchPendingReviewAction" xml:space="preserve"><value>Import needs review</value></data>
-  <data name="ScanDebug_WorkbenchSamplingTaskButton.Content" xml:space="preserve"><value>Sampling</value></data>
-  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Content" xml:space="preserve"><value>Black / white</value></data>
-  <data name="ScanDebug_WorkbenchFocusTaskButton.Content" xml:space="preserve"><value>Focus</value></data>
-  <data name="ScanDebug_WorkbenchMotionTaskButton.Content" xml:space="preserve"><value>Motion</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskButton.Text" xml:space="preserve"><value>Sampling</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Text" xml:space="preserve"><value>Black / white</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskButton.Text" xml:space="preserve"><value>Focus</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskButton.Text" xml:space="preserve"><value>Motion</value></data>
+  <data name="ScanDebug_WorkbenchSamplingTaskComboBoxItem.Content" xml:space="preserve"><value>Sampling</value></data>
+  <data name="ScanDebug_WorkbenchBlackWhiteTaskComboBoxItem.Content" xml:space="preserve"><value>Black / white</value></data>
+  <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>Focus</value></data>
+  <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>Motion</value></data>
+  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>Return to task</value></data>
+  <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>Move direction</value></data>
+  <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Motor move direction</value></data>
+  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>Plan and channel details</value></data>
+  <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>Film transport settings</value></data>
+  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>Channel library and parameters</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>Sample source and clear options</value></data>
+  <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>Black / white (RAW ADU)</value></data>
+  <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>Axis controls and configuration</value></data>
+  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>Edit black / white ROI</value></data>
+  <data name="ScanDebug_FocusRoiDetailsExpander.Header" xml:space="preserve"><value>Edit focus ROI</value></data>
+  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>More tools</value></data>
+  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>Source and full RAW statistics</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRawReadoutsTitle.Text" xml:space="preserve"><value>RAW row readout</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>Source and device details</value></data>
+  <data name="ScanDebug_InspectionMeanReadout" xml:space="preserve"><value>Mean: {0} RAW ADU</value></data>
+  <data name="ScanDebug_InspectionRangeReadout" xml:space="preserve"><value>Range: {0}–{1} RAW ADU</value></data>
+  <data name="ScanDebug_InspectionSamplesReadout" xml:space="preserve"><value>{0} samples · saturated {1}</value></data>
   <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>Signal inspection</value></data>
   <data name="ScanDebug_WorkbenchInspectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Show or hide existing ROI and sample status. Press again to close.</value></data>
   <data name="ScanDebug_WorkbenchInspectionTitle.Text" xml:space="preserve"><value>Signal inspection</value></data>

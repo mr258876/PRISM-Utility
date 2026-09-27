@@ -331,7 +331,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
         var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard");
         var reference = ExtractNamedRegion(xaml, "ImageReferenceRoiEditorCard", "ChannelCalibrationIlluminationCard");
-        var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_ManualFocusTitle");
+        var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander");
         var referenceColumnSampleTextBoxIndex = reference.IndexOf("ReferenceColumnSampleStartTextBox", StringComparison.Ordinal);
 
         Assert.True(referenceColumnSampleTextBoxIndex >= 0, "Reference editor column sample start input should remain in the reference editor card.");

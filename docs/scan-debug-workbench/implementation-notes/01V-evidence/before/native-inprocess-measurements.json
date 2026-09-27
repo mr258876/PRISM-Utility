@@ -1,0 +1,152 @@
+﻿[
+    {
+        "dpiForWindow":  192,
+        "dpiDerivedScale":  2,
+        "previewViewportActualWidth":  637,
+        "xamlRootRasterizationScale":  2,
+        "requestedWindowSizePhysical":  [
+                                            2350,
+                                            1440
+                                        ],
+        "file":  "D:\\ProgrammingStuff\\Project PRISM\\Host Software\\docs\\scan-debug-workbench\\implementation-notes\\01V-evidence\\before\\zh-CN-two-column-empty-qa.png",
+        "qaGeometry":  {
+                           "xamlRootRasterizationScale":  2,
+                           "scanDebugRootGrid":  {
+                                                     "actualWidth":  977,
+                                                     "actualHeight":  604
+                                                 },
+                           "page":  {
+                                        "actualWidth":  1001,
+                                        "actualHeight":  640
+                                    },
+                           "previewScrollViewer":  {
+                                                       "actualWidth":  637,
+                                                       "actualHeight":  79,
+                                                       "viewportWidth":  637,
+                                                       "viewportHeight":  79,
+                                                       "visibility":  0,
+                                                       "visibleViewportWidth":  637,
+                                                       "visibleViewportHeight":  79,
+                                                       "visibleRectInPage":  {
+                                                                                 "x":  338,
+                                                                                 "y":  438,
+                                                                                 "width":  637,
+                                                                                 "height":  79
+                                                                             }
+                                                   },
+                           "previewFramePresent":  false,
+                           "pendingCalibrationPresent":  false,
+                           "emptyStateCapture":  true
+                       },
+        "utc":  "2026-09-26T14:50:55.5730002Z",
+        "uiaBoundsPhysical":  {
+                                  "WorkbenchSamplingTaskButton":  {
+                                                                      "name":  "采样",
+                                                                      "offscreen":  false,
+                                                                      "y":  793,
+                                                                      "widthPhysical":  104,
+                                                                      "heightPhysical":  64,
+                                                                      "x":  347
+                                                                  },
+                                  "PreviewScrollViewer":  {
+                                                              "name":  "",
+                                                              "offscreen":  false,
+                                                              "y":  1123,
+                                                              "widthPhysical":  1274,
+                                                              "heightPhysical":  158,
+                                                              "x":  999
+                                                          }
+                              },
+        "windowRectPhysical":  {
+                                   "y":  100,
+                                   "width":  2350,
+                                   "height":  1440,
+                                   "x":  100
+                               },
+        "scanDebugRootGridActualHeight":  604,
+        "previewViewportActualHeight":  79,
+        "windowTitle":  "PRISM 实用工具",
+        "processId":  40320,
+        "monitorPhysical":  [
+                                3840,
+                                2160
+                            ],
+        "name":  "zh-CN-two-column-empty",
+        "scanDebugRootGridActualWidth":  977
+    },
+    {
+        "dpiForWindow":  192,
+        "dpiDerivedScale":  2,
+        "previewViewportActualWidth":  693,
+        "xamlRootRasterizationScale":  2,
+        "requestedWindowSizePhysical":  [
+                                            3550,
+                                            1850
+                                        ],
+        "file":  "D:\\ProgrammingStuff\\Project PRISM\\Host Software\\docs\\scan-debug-workbench\\implementation-notes\\01V-evidence\\before\\zh-CN-wide-empty-qa.png",
+        "qaGeometry":  {
+                           "xamlRootRasterizationScale":  2,
+                           "scanDebugRootGrid":  {
+                                                     "actualWidth":  1305,
+                                                     "actualHeight":  809
+                                                 },
+                           "page":  {
+                                        "actualWidth":  1329,
+                                        "actualHeight":  845
+                                    },
+                           "previewScrollViewer":  {
+                                                       "actualWidth":  693,
+                                                       "actualHeight":  284,
+                                                       "viewportWidth":  693,
+                                                       "viewportHeight":  284,
+                                                       "visibility":  0,
+                                                       "visibleViewportWidth":  693,
+                                                       "visibleViewportHeight":  284,
+                                                       "visibleRectInPage":  {
+                                                                                 "x":  338,
+                                                                                 "y":  438,
+                                                                                 "width":  693,
+                                                                                 "height":  284
+                                                                             }
+                                                   },
+                           "previewFramePresent":  false,
+                           "pendingCalibrationPresent":  false,
+                           "emptyStateCapture":  true
+                       },
+        "utc":  "2026-09-26T14:50:58.4462783Z",
+        "uiaBoundsPhysical":  {
+                                  "WorkbenchSamplingTaskButton":  {
+                                                                      "name":  "采样",
+                                                                      "offscreen":  false,
+                                                                      "y":  793,
+                                                                      "widthPhysical":  104,
+                                                                      "heightPhysical":  64,
+                                                                      "x":  891
+                                                                  },
+                                  "PreviewScrollViewer":  {
+                                                              "name":  "",
+                                                              "offscreen":  false,
+                                                              "y":  1123,
+                                                              "widthPhysical":  1386,
+                                                              "heightPhysical":  568,
+                                                              "x":  1543
+                                                          }
+                              },
+        "windowRectPhysical":  {
+                                   "y":  100,
+                                   "width":  3550,
+                                   "height":  1850,
+                                   "x":  100
+                               },
+        "scanDebugRootGridActualHeight":  809,
+        "previewViewportActualHeight":  284,
+        "windowTitle":  "PRISM 实用工具",
+        "processId":  40320,
+        "monitorPhysical":  [
+                                3840,
+                                2160
+                            ],
+        "name":  "zh-CN-wide-empty",
+        "scanDebugRootGridActualWidth":  1305
+    }
+]
