@@ -155,6 +155,8 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         var enqueue = ExtractBody(source, "private void EnqueueForCurrentActivation(Action action)");
         var propertyChanged = ExtractBody(source, "private void OnViewModelPropertyChanged(");
         var profileNavigation = ExtractBody(source, "private void OnCurrentFilmProfileIssueNavigationRequested(");
+        var navigationGuard = source[source.IndexOf("private bool IsCurrentFilmProfileNavigationStillValid()", StringComparison.Ordinal)
+            ..source.IndexOf("private bool TryResolveCurrentFilmProfileNavigationTarget(", StringComparison.Ordinal)];
         var roiNavigation = ExtractBody(source, "private void OnRoiIssueNavigationRequested(");
         var sizeChanged = ExtractBody(source, "private void ScanDebugRootGrid_SizeChanged(");
         var previewLayout = ExtractBody(source, "private void RefreshPreviewLayout()");
@@ -163,11 +165,21 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         AssertBefore(enqueue, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(enqueue, "DispatcherQueue.TryEnqueue(() =>", "if (IsCurrentActivation(activationEpoch))");
         AssertBefore(enqueue, "if (IsCurrentActivation(activationEpoch))", "action();");
-        Assert.Equal(6, Count(propertyChanged, "EnqueueForCurrentActivation("));
+        Assert.Equal(7, Count(propertyChanged, "EnqueueForCurrentActivation("));
         Assert.Contains("EnqueueForCurrentActivation(UpdateChannelCalibrationValidationNotice);", propertyChanged, StringComparison.Ordinal);
+        Assert.Contains("nameof(ScanDebugViewModel.ManualReferenceDisabledReasonText)", propertyChanged, StringComparison.Ordinal);
+        Assert.Contains("nameof(ScanDebugViewModel.ManualReferenceStatusText)", propertyChanged, StringComparison.Ordinal);
+        AssertBefore(propertyChanged, "nameof(ScanDebugViewModel.ManualReferenceStatusText)",
+            "EnqueueForCurrentActivation(UpdateManualReferenceStatusVisibility);");
+        Assert.Contains("UpdateManualReferenceStatusVisibility();", ExtractBody(source, "public ScanDebugPage()"), StringComparison.Ordinal);
+        Assert.Contains("UpdateManualReferenceStatusVisibility();", ExtractBody(source, "private async void OnLoaded("), StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherQueue.TryEnqueue", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(() =>", profileNavigation, StringComparison.Ordinal);
         Assert.Contains("IsCurrentFilmProfileNavigationStillValid()", profileNavigation, StringComparison.Ordinal);
+        AssertBefore(profileNavigation, "if (!IsCurrentFilmProfileNavigationStillValid())", "target.StartBringIntoView();");
+        Assert.Contains("_areViewModelEventsSubscribed", navigationGuard, StringComparison.Ordinal);
+        Assert.Contains("IsLoaded", navigationGuard, StringComparison.Ordinal);
+        Assert.Contains("FilmProfileImportResultReviewVisibility != Visibility.Visible", navigationGuard, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(() =>", roiNavigation, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(UpdateWorkbenchPreviewLayout);", sizeChanged, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(ApplyInitialFitZoom);", previewLayout, StringComparison.Ordinal);

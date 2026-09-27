@@ -9,6 +9,10 @@
     xmlns:i="using:Microsoft.Xaml.Interactivity"
     Loaded="OnLoaded">
 
+    <Page.Resources>
+        <Thickness x:Key="ScanDebugShellContentMargin">12,24,12,0</Thickness>
+    </Page.Resources>
+
     <Grid>
         <Grid x:Name="AppTitleBar"
               Canvas.ZIndex="1"
@@ -145,7 +149,7 @@
                     </behaviors:NavigationViewHeaderBehavior.DefaultHeaderTemplate>
                 </behaviors:NavigationViewHeaderBehavior>
             </i:Interaction.Behaviors>
-            <Grid Margin="{StaticResource NavigationViewPageContentMargin}">
+            <Grid x:Name="PageContentHost" Margin="{StaticResource NavigationViewPageContentMargin}">
                 <Frame x:Name="NavigationFrame" />
             </Grid>
         </NavigationView>

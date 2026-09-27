@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
 
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Helpers;
@@ -30,6 +31,7 @@ public sealed partial class ShellPage : Page
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _scannerStatusBadgeTimer;
     private int _scannerStatusBadgeFrameIndex;
+    private readonly Thickness _defaultPageContentMargin;
 
     public ShellViewModel ViewModel
     {
@@ -41,6 +43,8 @@ public sealed partial class ShellPage : Page
         ViewModel = viewModel;
         InitializeComponent();
 
+        _defaultPageContentMargin = PageContentHost.Margin;
+        NavigationFrame.Navigated += NavigationFrame_Navigated;
         ViewModel.NavigationService.Frame = NavigationFrame;
         ViewModel.NavigationViewService.Initialize(NavigationViewControl);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -59,9 +63,20 @@ public sealed partial class ShellPage : Page
     private void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         TitleBarHelper.UpdateTitleBar(RequestedTheme);
+        UpdatePageContentMargin(NavigationFrame.Content?.GetType());
 
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu));
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.GoBack));
+    }
+
+    private void NavigationFrame_Navigated(object sender, NavigationEventArgs e)
+        => UpdatePageContentMargin(e.SourcePageType);
+
+    private void UpdatePageContentMargin(Type? pageType)
+    {
+        PageContentHost.Margin = pageType == typeof(ScanDebugPage)
+            ? (Thickness)Resources["ScanDebugShellContentMargin"]
+            : _defaultPageContentMargin;
     }
 
     private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
@@ -176,6 +191,7 @@ public sealed partial class ShellPage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         StopScannerStatusBadgeAnimation();
+        NavigationFrame.Navigated -= NavigationFrame_Navigated;
         App.MainWindow.Activated -= MainWindow_Activated;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.NavigationViewService.UnregisterEvents();

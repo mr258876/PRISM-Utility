@@ -3,6 +3,10 @@ param(
     [string]$Executable = 'PRISM Utility/bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/PrismUtility.exe',
     [ValidateSet('Empty', 'Synthetic')][string]$Source = 'Empty',
     [switch]$CompactAndWide,
+    [int]$TwoColumnPhysicalWidth = 2350,
+    [int]$TwoColumnPhysicalHeight = 1440,
+    [int]$WidePhysicalWidth = 3550,
+    [int]$WidePhysicalHeight = 1850,
     [string]$EvidenceDirectory = (Join-Path $PSScriptRoot ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')))
 )
 
@@ -136,8 +140,10 @@ function Capture-Shot($window, [IntPtr]$handle, $process, [string]$requestDir, [
     if (-not [PostQaNative]::GetWindowRect($handle, [ref]$rect)) { throw 'GetWindowRect failed' }
     $width = $rect.Right - $rect.Left
     $height = $rect.Bottom - $rect.Top
-    if ($name.StartsWith('two-column-') -and ($width -ne 2350 -or $height -ne 1440)) { throw "Two-column shot size drifted: $name ($width x $height)" }
-    if ($name.StartsWith('wide-') -and ($width -ne 3550 -or $height -ne 1850)) { throw "Wide shot size drifted: $name ($width x $height)" }
+    if ($name.StartsWith('two-column-') -and ($width -ne $TwoColumnPhysicalWidth -or $height -ne $TwoColumnPhysicalHeight)) { throw "Two-column shot size drifted: $name ($width x $height)" }
+    $expectedWideWidth = if ($CompactAndWide) { 3550 } else { $WidePhysicalWidth }
+    $expectedWideHeight = if ($CompactAndWide) { 1850 } else { $WidePhysicalHeight }
+    if ($name.StartsWith('wide-') -and ($width -ne $expectedWideWidth -or $height -ne $expectedWideHeight)) { throw "Wide shot size drifted: $name ($width x $height)" }
     if ($name.StartsWith('compact-') -and ($width -ne 1840 -or $height -ne 1440)) { throw "Compact shot size drifted: $name ($width x $height)" }
     $dpi = [PostQaNative]::GetDpiForWindow($handle)
     if ($dpi -ne 192) { throw "Expected current 192 DPI, got $dpi" }
@@ -253,9 +259,11 @@ try {
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         Start-Sleep -Milliseconds 500
         $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-        if ($null -ne (Find-Control $window 'WorkbenchSamplingTaskButton') -and $null -ne (Find-Control $window 'PreviewScrollViewer')) { break }
+        if (($null -ne (Find-Control $window 'WorkbenchSamplingTaskButton') -or $null -ne (Find-Control $window 'WorkbenchTaskComboBox')) -and
+            $null -ne (Find-Control $window 'PreviewScrollViewer')) { break }
     }
-    if ($null -eq (Find-Control $window 'WorkbenchSamplingTaskButton') -or $null -eq (Find-Control $window 'PreviewScrollViewer')) {
+    if (($null -eq (Find-Control $window 'WorkbenchSamplingTaskButton') -and $null -eq (Find-Control $window 'WorkbenchTaskComboBox')) -or
+        $null -eq (Find-Control $window 'PreviewScrollViewer')) {
         [PostQaNative]::SetForegroundWindow($handle) | Out-Null
         $failureRect = New-Object PostQaNative+Rect
         [PostQaNative]::GetWindowRect($handle, [ref]$failureRect) | Out-Null
@@ -329,7 +337,7 @@ try {
         $script:supplemental | ConvertTo-Json -Depth 3
         return
     }
-    $screens = @(@{ name = 'two-column'; width = 2350; height = 1440 }, @{ name = 'wide'; width = 3550; height = 1850 })
+    $screens = @(@{ name = 'two-column'; width = $TwoColumnPhysicalWidth; height = $TwoColumnPhysicalHeight }, @{ name = 'wide'; width = $WidePhysicalWidth; height = $WidePhysicalHeight })
     $shots = @()
     foreach ($screen in $screens) {
         if ($screen.width -gt [PostQaNative]::GetSystemMetrics(0) -or $screen.height -gt [PostQaNative]::GetSystemMetrics(1)) { throw "Monitor cannot fit $($screen.name) physical window" }
@@ -344,9 +352,24 @@ try {
         }
     }
     $manifestPath = Join-Path $outputDir 'native-inprocess-measurements.json'
-    $manifest = [ordered]@{ status = 'DEFAULTS_CAPTURED_NOT_VISUALLY_REVIEWED'; source = $Source; executable = $exe; sourceBuild = 'operator-provided prebuilt PrismVisualQa=true; runtime marker checked, build provenance not certified'; optionalInteractions = 'NOT_RUN'; shots = $shots }
+    $manifest = [ordered]@{ status = 'DEFAULTS_CAPTURED_NOT_VISUALLY_REVIEWED'; source = $Source; executable = $exe; sourceBuild = 'operator-provided prebuilt PrismVisualQa=true; runtime marker checked, build provenance not certified'; optionalInteractions = 'NOT_RUN'; shellNavigation = 'NOT_RUN'; draftAfterTaskSwitch = 'NOT_RUN'; shots = $shots }
     [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 15), (New-Object Text.UTF8Encoding($false)))
     try {
+    $menu = Find-Control $window 'MenuItemsHost'
+    if ($null -eq $menu) { throw 'Shell navigation menu unavailable' }
+    $navItems = $menu.FindAll([System.Windows.Automation.TreeScope]::Children,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
+    if ($navItems.Count -ne 4) { throw "Expected four Shell navigation entries, got $($navItems.Count)" }
+    Use-Selection $navItems[1]
+    Start-Sleep -Seconds 2
+    if ($null -ne (Find-Control $window 'ScanDebugRootGrid')) { throw 'ScanDebug remained active after navigating to Log' }
+    Use-Selection $navItems[3]
+    Start-Sleep -Seconds 2
+    if ((Get-SelectedTask $window) -ne 'Sampling') { throw 'QA no-seed hook did not restore its configured initial task' }
+    $restored = (Request-Geometry $requestDir $process).state
+    if ($restored.scanDebugRootGrid.actualWidth -ne $shots[7].scanDebugRootGrid.actualWidth -or
+        $restored.scanDebugRootGrid.actualHeight -ne $shots[7].scanDebugRootGrid.actualHeight) { throw 'ScanDebug Root geometry changed after Shell navigation round-trip' }
+    $manifest.shellNavigation = 'PASS: Log then ScanDebug restores Root geometry; QA no-seed hook forces Sampling on every Page Loaded, so task-memory is not verified'
     foreach ($screen in $screens) {
         if (-not [PostQaNative]::MoveWindow($handle, 100, 100, $screen.width, $screen.height, $true)) { throw "MoveWindow failed: $($screen.name) interaction" }
         Start-Sleep -Seconds 2
@@ -364,7 +387,17 @@ try {
             Start-Sleep -Milliseconds 350
             $shots += Capture-Shot $window $handle $process $requestDir "$($screen.name)-$id-draft-$($Source.ToLowerInvariant())" $Source "$entry; unsaved non-dispatch editor draft; field may scroll into view"
         }
+        Select-Task $window 'Sampling' 0 | Out-Null
+        Select-Task $window 'BlackWhite' 1 | Out-Null
+        foreach ($draft in @(@{ id = 'ManualBlackLevelTextBox'; expected = '513' }, @{ id = 'ManualWhiteLevelTextBox'; expected = '60000' })) {
+            $field = Find-Control $window $draft.id
+            $value = $null
+            if ($null -eq $field -or -not $field.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$value) -or
+                ([System.Windows.Automation.ValuePattern]$value).Current.Value -ne $draft.expected) { throw "Unapplied draft lost after task switch: $($draft.id)" }
+        }
+        $manifest.draftAfterTaskSwitch = 'PASS: 513/60000 editor values survived Sampling/BlackWhite view switch; Apply and Save not invoked'
         $entry = Select-Task $window 'Sampling' 0
+        Start-Sleep -Milliseconds 450
         if ($screen.name -eq 'two-column') {
             $inspectionButton = Find-Control $window 'WorkbenchInspectionButton'
             if ($null -eq $inspectionButton -or $inspectionButton.Current.IsOffscreen -or $inspectionButton.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) { throw 'Two-column inspection toggle unavailable' }
@@ -375,18 +408,12 @@ try {
             $shots += Capture-Shot $window $handle $process $requestDir "$($screen.name)-inspection-$($Source.ToLowerInvariant())" $Source 'Inspection toggle only; no device action; explicitly not a default screen'
         }
         else {
-            $inspection = Find-Control $window 'WorkbenchInspectionRail'
-            if ($null -eq $inspection -or $inspection.Current.IsOffscreen) { throw 'Wide inspection rail is not visible' }
-            $shots += Capture-Shot $window $handle $process $requestDir "$($screen.name)-inspection-$($Source.ToLowerInvariant())" $Source 'Wide inspection rail visible; no scrolling'
+            if (-not (Test-InspectionVisible $window)) { Invoke-SafeButton $window 'WorkbenchInspectionButton' }
+            if (-not (Test-InspectionVisible $window)) { throw 'Wide inspection controls not exposed after safe toggle' }
+            $shots += Capture-Shot $window $handle $process $requestDir "$($screen.name)-inspection-$($Source.ToLowerInvariant())" $Source 'Wide inspection opened explicitly; no device action'
         }
-        $auxiliary = Find-Control $window 'PreviewAuxiliaryToolsButton'
-        if ($null -eq $auxiliary -or $auxiliary.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -or $auxiliary.Current.IsOffscreen) { throw 'Safe preview auxiliary tools button unavailable' }
-        $invoke = $null
-        if (-not $auxiliary.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) { throw 'Preview auxiliary button cannot open flyout' }
-        ([System.Windows.Automation.InvokePattern]$invoke).Invoke()
-        Start-Sleep -Milliseconds 400
         $flyout = Find-Control $window 'PreviewDisplayToolsButton'
-        if ($null -eq $flyout -or $flyout.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -or $flyout.Current.IsOffscreen) { throw 'Safe preview display flyout unavailable after opening auxiliary tools' }
+        if ($null -eq $flyout -or $flyout.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -or $flyout.Current.IsOffscreen) { throw 'Safe direct preview display button unavailable' }
         $invoke = $null
         if (-not $flyout.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) { throw 'Preview display button cannot open flyout' }
         ([System.Windows.Automation.InvokePattern]$invoke).Invoke()

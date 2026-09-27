@@ -1633,7 +1633,7 @@
     <value>Move</value>
   </data>
   <data name="ScanDebug_Motor1StopButton.Content" xml:space="preserve">
-    <value>Stop</value>
+    <value>Stop M1</value>
   </data>
   <data name="ScanDebug_Motor1ApplyConfigButton.Content" xml:space="preserve">
     <value>Apply device motor config and refresh</value>
@@ -1675,7 +1675,7 @@
     <value>Move</value>
   </data>
   <data name="ScanDebug_Motor2StopButton.Content" xml:space="preserve">
-    <value>Stop</value>
+    <value>Stop M2</value>
   </data>
   <data name="ScanDebug_Motor2ApplyConfigButton.Content" xml:space="preserve">
     <value>Apply device motor config and refresh</value>
@@ -1717,7 +1717,7 @@
     <value>Move</value>
   </data>
   <data name="ScanDebug_Motor3StopButton.Content" xml:space="preserve">
-    <value>Stop</value>
+    <value>Stop M3</value>
   </data>
   <data name="ScanDebug_Motor3ApplyConfigButton.Content" xml:space="preserve">
     <value>Apply device motor config and refresh</value>
@@ -1819,13 +1819,13 @@
     <value>Selected logical channel and LED mapping</value>
   </data>
   <data name="ScanDebug_ManualBlackLevelTextBox.Header" xml:space="preserve">
-    <value>Black reference (ADU)</value>
+    <value>Black (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualBlackLevelButton.Content" xml:space="preserve">
     <value>Use sample for black input</value>
   </data>
   <data name="ScanDebug_ManualWhiteLevelTextBox.Header" xml:space="preserve">
-    <value>White reference (ADU)</value>
+    <value>White (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualWhiteLevelButton.Content" xml:space="preserve">
     <value>Use sample for white input</value>
@@ -4315,6 +4315,11 @@
   <data name="ScanDebug_WorkbenchBlackWhiteTaskComboBoxItem.Content" xml:space="preserve"><value>Black / white</value></data>
   <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>Focus</value></data>
   <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>Motion</value></data>
+  <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>Capture mode</value></data>
+  <data name="ScanDebug_MotorAxisComboBox.Header" xml:space="preserve"><value>Selected motor</value></data>
+  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 1</value></data>
+  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 2</value></data>
+  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 3</value></data>
   <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>Return to task</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>Move direction</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Motor move direction</value></data>

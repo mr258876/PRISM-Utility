@@ -23,6 +23,10 @@ public sealed class FilmProfileSourceContractTests
         "IlluminationContent",
         "MotionContent",
         "MotionExpander",
+        "MotorAxisComboBox",
+        "Motor1StatusTextBlock",
+        "Motor2StatusTextBlock",
+        "Motor3StatusTextBlock",
         "Motor1DetailsExpander",
         "Motor2DetailsExpander",
         "Motor3DetailsExpander",
@@ -34,6 +38,8 @@ public sealed class FilmProfileSourceContractTests
         "RawSignalProfileModeItem",
         "PreviewDisplayToolsButton",
         "PreviewAuxiliaryToolsButton",
+        "PreviewHeaderGrid",
+        "PreviewToolbar",
         "PreviewDisplayToolsContent",
         "PreviewDisplayToolsFlyout",
         "PreviewDisplayToolsScrollViewer",
@@ -50,6 +56,7 @@ public sealed class FilmProfileSourceContractTests
         "ReferenceColumnSampleStartTextBox",
         "ReferenceColumnSampleEndTextBox",
         "ManualReferenceLevelsCard",
+        "ManualReferenceStatusTextBlock",
         "ChannelCalibrationDetailsExpander",
         "ChannelCalibrationValidationNotice",
         "ManualBlackLevelTextBox",
@@ -64,6 +71,7 @@ public sealed class FilmProfileSourceContractTests
         "PreviewScrollViewer",
         "PreviewCanvas",
         "PreviewCanvasControl",
+        "CursorReadoutBorder",
         "RoiCanvas",
         "AxisCanvas",
         "RawSignalProfileScrollViewer",
@@ -99,6 +107,8 @@ public sealed class FilmProfileSourceContractTests
         "WorkbenchSectionComboBox",
         "WorkbenchTaskSelectorBar",
         "WorkbenchTaskComboBox",
+        "WorkbenchWorkspaceHeader",
+        "WorkspacePreviewToolbar",
         "ReturnToWorkbenchTaskButton",
         "BasicInfoSection",
         "AcquisitionPlanSection",
@@ -147,6 +157,11 @@ public sealed class FilmProfileSourceContractTests
         "ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer",
         "ExposureMicrosecondsTextBox",
         "WorkbenchRunBar",
+        "WorkbenchRunContentGrid",
+        "RunActionPanel",
+        "RunStatusPanel",
+        "RunProgressBar",
+        "EngineeringToolsScrollViewer",
         "SamplingTaskButton",
         "BlackWhiteTaskButton",
         "FocusTaskButton",
@@ -226,7 +241,7 @@ public sealed class FilmProfileSourceContractTests
             ["TextChanged=CurrentCalibrationIlluminationLevelTextBox_TextChanged"] = 1,
             ["TextChanged=CurrentCalibrationIlluminationPulseClockTextBox_TextChanged"] = 1,
             ["SelectionChanged=CurrentCalibrationIlluminationWorkModeComboBox_SelectionChanged"] = 1,
-            ["Expanding=DeferredExpander_Expanding"] = 2,
+            ["Expanding=DeferredExpander_Expanding"] = 1,
             ["PointerPressed=ManualFocusNegativeButton_PointerPressed"] = 1,
             ["PointerPressed=ManualFocusPositiveButton_PointerPressed"] = 1,
             ["PointerReleased=ManualFocusButton_PointerReleased"] = 2,
@@ -244,11 +259,12 @@ public sealed class FilmProfileSourceContractTests
             ["Click=BackToEditorButton_Click"] = 1,
             ["SelectionChanged=WorkbenchTaskSelectorBar_SelectionChanged"] = 1,
             ["SelectionChanged=WorkbenchTaskComboBox_SelectionChanged"] = 1,
+            ["SelectionChanged=MotorAxisComboBox_SelectionChanged"] = 1,
             ["Click=OpenBlackWhiteTaskButton_Click"] = 1,
             ["Click=OpenConfigurationButton_Click"] = 1,
             ["Click=OpenAdvancedButton_Click"] = 1,
             ["Click=ReturnToWorkbenchTaskButton_Click"] = 1,
-            ["Click=WorkbenchReviewButton_Click"] = 2,
+            ["Click=WorkbenchReviewButton_Click"] = 1,
             ["Click=InspectionToggleButton_Click"] = 1,
             ["DragDelta=PreviewSplitter_DragDelta"] = 1,
             ["KeyDown=PreviewSplitter_KeyDown"] = 1,
@@ -381,12 +397,23 @@ public sealed class FilmProfileSourceContractTests
     public void ShellNavigation_HasExistingMainAndScanDebugItems()
     {
         var shell = ReadAppSource("Views", "ShellPage.xaml");
+        var code = ReadAppSource("Views", "ShellPage.xaml.cs");
 
         Assert.Contains("x:Uid=\"Shell_Main\" helpers:NavigationHelper.NavigateTo=\"Main\"", shell, StringComparison.Ordinal);
         Assert.Contains("x:Uid=\"Shell_ScanDebug\" helpers:NavigationHelper.NavigateTo=\"ScanDebug\"", shell, StringComparison.Ordinal);
         Assert.Contains("<NavigationView.MenuItems>", shell, StringComparison.Ordinal);
         Assert.Contains("Header=\"{x:Bind ViewModel.HeaderText, Mode=OneWay}\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("FilmProfileEditor", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PageContentHost\" Margin=\"{StaticResource NavigationViewPageContentMargin}\"", shell, StringComparison.Ordinal);
+        Assert.Contains("<Thickness x:Key=\"ScanDebugShellContentMargin\">12,24,12,0</Thickness>", shell, StringComparison.Ordinal);
+        Assert.Contains("NavigationFrame.Navigated += NavigationFrame_Navigated;", code, StringComparison.Ordinal);
+        Assert.Contains("NavigationFrame.Navigated -= NavigationFrame_Navigated;", code, StringComparison.Ordinal);
+        Assert.Contains("UpdatePageContentMargin(NavigationFrame.Content?.GetType());", code, StringComparison.Ordinal);
+        Assert.Contains("=> UpdatePageContentMargin(e.SourcePageType);", code, StringComparison.Ordinal);
+        Assert.Contains("PageContentHost.Margin = pageType == typeof(ScanDebugPage)", code, StringComparison.Ordinal);
+        Assert.Contains("? (Thickness)Resources[\"ScanDebugShellContentMargin\"]", code, StringComparison.Ordinal);
+        Assert.Contains(": _defaultPageContentMargin;", code, StringComparison.Ordinal);
+        Assert.Contains("NavigationCacheMode=\"Enabled\"", ReadAppSource("Views", "ScanDebugPage.xaml"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -462,7 +489,11 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileHardwareUnavailableReasonText, Mode=OneWay}\"", inspection, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FilmProfileOperationInfoBar\"", header, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\"", header, StringComparison.Ordinal);
-        Assert.Contains("MaxLines=\"2\"", header, StringComparison.Ordinal);
+        var operationMessage = XDocument.Parse(xaml).Descendants().Single(element =>
+            (string?)element.Attribute("Text") == "{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}");
+        Assert.Equal("WrapWholeWords", (string?)operationMessage.Attribute("TextWrapping"));
+        Assert.Null(operationMessage.Attribute("MaxLines"));
+        Assert.Null(operationMessage.Attribute("TextTrimming"));
         Assert.DoesNotContain("Message=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("Severity=\"{x:Bind ViewModel.FilmProfileOperationSeverity, Mode=OneWay}\"", header, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"{x:Bind ViewModel.FilmProfileOperationVisibility, Mode=OneWay}\"", header, StringComparison.Ordinal);
@@ -512,7 +543,15 @@ public sealed class FilmProfileSourceContractTests
         Assert.Equal("2", (string?)details.Attribute("Grid.Row"));
         Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "FilmProfileOperationInfoBar");
         Assert.Equal(1, CountOccurrences(xaml, "Text=\"{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}\""));
-        Assert.Equal("2", (string?)status.Elements().Single(element => element.Name.LocalName == "TextBlock").Attribute("MaxLines"));
+        var message = Assert.Single(status.Elements(), element => element.Name.LocalName == "TextBlock");
+        Assert.Equal("{x:Bind ViewModel.FilmProfileOperationMessage, Mode=OneWay}", (string?)message.Attribute("Text"));
+        Assert.Equal("WrapWholeWords", (string?)message.Attribute("TextWrapping"));
+        Assert.Null(message.Attribute("MaxLines"));
+        Assert.Null(message.Attribute("TextTrimming"));
+        Assert.Null(status.Attribute("MaxHeight"));
+        Assert.Null(header.Attribute("MaxHeight"));
+        Assert.Equal("Auto", (string?)status.Parent!.Element(status.Name.Namespace + "Grid.RowDefinitions")!
+            .Elements().ElementAt(1).Attribute("Height"));
 
         var source = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
         var save = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(source, "SaveFilmProfileJson");
@@ -676,6 +715,49 @@ public sealed class FilmProfileSourceContractTests
     }
 
     [Fact]
+    public void Stage01V_SharedWorkspaceHeaderComposesDirectDisplayAndKeepsAuxiliaryToolsSeparate()
+    {
+        var document = XDocument.Parse(ReadAppSource("Views", "ScanDebugPage.xaml"));
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XElement Named(string name) => Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == name);
+        var workspace = Named("WorkbenchWorkspaceHeader");
+        var toolbar = Named("WorkspacePreviewToolbar");
+        var preview = Named("WorkbenchPreviewColumnContent");
+        var display = Named("PreviewDisplayToolsButton");
+        var auxiliary = Named("PreviewAuxiliaryToolsButton");
+        var code = ReadAppSource("Views", "ScanDebugPage.xaml.cs");
+        var compose = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(code, "ComposeWorkspaceHeader");
+        var layout = code[code.IndexOf("private void UpdateWorkbenchPreviewLayout(double availableWidth)", StringComparison.Ordinal)
+            ..code.IndexOf("private Control? FindWorkbenchFocusReplacement(", StringComparison.Ordinal)];
+
+        Assert.Same(Named("WorkbenchContentSplitGrid").Parent, workspace.Parent);
+        Assert.Equal("0", (string?)workspace.Attribute("Grid.Row"));
+        Assert.Contains(Named("WorkbenchTaskSelectorBar"), workspace.Descendants());
+        Assert.Contains(Named("WorkbenchTaskComboBox"), workspace.Descendants());
+        Assert.Contains(Named("InspectionToggleButton"), toolbar.Descendants());
+        Assert.Contains(Named("ReturnToWorkbenchTaskButton"), workspace.Descendants());
+        Assert.Contains(Named("RawSignalModeSelector"), preview.Descendants());
+        Assert.Contains(Named("PreviewToolbar"), preview.Descendants());
+        Assert.Equal("Collapsed", (string?)Named("PreviewHeaderGrid").Attribute("Visibility"));
+        Assert.Contains(display, auxiliary.Descendants());
+        Assert.Contains(Named("PreviewDisplayToolsFlyout"), display.Descendants());
+        Assert.Contains(Named("OverlayToolsButton"), auxiliary.Descendants());
+        Assert.Contains(Named("WorkbenchDataExportFlyout"), auxiliary.Descendants());
+        Assert.Contains("CaptureModeComboBox.Header = null;", compose, StringComparison.Ordinal);
+        Assert.Contains("PreviewHeaderGrid.Children.Remove(RawSignalModeSelector);", compose, StringComparison.Ordinal);
+        Assert.Contains("PreviewHeaderGrid.Children.Remove(PreviewToolbar);", compose, StringComparison.Ordinal);
+        Assert.Contains("auxiliaryTools.Children.Remove(PreviewDisplayToolsButton);", compose, StringComparison.Ordinal);
+        Assert.Contains("PreviewToolbar.Children.Insert(PreviewToolbar.Children.IndexOf(PreviewAuxiliaryToolsButton), PreviewDisplayToolsButton);", compose, StringComparison.Ordinal);
+        Assert.Contains("WorkspacePreviewToolbar.Children.Insert(0, RawSignalModeSelector);", compose, StringComparison.Ordinal);
+        Assert.Contains("WorkspacePreviewToolbar.Children.Insert(1, PreviewToolbar);", compose, StringComparison.Ordinal);
+        Assert.True(code.IndexOf("InitializeComponent();", StringComparison.Ordinal) < code.IndexOf("ComposeWorkspaceHeader();", StringComparison.Ordinal));
+        Assert.True(code.IndexOf("ComposeWorkspaceHeader();", StringComparison.Ordinal) < code.IndexOf("SetActiveWorkbenchSection(_activeWorkbenchSectionIndex);", StringComparison.Ordinal));
+        Assert.Contains("Grid.SetRow(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 1 : 0);", layout, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumnSpan(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 3 : 1);", layout, StringComparison.Ordinal);
+        Assert.Contains("WorkspacePreviewToolbar.Visibility = ToVisibility(!_isConfigurationWorkspaceOpen);", layout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Stage01SourceContract_CompactIdentitySharesRowWhileRunReasonsAndReviewStayAvailable()
     {
         var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
@@ -810,6 +892,8 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("return WorkbenchSectionSelectorBar;", handoff, StringComparison.Ordinal);
         Assert.Equal(2, CountOccurrences(handoff, "return GetActiveWorkbenchTaskButton();"));
         Assert.Contains("IsFocusedWithin(focusedElement, WorkbenchEditorColumnContent)", handoff, StringComparison.Ordinal);
+        Assert.Contains("IsFocusedWithin(focusedElement, WorkspacePreviewToolbar)", handoff, StringComparison.Ordinal);
+        Assert.Contains("return selector;", handoff, StringComparison.Ordinal);
         Assert.Contains("layout.IsBackToEditorButtonVisible ? BackToEditorButton : InspectionToggleButton", handoff, StringComparison.Ordinal);
         Assert.Contains("IsFocusedWithin(focusedElement, WorkbenchPreviewColumnContent)", handoff, StringComparison.Ordinal);
         Assert.Contains("layout.IsPreviewOpenButtonVisible ? OpenPreviewButton", handoff, StringComparison.Ordinal);
@@ -941,11 +1025,26 @@ public sealed class FilmProfileSourceContractTests
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         XElement Named(string name) => Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == name);
         var motion = Named("MotionContent");
+        var selector = Named("MotorAxisComboBox");
+        var code = ReadAppSource("Views", "ScanDebugPage.xaml.cs");
+        var selectAxis = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(code, "MotorAxisComboBox_SelectionChanged");
+        var stopGroup = Assert.Single(motion.Elements(), element => element.Name.LocalName == "Grid"
+            && element.Elements().Count(child => (string?)child.Attribute("Command") == "{x:Bind ViewModel.StopMotorCommand}") == 3);
+        var effectiveSummary = Assert.Single(motion.Elements(), element =>
+            (string?)element.Attribute("Text") == "{x:Bind ViewModel.MotionSummaryText, Mode=OneWay}");
+
+        Assert.Equal("False", (string?)motion.Attribute(x + "Load"));
+        Assert.Equal("0", (string?)selector.Attribute("SelectedIndex"));
+        Assert.Equal(3, selector.Elements().Count(element => element.Name.LocalName == "ComboBoxItem"));
+        Assert.Equal("MotorAxisComboBox_SelectionChanged", (string?)selector.Attribute("SelectionChanged"));
+        Assert.Same(motion, stopGroup.Parent);
 
         foreach (var motor in Enumerable.Range(1, 3))
         {
             var axis = Named($"Motor{motor}DetailsExpander");
             Assert.Equal("Border", axis.Name.LocalName);
+            Assert.Same(motion, axis.Parent);
+            Assert.Equal(motor == 1 ? null : "Collapsed", (string?)axis.Attribute("Visibility"));
             var elements = axis.Descendants().ToList();
             XElement Uid(string uid) => Assert.Single(elements, element => (string?)element.Attribute(x + "Uid") == uid);
             var direction = Assert.Single(elements, element =>
@@ -957,26 +1056,46 @@ public sealed class FilmProfileSourceContractTests
             var summary = Assert.Single(elements, element =>
                 (string?)element.Attribute("Text") == $"{{x:Bind ViewModel.Motor{motor}MoveSummaryText, Mode=OneWay}}");
             var move = Uid($"ScanDebug_Motor{motor}MoveButton");
-            var stop = Uid($"ScanDebug_Motor{motor}StopButton");
+            var stop = Assert.Single(stopGroup.Elements(), element => (string?)element.Attribute(x + "Uid") == $"ScanDebug_Motor{motor}StopButton");
             Assert.Equal($"Motor{motor}StopButton", (string?)stop.Attribute("AutomationProperties.AutomationId"));
             var settings = Assert.Single(elements, element => element.Name.LocalName == "Expander"
                 && (string?)element.Attribute(x + "Uid") == "ScanDebug_MotorSettingsExpander");
 
             Assert.Equal("ScanDebug_MotorMoveDirectionComboBox", (string?)direction.Attribute(x + "Uid"));
+            Assert.Equal($"{{x:Bind ViewModel.Motor{motor}MoveDirection, Mode=TwoWay}}", (string?)direction.Attribute("SelectedItem"));
+            Assert.Equal($"{{x:Bind ViewModel.Motor{motor}MoveValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}", (string?)moveValue.Attribute("Text"));
+            Assert.Equal($"{{x:Bind ViewModel.Motor{motor}MoveUnit, Mode=TwoWay}}", (string?)moveUnit.Attribute("SelectedItem"));
+            Assert.Equal($"{{x:Bind ViewModel.Motor{motor}SpeedValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}", (string?)speedValue.Attribute("Text"));
+            Assert.Equal($"{{x:Bind ViewModel.Motor{motor}SpeedUnit, Mode=TwoWay}}", (string?)speedUnit.Attribute("SelectedItem"));
+            Assert.Equal("{x:Bind ViewModel.StopMotorCommand}", (string?)stop.Attribute("Command"));
+            Assert.Equal(motor.ToString(), (string?)stop.Attribute("CommandParameter"));
+            Assert.Equal((motor - 1).ToString(), (string?)stop.Attribute("Grid.Column"));
+            Assert.Null(stop.Attribute("Visibility"));
+            Assert.Equal("{x:Bind ViewModel.MoveMotorCommand}", (string?)move.Attribute("Command"));
+            Assert.Equal(motor.ToString(), (string?)move.Attribute("CommandParameter"));
             Assert.Equal("False", (string?)settings.Attribute("IsExpanded"));
-            Assert.True(elements.IndexOf(stop) < elements.IndexOf(direction));
             Assert.True(elements.IndexOf(direction) < elements.IndexOf(moveValue));
             Assert.True(elements.IndexOf(moveValue) < elements.IndexOf(moveUnit));
             Assert.True(elements.IndexOf(moveUnit) < elements.IndexOf(speedValue));
             Assert.True(elements.IndexOf(speedValue) < elements.IndexOf(speedUnit));
             Assert.True(elements.IndexOf(speedUnit) < elements.IndexOf(summary));
             Assert.True(elements.IndexOf(summary) < elements.IndexOf(move));
+            Assert.Same(summary.Parent, move.Parent);
+            Assert.DoesNotContain(stop, axis.Descendants());
             Assert.DoesNotContain(stop, settings.Descendants());
             Assert.DoesNotContain(move, settings.Descendants());
             foreach (var action in new[] { "EnableButton", "DisableButton", "ApplyConfigButton" })
                 Assert.Contains(Uid($"ScanDebug_Motor{motor}{action}"), settings.Descendants());
             Assert.Contains(axis, motion.Descendants());
+            Assert.Contains($"Motor{motor}DetailsExpander.Visibility = ToVisibility(MotorAxisComboBox.SelectedIndex == {motor - 1});", selectAxis, StringComparison.Ordinal);
+            Assert.Contains($"Motor{motor}StatusTextBlock.Visibility = Motor{motor}DetailsExpander.Visibility;", selectAxis, StringComparison.Ordinal);
         }
+
+        Assert.DoesNotContain("ViewModel.", selectAxis, StringComparison.Ordinal);
+        Assert.DoesNotContain("Command.Execute", selectAxis, StringComparison.Ordinal);
+        Assert.Equal(3, stopGroup.Elements().Count(element => element.Name.LocalName == "Button"));
+        Assert.Equal("TextBlock", effectiveSummary.Name.LocalName);
+        Assert.True(motion.Elements().ToList().IndexOf(Named("Motor3DetailsExpander")) < motion.Elements().ToList().IndexOf(effectiveSummary));
 
         var run = Named("WorkbenchRunBar");
         Assert.Contains(run.Descendants(), element =>
@@ -2656,10 +2775,15 @@ public sealed class FilmProfileSourceContractTests
 
         const string wrappingTemplate = "{StaticResource ScanDebugWrappingButtonContentTemplate}";
         var wrappedButtons = channel.Descendants().Where(element => element.Name.LocalName == "Button" && (string?)element.Attribute("ContentTemplate") == wrappingTemplate).ToArray();
-        var manualButtons = card.Descendants().Where(element => element.Name.LocalName == "Button").ToArray();
+        var supplement = Assert.Single(channel.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_ManualReferenceSupplementExpander");
+        var manualButtons = card.Descendants().Concat(supplement.Descendants())
+            .Where(element => element.Name.LocalName == "Button").ToArray();
         Assert.Equal(11, wrappedButtons.Except(manualButtons).Count());
         Assert.Equal(5, manualButtons.Length);
         Assert.Equal(16, wrappedButtons.Length);
+        Assert.Equal(2, card.Descendants().Count(element => element.Name.LocalName == "Button"));
+        Assert.Equal(3, supplement.Descendants().Count(element => element.Name.LocalName == "Button"));
+        Assert.Equal("False", (string?)supplement.Attribute("IsExpanded"));
 
         foreach (var (uid, automationId, command) in new[]
         {
@@ -2674,9 +2798,12 @@ public sealed class FilmProfileSourceContractTests
             Assert.Equal(automationId, (string?)button.Attribute("AutomationProperties.AutomationId"));
             Assert.Equal($"{{x:Bind ViewModel.{command}}}", (string?)button.Attribute("Command"));
             Assert.Equal(wrappingTemplate, (string?)button.Attribute("ContentTemplate"));
+            Assert.Equal(uid is "ScanDebug_ApplyManualReferenceLevelsButton" or "ScanDebug_RevertManualReferenceLevelsButton",
+                card.Descendants().Contains(button));
         }
 
         Assert.Equal(2, card.Descendants().Count(element => element.Name.LocalName == "TextBox"));
+        Assert.DoesNotContain(supplement.Descendants(), element => element.Name.LocalName == "TextBox");
         foreach (var (name, uid, input) in new[]
         {
             ("ManualBlackLevelTextBox", "ScanDebug_ManualBlackLevelTextBox", "ManualBlackLevelInput"),
@@ -2698,10 +2825,30 @@ public sealed class FilmProfileSourceContractTests
             ("ManualReferenceDisabledReasonText", "ManualReferenceDisabledReasonText")
         })
         {
-            var status = Assert.Single(card.Descendants(), element => (string?)element.Attribute("AutomationProperties.AutomationId") == automationId);
+            var status = Assert.Single(card.Descendants().Concat(supplement.Descendants()), element =>
+                (string?)element.Attribute("AutomationProperties.AutomationId") == automationId);
             Assert.Equal("TextBlock", status.Name.LocalName);
             Assert.Equal($"{{x:Bind ViewModel.{property}, Mode=OneWay}}", (string?)status.Attribute("Text"));
         }
+
+        var autoActions = new[]
+        {
+            ("ScanDebug_AutoBlackButton", "AutoBlackAdjustCommand"),
+            ("ScanDebug_AutoWhiteButton", "AutoWhiteAdjustCommand"),
+            ("ScanDebug_AutoCalibrateButton", "AutoCalibrateCommand")
+        }.Select(action =>
+        {
+            var button = Assert.Single(channel.Descendants(), element => (string?)element.Attribute(x + "Uid") == action.Item1);
+            Assert.Equal($"{{x:Bind ViewModel.{action.Item2}}}", (string?)button.Attribute("Command"));
+            Assert.DoesNotContain(button, card.Descendants());
+            Assert.DoesNotContain(button, supplement.Descendants());
+            return button;
+        }).ToArray();
+        Assert.Equal("WrapPanel", autoActions[0].Parent!.Name.LocalName);
+        Assert.All(autoActions, action => Assert.Same(autoActions[0].Parent, action.Parent));
+        Assert.Same(card.Parent, autoActions[0].Parent!.Parent);
+        Assert.True(channel.Descendants().ToList().IndexOf(card) < channel.Descendants().ToList().IndexOf(autoActions[0]));
+        Assert.True(channel.Descendants().ToList().IndexOf(autoActions[2]) < channel.Descendants().ToList().IndexOf(supplement));
 
         foreach (var (uid, command) in new[]
         {

@@ -1634,7 +1634,7 @@
     <value>移动</value>
   </data>
   <data name="ScanDebug_Motor1StopButton.Content" xml:space="preserve">
-    <value>停止</value>
+    <value>停止 M1</value>
   </data>
   <data name="ScanDebug_Motor1ApplyConfigButton.Content" xml:space="preserve">
     <value>应用设备电机配置并刷新</value>
@@ -1676,7 +1676,7 @@
     <value>移动</value>
   </data>
   <data name="ScanDebug_Motor2StopButton.Content" xml:space="preserve">
-    <value>停止</value>
+    <value>停止 M2</value>
   </data>
   <data name="ScanDebug_Motor2ApplyConfigButton.Content" xml:space="preserve">
     <value>应用设备电机配置并刷新</value>
@@ -1718,7 +1718,7 @@
     <value>移动</value>
   </data>
   <data name="ScanDebug_Motor3StopButton.Content" xml:space="preserve">
-    <value>停止</value>
+    <value>停止 M3</value>
   </data>
   <data name="ScanDebug_Motor3ApplyConfigButton.Content" xml:space="preserve">
     <value>应用设备电机配置并刷新</value>
@@ -1820,13 +1820,13 @@
     <value>所选逻辑通道与 LED 映射</value>
   </data>
   <data name="ScanDebug_ManualBlackLevelTextBox.Header" xml:space="preserve">
-    <value>黑参考值（ADU）</value>
+    <value>黑值 (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualBlackLevelButton.Content" xml:space="preserve">
     <value>使用采样填入黑值</value>
   </data>
   <data name="ScanDebug_ManualWhiteLevelTextBox.Header" xml:space="preserve">
-    <value>白参考值（ADU）</value>
+    <value>白值 (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualWhiteLevelButton.Content" xml:space="preserve">
     <value>使用采样填入白值</value>
@@ -4324,6 +4324,11 @@
   <data name="ScanDebug_WorkbenchBlackWhiteTaskComboBoxItem.Content" xml:space="preserve"><value>黑白场</value></data>
   <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>对焦</value></data>
   <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>运动</value></data>
+  <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>采集模式</value></data>
+  <data name="ScanDebug_MotorAxisComboBox.Header" xml:space="preserve"><value>当前电机</value></data>
+  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor1</value></data>
+  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor2</value></data>
+  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor3</value></data>
   <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>返回上次任务</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>移动方向</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>电机移动方向</value></data>
