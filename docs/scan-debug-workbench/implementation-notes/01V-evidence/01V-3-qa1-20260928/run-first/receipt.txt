@@ -1,0 +1,9 @@
+QA1 UIA result: FAIL_OR_ENVIRONMENT_BLOCKED
+Initial task: 
+Selected BlackWhite before navigation: NOT_OBSERVED
+Returned selected task: NOT_OBSERVED
+Draft black/white before return: NOT_OBSERVED
+Draft black/white after return: NOT_OBSERVED
+Capture ready before/after: False / False
+Failure: ScanDebug UIA visibility did not become True
+No screenshots or device/Apply/Save commands attempted. Detailed visible status/disabled/error states: receipt.json

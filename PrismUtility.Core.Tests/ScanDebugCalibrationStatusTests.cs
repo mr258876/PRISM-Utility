@@ -569,6 +569,73 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task BwRoiSummary_WhenChannelChanges_ProjectsBothCurrentStructuredRanges()
+    {
+        var redRoi = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var greenRoi = CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, redRoi),
+                ["Green"] = CreateProfile(2000, greenRoi)
+            }, "Red"));
+        Assert.Contains("100–500", harness.ViewModel.BwActiveRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("401\u00a0px", harness.ViewModel.BwActiveRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("20–80", harness.ViewModel.BwShieldRoiRangeText, StringComparison.Ordinal);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        await harness.SelectChannelAsync("Green");
+
+        Assert.Contains("700–1100", harness.ViewModel.BwActiveRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("401\u00a0px", harness.ViewModel.BwActiveRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("600–680", harness.ViewModel.BwShieldRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("81\u00a0px", harness.ViewModel.BwShieldRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains(nameof(ScanDebugViewModel.BwActiveRoiRangeText), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.BwShieldRoiRangeText), notifications);
+    }
+
+    [Fact]
+    public async Task BwRoiSummary_WhenShieldRangeChanges_UpdatesOnlyCurrentStructuredValue()
+    {
+        var greenRoi = CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Green"] = CreateProfile(2000, greenRoi) }, "Green"));
+        harness.ViewModel.SelectedAdcRoiSelection = "BW Shield";
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        harness.ViewModel.UpdateSelectedRoiRange(620, 680, ScanDebugConstants.DecodedPixelsPerLine);
+
+        Assert.Contains("620–680", harness.ViewModel.BwShieldRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("61\u00a0px", harness.ViewModel.BwShieldRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains("700–1100", harness.ViewModel.BwActiveRoiRangeText, StringComparison.Ordinal);
+        Assert.Contains(nameof(ScanDebugViewModel.BwShieldRoiRangeText), notifications);
+    }
+
+    [Fact]
+    public async Task BwRoiSummary_WhenChannelLoadIsPending_DoesNotAttributePreviousRangesToNewChannel()
+    {
+        var redRoi = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var greenRoi = CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, redRoi),
+                ["Green"] = CreateProfile(2000, greenRoi)
+            }, "Red"));
+        harness.Repository.BlockSelectedChannelWrite("Green");
+
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+
+        Assert.Equal("Loading channel ROI…", harness.ViewModel.BwActiveRoiRangeText);
+        Assert.Equal("Loading channel ROI…", harness.ViewModel.BwShieldRoiRangeText);
+        harness.Repository.ReleaseSelectedChannelWrite("Green");
+        await harness.Repository.WaitForSelectedChannelWriteCompletionAsync("Green");
+        await harness.FlushAsync();
+    }
+
+    [Fact]
     public async Task ManualReference_LegacyFrameWithoutCaptureEvidenceCannotFillSample()
     {
         var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
@@ -5678,6 +5745,47 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Equal(InfoBarSeverity.Warning, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
         Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
         Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+    }
+
+    [Fact]
+    public async Task BwValidationSummary_WhenValidationHasNotRun_DoesNotReportZeroAsValid()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        Assert.Equal("Not validated", harness.ViewModel.BwValidationSummaryText);
+    }
+
+    [Fact]
+    public async Task BwValidationSummary_WhenChannelHasBlockingIssue_ReportsCountAndStatus()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+        var channelIssue = CreateFilmProfileIssue(ScanFilmProfileValidationCode.InvalidChannelParameters,
+            "channelProfiles.Red.parameters", "FilmProfile.Validation.ChannelParametersInvalid");
+        var setValidation = typeof(ScanDebugViewModel).GetMethod("SetCurrentFilmProfileValidation", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        setValidation.Invoke(harness.ViewModel, [new ScanFilmProfileValidationResult([channelIssue])]);
+
+        Assert.Equal("1 blocking issue(s)", harness.ViewModel.BwValidationSummaryText);
+        Assert.Contains(nameof(ScanDebugViewModel.BwValidationSummaryText), notifications);
+    }
+
+    [Fact]
+    public async Task BwValidationSummary_WhenValidatedIssuesClear_ReportsZeroWithoutClaimingNotRun()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var setValidation = typeof(ScanDebugViewModel).GetMethod("SetCurrentFilmProfileValidation", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var channelIssue = CreateFilmProfileIssue(ScanFilmProfileValidationCode.InvalidChannelParameters,
+            "channelProfiles.Red.parameters", "FilmProfile.Validation.ChannelParametersInvalid");
+        setValidation.Invoke(harness.ViewModel, [new ScanFilmProfileValidationResult([channelIssue])]);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        setValidation.Invoke(harness.ViewModel, [new ScanFilmProfileValidationResult()]);
+
+        Assert.Equal("0 channel issues", harness.ViewModel.BwValidationSummaryText);
+        Assert.Contains(nameof(ScanDebugViewModel.BwValidationSummaryText), notifications);
     }
 
     [Fact]

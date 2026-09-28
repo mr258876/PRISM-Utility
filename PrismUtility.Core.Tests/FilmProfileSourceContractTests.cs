@@ -57,7 +57,9 @@ public sealed class FilmProfileSourceContractTests
         "ReferenceColumnSampleEndTextBox",
         "ManualReferenceLevelsCard",
         "ManualReferenceStatusTextBlock",
+        "BwRoiSummary",
         "ChannelCalibrationDetailsExpander",
+        "ChannelCalibrationIssueItemsControl",
         "ChannelCalibrationValidationNotice",
         "ManualBlackLevelTextBox",
         "ManualWhiteLevelTextBox",
@@ -266,6 +268,8 @@ public sealed class FilmProfileSourceContractTests
             ["Click=ReturnToWorkbenchTaskButton_Click"] = 1,
             ["Click=WorkbenchReviewButton_Click"] = 1,
             ["Click=InspectionToggleButton_Click"] = 1,
+            ["Click=BwRoiEditButton_Click"] = 1,
+            ["Click=BwViewIssuesButton_Click"] = 1,
             ["DragDelta=PreviewSplitter_DragDelta"] = 1,
             ["KeyDown=PreviewSplitter_KeyDown"] = 1,
             ["Opening=PreviewDisplayToolsFlyout_Opening"] = 1,
@@ -1079,8 +1083,11 @@ public sealed class FilmProfileSourceContractTests
             Assert.True(elements.IndexOf(moveUnit) < elements.IndexOf(speedValue));
             Assert.True(elements.IndexOf(speedValue) < elements.IndexOf(speedUnit));
             Assert.True(elements.IndexOf(speedUnit) < elements.IndexOf(summary));
-            Assert.True(elements.IndexOf(summary) < elements.IndexOf(move));
-            Assert.Same(summary.Parent, move.Parent);
+            Assert.True(elements.IndexOf(direction) < elements.IndexOf(move));
+            Assert.True(elements.IndexOf(move) < elements.IndexOf(moveValue));
+            Assert.Same(direction.Parent, move.Parent);
+            Assert.Equal("1", (string?)move.Attribute("Grid.Column"));
+            Assert.Equal("StackPanel", summary.Parent!.Name.LocalName);
             Assert.DoesNotContain(stop, axis.Descendants());
             Assert.DoesNotContain(stop, settings.Descendants());
             Assert.DoesNotContain(move, settings.Descendants());

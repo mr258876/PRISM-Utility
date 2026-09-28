@@ -2889,7 +2889,7 @@
     <value>编辑模式：关</value>
   </data>
   <data name="ScanDebug_Runtime_RoiStatus" xml:space="preserve">
-    <value>所选 ROI：{0} | 列 {1} ~ {2}（{3} px）| {4}。</value>
+    <value>所选 ROI：{0}&#10;列 {1}–{2}；宽度 {3}&#160;px&#10;{4}。</value>
   </data>
   <data name="ScanDebug_Runtime_RoiSelectionBwActive" xml:space="preserve">
     <value>BW 活动区</value>
@@ -3697,10 +3697,10 @@
     <value>{0}：{1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummary" xml:space="preserve">
-    <value>{0}：{1}；移动距离 {2} mm；预&#x2060;计&#x2060;步&#x2060;数 {3}；预计耗时 {4} s；逻辑方向 {5}；原始方向 {6}；物理方向未知。</value>
+    <value>{0}：{1}。&#10;移动距离 {2}&#160;mm；预&#x2060;计&#x2060;步&#x2060;数 {3}。&#10;预计耗时 {4}&#160;s；逻辑方向 {5}。&#10;原始方向 {6}；物理方向未知。</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummaryInvalid" xml:space="preserve">
-    <value>{0}：{1}；请求移动无效：{2}</value>
+    <value>{0}：{1}。&#10;请求移动无效：{2}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorLogicalDirectionUnmapped" xml:space="preserve">
     <value>未映射</value>
@@ -4363,10 +4363,24 @@
   <data name="ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>仅停止当前采集，不取消自动对焦或停止所有电机。</value></data>
   <data name="ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>设备命令可用时请求停止所有电机；不是物理急停，也不保证关灯。</value></data>
   <data name="ScanDebug_ManualReferenceChannel" xml:space="preserve"><value>逻辑通道：{0}；LED 映射：{1}</value></data>
+  <data name="ScanDebug_CalibrationChannelCompactComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>校准通道</value></data>
+  <data name="ScanDebug_BwRoiSummaryTitle.Text" xml:space="preserve"><value>黑白场 ROI</value></data>
+  <data name="ScanDebug_BwRoiEditButton.Content" xml:space="preserve"><value>编辑 ROI</value></data>
+  <data name="ScanDebug_BwActiveRoiLabel.Text" xml:space="preserve"><value>活动区</value></data>
+  <data name="ScanDebug_BwShieldRoiLabel.Text" xml:space="preserve"><value>屏蔽区</value></data>
+  <data name="ScanDebug_BwRoiRange" xml:space="preserve"><value>{0}–{1} · {2}&#160;px</value></data>
+  <data name="ScanDebug_BwRoiUnknown" xml:space="preserve"><value>正在读取通道 ROI…</value></data>
+  <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1}（范围无效）</value></data>
+  <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
+  <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>查看问题</value></data>
+  <data name="ScanDebug_BwIssueList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通道校准问题</value></data>
+  <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>通道问题 0 项</value></data>
+  <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} 项阻塞问题</value></data>
+  <data name="ScanDebug_BwValidationWarnings" xml:space="preserve"><value>{0} 项警告</value></data>
   <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>手动编辑的输入值，尚未应用到通道草稿。</value></data>
   <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>原始来源未记录。</value></data>
   <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>请先完成待处理校准候选的审查，再应用手动参考值。</value></data>
-  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>当前工作区草稿中没有所选通道的可编辑档案。请先配置该通道。</value></data>
+  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>所选通道无可编辑档案；请先配置。</value></data>
   <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>编辑期间通道或工作区草稿已改变。请核对最新数值后重试；未覆盖已有值。</value></data>
   <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>有冲突的操作正在进行，暂不能将手动参考值应用到通道草稿；输入框仍可编辑。操作结束后请重试应用。</value></data>
   <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>当前预览或采集数据中没有可确认属于所选通道的有效列采样。请检查预览帧和采样列范围后再填入。</value></data>

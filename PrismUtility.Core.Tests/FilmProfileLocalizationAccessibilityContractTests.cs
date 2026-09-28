@@ -165,8 +165,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_Runtime_MotorRoleScanTransport", "film transport motor", "胶片传送电机"),
         ("ScanDebug_Runtime_MotorRoleNone", "no configured semantic role", "没有已配置的语义角色"),
         ("ScanDebug_Runtime_MotorRoleSummary", "{0}: {1}", "{0}：{1}"),
-        ("ScanDebug_Runtime_MotorMoveSummary", "{0}: {1}; distance {2} mm; estimated steps {3}; estimated duration {4} s; logical direction {5}; raw direction {6}; physical direction unknown.", $"{{0}}：{{1}}；移动距离 {{2}} mm；预{WordJoiner}计{WordJoiner}步{WordJoiner}数 {{3}}；预计耗时 {{4}} s；逻辑方向 {{5}}；原始方向 {{6}}；物理方向未知。"),
-        ("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}; requested move is invalid: {2}", "{0}：{1}；请求移动无效：{2}"),
+        ("ScanDebug_Runtime_MotorMoveSummary", "{0}: {1}.\nDistance {2}\u00a0mm; estimated steps {3}.\nEstimated duration {4}\u00a0s; logical direction {5}.\nRaw direction {6}; physical direction unknown.", $"{{0}}：{{1}}。\n移动距离 {{2}}\u00a0mm；预{WordJoiner}计{WordJoiner}步{WordJoiner}数 {{3}}。\n预计耗时 {{4}}\u00a0s；逻辑方向 {{5}}。\n原始方向 {{6}}；物理方向未知。"),
+        ("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}.\nrequested move is invalid: {2}", "{0}：{1}。\n请求移动无效：{2}"),
         ("ScanDebug_Runtime_MotorLogicalDirectionUnmapped", "unmapped", "未映射"),
         ("ScanDebug_Runtime_MotorLogicalDirectionFocusZPositive", "focus Z+", "对焦 Z+"),
         ("ScanDebug_Runtime_MotorLogicalDirectionFocusZNegative", "focus Z-", "对焦 Z-"),
@@ -754,8 +754,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             Assert.Contains($"SelectedItem=\"{{x:Bind ViewModel.Motor{motorNumber}MoveUnit, Mode=TwoWay}}\"", xaml, StringComparison.Ordinal);
         }
 
-        Assert.Equal("{0}: {1}; requested move is invalid: {2}", english["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
-        Assert.Equal("{0}：{1}；请求移动无效：{2}", chinese["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
+        Assert.Equal("{0}: {1}.\nrequested move is invalid: {2}", english["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
+        Assert.Equal("{0}：{1}。\n请求移动无效：{2}", chinese["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
     }
 
     [Fact]

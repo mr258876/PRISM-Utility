@@ -488,6 +488,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private ScanChannelCalibrationProfile? _selectedCalibrationEditorReferenceProfile;
     private string? _selectedCalibrationEditorReferenceRole;
     private bool _hasInvalidFilmProfileInput;
+    private bool _hasCurrentFilmProfileValidation;
     private long _filmProfileOperationPublicationId;
     private ITimer? _filmProfileOperationAutoCloseTimer;
     private string? _calibrationChannelBeforeSelectionChange;
@@ -1094,6 +1095,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationHeadline))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationIssueCountText))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationSeverity))]
+    [NotifyPropertyChangedFor(nameof(BwValidationSummaryText))]
     [NotifyCanExecuteChangedFor(nameof(SaveFilmProfileJsonCommand))]
     [NotifyCanExecuteChangedFor(nameof(NavigateToCurrentFilmProfileValidationIssueCommand))]
     public partial IReadOnlyList<ScanFilmProfileValidationIssue> CurrentFilmProfileValidationIssues { get; set; } = Array.Empty<ScanFilmProfileValidationIssue>();
@@ -1137,6 +1139,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public InfoBarSeverity ChannelCalibrationCurrentFilmProfileValidationSeverity => GetCurrentFilmProfileValidationSeverity(
         ScanFilmProfileIssueNavigationSection.ChannelCalibration);
+
+    public string BwValidationSummaryText
+    {
+        get
+        {
+            if (!_hasCurrentFilmProfileValidation && CurrentFilmProfileValidationIssues.Count == 0)
+                return "ScanDebug_FilmProfileWorkbenchValidationNotRun".GetLocalizedOrFallback("Not validated");
+
+            var count = ChannelCalibrationCurrentFilmProfileValidationIssueDisplays.Count;
+            return count == 0
+                ? "ScanDebug_BwValidationZero".GetLocalizedOrFallback("0 channel issues")
+                : ChannelCalibrationCurrentFilmProfileValidationSeverity == InfoBarSeverity.Error
+                    ? "ScanDebug_BwValidationBlocking".GetLocalizedFormatOrFallback("{0} blocking issue(s)", count)
+                    : "ScanDebug_BwValidationWarnings".GetLocalizedFormatOrFallback("{0} warning(s)", count);
+        }
+    }
 
     public bool IsCurrentFilmProfileValidationValid => new ScanFilmProfileValidationResult(CurrentFilmProfileValidationIssues).IsValid;
 
@@ -1259,6 +1277,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string RoiStatusText { get; set; }
+
+    public string BwActiveRoiRangeText => FormatCurrentBwRoiRange(_roiSettings.EffectiveRange);
+
+    public string BwShieldRoiRangeText => FormatCurrentBwRoiRange(_roiSettings.ShieldRange);
+
+    private string FormatCurrentBwRoiRange(ScanColumnRange range)
+        => _selectedCalibrationChannelLoad is { } load
+            && IsCurrentCalibrationChannel(load.Role)
+            && (!load.Completion.IsCompletedSuccessfully || !load.Completion.Result)
+                ? "ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…")
+                : FormatBwRoiRange(range);
+
+    private static string FormatBwRoiRange(ScanColumnRange range)
+        => range.Width > 0
+            ? "ScanDebug_BwRoiRange".GetLocalizedFormatOrFallback("{0}–{1} · {2}\u00a0px", range.Start, range.EndInclusive, range.Width)
+            : "ScanDebug_BwRoiInvalidRange".GetLocalizedFormatOrFallback("{0}–{1} (invalid range)", range.Start, range.EndInclusive);
 
     [ObservableProperty]
     public partial string RoiStartInput { get; set; }
@@ -6769,8 +6803,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         var loadVersion = ++_profileLoadVersion;
         var loadTask = CompleteSelectedCalibrationChannelLoadAsync(channelRole, loadVersion, projectionVersion);
-        _selectedCalibrationChannelLoad = new CalibrationChannelSelectionLoad(channelRole, loadVersion, projectionVersion, loadTask);
-        return await loadTask;
+        var load = new CalibrationChannelSelectionLoad(channelRole, loadVersion, projectionVersion, loadTask);
+        _selectedCalibrationChannelLoad = load;
+        OnPropertyChanged(nameof(BwActiveRoiRangeText));
+        OnPropertyChanged(nameof(BwShieldRoiRangeText));
+        var loaded = await loadTask;
+        if (ReferenceEquals(_selectedCalibrationChannelLoad, load))
+        {
+            OnPropertyChanged(nameof(BwActiveRoiRangeText));
+            OnPropertyChanged(nameof(BwShieldRoiRangeText));
+        }
+        return loaded;
     }
 
     private async Task<bool> CompleteSelectedCalibrationChannelLoadAsync(string channelRole, int loadVersion, int projectionVersion)
@@ -7272,6 +7315,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void SetCurrentFilmProfileValidation(ScanFilmProfileValidationResult validation)
     {
+        if (!_hasCurrentFilmProfileValidation)
+        {
+            _hasCurrentFilmProfileValidation = true;
+            OnPropertyChanged(nameof(BwValidationSummaryText));
+        }
         CurrentFilmProfileValidationIssues = validation.Issues;
         SaveFilmProfileJsonCommand.NotifyCanExecuteChanged();
     }
@@ -8149,6 +8197,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         EnsureColumnSampleEditModeAvailability();
         RefreshRoiInputTexts();
         RoiStatusText = BuildRoiStatusText();
+        OnPropertyChanged(nameof(BwActiveRoiRangeText));
+        OnPropertyChanged(nameof(BwShieldRoiRangeText));
         RoiOverlayVersion++;
         NotifyRoiValidationIssuesChanged();
     }
@@ -9593,7 +9643,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private string BuildMotorMoveSummary(byte motorId, string roleText)
     {
         if (!TryBuildMotorMoveRequest(motorId, out var request, out var error))
-            return GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}; requested move is invalid: {2}", FormatMotorOption(motorId), roleText, error);
+            return GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}.\nrequested move is invalid: {2}", FormatMotorOption(motorId), roleText, error);
 
         var settings = _deviceSettings.Settings.Normalize();
         var distanceMm = ScanTimingMath.ConvertMotorStepsToMillimeters(request.Steps, settings.GetMotorSettings(motorId));
@@ -9613,7 +9663,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (TryParseSelectedScanMotor(out var scanMotorId, out _) && scanMotorId == motorId)
             logicalDirections.Add(GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorLogicalDirectionTransport", "film transport {0}", GetLocalizedDirectionLabel(SelectedStartingDirection)));
 
-        var logicalDirection = logicalDirections.Count == 0 ? GetTodo18Localized("ScanDebug_Runtime_MotorLogicalDirectionUnmapped", "unmapped") : string.Join("; ", logicalDirections);
+        var logicalDirection = logicalDirections.Count == 0 ? GetTodo18Localized("ScanDebug_Runtime_MotorLogicalDirectionUnmapped", "unmapped") : string.Join(Environment.NewLine, logicalDirections);
         return GetTodo18LocalizedFormat(
             "ScanDebug_Runtime_MotorMoveSummary",
             "{0}: {1}; distance {2} mm; estimated steps {3}; estimated duration {4} s; logical direction {5}; raw direction {6}; physical direction unknown.",

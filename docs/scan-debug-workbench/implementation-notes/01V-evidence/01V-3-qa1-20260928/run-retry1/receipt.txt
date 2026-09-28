@@ -1,0 +1,9 @@
+QA1 UIA result: FAIL_OR_ENVIRONMENT_BLOCKED
+Initial task: 采样
+Selected BlackWhite before navigation: 黑白场
+Returned selected task: 黑白场
+Draft black/white before return: 513 / 60000
+Draft black/white after return:  / 
+Capture ready before/after: True / True
+Failure: Un-applied draft lost on return
+No screenshots or device/Apply/Save commands attempted. Detailed visible status/disabled/error states: receipt.json

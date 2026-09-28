@@ -132,6 +132,25 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
     }
 
     [Fact]
+    public void VisualQaTaskMemoryOverride_SkipsBothForcedSelectionsButStillStartsCapture()
+    {
+        var hook = ReadAppSource("PrismVisualQaPendingCalibrationHook.cs");
+        var apply = ExtractBody(hook, "internal static void ApplyPageState(");
+        var selection = ExtractBody(apply, "if (!preserveTaskSelection)");
+
+        Assert.StartsWith("#if PRISM_VISUAL_QA", hook, StringComparison.Ordinal);
+        Assert.Matches(@"var preserveTaskSelection = string\.Equals\(\s*Environment\.GetEnvironmentVariable\(""PRISM_VISUAL_QA_PRESERVE_TASK_SELECTION""\),\s*""1"",\s*StringComparison\.Ordinal\);", apply);
+        Assert.Contains("if (IsEmptyStateCapture())\n                setActiveWorkbenchSection(1);", selection.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("setActiveWorkbenchSection(forceMotionReadRequired ? 5 : 2);", selection, StringComparison.Ordinal);
+        Assert.Contains("Environment.GetEnvironmentVariable(\"PRISM_VISUAL_QA_SECTION_INDEX\")", selection, StringComparison.Ordinal);
+        Assert.Contains("setActiveWorkbenchSection(sectionIndex);", selection, StringComparison.Ordinal);
+        Assert.Equal(3, Count(selection, "setActiveWorkbenchSection("));
+        AssertBefore(apply, "if (!preserveTaskSelection)", "PrismVisualQaCaptureService.Start(page);");
+        Assert.DoesNotContain("PrismVisualQaCaptureService.Start(page);", selection, StringComparison.Ordinal);
+        Assert.Equal(3, Count(apply, "setActiveWorkbenchSection("));
+    }
+
+    [Fact]
     public void CachedPage_QaDrainFaultIsReportedAndTerminalLoadCannotApplyPageState()
     {
         var source = ReadPageSource();

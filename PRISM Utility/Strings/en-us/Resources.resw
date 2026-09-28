@@ -2888,7 +2888,7 @@
     <value>edit mode: OFF</value>
   </data>
   <data name="ScanDebug_Runtime_RoiStatus" xml:space="preserve">
-    <value>Selected ROI: {0} | columns {1} ~ {2} ({3} px) | {4}.</value>
+    <value>Selected ROI: {0}&#10;Columns {1}–{2}; width {3}&#160;px&#10;{4}.</value>
   </data>
   <data name="ScanDebug_Runtime_RoiSelectionBwActive" xml:space="preserve">
     <value>BW Active</value>
@@ -3695,10 +3695,10 @@
     <value>{0}: {1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummary" xml:space="preserve">
-    <value>{0}: {1}; distance {2} mm; estimated steps {3}; estimated duration {4} s; logical direction {5}; raw direction {6}; physical direction unknown.</value>
+    <value>{0}: {1}.&#10;Distance {2}&#160;mm; estimated steps {3}.&#10;Estimated duration {4}&#160;s; logical direction {5}.&#10;Raw direction {6}; physical direction unknown.</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummaryInvalid" xml:space="preserve">
-    <value>{0}: {1}; requested move is invalid: {2}</value>
+    <value>{0}: {1}.&#10;requested move is invalid: {2}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorLogicalDirectionUnmapped" xml:space="preserve">
     <value>unmapped</value>
@@ -4354,10 +4354,24 @@
   <data name="ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Stops the current scan only. Does not cancel autofocus or stop all motors.</value></data>
   <data name="ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Requests all motors to stop when the device command is available. Not a physical emergency stop or guaranteed light-off.</value></data>
   <data name="ScanDebug_ManualReferenceChannel" xml:space="preserve"><value>Logical channel: {0}; LED mapping: {1}</value></data>
+  <data name="ScanDebug_CalibrationChannelCompactComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Calibration channel</value></data>
+  <data name="ScanDebug_BwRoiSummaryTitle.Text" xml:space="preserve"><value>BW ROI</value></data>
+  <data name="ScanDebug_BwRoiEditButton.Content" xml:space="preserve"><value>Edit ROI</value></data>
+  <data name="ScanDebug_BwActiveRoiLabel.Text" xml:space="preserve"><value>Active</value></data>
+  <data name="ScanDebug_BwShieldRoiLabel.Text" xml:space="preserve"><value>Shield</value></data>
+  <data name="ScanDebug_BwRoiRange" xml:space="preserve"><value>{0}–{1} · {2}&#160;px</value></data>
+  <data name="ScanDebug_BwRoiUnknown" xml:space="preserve"><value>Loading channel ROI…</value></data>
+  <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1} (invalid range)</value></data>
+  <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
+  <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>View issues</value></data>
+  <data name="ScanDebug_BwIssueList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Channel calibration issues</value></data>
+  <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>0 channel issues</value></data>
+  <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} blocking issue(s)</value></data>
+  <data name="ScanDebug_BwValidationWarnings" xml:space="preserve"><value>{0} warning(s)</value></data>
   <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>Manually edited input; not yet applied to the channel draft.</value></data>
   <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>Original source not recorded.</value></data>
   <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>Finish reviewing the pending calibration candidate before applying manual reference values.</value></data>
-  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>No editable profile for the selected channel in the current workspace draft. Configure the channel first.</value></data>
+  <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>No editable channel draft. Configure this channel first.</value></data>
   <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>The channel or workspace draft changed during this edit. Review the latest values before applying again; nothing was overwritten.</value></data>
   <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>A conflicting operation temporarily blocks applying manual reference values to the channel draft. You can still edit the inputs; try applying again when it finishes.</value></data>
   <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>The current preview or capture data has no valid column sample attributable to the selected channel. Check the preview frame and sample column range before filling an input.</value></data>

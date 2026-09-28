@@ -29,14 +29,21 @@ internal static class PrismVisualQaPendingCalibrationHook
             Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_MOTION_READ_REQUIRED"),
             "1",
             StringComparison.Ordinal);
-        if (IsEmptyStateCapture())
-            setActiveWorkbenchSection(1);
-        else
-            setActiveWorkbenchSection(forceMotionReadRequired ? 5 : 2);
-        if (int.TryParse(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_SECTION_INDEX"), out var sectionIndex)
-            && sectionIndex is >= 0 and <= 5)
+        var preserveTaskSelection = string.Equals(
+            Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_PRESERVE_TASK_SELECTION"),
+            "1",
+            StringComparison.Ordinal);
+        if (!preserveTaskSelection)
         {
-            setActiveWorkbenchSection(sectionIndex);
+            if (IsEmptyStateCapture())
+                setActiveWorkbenchSection(1);
+            else
+                setActiveWorkbenchSection(forceMotionReadRequired ? 5 : 2);
+            if (int.TryParse(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_SECTION_INDEX"), out var sectionIndex)
+                && sectionIndex is >= 0 and <= 5)
+            {
+                setActiveWorkbenchSection(sectionIndex);
+            }
         }
 
         if (forceMotionReadRequired && !IsEmptyStateCapture())

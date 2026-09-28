@@ -1,0 +1,9 @@
+QA1 UIA result: ENVIRONMENT_OR_UIA_BLOCKED
+Initial task: 采样
+Selected BlackWhite before navigation: 黑白场
+Returned selected task: NOT_OBSERVED
+Draft black/white before return: 513 / 60000
+Draft black/white after return: NOT_OBSERVED
+Capture ready before/after: True / False
+Failure: Capture service did not restart after Shell return
+No screenshots or device/Apply/Save commands attempted. Detailed visible status/disabled/error states: receipt.json

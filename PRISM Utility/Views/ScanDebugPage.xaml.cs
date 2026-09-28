@@ -294,6 +294,45 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             is InfoBarSeverity.Error or InfoBarSeverity.Warning ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void BwRoiEditButton_Click(object sender, RoutedEventArgs e)
+    {
+        AdcRoiDetailsExpander.IsExpanded = true;
+        EnqueueForCurrentActivation(() =>
+        {
+            AdcRoiTargetComboBox.StartBringIntoView();
+            _ = AdcRoiTargetComboBox.Focus(FocusState.Programmatic);
+        });
+    }
+
+    private void BwViewIssuesButton_Click(object sender, RoutedEventArgs e)
+    {
+        ChannelCalibrationDetailsExpander.IsExpanded = true;
+        EnqueueForCurrentActivation(() =>
+        {
+            ChannelCalibrationScrollViewer.UpdateLayout();
+            if (ChannelCalibrationCurrentFilmProfileValidationCard.IsLoaded
+                && ChannelCalibrationCurrentFilmProfileValidationCard.ActualHeight > 0)
+            {
+                var cardTop = ChannelCalibrationCurrentFilmProfileValidationCard
+                    .TransformToVisual(ChannelCalibrationScrollViewer).TransformPoint(new Point()).Y;
+                _ = ChannelCalibrationScrollViewer.ChangeView(null,
+                    ChannelCalibrationScrollViewer.VerticalOffset + cardTop, null, true);
+            }
+
+            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.UpdateLayout();
+            var issue = FindFirstIssueButton(ChannelCalibrationIssueItemsControl);
+            if (issue is not null)
+            {
+                issue.StartBringIntoView();
+                _ = issue.Focus(FocusState.Programmatic);
+            }
+            else if (ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays.Count > 0)
+                _ = ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.Focus(FocusState.Programmatic);
+            else
+                _ = ChannelCalibrationDetailsExpander.Focus(FocusState.Programmatic);
+        });
+    }
+
     private void UpdateManualReferenceStatusVisibility()
     {
         var reason = ViewModel.ManualReferenceDisabledReasonText;
@@ -989,6 +1028,22 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
                 return checkBox;
 
             var descendant = FindDescendantCheckBox(child);
+            if (descendant is not null)
+                return descendant;
+        }
+
+        return null;
+    }
+
+    private static Button? FindFirstIssueButton(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is Button { Visibility: Visibility.Visible, IsEnabled: true } button)
+                return button;
+
+            var descendant = FindFirstIssueButton(child);
             if (descendant is not null)
                 return descendant;
         }

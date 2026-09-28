@@ -1,0 +1,18 @@
+# 01V-3 fresh pre-edit Root baseline
+
+Capture integrity: **PASS for four in-process `ScanDebugRootGrid` renders**. These are **Root-only PNGs, not full native-window screenshots**: the Shell, title bar, and any content outside this XAML target are not covered. They are not a product visual PASS. Do not substitute an earlier full-window image for them.
+
+The unmodified, operator-supplied `PRISM Utility/bin/x64/Release-01V3Baseline/PrismUtility.exe` was launched in a new isolated `TEMP`/`TMP`/`LOCALAPPDATA` and settings directory. It was supplied as a build of HEAD `a5186c1`; binary-to-commit linkage was not independently certified. EXE SHA-256: `D61B0FA29354DD51B77B4E400AD4F657FD1E5C2996D67AB4C3E005471411E264`; app DLL SHA-256: `159E4BB7314FB493D4A27484B1D51923555FBBDC9921C2E6FA3E5EB6FF33A570`. The conditional QA service's fresh ready marker and every request result were checked. The isolated process exited after capture. No device commands, apply/save, scroll operations, or target-specific focus/scroll requests were sent; UIA selected only BlackWhite and Motion.
+
+Both physical windows used the requested dimensions and reported `GetDpiForWindow=192` and `XamlRoot.RasterizationScale=2`. The first-screen Root/visible-preview dimensions were measured in-process both before and after each render and stayed the same; no viewport expansion was performed. The conditional no-seed source had `emptyStateCapture=true`, `previewFramePresent=false`, and `pendingCalibrationPresent=false` for all four captures. This is offline UI, not a device image, RAW frame, or synthetic preview fixture.
+
+| Native physical window | Root DIP | Visible preview DIP | Root-only PNG pixels | PNG SHA-256 | Sampled non-black / distinct colors |
+| --- | --- | --- | --- | --- | --- |
+| [Two-column BlackWhite](two-column-BlackWhite-root-default-empty.png), 2174 x 1440 | 977 x 604 | 645 x 396 | 1962 x 1208 | `1B030C39D13861CF4BA442FDC672E50CFBE3521710AF87D4C6F56F9DC28D8637` | 170/221; 8 |
+| [Two-column Motion](two-column-Motion-root-default-empty.png), 2174 x 1440 | 977 x 604 | 645 x 396 | 1962 x 1208 | `FAAB012FB9C843998398F0F6DFB0A5A67F96866982D046000C9F7BF7DDF4B47D` | 170/221; 9 |
+| [Wide BlackWhite](wide-BlackWhite-root-default-empty.png), 3374 x 1850 | 1305 x 809 | 950 x 601 | 2610 x 1618 | `465D36D0FC204445B78BF910B538CE4237E365627AC7F8849528B77BCCEED8D4` | 201/221; 14 |
+| [Wide Motion](wide-Motion-root-default-empty.png), 3374 x 1850 | 1305 x 809 | 950 x 601 | 2610 x 1618 | `BB0B26C39CDC5164B1A64CE15E7E402E603683CCFA595F140E3FB3B06FA3DA69` | 201/221; 11 |
+
+Each PNG's eight-byte signature is `89 50 4E 47 0D 0A 1A 0A`. Independent reopening checked its dimensions, SHA-256, and sample counts. All four current PNGs were also opened and inspected: they contain rendered controls/text, not a black or missing-compositor rectangle. The two-column `RenderTargetBitmap` outputs are eight pixels wider than `977 DIP x 2`; the reason is not established. Before/after Root and preview measurements remain identical, so this is recorded as a bitmap-extent discrepancy, **not** a wider viewport or a claim about the full window.
+
+The captured two-column BlackWhite first screen still has the ROI/validation summary below the visible parameter area; the wide BlackWhite ROI number/unit breaks across lines; Motion summary wraps words unnaturally. These are baseline observations, not fixes or acceptance. The full per-shot request timestamp, actual Root/page/preview, visible preview rect, DPI, PNG hash and sample counts, target, and source are in [root-baseline.json](root-baseline.json). The only helper added is [capture-root-baseline.ps1](../capture-root-baseline.ps1); the production app and `after/capture-native.ps1` were not changed.
