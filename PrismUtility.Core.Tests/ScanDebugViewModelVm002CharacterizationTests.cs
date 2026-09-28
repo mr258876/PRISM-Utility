@@ -33,7 +33,8 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "ItemsSource=\"{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}\"",
             "SelectedItem=\"{x:Bind ViewModel.SelectedDebugDngExportMode, Mode=TwoWay}\"",
             "ItemsSource=\"{x:Bind ViewModel.CalibrationChannelOptions, Mode=OneWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedCalibrationChannel, Mode=TwoWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedCalibrationChannel, Mode=OneWay}\"",
+            "SelectionChanged=\"CalibrationChannelFallbackComboBox_SelectionChanged\"",
             "Command=\"{x:Bind ViewModel.SaveChannelProfileCommand}\"",
             "Command=\"{x:Bind ViewModel.ClearChannelProfileCommand}\"",
             "Command=\"{x:Bind ViewModel.ApplyDeviceClockCommand}\"",
@@ -69,6 +70,16 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         {
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
         }
+
+        var channelSelectionHandler = ExtractMemberBodyAtDeclaration(codeBehind, "private async void CalibrationChannelFallbackComboBox_SelectionChanged(");
+        var channelSelectionPreflight = ExtractMemberBodyAtDeclaration(viewModel, "public async Task<bool> TrySelectCalibrationChannelAsync(");
+        Assert.DoesNotContain("SelectedItem=\"{x:Bind ViewModel.SelectedCalibrationChannel, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CalibrationChannelFallbackComboBox.SelectedItem = ViewModel.SelectedCalibrationChannel;", channelSelectionHandler, StringComparison.Ordinal);
+        Assert.Contains("await ViewModel.TrySelectCalibrationChannelAsync(nextChannel);", channelSelectionHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.SelectedCalibrationChannel = nextChannel", channelSelectionHandler, StringComparison.Ordinal);
+        Assert.Contains("if (_manualReferenceHasLocalEdit)", channelSelectionPreflight, StringComparison.Ordinal);
+        Assert.Contains("if (!await RequestFilmProfileImportConfirmationAsync(", channelSelectionPreflight, StringComparison.Ordinal);
+        Assert.Contains("SelectedCalibrationChannel = channelRole;", channelSelectionPreflight, StringComparison.Ordinal);
 
         FilmProfileSourceContractTests.AssertCurrentRuntimeGatedCommandInventory(xaml, codeBehind, viewModel);
 

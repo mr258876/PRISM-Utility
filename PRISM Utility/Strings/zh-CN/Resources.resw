@@ -1022,13 +1022,15 @@
     <value>应用参数</value>
   </data>
   <data name="ScanDebug_AutoBlackButton.Content" xml:space="preserve">
-    <value>自动黑/偏移</value>
+    <value>黑场 / 偏移</value>
   </data>
+  <data name="ScanDebug_AutoBlackButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>对当前通道执行原有自动黑场与偏移调整。</value></data>
   <data name="ScanDebug_AutoWhiteButton.Content" xml:space="preserve">
-    <value>自动白电平 / 增益</value>
+    <value>白场 / 增益</value>
   </data>
+  <data name="ScanDebug_AutoWhiteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>对当前通道执行原有自动白场与增益调整。</value></data>
   <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve">
-    <value>自动校准</value>
+    <value>完整自动校准</value>
   </data>
   <data name="ScanDebug_PendingCalibrationCandidateReviewTitle.Text" xml:space="preserve">
     <value>待审查校准候选</value>
@@ -3697,10 +3699,10 @@
     <value>{0}：{1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummary" xml:space="preserve">
-    <value>{0}：{1}。&#10;移动距离 {2}&#160;mm；预&#x2060;计&#x2060;步&#x2060;数 {3}。&#10;预计耗时 {4}&#160;s；逻辑方向 {5}。&#10;原始方向 {6}；物理方向未知。</value>
+    <value>本次动作预计：{0}。&#10;移动距离 {1}&#160;mm；预&#x2060;计&#x2060;步&#x2060;数 {2}。&#10;预计耗时 {3}&#160;s；逻辑方向 {4}。&#10;原始方向 {5}；物理方向未知。</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummaryInvalid" xml:space="preserve">
-    <value>{0}：{1}。&#10;请求移动无效：{2}</value>
+    <value>{0}。&#10;请求移动无效：{1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorLogicalDirectionUnmapped" xml:space="preserve">
     <value>未映射</value>
@@ -4325,7 +4327,8 @@
   <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>对焦</value></data>
   <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>运动</value></data>
   <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>采集模式</value></data>
-  <data name="ScanDebug_MotorAxisComboBox.Header" xml:space="preserve"><value>当前电机</value></data>
+  <data name="ScanDebug_MotorAxisInlineLabel.Text" xml:space="preserve"><value>当前电机</value></data>
+  <data name="ScanDebug_MotorAxisComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>选择当前电机</value></data>
   <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor1</value></data>
   <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor2</value></data>
   <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor3</value></data>
@@ -4373,6 +4376,23 @@
   <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1}（范围无效）</value></data>
   <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
   <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>查看问题</value></data>
+  <data name="ScanDebug_BwIssueDetailsTitle.Text" xml:space="preserve"><value>通道校准问题</value></data>
+  <data name="ScanDebug_BwReturnToParametersButton.Content" xml:space="preserve"><value>返回参数</value></data>
+  <data name="ScanDebug_BwLocateIssueAction.Text" xml:space="preserve"><value>定位修改</value></data>
+  <data name="ScanDebug_BwIssueOriginSeverity" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="ScanDebug_BwIssueCurrentDraft" xml:space="preserve"><value>当前配置草稿</value></data>
+  <data name="ScanDebug_BwIssueImportReview" xml:space="preserve"><value>导入审查</value></data>
+  <data name="ScanDebug_BwIssueError" xml:space="preserve"><value>错误</value></data>
+  <data name="ScanDebug_BwIssueWarning" xml:space="preserve"><value>警告</value></data>
+  <data name="ScanDebug_BwViewingIssues.Text" xml:space="preserve"><value>正在查看</value></data>
+  <data name="ScanDebug_BwNoIssuesReported.Text" xml:space="preserve"><value>没有已报告的通道校准问题；不表示已验证或验证通过。</value></data>
+  <data name="ScanDebug_BwLocalInputStatus.Text" xml:space="preserve"><value>本地输入未应用</value></data>
+  <data name="ScanDebug_BwMissingProfileText.Text" xml:space="preserve"><value>缺少通道档案</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.Content" xml:space="preserve"><value>配置当前通道</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>打开所选通道的通道库与参数；不会自动创建、应用或保存档案。</value></data>
+  <data name="ScanDebug_BwDiscardInputTitle" xml:space="preserve"><value>放弃本地黑白值输入？</value></data>
+  <data name="ScanDebug_BwDiscardInputMessage" xml:space="preserve"><value>切换通道将丢弃未应用的黑白值输入。继续编辑还是放弃本地输入？</value></data>
+  <data name="ScanDebug_BwDiscardInputConfirm" xml:space="preserve"><value>放弃本地输入</value></data>
   <data name="ScanDebug_BwIssueList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通道校准问题</value></data>
   <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>通道问题 0 项</value></data>
   <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} 项阻塞问题</value></data>

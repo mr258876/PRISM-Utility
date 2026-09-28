@@ -362,9 +362,9 @@ internal static class PrismVisualQaCaptureService
         var viewModel = page.ViewModel;
         var previewFrame = viewModel.PreviewFrame;
         var previewWidth = previewFrame?.Width ?? 0;
+        var currentDraft = App.GetService<Core.Contracts.Services.IScanFilmProfileWorkspace>().Snapshot.CurrentDraft;
         var profileDraftSha256 = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
-            App.GetService<Core.Contracts.Services.IScanFilmProfileWorkspace>().Snapshot.CurrentDraft,
-            JsonOptions)));
+            currentDraft, JsonOptions)));
         var currentFilmProfileValidationIssues = viewModel.CurrentFilmProfileValidationIssues.Select(ToIssue).ToArray();
         var stagedFilmProfileImportValidationIssues = viewModel.StagedFilmProfileImportValidationIssues.Select(ToIssue).ToArray();
         var selectedRoiRange = viewModel.TryGetSelectedRoiRange(previewWidth, out var selectedRange)
@@ -398,6 +398,9 @@ internal static class PrismVisualQaCaptureService
             viewModel.PreviewGamma,
             profileDraftSha256,
             selectedCalibrationChannel = viewModel.SelectedCalibrationChannel,
+            selectedChannelInCurrentDraft = currentDraft.ChannelProfiles.ContainsKey(viewModel.SelectedCalibrationChannel),
+            manualReferenceMissingVisibility = viewModel.MissingCalibrationProfileVisibility.ToString(),
+            manualReferenceDisabledReasonText = viewModel.ManualReferenceDisabledReasonText,
             hasPendingFilmProfileImportResult = viewModel.HasPendingFilmProfileImportResult,
             hasStagedFilmProfileImport = viewModel.HasStagedFilmProfileImport,
             canApplyStagedFilmProfileImport = viewModel.CanApplyStagedFilmProfileImport,
@@ -458,6 +461,8 @@ internal static class PrismVisualQaCaptureService
             ?? throw new InvalidOperationException("ScanDebugRootGrid is unavailable.");
         var preview = ResolveTarget(page, "PreviewScrollViewer") as ScrollViewer
             ?? throw new InvalidOperationException("PreviewScrollViewer is unavailable.");
+        var rootBounds = root.TransformToVisual(page).TransformBounds(
+            new Windows.Foundation.Rect(0, 0, root.ActualWidth, root.ActualHeight));
         var previewBounds = preview.TransformToVisual(page).TransformBounds(
             new Windows.Foundation.Rect(0, 0, preview.ActualWidth, preview.ActualHeight));
         var visibleLeft = 0d;
@@ -487,7 +492,12 @@ internal static class PrismVisualQaCaptureService
         return new
         {
             xamlRootRasterizationScale = page.XamlRoot.RasterizationScale,
-            scanDebugRootGrid = new { root.ActualWidth, root.ActualHeight },
+            scanDebugRootGrid = new
+            {
+                root.ActualWidth,
+                root.ActualHeight,
+                rectInPage = new { x = rootBounds.X, y = rootBounds.Y, width = rootBounds.Width, height = rootBounds.Height }
+            },
             page = new { page.ActualWidth, page.ActualHeight },
             previewScrollViewer = new
             {
@@ -498,6 +508,7 @@ internal static class PrismVisualQaCaptureService
                 preview.Visibility,
                 visibleViewportWidth,
                 visibleViewportHeight,
+                rectInPage = new { x = previewBounds.X, y = previewBounds.Y, width = previewBounds.Width, height = previewBounds.Height },
                 visibleRectInPage = new { x = visibleLeft, y = visibleTop, width = visibleWidth, height = visibleHeight }
             },
             previewFramePresent = page.ViewModel.PreviewFrame is not null,

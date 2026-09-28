@@ -73,6 +73,23 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private bool? _inspectionOpenOverride;
     private double _workbenchPreviewEditorRatio = ScanWorkbenchPreviewLayout.DefaultEditorRatio;
     private int _workbenchFocusHandoffVersion;
+    private int _bwFocusRequestVersion;
+    private int _issueTargetFocusRequestVersion;
+    private EventHandler<object>? _bwIssueLayoutHandler;
+    private EventHandler<ScrollViewerViewChangedEventArgs>? _bwIssueViewChangedHandler;
+    private ScrollViewer? _bwIssueScrollOwner;
+    private DependencyObject? _bwIssueExpectedFocus;
+    private double? _bwCompactEditorScrollOffset;
+    private EventHandler<object>? _bwCompactReturnLayoutHandler;
+    private EventHandler<object>? _issueTargetLayoutHandler;
+    private EventHandler<ScrollViewerViewChangedEventArgs>? _issueTargetViewChangedHandler;
+    private Control? _issueTargetFocusControl;
+    private ScrollViewer? _issueTargetViewport;
+    private DependencyObject? _issueTargetExpectedFocus;
+    private bool _issueTargetBringIntoViewRequested;
+    private bool _isUpdatingCalibrationChannelSelection;
+    private bool _calibrationChannelSelectionPending;
+    private bool _bwCompactMode;
 #if PRISM_VISUAL_QA
     private int _visualQaPreviewScrollPressedCount;
     private int _visualQaPreviewScrollMovedCount;
@@ -100,8 +117,6 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ComposeWorkspaceHeader();
         SetActiveWorkbenchSection(_activeWorkbenchSectionIndex);
         UpdateRawSignalMode();
-        UpdateChannelCalibrationValidationNotice();
-        UpdateManualReferenceStatusVisibility();
         InitializeCurrentCalibrationIlluminationEditor();
         NavigationTimingLogger.Write($"ScanDebugPage.ctor InitializeComponent={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
@@ -137,10 +152,112 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         Motor1DetailsExpander.Visibility = ToVisibility(MotorAxisComboBox.SelectedIndex == 0);
         Motor2DetailsExpander.Visibility = ToVisibility(MotorAxisComboBox.SelectedIndex == 1);
         Motor3DetailsExpander.Visibility = ToVisibility(MotorAxisComboBox.SelectedIndex == 2);
+        Motor1SettingsExpander.Visibility = Motor1DetailsExpander.Visibility;
+        Motor2SettingsExpander.Visibility = Motor2DetailsExpander.Visibility;
+        Motor3SettingsExpander.Visibility = Motor3DetailsExpander.Visibility;
         Motor1StatusTextBlock.Visibility = Motor1DetailsExpander.Visibility;
         Motor2StatusTextBlock.Visibility = Motor2DetailsExpander.Visibility;
         Motor3StatusTextBlock.Visibility = Motor3DetailsExpander.Visibility;
+        Motor1MoveButton.Visibility = Motor1DetailsExpander.Visibility;
+        Motor2MoveButton.Visibility = Motor2DetailsExpander.Visibility;
+        Motor3MoveButton.Visibility = Motor3DetailsExpander.Visibility;
+        var stopButtons = new[] { Motor1StopButton, Motor2StopButton, Motor3StopButton };
+        var nextOtherStopColumn = 0;
+        for (var index = 0; index < stopButtons.Length; index++)
+        {
+            var isCurrentAxis = MotorAxisComboBox.SelectedIndex == index;
+            Grid.SetRow(stopButtons[index], isCurrentAxis ? 0 : 1);
+            Grid.SetColumn(stopButtons[index], isCurrentAxis ? 1 : nextOtherStopColumn++);
+        }
         EngineeringToolsScrollViewer.ChangeView(null, 0, null, true);
+    }
+
+    private async void CalibrationChannelFallbackComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isPageActive || _isUpdatingCalibrationChannelSelection
+            || CalibrationChannelFallbackComboBox.SelectedItem is not string nextChannel
+            || string.Equals(nextChannel, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _isUpdatingCalibrationChannelSelection = true;
+        CalibrationChannelFallbackComboBox.SelectedItem = ViewModel.SelectedCalibrationChannel;
+        _isUpdatingCalibrationChannelSelection = false;
+        if (_calibrationChannelSelectionPending)
+            return;
+
+        _calibrationChannelSelectionPending = true;
+        var activationEpoch = _activationEpoch;
+        try
+        {
+            await ViewModel.TrySelectCalibrationChannelAsync(nextChannel);
+        }
+        finally
+        {
+            _calibrationChannelSelectionPending = false;
+            if (IsCurrentActivation(activationEpoch) && _activeWorkbenchSectionIndex == 2)
+            {
+                _isUpdatingCalibrationChannelSelection = true;
+                CalibrationChannelFallbackComboBox.SelectedItem = ViewModel.SelectedCalibrationChannel;
+                _isUpdatingCalibrationChannelSelection = false;
+            }
+        }
+    }
+
+    private void ChannelCalibrationSection_Loaded(object sender, RoutedEventArgs e)
+        => UpdateChannelCalibrationRailLayout(ChannelCalibrationSection.ActualHeight);
+
+    private void ChannelCalibrationSection_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+        => UpdateChannelCalibrationRailLayout(e.NewSize.Height);
+
+    private void ChannelCalibrationSummary_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+        => UpdateChannelCalibrationRailLayout(ChannelCalibrationSection.ActualHeight);
+
+    private void UpdateChannelCalibrationRailLayout(double availableHeight)
+    {
+        if (ChannelCalibrationRail is null || ChannelCalibrationCompactScrollViewer is null
+            || BwRoiSummary is null || !ChannelCalibrationSection.IsLoaded || availableHeight <= 0)
+            return;
+
+        var useSingleScroll = availableHeight < Math.Max(320,
+            ChannelCalibrationIdentityHeader.ActualHeight + BwRoiSummary.ActualHeight + 144);
+        if (_bwCompactMode == useSingleScroll)
+            return;
+
+        _bwCompactMode = useSingleScroll;
+        if (useSingleScroll)
+        {
+            ChannelCalibrationSection.Children.Remove(ChannelCalibrationRail);
+            ChannelCalibrationBodyRow.Height = GridLength.Auto;
+            ChannelCalibrationScrollViewer.VerticalScrollMode = ScrollMode.Disabled;
+            ChannelCalibrationScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.VerticalScrollMode = ScrollMode.Disabled;
+            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            ChannelCalibrationCompactScrollViewer.Content = ChannelCalibrationRail;
+            ChannelCalibrationCompactScrollViewer.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ChannelCalibrationCompactScrollViewer.Content = null;
+            ChannelCalibrationCompactScrollViewer.Visibility = Visibility.Collapsed;
+            ChannelCalibrationSection.Children.Insert(0, ChannelCalibrationRail);
+            ChannelCalibrationBodyRow.Height = new GridLength(1, GridUnitType.Star);
+            ChannelCalibrationScrollViewer.VerticalScrollMode = ScrollMode.Auto;
+            ChannelCalibrationScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.VerticalScrollMode = ScrollMode.Auto;
+            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        }
+    }
+
+    private void BwAutoActionGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+        if (BwAutoBlackButton is null || BwAutoWhiteButton is null)
+            return;
+
+        var stackSingleActions = e.NewSize.Width < 232;
+        Grid.SetColumn(BwAutoWhiteButton, stackSingleActions ? 0 : 1);
+        Grid.SetColumnSpan(BwAutoBlackButton, stackSingleActions ? 2 : 1);
+        Grid.SetColumnSpan(BwAutoWhiteButton, stackSingleActions ? 2 : 1);
+        Grid.SetRow(BwAutoWhiteButton, stackSingleActions ? 1 : 0);
     }
 
     private void WorkbenchSectionSelectorBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -288,57 +405,218 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             FilmProfileLifecycleDetailsScrollViewer.Visibility = Visibility.Visible;
     }
 
-    private void UpdateChannelCalibrationValidationNotice()
-    {
-        ChannelCalibrationValidationNotice.Visibility = ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity
-            is InfoBarSeverity.Error or InfoBarSeverity.Warning ? Visibility.Visible : Visibility.Collapsed;
-    }
-
     private void BwRoiEditButton_Click(object sender, RoutedEventArgs e)
     {
+        ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
+        ExitBwIssueView(returnFocus: false);
         AdcRoiDetailsExpander.IsExpanded = true;
-        EnqueueForCurrentActivation(() =>
-        {
-            AdcRoiTargetComboBox.StartBringIntoView();
-            _ = AdcRoiTargetComboBox.Focus(FocusState.Programmatic);
-        });
+        BeginIssueTargetFocus(2, ChannelCalibrationScrollViewer, AdcRoiTargetComboBox,
+            ViewModel.SelectedCalibrationChannel);
     }
 
     private void BwViewIssuesButton_Click(object sender, RoutedEventArgs e)
     {
-        ChannelCalibrationDetailsExpander.IsExpanded = true;
-        EnqueueForCurrentActivation(() =>
+        if (double.IsFinite(BwViewIssuesButton.ActualHeight) && BwViewIssuesButton.ActualHeight > 0)
         {
-            ChannelCalibrationScrollViewer.UpdateLayout();
-            if (ChannelCalibrationCurrentFilmProfileValidationCard.IsLoaded
-                && ChannelCalibrationCurrentFilmProfileValidationCard.ActualHeight > 0)
-            {
-                var cardTop = ChannelCalibrationCurrentFilmProfileValidationCard
-                    .TransformToVisual(ChannelCalibrationScrollViewer).TransformPoint(new Point()).Y;
-                _ = ChannelCalibrationScrollViewer.ChangeView(null,
-                    ChannelCalibrationScrollViewer.VerticalOffset + cardTop, null, true);
-            }
+            BwValidationActionPanel.MinHeight = BwViewIssuesButton.ActualHeight;
+            var inset = Math.Max(0, (BwViewIssuesButton.ActualHeight - BwValidationSummaryTextBlock.ActualHeight) / 2);
+            BwValidationSummaryTextBlock.Margin = new Thickness(0, inset, 0, 0);
+            BwViewingIssuesText.Margin = new Thickness(0, inset, 0, 0);
+        }
+        ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
+        CancelIssueTargetFocus();
+        CancelBwIssueFocus();
+        var requestVersion = _bwFocusRequestVersion;
+        var activationEpoch = _activationEpoch;
+        var channelRole = ViewModel.SelectedCalibrationChannel;
+        _bwIssueExpectedFocus = XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
+        _bwCompactEditorScrollOffset = _bwCompactMode ? ChannelCalibrationCompactScrollViewer.VerticalOffset : null;
+        ChannelCalibrationIssuePanel.Visibility = Visibility.Visible;
+        ChannelCalibrationScrollViewer.Visibility = Visibility.Collapsed;
+        BwViewIssuesButton.Visibility = Visibility.Collapsed;
+        BwViewingIssuesText.Visibility = Visibility.Visible;
+        var scrollOwner = _bwCompactMode ? ChannelCalibrationCompactScrollViewer
+            : ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer;
+        _ = scrollOwner.ChangeView(null, 0, null, true);
+        if (BwReturnToParametersButton.Focus(FocusState.Programmatic)
+            && XamlRoot is { } focusRoot
+            && ReferenceEquals(FocusManager.GetFocusedElement(focusRoot), BwReturnToParametersButton))
+            _bwIssueExpectedFocus = BwReturnToParametersButton;
 
-            ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.UpdateLayout();
-            var issue = FindFirstIssueButton(ChannelCalibrationIssueItemsControl);
-            if (issue is not null)
-            {
-                issue.StartBringIntoView();
-                _ = issue.Focus(FocusState.Programmatic);
-            }
-            else if (ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays.Count > 0)
-                _ = ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer.Focus(FocusState.Programmatic);
-            else
-                _ = ChannelCalibrationDetailsExpander.Focus(FocusState.Programmatic);
-        });
+        _bwIssueLayoutHandler = (_, _) => TryFocusBwIssue(requestVersion, activationEpoch, channelRole);
+        ChannelCalibrationIssueItemsControl.LayoutUpdated += _bwIssueLayoutHandler;
+        _bwIssueScrollOwner = scrollOwner;
+        _bwIssueViewChangedHandler = (_, _) => TryFocusBwIssue(requestVersion, activationEpoch, channelRole);
+        scrollOwner.ViewChanged += _bwIssueViewChangedHandler;
+        EnqueueForCurrentActivation(() => TryFocusBwIssue(requestVersion, activationEpoch, channelRole));
     }
 
-    private void UpdateManualReferenceStatusVisibility()
+    private void BwReturnToParametersButton_Click(object sender, RoutedEventArgs e)
     {
-        var reason = ViewModel.ManualReferenceDisabledReasonText;
-        ManualReferenceStatusTextBlock.Visibility = !string.IsNullOrEmpty(reason)
-            && string.Equals(reason, ViewModel.ManualReferenceStatusText, StringComparison.Ordinal)
-            ? Visibility.Collapsed : Visibility.Visible;
+        ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
+        ExitBwIssueView(returnFocus: true);
+    }
+
+    private void BwConfigureChannelButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
+        ExitBwIssueView(returnFocus: false);
+        ChannelCalibrationDetailsExpander.IsExpanded = true;
+        BeginIssueTargetFocus(2, ChannelCalibrationScrollViewer, ExposureMicrosecondsTextBox,
+            ViewModel.SelectedCalibrationChannel);
+    }
+
+    private async void BwIssueButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: ScanFilmProfileValidationIssueDisplay display }
+            || ChannelCalibrationIssuePanel.Visibility != Visibility.Visible)
+            return;
+
+        CancelBwIssueFocus();
+        await ViewModel.TryRequestCurrentFilmProfileIssueNavigationAsync(display);
+    }
+
+    private void TryFocusBwIssue(int requestVersion, int activationEpoch, string channelRole)
+    {
+        if (requestVersion != _bwFocusRequestVersion)
+            return;
+
+        if (!IsCurrentActivation(activationEpoch) || _activeWorkbenchSectionIndex != 2
+            || ChannelCalibrationIssuePanel.Visibility != Visibility.Visible
+            || !string.Equals(channelRole, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            CancelBwIssueFocus();
+            return;
+        }
+
+        if (XamlRoot is not { } root)
+            return;
+        var focused = FocusManager.GetFocusedElement(root) as DependencyObject;
+        if (!ReferenceEquals(focused, _bwIssueExpectedFocus))
+        {
+            CancelBwIssueFocus();
+            return;
+        }
+
+        var scrollOwner = _bwCompactMode ? ChannelCalibrationCompactScrollViewer
+            : ChannelCalibrationCurrentFilmProfileValidationIssueScrollViewer;
+        if (scrollOwner.ActualHeight <= 0 || !double.IsFinite(scrollOwner.ActualHeight))
+            return;
+
+        var issues = ViewModel.ChannelCalibrationCurrentFilmProfileValidationIssueDisplays;
+        var issueButton = issues.Count > 0 && issues[0].CanNavigate
+            ? FindFirstIssueButton(ChannelCalibrationIssueItemsControl) : null;
+        if (issues.Count > 0 && issues[0].CanNavigate && issueButton is null)
+            return;
+
+        var target = issueButton ?? BwReturnToParametersButton;
+        FrameworkElement targetViewport = _bwCompactMode ? scrollOwner
+            : issueButton is null ? ChannelCalibrationIssuePanel : scrollOwner;
+        if (!IsControlFullyVisible(target, targetViewport))
+        {
+            if (issueButton is null || issueButton.ActualHeight <= scrollOwner.ViewportHeight)
+                target.StartBringIntoView();
+            else
+                target = BwReturnToParametersButton;
+            targetViewport = _bwCompactMode ? scrollOwner
+                : target == issueButton ? scrollOwner : ChannelCalibrationIssuePanel;
+            if (!IsControlFullyVisible(target, targetViewport))
+                return;
+        }
+
+        if (target.Focus(FocusState.Programmatic)
+            && ReferenceEquals(FocusManager.GetFocusedElement(root), target))
+            CancelBwIssueFocus();
+    }
+
+    private void CancelBwIssueFocus()
+    {
+        _bwFocusRequestVersion++;
+        if (_bwIssueLayoutHandler is not null)
+            ChannelCalibrationIssueItemsControl.LayoutUpdated -= _bwIssueLayoutHandler;
+        if (_bwIssueScrollOwner is not null && _bwIssueViewChangedHandler is not null)
+            _bwIssueScrollOwner.ViewChanged -= _bwIssueViewChangedHandler;
+        _bwIssueLayoutHandler = null;
+        _bwIssueViewChangedHandler = null;
+        _bwIssueScrollOwner = null;
+        _bwIssueExpectedFocus = null;
+        CancelBwCompactReturnScroll();
+    }
+
+    private void ExitBwIssueView(bool returnFocus)
+    {
+        var restoreOffset = returnFocus && _bwCompactMode ? _bwCompactEditorScrollOffset : null;
+        _bwCompactEditorScrollOffset = null;
+        CancelBwIssueFocus();
+        if (ChannelCalibrationIssuePanel.Visibility != Visibility.Visible)
+            return;
+
+        ChannelCalibrationIssuePanel.Visibility = Visibility.Collapsed;
+        ChannelCalibrationScrollViewer.Visibility = Visibility.Visible;
+        BwValidationSummaryTextBlock.Margin = new Thickness(0);
+        BwViewingIssuesText.Margin = new Thickness(0);
+        BwViewIssuesButton.Visibility = Visibility.Visible;
+        BwViewingIssuesText.Visibility = Visibility.Collapsed;
+        if (returnFocus)
+        {
+            var requestVersion = _bwFocusRequestVersion;
+            var channelRole = ViewModel.SelectedCalibrationChannel;
+            if (restoreOffset is { } offset)
+                RestoreBwCompactEditorScrollAfterLayout(offset, requestVersion, channelRole);
+
+            if (!BwViewIssuesButton.Focus(FocusState.Programmatic))
+            {
+                EnqueueForCurrentActivation(() =>
+                {
+                    if (requestVersion == _bwFocusRequestVersion && _activeWorkbenchSectionIndex == 2
+                        && string.Equals(channelRole, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+                        && BwViewIssuesButton.Visibility == Visibility.Visible && XamlRoot is { } root)
+                    {
+                        var focused = FocusManager.GetFocusedElement(root) as DependencyObject;
+                        if (focused is null || ReferenceEquals(focused, BwReturnToParametersButton) || !IsVisibleInTree(focused))
+                            _ = BwViewIssuesButton.Focus(FocusState.Programmatic);
+                    }
+                });
+            }
+        }
+    }
+
+    private void RestoreBwCompactEditorScrollAfterLayout(double offset, int requestVersion, string channelRole)
+    {
+        var activationEpoch = _activationEpoch;
+        _bwCompactReturnLayoutHandler = (_, _) =>
+        {
+            CancelBwCompactReturnScroll();
+            if (requestVersion == _bwFocusRequestVersion && IsCurrentActivation(activationEpoch)
+                && _activeWorkbenchSectionIndex == 2 && _bwCompactMode
+                && ChannelCalibrationIssuePanel.Visibility != Visibility.Visible
+                && string.Equals(channelRole, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+                _ = ChannelCalibrationCompactScrollViewer.ChangeView(null, offset, null, true);
+        };
+        ChannelCalibrationCompactScrollViewer.LayoutUpdated += _bwCompactReturnLayoutHandler;
+    }
+
+    private void CancelBwCompactReturnScroll()
+    {
+        if (_bwCompactReturnLayoutHandler is not null)
+            ChannelCalibrationCompactScrollViewer.LayoutUpdated -= _bwCompactReturnLayoutHandler;
+        _bwCompactReturnLayoutHandler = null;
+    }
+
+    private static bool IsControlFullyVisible(Control target, FrameworkElement viewport)
+    {
+        if (!target.IsLoaded || !viewport.IsLoaded || !IsVisibleInTree(target)
+            || !double.IsFinite(target.ActualHeight) || target.ActualHeight <= 0
+            || !double.IsFinite(target.ActualWidth) || target.ActualWidth <= 0
+            || !double.IsFinite(viewport.ActualHeight) || viewport.ActualHeight <= 0
+            || !double.IsFinite(viewport.ActualWidth) || viewport.ActualWidth <= 0)
+            return false;
+
+        var topLeft = target.TransformToVisual(viewport).TransformPoint(new Point(0, 0));
+        return double.IsFinite(topLeft.X) && double.IsFinite(topLeft.Y)
+            && topLeft.X >= 0 && topLeft.Y >= 0
+            && topLeft.X + target.ActualWidth <= viewport.ActualWidth
+            && topLeft.Y + target.ActualHeight <= viewport.ActualHeight;
     }
 
     private void InspectionToggleButton_Click(object sender, RoutedEventArgs e)
@@ -623,6 +901,14 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             return;
         }
 
+        if (_activeWorkbenchSectionIndex != index)
+            CancelIssueTargetFocus();
+        if (index != 2)
+        {
+            ExitBwIssueView(returnFocus: false);
+            ViewModel.CancelPendingCalibrationChannelSelection();
+        }
+
         if (_activeWorkbenchSectionIndex == 3 && index != 3)
         {
             ManualFocusNegativeButton.ReleasePointerCaptures();
@@ -642,6 +928,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             LiveCalibrationSection.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
             DeviceSettingsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
             EngineeringToolsSection.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
+            if (index == 2 && string.IsNullOrWhiteSpace(ViewModel.SelectedCalibrationChannel))
+                _ = ViewModel.TrySelectCalibrationChannelAsync(ViewModel.CalibrationChannelOptions[0]);
             if (index == 5)
                 FindName("MotionContent");
             SynchronizeWorkbenchSectionSelectors(index);
@@ -786,7 +1074,6 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         SubscribeViewModelEvents();
         UpdateWorkbenchReviewEntry();
-        UpdateManualReferenceStatusVisibility();
         NavigationTimingLogger.Write($"ScanDebugPage.Loaded SubscribeViewModelEvents={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         stepStopwatch.Restart();
@@ -828,6 +1115,10 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         _isPageActive = false;
         var unloadEpoch = ++_activationEpoch;
+        _bwCompactEditorScrollOffset = null;
+        CancelBwIssueFocus();
+        CancelIssueTargetFocus();
+        ViewModel.CancelPendingCalibrationChannelSelection();
         var pageOwner = _pageActivationOwner;
         ViewModel.InvalidatePageActivation(pageOwner);
         _dialogLifetime.Retire(this, unloadEpoch - 1);
@@ -926,6 +1217,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: false, out var sectionIndex, out var scroller, out var target))
             return;
 
+        ExitBwIssueView(returnFocus: false);
         _isNarrowPreviewOpen = false;
         _inspectionOpenOverride = false;
         _isConfigurationWorkspaceOpen = sectionIndex is 0 or 1;
@@ -937,37 +1229,114 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             AcquisitionTransportStrategyExpander.IsExpanded = true;
         if (sectionIndex == 2)
         {
-            ChannelCalibrationDetailsExpander.IsExpanded = true;
+            if (request.EditorTarget is ScanFilmProfileIssueEditorTarget.ChannelStatus
+                or ScanFilmProfileIssueEditorTarget.ChannelParameters)
+                ChannelCalibrationDetailsExpander.IsExpanded = true;
             if (request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelRoiSettings)
                 AdcRoiDetailsExpander.IsExpanded = true;
         }
-        EnqueueForCurrentActivation(() =>
-        {
-            if (!IsCurrentFilmProfileNavigationStillValid())
-                return;
-
-            if (request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelAssignment)
-            {
-                AcquisitionChannelAssignmentList.StartBringIntoView();
-                AcquisitionChannelAssignmentList.UpdateLayout();
-            }
-
-            if (!TryResolveCurrentFilmProfileNavigationTarget(request, allowDeferredRealization: true, out _, out scroller, out target))
-            {
-                return;
-            }
-
-            target.StartBringIntoView();
-            _ = target.Focus(FocusState.Programmatic);
-            if (target is TextBox textBox)
-                textBox.SelectAll();
-        });
+        BeginIssueTargetFocus(sectionIndex, scroller, target, request.ChannelRole,
+            request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelAssignment
+                ? () => FindFirstEligibleAssignmentCheckBox() : null,
+            requireCurrentProfileValidation: true);
     }
 
     private bool IsCurrentFilmProfileNavigationStillValid()
         => _areViewModelEventsSubscribed
             && IsLoaded
             && ViewModel.FilmProfileImportResultReviewVisibility != Visibility.Visible;
+
+    private void BeginIssueTargetFocus(int sectionIndex, ScrollViewer scroller, Control target,
+        string? channelRole = null, Func<Control?>? resolveRealizedTarget = null,
+        bool requireCurrentProfileValidation = false)
+    {
+        CancelIssueTargetFocus();
+        var requestVersion = _issueTargetFocusRequestVersion;
+        var activationEpoch = _activationEpoch;
+        _issueTargetExpectedFocus = XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
+        _issueTargetLayoutHandler = (_, _) => TryCompleteIssueTargetFocus(requestVersion, activationEpoch,
+            sectionIndex, channelRole, scroller, resolveRealizedTarget, requireCurrentProfileValidation);
+        _issueTargetFocusControl = target;
+        target.LayoutUpdated += _issueTargetLayoutHandler;
+        _issueTargetViewport = sectionIndex == 2 && _bwCompactMode ? ChannelCalibrationCompactScrollViewer : scroller;
+        _issueTargetViewChangedHandler = (_, _) => TryCompleteIssueTargetFocus(requestVersion, activationEpoch,
+            sectionIndex, channelRole, scroller, resolveRealizedTarget, requireCurrentProfileValidation);
+        _issueTargetViewport.ViewChanged += _issueTargetViewChangedHandler;
+        EnqueueForCurrentActivation(() => TryCompleteIssueTargetFocus(requestVersion, activationEpoch,
+            sectionIndex, channelRole, scroller, resolveRealizedTarget, requireCurrentProfileValidation));
+    }
+
+    private void TryCompleteIssueTargetFocus(int requestVersion, int activationEpoch, int sectionIndex,
+        string? channelRole, ScrollViewer scroller, Func<Control?>? resolveRealizedTarget,
+        bool requireCurrentProfileValidation)
+    {
+        if (requestVersion != _issueTargetFocusRequestVersion)
+            return;
+
+        if (!IsCurrentActivation(activationEpoch) || !IsLoaded || sectionIndex != _activeWorkbenchSectionIndex
+            || sectionIndex == 2 && ChannelCalibrationScrollViewer.Visibility != Visibility.Visible
+            || requireCurrentProfileValidation && !IsCurrentFilmProfileNavigationStillValid()
+            || channelRole is not null && !string.Equals(channelRole, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            CancelIssueTargetFocus();
+            return;
+        }
+
+        var target = resolveRealizedTarget is null ? _issueTargetFocusControl : resolveRealizedTarget();
+        if (XamlRoot is not { } root)
+            return;
+        var focused = FocusManager.GetFocusedElement(root) as DependencyObject;
+        if (focused is not null && !ReferenceEquals(focused, _issueTargetExpectedFocus)
+            && !ReferenceEquals(focused, target) && IsVisibleInTree(focused))
+        {
+            CancelIssueTargetFocus();
+            return;
+        }
+
+        if (target is null || !target.IsLoaded || !IsVisibleInTree(target))
+            return;
+        if (!ReferenceEquals(target, _issueTargetFocusControl))
+        {
+            _issueTargetFocusControl!.LayoutUpdated -= _issueTargetLayoutHandler;
+            _issueTargetFocusControl = target;
+            target.LayoutUpdated += _issueTargetLayoutHandler;
+            _issueTargetBringIntoViewRequested = false;
+        }
+
+        var viewport = sectionIndex == 2 && _bwCompactMode ? ChannelCalibrationCompactScrollViewer : scroller;
+        if (!IsControlFullyVisible(target, viewport))
+        {
+            if (!_issueTargetBringIntoViewRequested)
+            {
+                _issueTargetBringIntoViewRequested = true;
+                target.StartBringIntoView();
+            }
+            return;
+        }
+
+        if (!target.Focus(FocusState.Programmatic)
+            || !ReferenceEquals(FocusManager.GetFocusedElement(root), target))
+            return;
+
+        if (target is TextBox textBox)
+            textBox.SelectAll();
+        CancelIssueTargetFocus();
+    }
+
+    private void CancelIssueTargetFocus()
+    {
+        _issueTargetFocusRequestVersion++;
+        if (_issueTargetFocusControl is not null && _issueTargetLayoutHandler is not null)
+            _issueTargetFocusControl.LayoutUpdated -= _issueTargetLayoutHandler;
+        if (_issueTargetViewport is not null && _issueTargetViewChangedHandler is not null)
+            _issueTargetViewport.ViewChanged -= _issueTargetViewChangedHandler;
+        _issueTargetFocusControl = null;
+        _issueTargetLayoutHandler = null;
+        _issueTargetViewport = null;
+        _issueTargetViewChangedHandler = null;
+        _issueTargetExpectedFocus = null;
+        _issueTargetBringIntoViewRequested = false;
+    }
 
     private bool TryResolveCurrentFilmProfileNavigationTarget(ScanFilmProfileIssueNavigationRequest request, bool allowDeferredRealization, out int sectionIndex, out ScrollViewer scroller, out Control target)
     {
@@ -1003,7 +1372,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             ScanFilmProfileIssueEditorTarget.TransportStrategy => AcquisitionTransportStrategyToggleSwitch,
             ScanFilmProfileIssueEditorTarget.ChannelAssignment => allowDeferredRealization ? FindFirstEligibleAssignmentCheckBox() : AcquisitionChannelAssignmentList,
             ScanFilmProfileIssueEditorTarget.Illumination => CurrentCalibrationIlluminationLevelTextBox,
-            ScanFilmProfileIssueEditorTarget.ChannelStatus => CalibrationChannelFallbackComboBox,
+            ScanFilmProfileIssueEditorTarget.ChannelStatus => ExposureMicrosecondsTextBox,
             ScanFilmProfileIssueEditorTarget.ChannelParameters => ExposureMicrosecondsTextBox,
             ScanFilmProfileIssueEditorTarget.ChannelRoiSettings => AdcRoiStartTextBox,
             _ => null!
@@ -1056,6 +1425,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!TryResolveRoiNavigationTarget(request, out var sectionIndex, out var scroller, out var target))
             return;
 
+        ExitBwIssueView(returnFocus: false);
         _inspectionOpenOverride = false;
         _isConfigurationWorkspaceOpen = false;
         SetActiveWorkbenchSection(sectionIndex);
@@ -1063,13 +1433,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             AdcRoiDetailsExpander.IsExpanded = true;
         if (sectionIndex == 3)
             FocusRoiDetailsExpander.IsExpanded = true;
-        EnqueueForCurrentActivation(() =>
-        {
-            target.StartBringIntoView();
-            _ = target.Focus(FocusState.Programmatic);
-            if (target is TextBox textBox)
-                textBox.SelectAll();
-        });
+        BeginIssueTargetFocus(sectionIndex, scroller, target,
+            sectionIndex == 2 ? ViewModel.SelectedCalibrationChannel : null);
     }
 
     private bool TryResolveRoiNavigationTarget(ScanRoiIssueNavigationRequest request, out int sectionIndex, out ScrollViewer scroller, out Control target)
@@ -1410,12 +1775,11 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (e.PropertyName == nameof(ScanDebugViewModel.FilmProfileImportResultReviewVisibility))
             EnqueueForCurrentActivation(UpdateWorkbenchReviewEntry);
 
-        if (e.PropertyName == nameof(ScanDebugViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity))
-            EnqueueForCurrentActivation(UpdateChannelCalibrationValidationNotice);
-
-        if (e.PropertyName is nameof(ScanDebugViewModel.ManualReferenceDisabledReasonText)
-            or nameof(ScanDebugViewModel.ManualReferenceStatusText))
-            EnqueueForCurrentActivation(UpdateManualReferenceStatusVisibility);
+        if (e.PropertyName == nameof(ScanDebugViewModel.SelectedCalibrationChannel))
+        {
+            ExitBwIssueView(returnFocus: false);
+            CancelIssueTargetFocus();
+        }
 
         if (e.PropertyName == nameof(ScanDebugViewModel.PreviewFrame))
             EnqueueForCurrentActivation(() =>

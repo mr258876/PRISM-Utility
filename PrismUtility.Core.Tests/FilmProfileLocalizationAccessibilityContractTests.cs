@@ -165,8 +165,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_Runtime_MotorRoleScanTransport", "film transport motor", "胶片传送电机"),
         ("ScanDebug_Runtime_MotorRoleNone", "no configured semantic role", "没有已配置的语义角色"),
         ("ScanDebug_Runtime_MotorRoleSummary", "{0}: {1}", "{0}：{1}"),
-        ("ScanDebug_Runtime_MotorMoveSummary", "{0}: {1}.\nDistance {2}\u00a0mm; estimated steps {3}.\nEstimated duration {4}\u00a0s; logical direction {5}.\nRaw direction {6}; physical direction unknown.", $"{{0}}：{{1}}。\n移动距离 {{2}}\u00a0mm；预{WordJoiner}计{WordJoiner}步{WordJoiner}数 {{3}}。\n预计耗时 {{4}}\u00a0s；逻辑方向 {{5}}。\n原始方向 {{6}}；物理方向未知。"),
-        ("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}.\nrequested move is invalid: {2}", "{0}：{1}。\n请求移动无效：{2}"),
+        ("ScanDebug_Runtime_MotorMoveSummary", "Move estimate: {0}.\nDistance {1}\u00a0mm; estimated steps {2}.\nEstimated duration {3}\u00a0s; logical direction {4}.\nRaw direction {5}; physical direction unknown.", $"本次动作预计：{{0}}。\n移动距离 {{1}}\u00a0mm；预{WordJoiner}计{WordJoiner}步{WordJoiner}数 {{2}}。\n预计耗时 {{3}}\u00a0s；逻辑方向 {{4}}。\n原始方向 {{5}}；物理方向未知。"),
+        ("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}.\nRequested move is invalid: {1}", "{0}。\n请求移动无效：{1}"),
         ("ScanDebug_Runtime_MotorLogicalDirectionUnmapped", "unmapped", "未映射"),
         ("ScanDebug_Runtime_MotorLogicalDirectionFocusZPositive", "focus Z+", "对焦 Z+"),
         ("ScanDebug_Runtime_MotorLogicalDirectionFocusZNegative", "focus Z-", "对焦 Z-"),
@@ -329,12 +329,54 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     [Fact]
     public void ScanDebugMotorMoveChineseCopy_KeepsStepPhrasesTogetherForConstrainedVisuals()
     {
+        var english = ReadResources("en-us");
         var chinese = ReadResources("zh-CN");
 
         Assert.Contains($"预{WordJoiner}计{WordJoiner}步{WordJoiner}数", chinese["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
         Assert.Contains($"步{WordJoiner}数必须", chinese["ScanDebug_Runtime_ErrorMotorStepsPositive"], StringComparison.Ordinal);
+        Assert.Contains("{1}\u00a0mm", english["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
+        Assert.Contains("{3}\u00a0s", english["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
+        Assert.Contains("{1}\u00a0mm", chinese["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
+        Assert.Contains("{3}\u00a0s", chinese["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
+        Assert.Contains("physical direction unknown", english["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
+        Assert.Contains("物理方向未知", chinese["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
         Assert.DoesNotContain("预计步数", chinese["ScanDebug_Runtime_MotorMoveSummary"], StringComparison.Ordinal);
         Assert.DoesNotContain("步数必须", chinese["ScanDebug_Runtime_ErrorMotorStepsPositive"], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Stage01V_ChannelDetailAndShortStates_HavePairedActionableResources()
+    {
+        var english = ReadResources("en-us");
+        var chinese = ReadResources("zh-CN");
+        foreach (var (key, expectedEnglish, expectedChinese) in new[]
+        {
+            ("ScanDebug_BwIssueDetailsTitle.Text", "Channel calibration issues", "通道校准问题"),
+            ("ScanDebug_BwReturnToParametersButton.Content", "Return to parameters", "返回参数"),
+            ("ScanDebug_BwLocateIssueAction.Text", "Locate field", "定位修改"),
+            ("ScanDebug_BwIssueOriginSeverity", "{0} · {1}", "{0} · {1}"),
+            ("ScanDebug_BwIssueCurrentDraft", "Current profile draft", "当前配置草稿"),
+            ("ScanDebug_BwIssueImportReview", "Import review", "导入审查"),
+            ("ScanDebug_BwIssueError", "Error", "错误"),
+            ("ScanDebug_BwIssueWarning", "Warning", "警告"),
+            ("ScanDebug_BwViewingIssues.Text", "Viewing", "正在查看"),
+            ("ScanDebug_BwNoIssuesReported.Text", "No channel calibration issues reported. This alone does not mean validation ran or passed.", "没有已报告的通道校准问题；不表示已验证或验证通过。"),
+            ("ScanDebug_BwLocalInputStatus.Text", "Local input not applied", "本地输入未应用"),
+            ("ScanDebug_BwMissingProfileText.Text", "Missing channel profile", "缺少通道档案"),
+            ("ScanDebug_BwConfigureChannelButton.Content", "Configure this channel", "配置当前通道"),
+            ("ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText",
+                "Open the selected channel's library and parameters. Does not create, apply, or save a profile.",
+                "打开所选通道的通道库与参数；不会自动创建、应用或保存档案。"),
+            ("ScanDebug_BwDiscardInputTitle", "Discard local black / white input?", "放弃本地黑白值输入？"),
+            ("ScanDebug_BwDiscardInputMessage", "Switching channels discards unapplied black / white input. Keep editing or discard this local input?", "切换通道将丢弃未应用的黑白值输入。继续编辑还是放弃本地输入？")
+        })
+        {
+            Assert.Equal(expectedEnglish, english[key]);
+            Assert.Equal(expectedChinese, chinese[key]);
+            Assert.Equal(GetPlaceholderIndexes(english[key]), GetPlaceholderIndexes(chinese[key]));
+        }
+        Assert.Equal("{0}–{1} · {2}\u00a0px", english["ScanDebug_BwRoiRange"]);
+        Assert.Equal("{0}–{1} · {2}\u00a0px", chinese["ScanDebug_BwRoiRange"]);
     }
 
     [Fact]
@@ -458,7 +500,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         const string textBlockUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle";
         var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
 
-        Assert.Equal(2, CountOccurrences(xaml, $"x:Uid=\"{textBlockUid}\""));
+        Assert.Equal(1, CountOccurrences(xaml, $"x:Uid=\"{textBlockUid}\""));
         Assert.DoesNotContain($"<TextBlock x:Uid=\"{infoBarUid}\"", xaml, StringComparison.Ordinal);
         Assert.Equal(2, CountOccurrences(xaml, $"<InfoBar x:Uid=\"{infoBarUid}\""));
 
@@ -754,8 +796,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             Assert.Contains($"SelectedItem=\"{{x:Bind ViewModel.Motor{motorNumber}MoveUnit, Mode=TwoWay}}\"", xaml, StringComparison.Ordinal);
         }
 
-        Assert.Equal("{0}: {1}.\nrequested move is invalid: {2}", english["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
-        Assert.Equal("{0}：{1}。\n请求移动无效：{2}", chinese["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
+        Assert.Equal("{0}.\nRequested move is invalid: {1}", english["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
+        Assert.Equal("{0}。\n请求移动无效：{1}", chinese["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
     }
 
     [Fact]

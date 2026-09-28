@@ -116,6 +116,12 @@ public sealed class ScanFilmProfileValidationIssueDisplay
     public required string AutomationName { get; init; }
 
     public required bool CanNavigate { get; init; }
+
+    public string SourceSeverityText => "ScanDebug_BwIssueOriginSeverity".GetLocalizedFormat(
+        (Source == ScanFilmProfileIssueSource.CurrentDraft
+            ? "ScanDebug_BwIssueCurrentDraft" : "ScanDebug_BwIssueImportReview").GetLocalized(),
+        (Issue.Severity == ScanFilmProfileValidationSeverity.Error
+            ? "ScanDebug_BwIssueError" : "ScanDebug_BwIssueWarning").GetLocalized());
 }
 
 internal sealed record CalibrationChannelSelectionLoad(string Role, int LoadVersion, int ProjectionVersion, Task<bool> Completion);
@@ -533,6 +539,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _isManualReferencePatchPublishing;
     private bool _isLoadingManualReference;
     private bool _manualReferenceHasLocalEdit;
+    private bool _manualReferenceActionFeedback;
+    private int _manualReferenceEditVersion;
+    private int _manualReferenceChangeRequestVersion;
+    private int _filmProfileNavigationRequestVersion;
+    private bool _isCommittingIssueNavigationChannel;
     private string? _manualReferenceSampleSource;
     private CaptureEvidence? _displayedCaptureEvidence;
     private CaptureEvidence? _pendingCaptureEvidence;
@@ -706,6 +717,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public string ManualReferenceChannelText => "ScanDebug_ManualReferenceChannel".GetLocalizedFormat(
         GetCalibrationChannelDisplayName(SelectedCalibrationChannel), GetBoundLedName(SelectedCalibrationChannel));
 
+    public string CurrentCalibrationLedName => GetBoundLedName(SelectedCalibrationChannel);
+
+    public Visibility ManualReferenceLocalEditVisibility => _manualReferenceHasLocalEdit ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility ManualReferenceFeedbackVisibility => _manualReferenceActionFeedback ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility MissingCalibrationProfileVisibility => !string.IsNullOrWhiteSpace(SelectedCalibrationChannel)
+        && !_filmProfileWorkspace.Snapshot.CurrentDraft.ChannelProfiles.ContainsKey(SelectedCalibrationChannel)
+        ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility ManualReferenceOtherDisabledReasonVisibility => PendingCalibrationResult is { State: PendingCalibrationResultState.Pending }
+        || MissingCalibrationProfileVisibility == Visibility.Collapsed && !string.IsNullOrEmpty(ManualReferenceDisabledReasonText)
+        ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility ChannelCalibrationIssueEmptyVisibility => ChannelCalibrationCurrentFilmProfileValidationIssueDisplays.Count == 0
+        ? Visibility.Visible : Visibility.Collapsed;
+
     public string ManualReferenceSourceText => _manualReferenceSampleSource
         ?? (_manualReferenceHasLocalEdit ? "ScanDebug_ManualReferenceManualSource".GetLocalized()
             : "ScanDebug_ManualReferenceUnknownSource".GetLocalized());
@@ -787,10 +815,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (_isLoadingManualReference)
             return;
+        _manualReferenceEditVersion++;
         _manualReferenceHasLocalEdit = true;
         _manualReferenceSampleSource = null;
+        _manualReferenceActionFeedback = false;
         ManualReferenceStatusText = "ScanDebug_ManualReferenceEdited".GetLocalized();
         OnPropertyChanged(nameof(ManualReferenceSourceText));
+        OnPropertyChanged(nameof(ManualReferenceLocalEditVisibility));
+        OnPropertyChanged(nameof(ManualReferenceFeedbackVisibility));
     }
 
     private void LoadManualReferenceFromCurrentTarget()
@@ -799,6 +831,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _manualReferenceExpectedSnapshot = snapshot;
         _manualReferenceRole = SelectedCalibrationChannel;
         _manualReferenceHasLocalEdit = false;
+        _manualReferenceActionFeedback = false;
         _manualReferenceSampleSource = null;
         snapshot.CurrentDraft.ChannelProfiles.TryGetValue(SelectedCalibrationChannel, out var profile);
         _isLoadingManualReference = true;
@@ -816,7 +849,16 @@ public partial class ScanDebugViewModel : ObservableRecipient
             : "ScanDebug_ManualReferenceLoaded".GetLocalized();
         OnPropertyChanged(nameof(ManualReferenceChannelText));
         OnPropertyChanged(nameof(ManualReferenceSourceText));
+        OnPropertyChanged(nameof(ManualReferenceLocalEditVisibility));
+        OnPropertyChanged(nameof(ManualReferenceFeedbackVisibility));
         NotifyManualReferenceAvailabilityChanged();
+    }
+
+    private void SetManualReferenceActionFeedback(string message)
+    {
+        ManualReferenceStatusText = message;
+        _manualReferenceActionFeedback = true;
+        OnPropertyChanged(nameof(ManualReferenceFeedbackVisibility));
     }
 
     private bool HasManualReferenceTarget()
@@ -849,6 +891,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         UseColumnSampleAsManualWhiteLevelCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ManualReferenceDisabledReasonText));
         OnPropertyChanged(nameof(ManualReferenceSampleDisabledReasonText));
+        OnPropertyChanged(nameof(MissingCalibrationProfileVisibility));
+        OnPropertyChanged(nameof(ManualReferenceOtherDisabledReasonVisibility));
     }
 
     [RelayCommand(CanExecute = nameof(CanApplyManualReferenceLevels))]
@@ -858,7 +902,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             || !TryParseManualReferenceLevel(ManualWhiteLevelInput, 1, out var white)
             || (black.HasValue && white.HasValue && black >= white))
         {
-            ManualReferenceStatusText = "ScanDebug_ManualReferenceInvalidValues".GetLocalized();
+            SetManualReferenceActionFeedback("ScanDebug_ManualReferenceInvalidValues".GetLocalized());
             return;
         }
         CommitManualReferenceLevels(black, white);
@@ -868,14 +912,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         if (!CanApplyManualReferenceLevels() || _manualReferenceExpectedSnapshot is not { } expected)
         {
-            ManualReferenceStatusText = ManualReferenceDisabledReasonText;
+            SetManualReferenceActionFeedback(ManualReferenceDisabledReasonText);
             return;
         }
         var role = SelectedCalibrationChannel;
         var selectionVersion = _manualReferenceSelectionVersion;
         if (!TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplyManualReferenceLevels, out var claim))
         {
-            ManualReferenceStatusText = "ScanDebug_ManualReferenceBusy".GetLocalized();
+            SetManualReferenceActionFeedback("ScanDebug_ManualReferenceBusy".GetLocalized());
             return;
         }
         try
@@ -884,7 +928,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 || !string.Equals(role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
                 || PendingCalibrationResult is { State: PendingCalibrationResultState.Pending })
             {
-                ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+                SetManualReferenceActionFeedback("ScanDebug_ManualReferenceConflict".GetLocalized());
                 return;
             }
             _isManualReferencePatchPublishing = true;
@@ -894,11 +938,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 && selectionVersion == _manualReferenceSelectionVersion)
             {
                 LoadManualReferenceFromCurrentTarget();
-                ManualReferenceStatusText = "ScanDebug_ManualReferenceApplied".GetLocalized();
+                SetManualReferenceActionFeedback("ScanDebug_ManualReferenceApplied".GetLocalized());
             }
             else if (selectionVersion == _manualReferenceSelectionVersion)
-                ManualReferenceStatusText = (result.Status == ScanFilmProfileReferenceLevelPatchStatus.MissingTarget
-                    ? "ScanDebug_ManualReferenceMissingTarget" : "ScanDebug_ManualReferenceConflict").GetLocalized();
+                SetManualReferenceActionFeedback((result.Status == ScanFilmProfileReferenceLevelPatchStatus.MissingTarget
+                    ? "ScanDebug_ManualReferenceMissingTarget" : "ScanDebug_ManualReferenceConflict").GetLocalized());
         }
         finally
         {
@@ -927,7 +971,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
-                ManualReferenceStatusText = "ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat(ex.Message);
+                SetManualReferenceActionFeedback("ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat(ex.Message));
             return;
         }
         if (_isCleanedUp || (pageOwner is not null && !IsCurrentPageOwner(pageOwner)))
@@ -937,7 +981,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             || selectionVersion != _manualReferenceSelectionVersion
             || !string.Equals(role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
         {
-            ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+            SetManualReferenceActionFeedback("ScanDebug_ManualReferenceConflict".GetLocalized());
             return;
         }
         CommitManualReferenceLevels(null, null);
@@ -957,7 +1001,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!CanUseColumnSampleAsManualLevel() || !TryGetCurrentColumnSampleMean(out var mean, out _)
             || _displayedCaptureEvidence is not { } evidence)
         {
-            ManualReferenceStatusText = "ScanDebug_ManualReferenceSampleUnavailable".GetLocalized();
+            SetManualReferenceActionFeedback("ScanDebug_ManualReferenceSampleUnavailable".GetLocalized());
             return;
         }
         if (black) ManualBlackLevelInput = mean.ToString(CultureInfo.InvariantCulture);
@@ -1092,6 +1136,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationIssueCountText))]
     [NotifyPropertyChangedFor(nameof(AcquisitionCurrentFilmProfileValidationSeverity))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationIssueDisplays))]
+    [NotifyPropertyChangedFor(nameof(ChannelCalibrationIssueEmptyVisibility))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationHeadline))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationIssueCountText))]
     [NotifyPropertyChangedFor(nameof(ChannelCalibrationCurrentFilmProfileValidationSeverity))]
@@ -2639,6 +2684,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnSelectedCalibrationChannelChanged(string value)
     {
+        _manualReferenceChangeRequestVersion++;
+        if (!_isCommittingIssueNavigationChannel)
+            _filmProfileNavigationRequestVersion++;
         ClearRawSignal(_pendingCaptureEvidence is null && _displayedCaptureEvidence is null
             ? "ScanDebug_RawSignalUnavailable" : "ScanDebug_RawSignalUnavailableChannel");
         if (_lastWorkflowResult is not null && PreviewFrame is not null && _displayedCaptureEvidence is { } displayed
@@ -2654,6 +2702,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _calibrationChannelBeforeSelectionChange = null;
         NotifyAcquisitionPlanChanged();
         OnPropertyChanged(nameof(CurrentCalibrationChannelSummaryText));
+        OnPropertyChanged(nameof(CurrentCalibrationLedName));
         OnPropertyChanged(nameof(SelectedCalibrationChannelItem));
         OnPropertyChanged(nameof(CalibrationCopySourceChannelOptions));
         if (string.Equals(SelectedCalibrationCopySourceChannel, value, StringComparison.OrdinalIgnoreCase))
@@ -3336,17 +3385,77 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _lastProjectedFilmProfileImportResult = snapshot.ImportResult;
             RefreshFilmProfileWorkspaceProjection();
             NotifyCaptureEvidenceChanged();
+            NotifyManualReferenceAvailabilityChanged();
             return;
         }
 
         var previous = _manualReferenceExpectedSnapshot;
         ApplyExternalFilmProfileWorkspaceSnapshot(snapshot);
         if (_manualReferenceHasLocalEdit && previous is not null && !ReferenceEquals(previous, snapshot))
-            ManualReferenceStatusText = "ScanDebug_ManualReferenceConflict".GetLocalized();
+        {
+            SetManualReferenceActionFeedback("ScanDebug_ManualReferenceConflict".GetLocalized());
+            NotifyManualReferenceAvailabilityChanged();
+        }
         else
             LoadManualReferenceFromCurrentTarget();
         InvalidatePendingCalibrationIfStale();
         NotifyCaptureEvidenceChanged();
+    }
+
+    public void CancelPendingCalibrationChannelSelection()
+    {
+        _manualReferenceChangeRequestVersion++;
+        _filmProfileNavigationRequestVersion++;
+    }
+
+    public void CancelPendingCurrentFilmProfileIssueNavigation()
+        => _filmProfileNavigationRequestVersion++;
+
+    public async Task<bool> TrySelectCalibrationChannelAsync(string channelRole, bool fromIssueNavigation = false)
+    {
+        if (string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var requestVersion = ++_manualReferenceChangeRequestVersion;
+        var editVersion = _manualReferenceEditVersion;
+        var previousRole = SelectedCalibrationChannel;
+        var expectedSnapshot = _filmProfileWorkspace.Snapshot;
+        var pageOwner = _attachedPageOwner;
+        if (_manualReferenceHasLocalEdit)
+        {
+            try
+            {
+                if (!await RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest(
+                    "ScanDebug_BwDiscardInputTitle", "ScanDebug_BwDiscardInputMessage",
+                    "ScanDebug_BwDiscardInputConfirm",
+                    "ScanDebug_Runtime_FilmProfileDirtyConfirmationStayButton")))
+                    return false;
+            }
+            catch (Exception ex)
+            {
+                if (!_isCleanedUp && (pageOwner is null || IsCurrentPageOwner(pageOwner)))
+                    SetManualReferenceActionFeedback("ScanDebug_FilmProfileWorkbenchOperationFailed".GetLocalizedFormat(ex.Message));
+                return false;
+            }
+        }
+
+        if (_isCleanedUp || requestVersion != _manualReferenceChangeRequestVersion
+            || editVersion != _manualReferenceEditVersion
+            || !string.Equals(previousRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
+            || !ReferenceEquals(expectedSnapshot, _filmProfileWorkspace.Snapshot)
+            || pageOwner is not null && !IsCurrentPageOwner(pageOwner))
+            return false;
+
+        _isCommittingIssueNavigationChannel = fromIssueNavigation;
+        try
+        {
+            SelectedCalibrationChannel = channelRole;
+        }
+        finally
+        {
+            _isCommittingIssueNavigationChannel = false;
+        }
+        return true;
     }
 
     private void ApplyExternalFilmProfileWorkspaceSnapshot(ScanFilmProfileWorkspaceSnapshot snapshot)
@@ -7168,6 +7277,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         foreach (var channel in CalibrationChannelItems)
             channel.Refresh();
 
+        OnPropertyChanged(nameof(CurrentCalibrationLedName));
+        OnPropertyChanged(nameof(ManualReferenceChannelText));
         OnPropertyChanged(nameof(SelectedCalibrationChannelItem));
         CopyCalibrationProfileFromChannelCommand.NotifyCanExecuteChanged();
     }
@@ -8386,8 +8497,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryResolveCurrentFilmProfileNavigation(display, out var request))
             return false;
 
+        var navigationVersion = ++_filmProfileNavigationRequestVersion;
         var context = await EnsureCurrentFilmProfileNavigationRoleReadyAsync(request.ChannelRole);
-        if (context is null)
+        if (context is null || navigationVersion != _filmProfileNavigationRequestVersion)
             return false;
 
         var currentIssue = CurrentFilmProfileValidationIssues.FirstOrDefault(issue => AreStructurallyEquivalentIssues(issue, display!.Issue));
@@ -8443,8 +8555,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (channelRole is null)
             return new CurrentFilmProfileIssueNavigationContext(_filmProfileWorkspace.Snapshot.CurrentDraft, null);
 
-        if (!IsCurrentCalibrationChannel(channelRole))
-            SelectedCalibrationChannel = channelRole;
+        if (!await TrySelectCalibrationChannelAsync(channelRole, fromIssueNavigation: true))
+            return null;
 
         var load = _selectedCalibrationChannelLoad;
         var currentDraft = _filmProfileWorkspace.Snapshot.CurrentDraft;
@@ -9637,13 +9749,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
             roles.Add(GetTodo18Localized("ScanDebug_Runtime_MotorRoleScanTransport", "film transport motor"));
 
         var roleText = roles.Count == 0 ? GetTodo18Localized("ScanDebug_Runtime_MotorRoleNone", "no configured semantic role") : string.Join("; ", roles);
-        return GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorRoleSummary", "{0}: {1}", FormatMotorOption(motorId), roleText);
+        return roleText;
     }
 
     private string BuildMotorMoveSummary(byte motorId, string roleText)
     {
         if (!TryBuildMotorMoveRequest(motorId, out var request, out var error))
-            return GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}: {1}.\nrequested move is invalid: {2}", FormatMotorOption(motorId), roleText, error);
+            return GetTodo18LocalizedFormat("ScanDebug_Runtime_MotorMoveSummaryInvalid", "{0}.\nRequested move is invalid: {1}", roleText, error);
 
         var settings = _deviceSettings.Settings.Normalize();
         var distanceMm = ScanTimingMath.ConvertMotorStepsToMillimeters(request.Steps, settings.GetMotorSettings(motorId));
@@ -9666,8 +9778,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var logicalDirection = logicalDirections.Count == 0 ? GetTodo18Localized("ScanDebug_Runtime_MotorLogicalDirectionUnmapped", "unmapped") : string.Join(Environment.NewLine, logicalDirections);
         return GetTodo18LocalizedFormat(
             "ScanDebug_Runtime_MotorMoveSummary",
-            "{0}: {1}; distance {2} mm; estimated steps {3}; estimated duration {4} s; logical direction {5}; raw direction {6}; physical direction unknown.",
-            FormatMotorOption(motorId),
+            "Move estimate: {0}.\nDistance {1}\u00A0mm; estimated steps {2}.\nEstimated duration {3}\u00A0s; logical direction {4}.\nRaw direction {5}; physical direction unknown.",
             roleText,
             FormatMotionDecimal(distanceMm),
             request.Steps,

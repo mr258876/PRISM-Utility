@@ -174,8 +174,13 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         var enqueue = ExtractBody(source, "private void EnqueueForCurrentActivation(Action action)");
         var propertyChanged = ExtractBody(source, "private void OnViewModelPropertyChanged(");
         var profileNavigation = ExtractBody(source, "private void OnCurrentFilmProfileIssueNavigationRequested(");
-        var navigationGuard = source[source.IndexOf("private bool IsCurrentFilmProfileNavigationStillValid()", StringComparison.Ordinal)
-            ..source.IndexOf("private bool TryResolveCurrentFilmProfileNavigationTarget(", StringComparison.Ordinal)];
+        var beginIssueFocus = ExtractBody(source, "private void BeginIssueTargetFocus(");
+        var completeIssueFocus = ExtractBody(source, "private void TryCompleteIssueTargetFocus(");
+        var guardStart = source.IndexOf("private bool IsCurrentFilmProfileNavigationStillValid()", StringComparison.Ordinal);
+        Assert.True(guardStart >= 0);
+        var guardEnd = source.IndexOf("private void BeginIssueTargetFocus(", guardStart, StringComparison.Ordinal);
+        Assert.True(guardEnd > guardStart);
+        var navigationGuard = source[guardStart..guardEnd];
         var roiNavigation = ExtractBody(source, "private void OnRoiIssueNavigationRequested(");
         var sizeChanged = ExtractBody(source, "private void ScanDebugRootGrid_SizeChanged(");
         var previewLayout = ExtractBody(source, "private void RefreshPreviewLayout()");
@@ -184,27 +189,82 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         AssertBefore(enqueue, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(enqueue, "DispatcherQueue.TryEnqueue(() =>", "if (IsCurrentActivation(activationEpoch))");
         AssertBefore(enqueue, "if (IsCurrentActivation(activationEpoch))", "action();");
-        Assert.Equal(7, Count(propertyChanged, "EnqueueForCurrentActivation("));
-        Assert.Contains("EnqueueForCurrentActivation(UpdateChannelCalibrationValidationNotice);", propertyChanged, StringComparison.Ordinal);
-        Assert.Contains("nameof(ScanDebugViewModel.ManualReferenceDisabledReasonText)", propertyChanged, StringComparison.Ordinal);
-        Assert.Contains("nameof(ScanDebugViewModel.ManualReferenceStatusText)", propertyChanged, StringComparison.Ordinal);
-        AssertBefore(propertyChanged, "nameof(ScanDebugViewModel.ManualReferenceStatusText)",
-            "EnqueueForCurrentActivation(UpdateManualReferenceStatusVisibility);");
-        Assert.Contains("UpdateManualReferenceStatusVisibility();", ExtractBody(source, "public ScanDebugPage()"), StringComparison.Ordinal);
-        Assert.Contains("UpdateManualReferenceStatusVisibility();", ExtractBody(source, "private async void OnLoaded("), StringComparison.Ordinal);
+        Assert.Equal(5, Count(propertyChanged, "EnqueueForCurrentActivation("));
+        Assert.Contains("nameof(ScanDebugViewModel.SelectedCalibrationChannel)", propertyChanged, StringComparison.Ordinal);
+        AssertBefore(propertyChanged, "nameof(ScanDebugViewModel.SelectedCalibrationChannel)", "ExitBwIssueView(returnFocus: false);");
+        Assert.Contains("CancelIssueTargetFocus();", propertyChanged, StringComparison.Ordinal);
+        Assert.Contains("CancelBwIssueFocus();", ExtractBody(source, "private async void OnUnloaded("), StringComparison.Ordinal);
+        Assert.Contains("CancelIssueTargetFocus();", ExtractBody(source, "private async void OnUnloaded("), StringComparison.Ordinal);
+        Assert.Contains("ViewModel.CancelPendingCalibrationChannelSelection();", ExtractBody(source, "private async void OnUnloaded("), StringComparison.Ordinal);
+        var xaml = ReadAppSource("Views", "ScanDebugPage.xaml");
+        Assert.Contains("Visibility=\"{x:Bind ViewModel.ManualReferenceLocalEditVisibility, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"{x:Bind ViewModel.ManualReferenceFeedbackVisibility, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherQueue.TryEnqueue", propertyChanged, StringComparison.Ordinal);
-        Assert.Contains("EnqueueForCurrentActivation(() =>", profileNavigation, StringComparison.Ordinal);
-        Assert.Contains("IsCurrentFilmProfileNavigationStillValid()", profileNavigation, StringComparison.Ordinal);
-        AssertBefore(profileNavigation, "if (!IsCurrentFilmProfileNavigationStillValid())", "target.StartBringIntoView();");
+        Assert.Contains("BeginIssueTargetFocus(sectionIndex, scroller, target, request.ChannelRole", profileNavigation, StringComparison.Ordinal);
+        Assert.Contains("EnqueueForCurrentActivation(() =>", beginIssueFocus, StringComparison.Ordinal);
+        AssertBefore(completeIssueFocus, "!IsCurrentFilmProfileNavigationStillValid()", "target.StartBringIntoView();");
         Assert.Contains("_areViewModelEventsSubscribed", navigationGuard, StringComparison.Ordinal);
         Assert.Contains("IsLoaded", navigationGuard, StringComparison.Ordinal);
         Assert.Contains("FilmProfileImportResultReviewVisibility != Visibility.Visible", navigationGuard, StringComparison.Ordinal);
-        Assert.Contains("EnqueueForCurrentActivation(() =>", roiNavigation, StringComparison.Ordinal);
+        Assert.Contains("BeginIssueTargetFocus(sectionIndex, scroller, target", roiNavigation, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(UpdateWorkbenchPreviewLayout);", sizeChanged, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(ApplyInitialFitZoom);", previewLayout, StringComparison.Ordinal);
         AssertBefore(responsiveLayout, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(responsiveLayout, "DispatcherQueue.TryEnqueue(() =>", "if (!IsCurrentActivation(activationEpoch)");
         Assert.Equal(2, Count(source, "DispatcherQueue.TryEnqueue("));
+    }
+
+    [Fact]
+    public void BwIssueNavigation_ReturnAndReopenSupersedeAnAwaitingRoleLoad()
+    {
+        var page = ReadPageSource();
+        var vm = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
+        var navigate = ExtractBody(page, "private async void BwIssueButton_Click(");
+        var returnToParameters = ExtractBody(page, "private void BwReturnToParametersButton_Click(");
+        var reopenIssues = ExtractBody(page, "private void BwViewIssuesButton_Click(");
+        var requestNavigation = ExtractBody(vm, "public async Task<bool> TryRequestCurrentFilmProfileIssueNavigationAsync(");
+
+        Assert.Contains("await ViewModel.TryRequestCurrentFilmProfileIssueNavigationAsync(display);", navigate, StringComparison.Ordinal);
+        AssertBefore(returnToParameters, "ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();", "ExitBwIssueView(returnFocus: true);");
+        AssertBefore(reopenIssues, "ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();", "CancelBwIssueFocus();");
+        AssertBefore(reopenIssues, "ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();", "ChannelCalibrationIssuePanel.Visibility = Visibility.Visible;");
+        Assert.Contains("public void CancelPendingCurrentFilmProfileIssueNavigation()\n        => _filmProfileNavigationRequestVersion++;",
+            vm.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        AssertBefore(requestNavigation, "var navigationVersion = ++_filmProfileNavigationRequestVersion;", "await EnsureCurrentFilmProfileNavigationRoleReadyAsync(request.ChannelRole);");
+        AssertBefore(requestNavigation, "navigationVersion != _filmProfileNavigationRequestVersion", "CurrentFilmProfileIssueNavigationRequested?.Invoke(refreshedRequest);");
+    }
+
+    [Fact]
+    public void BwCompactReturn_RestoresSavedEditorOffsetOnlyForCurrentReturnContext()
+    {
+        var page = ReadPageSource();
+        var openIssues = ExtractBody(page, "private void BwViewIssuesButton_Click(");
+        var returnToParameters = ExtractBody(page, "private void BwReturnToParametersButton_Click(");
+        var exitIssues = ExtractBody(page, "private void ExitBwIssueView(bool returnFocus)");
+        var restore = ExtractBody(page, "private void RestoreBwCompactEditorScrollAfterLayout(");
+        var cancelReturnScroll = ExtractBody(page, "private void CancelBwCompactReturnScroll()");
+        var cancelFocus = ExtractBody(page, "private void CancelBwIssueFocus()");
+        var unloaded = ExtractBody(page, "private async void OnUnloaded(");
+
+        AssertBefore(openIssues, "_bwCompactEditorScrollOffset = _bwCompactMode ? ChannelCalibrationCompactScrollViewer.VerticalOffset : null;",
+            "ChannelCalibrationIssuePanel.Visibility = Visibility.Visible;");
+        Assert.Contains("ExitBwIssueView(returnFocus: true);", returnToParameters, StringComparison.Ordinal);
+        AssertBefore(exitIssues, "var restoreOffset = returnFocus && _bwCompactMode ? _bwCompactEditorScrollOffset : null;",
+            "_bwCompactEditorScrollOffset = null;");
+        AssertBefore(exitIssues, "_bwCompactEditorScrollOffset = null;", "CancelBwIssueFocus();");
+        AssertBefore(exitIssues, "if (restoreOffset is { } offset)", "RestoreBwCompactEditorScrollAfterLayout(offset, requestVersion, channelRole);");
+        Assert.Contains("CancelBwCompactReturnScroll();", cancelFocus, StringComparison.Ordinal);
+        Assert.Contains("_bwCompactEditorScrollOffset = null;", unloaded, StringComparison.Ordinal);
+        Assert.Contains("CancelBwIssueFocus();", unloaded, StringComparison.Ordinal);
+
+        AssertBefore(restore, "CancelBwCompactReturnScroll();", "requestVersion == _bwFocusRequestVersion");
+        AssertBefore(restore, "requestVersion == _bwFocusRequestVersion", "ChannelCalibrationCompactScrollViewer.ChangeView(null, offset, null, true)");
+        Assert.Contains("IsCurrentActivation(activationEpoch)", restore, StringComparison.Ordinal);
+        Assert.Contains("_activeWorkbenchSectionIndex == 2 && _bwCompactMode", restore, StringComparison.Ordinal);
+        Assert.Contains("ChannelCalibrationIssuePanel.Visibility != Visibility.Visible", restore, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(channelRole, ViewModel.SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)", restore, StringComparison.Ordinal);
+        Assert.Contains("ChannelCalibrationCompactScrollViewer.LayoutUpdated += _bwCompactReturnLayoutHandler;", restore, StringComparison.Ordinal);
+        Assert.Contains("ChannelCalibrationCompactScrollViewer.LayoutUpdated -= _bwCompactReturnLayoutHandler;", cancelReturnScroll, StringComparison.Ordinal);
     }
 
     private static void AssertBefore(string source, string before, string after)

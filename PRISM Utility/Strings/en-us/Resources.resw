@@ -1021,13 +1021,15 @@
     <value>Apply Parameters</value>
   </data>
   <data name="ScanDebug_AutoBlackButton.Content" xml:space="preserve">
-    <value>Auto Black / Offset</value>
+    <value>Black / offset</value>
   </data>
+  <data name="ScanDebug_AutoBlackButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Run the existing automatic black and offset adjustment for the selected channel.</value></data>
   <data name="ScanDebug_AutoWhiteButton.Content" xml:space="preserve">
-    <value>Auto White / Gain</value>
+    <value>White / gain</value>
   </data>
+  <data name="ScanDebug_AutoWhiteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Run the existing automatic white and gain adjustment for the selected channel.</value></data>
   <data name="ScanDebug_AutoCalibrateButton.Content" xml:space="preserve">
-    <value>Auto Calibrate</value>
+    <value>Full auto calibration</value>
   </data>
   <data name="ScanDebug_PendingCalibrationCandidateReviewTitle.Text" xml:space="preserve">
     <value>Pending calibration candidate</value>
@@ -3695,10 +3697,10 @@
     <value>{0}: {1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummary" xml:space="preserve">
-    <value>{0}: {1}.&#10;Distance {2}&#160;mm; estimated steps {3}.&#10;Estimated duration {4}&#160;s; logical direction {5}.&#10;Raw direction {6}; physical direction unknown.</value>
+    <value>Move estimate: {0}.&#10;Distance {1}&#160;mm; estimated steps {2}.&#10;Estimated duration {3}&#160;s; logical direction {4}.&#10;Raw direction {5}; physical direction unknown.</value>
   </data>
   <data name="ScanDebug_Runtime_MotorMoveSummaryInvalid" xml:space="preserve">
-    <value>{0}: {1}.&#10;requested move is invalid: {2}</value>
+    <value>{0}.&#10;Requested move is invalid: {1}</value>
   </data>
   <data name="ScanDebug_Runtime_MotorLogicalDirectionUnmapped" xml:space="preserve">
     <value>unmapped</value>
@@ -4316,7 +4318,8 @@
   <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>Focus</value></data>
   <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>Motion</value></data>
   <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>Capture mode</value></data>
-  <data name="ScanDebug_MotorAxisComboBox.Header" xml:space="preserve"><value>Selected motor</value></data>
+  <data name="ScanDebug_MotorAxisInlineLabel.Text" xml:space="preserve"><value>Selected motor</value></data>
+  <data name="ScanDebug_MotorAxisComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Select current motor</value></data>
   <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 1</value></data>
   <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 2</value></data>
   <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 3</value></data>
@@ -4364,6 +4367,23 @@
   <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1} (invalid range)</value></data>
   <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
   <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>View issues</value></data>
+  <data name="ScanDebug_BwIssueDetailsTitle.Text" xml:space="preserve"><value>Channel calibration issues</value></data>
+  <data name="ScanDebug_BwReturnToParametersButton.Content" xml:space="preserve"><value>Return to parameters</value></data>
+  <data name="ScanDebug_BwLocateIssueAction.Text" xml:space="preserve"><value>Locate field</value></data>
+  <data name="ScanDebug_BwIssueOriginSeverity" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="ScanDebug_BwIssueCurrentDraft" xml:space="preserve"><value>Current profile draft</value></data>
+  <data name="ScanDebug_BwIssueImportReview" xml:space="preserve"><value>Import review</value></data>
+  <data name="ScanDebug_BwIssueError" xml:space="preserve"><value>Error</value></data>
+  <data name="ScanDebug_BwIssueWarning" xml:space="preserve"><value>Warning</value></data>
+  <data name="ScanDebug_BwViewingIssues.Text" xml:space="preserve"><value>Viewing</value></data>
+  <data name="ScanDebug_BwNoIssuesReported.Text" xml:space="preserve"><value>No channel calibration issues reported. This alone does not mean validation ran or passed.</value></data>
+  <data name="ScanDebug_BwLocalInputStatus.Text" xml:space="preserve"><value>Local input not applied</value></data>
+  <data name="ScanDebug_BwMissingProfileText.Text" xml:space="preserve"><value>Missing channel profile</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.Content" xml:space="preserve"><value>Configure this channel</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Open the selected channel's library and parameters. Does not create, apply, or save a profile.</value></data>
+  <data name="ScanDebug_BwDiscardInputTitle" xml:space="preserve"><value>Discard local black / white input?</value></data>
+  <data name="ScanDebug_BwDiscardInputMessage" xml:space="preserve"><value>Switching channels discards unapplied black / white input. Keep editing or discard this local input?</value></data>
+  <data name="ScanDebug_BwDiscardInputConfirm" xml:space="preserve"><value>Discard local input</value></data>
   <data name="ScanDebug_BwIssueList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Channel calibration issues</value></data>
   <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>0 channel issues</value></data>
   <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} blocking issue(s)</value></data>

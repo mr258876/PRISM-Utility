@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PRISM_Utility.Contracts.Services;
@@ -503,6 +504,37 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Equal("65535", harness.ViewModel.ManualWhiteLevelInput);
     }
 
+    [Fact]
+    public async Task ManualReference_SuccessfulApplyShowsFeedbackUntilNextLocalEdit()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, blackLevel: 100, whiteLevel: 200)
+            }, "Red"));
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        harness.ViewModel.ManualBlackLevelInput = "120";
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceFeedbackVisibility);
+        Assert.True(harness.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+
+        harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
+
+        Assert.Equal((ushort)120, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].BlackLevel);
+        Assert.Equal("ScanDebug_ManualReferenceApplied".GetLocalized(), harness.ViewModel.ManualReferenceStatusText);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceFeedbackVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Contains(nameof(ScanDebugViewModel.ManualReferenceFeedbackVisibility), notifications);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+
+        harness.ViewModel.ManualBlackLevelInput = "121";
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceFeedbackVisibility);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceLocalEditVisibility);
+    }
+
     [Theory]
     [InlineData("-1", "200")]
     [InlineData("1.5", "200")]
@@ -566,6 +598,167 @@ public sealed class ScanDebugCalibrationStatusTests
         harness.ViewModel.ApplyManualReferenceLevelsCommand.Execute(null);
         Assert.Equal(red, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
         Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"]);
+    }
+
+    [Fact]
+    public async Task ManualReference_CompactStateSeparatesMissingProfileFromUnappliedLocalInput()
+    {
+        var missing = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"));
+        await missing.SelectChannelAsync("Green");
+        var before = missing.Workspace.Snapshot;
+        var validationSummary = missing.ViewModel.BwValidationSummaryText;
+        var validationIssues = missing.ViewModel.CurrentFilmProfileValidationIssues.ToArray();
+        var notifications = new List<string?>();
+        missing.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        Assert.Equal(Visibility.Visible, missing.ViewModel.MissingCalibrationProfileVisibility);
+        Assert.Equal(Visibility.Collapsed, missing.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(Visibility.Collapsed, missing.ViewModel.ManualReferenceOtherDisabledReasonVisibility);
+        missing.ViewModel.ManualBlackLevelInput = "65536";
+
+        Assert.Equal("65536", missing.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(Visibility.Visible, missing.ViewModel.MissingCalibrationProfileVisibility);
+        Assert.Equal(Visibility.Visible, missing.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(Visibility.Collapsed, missing.ViewModel.ManualReferenceFeedbackVisibility);
+        Assert.Same(before, missing.Workspace.Snapshot);
+        Assert.Equal(validationSummary, missing.ViewModel.BwValidationSummaryText);
+        Assert.Equal(validationIssues, missing.ViewModel.CurrentFilmProfileValidationIssues);
+        Assert.False(missing.ViewModel.ApplyManualReferenceLevelsCommand.CanExecute(null));
+        Assert.Contains(nameof(ScanDebugViewModel.ManualReferenceLocalEditVisibility), notifications);
+        Assert.Empty(missing.Repository.SavedProfileRoles);
+        Assert.Null(missing.FilmProfileFiles.ExportedProfile);
+
+        missing.ViewModel.RevertManualReferenceLevelsCommand.Execute(null);
+        Assert.Equal(string.Empty, missing.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(Visibility.Collapsed, missing.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(Visibility.Visible, missing.ViewModel.MissingCalibrationProfileVisibility);
+    }
+
+    [Fact]
+    public async Task ManualReference_CompactStateShowsLocalEditWithoutInventingMissingProfileOrValidation()
+    {
+        var red = CreateProfile(1000, blackLevel: 100, whiteLevel: 200);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red }, "Red"));
+        var before = harness.Workspace.Snapshot;
+        var validationSummary = harness.ViewModel.BwValidationSummaryText;
+        var validationIssues = harness.ViewModel.CurrentFilmProfileValidationIssues.ToArray();
+
+        harness.ViewModel.ManualBlackLevelInput = "65536";
+
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.MissingCalibrationProfileVisibility);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceFeedbackVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceOtherDisabledReasonVisibility);
+        Assert.Equal(validationSummary, harness.ViewModel.BwValidationSummaryText);
+        Assert.Equal(validationIssues, harness.ViewModel.CurrentFilmProfileValidationIssues);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal(red, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Equal(0, harness.Repository.SaveProfileCount);
+    }
+
+    [Fact]
+    public async Task ManualReference_ChannelSelectionPreflightCancelPreservesInputAndDoesNotRunCommands()
+    {
+        var red = CreateProfile(1000, blackLevel: 100, whiteLevel: 200);
+        var green = CreateProfile(2000, blackLevel: 300, whiteLevel: 400);
+        var session = new StatusSession(isConnected: false);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red, ["Green"] = green }, "Red"), scanSession: session);
+        harness.ViewModel.AttachRuntimeBindings();
+        ScanFilmProfileDiscardConfirmationRequest? confirmation = null;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => confirmation = request;
+        harness.ViewModel.ManualBlackLevelInput = "65536";
+        var before = harness.Workspace.Snapshot;
+        var writeCount = harness.Repository.SelectedChannelWriteRoles.Count;
+
+        var change = harness.ViewModel.TrySelectCalibrationChannelAsync("Green");
+        Assert.NotNull(confirmation);
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.False(change.IsCompleted);
+        confirmation!.CompletionSource.TrySetResult(false);
+
+        Assert.False(await change);
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("65536", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal(writeCount, harness.Repository.SelectedChannelWriteRoles.Count);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Empty(session.MoveAndWaitRequests);
+        Assert.Empty(session.StopMotorRequests);
+
+        confirmation = null;
+        var acceptedChange = harness.ViewModel.TrySelectCalibrationChannelAsync("Green");
+        Assert.NotNull(confirmation);
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        confirmation!.CompletionSource.TrySetResult(true);
+        Assert.True(await acceptedChange);
+        await harness.FlushAsync();
+
+        Assert.Equal("Green", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("300", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Equal(red, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
+        Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"]);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Empty(session.MoveAndWaitRequests);
+        Assert.Empty(session.StopMotorRequests);
+    }
+
+    [Fact]
+    public async Task ManualReference_ChannelSelectionPreflightRejectsStaleEditBeforeConfirmedSwitch()
+    {
+        var red = CreateProfile(1000, blackLevel: 100, whiteLevel: 200);
+        var green = CreateProfile(2000, blackLevel: 300, whiteLevel: 400);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red, ["Green"] = green }, "Red"));
+        harness.ViewModel.AttachRuntimeBindings();
+        ScanFilmProfileDiscardConfirmationRequest? confirmation = null;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => confirmation = request;
+        harness.ViewModel.ManualBlackLevelInput = "150";
+
+        var change = harness.ViewModel.TrySelectCalibrationChannelAsync("Green");
+        Assert.NotNull(confirmation);
+        harness.ViewModel.ManualBlackLevelInput = "151";
+        confirmation!.CompletionSource.TrySetResult(true);
+
+        Assert.False(await change);
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("151", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(red, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
+        Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"]);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Fact]
+    public async Task BwIdentity_WhenSelectedRoleMappingChanges_NotifiesLedWithoutChangingRole()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"));
+        await ConfigureDeviceChannelRolesAsync(harness, "Red", "Green", "Blue", "IR");
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("LED1", harness.ViewModel.CurrentCalibrationLedName);
+        var redItem = Assert.Single(harness.ViewModel.CalibrationChannelItems, item => item.Role == "Red");
+        Assert.True(redItem.IsSelected);
+        var notifications = new List<string?>();
+        var itemNotifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+        redItem.PropertyChanged += (_, eventArgs) => itemNotifications.Add(eventArgs.PropertyName);
+
+        await ConfigureDeviceChannelRolesAsync(harness, "Green", "Blue", "Red", "IR");
+
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("LED3", harness.ViewModel.CurrentCalibrationLedName);
+        Assert.True(redItem.IsSelected);
+        Assert.Contains(nameof(ScanDebugViewModel.CurrentCalibrationLedName), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.ManualReferenceChannelText), notifications);
+        Assert.Contains(nameof(ScanDebugCalibrationChannelItemViewModel.LedMappingText), itemNotifications);
+        Assert.DoesNotContain(nameof(ScanDebugViewModel.SelectedCalibrationChannel), notifications);
     }
 
     [Fact]
@@ -5969,6 +6162,50 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task Todo23_CurrentIssueNavigation_ReturnWhileRoleLoadPendingDoesNotNavigateOrDiscardNewInput()
+    {
+        var red = CreateProfile(1_000, blackLevel: 100, whiteLevel: 200);
+        var green = CreateProfile(2_000, blackLevel: 300, whiteLevel: 400);
+        var profiles = new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Red"] = red,
+            ["Green"] = green
+        };
+        var harness = await CreateAttachedHarnessAsync(profiles, CreateDraft(profiles, "Red"));
+        harness.Repository.BlockSelectedChannelWrite("Green");
+        var issue = CreateFilmProfileIssue(ScanFilmProfileValidationCode.InvalidChannelParameters,
+            "channelProfiles.Green.parameters", "FilmProfile.Validation.ChannelParametersInvalid", arguments: ["Green"]);
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [issue];
+        var display = Assert.Single(harness.ViewModel.CurrentFilmProfileValidationIssueDisplays);
+        var requests = new List<ScanFilmProfileIssueNavigationRequest>();
+        harness.ViewModel.CurrentFilmProfileIssueNavigationRequested += requests.Add;
+
+        var navigation = harness.ViewModel.TryRequestCurrentFilmProfileIssueNavigationAsync(display);
+        await harness.Repository.WaitForSelectedChannelWriteAsync("Green");
+        Assert.False(navigation.IsCompleted);
+        Assert.Equal("Green", harness.ViewModel.SelectedCalibrationChannel);
+        harness.ViewModel.CurrentFilmProfileValidationIssues = [issue];
+        Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues, current => ReferenceEquals(current, issue));
+        harness.ViewModel.ManualBlackLevelInput = "355";
+        var draftBeforeReturn = harness.Workspace.Snapshot.CurrentDraft;
+
+        harness.ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
+        harness.Repository.ReleaseSelectedChannelWrite("Green");
+        Assert.False(await navigation);
+        await harness.FlushAsync();
+
+        Assert.Empty(requests);
+        Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues, current => ReferenceEquals(current, issue));
+        Assert.Equal("Green", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("355", harness.ViewModel.ManualBlackLevelInput);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualReferenceLocalEditVisibility);
+        Assert.Same(draftBeforeReturn, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"]);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Fact]
     public async Task Todo23_CurrentIssueNavigation_RemovedCurrentIssueDuringBlockedGreenLoadDoesNotEmit()
     {
         var red = CreateProfile(1_000);
@@ -6389,16 +6626,20 @@ public sealed class ScanDebugCalibrationStatusTests
         harness.ViewModel.FocusMappingLeftMotor = "Motor2";
         harness.ViewModel.FocusMappingRightMotor = "Motor3";
         await harness.ViewModel.SaveFocusMappingCommand.ExecuteAsync(null);
-        Assert.Equal("Motor2: left focus motor; film transport motor", harness.ViewModel.Motor2RoleText);
-        Assert.Equal("Motor3: right focus motor", harness.ViewModel.Motor3RoleText);
+        Assert.Equal("left focus motor; film transport motor", harness.ViewModel.Motor2RoleText);
+        Assert.Equal("right focus motor", harness.ViewModel.Motor3RoleText);
         Assert.Contains("Applies the device motor configuration to Motor2, then reads motion state", harness.ViewModel.Motor2ApplyConfigEffectText, StringComparison.Ordinal);
 
         harness.ViewModel.Motor1MoveValue = "not-a-number";
-        Assert.Contains("requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.Contains("Requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         harness.ViewModel.Motor1MoveValue = "200";
-        Assert.DoesNotContain("requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.Contains("no configured semantic role", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         Assert.Contains("unmapped", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
-        Assert.Contains("Motor1: no configured semantic role", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.Matches(@"0\.5(?: |\u00a0)mm", harness.ViewModel.Motor1MoveSummaryText);
+        Assert.Matches(@"0\.1(?: |\u00a0)s", harness.ViewModel.Motor1MoveSummaryText);
+        Assert.Contains("physical direction unknown", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Motor1:", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         Assert.Contains(nameof(harness.ViewModel.Motor1MoveSummaryText), notifications);
         await harness.ViewModel.StopAllMotorsCommand.ExecuteAsync(null);
         Assert.Equal(1, coordinator.StopAllMotionCallCount);
