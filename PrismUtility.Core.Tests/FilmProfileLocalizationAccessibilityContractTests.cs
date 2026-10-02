@@ -26,7 +26,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     [
         ("ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content", "New film profile", "新建胶片配置"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content", "Open profile JSON", "打开配置 JSON"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content", "Validate profile", "验证配置"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content", "Check configuration", "检查配置"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content", "Export configuration JSON", "导出配置 JSON"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content", "Save to calibration library", "保存到校准库"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content", "Remove from calibration library", "从校准库移除"),
@@ -138,11 +138,11 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_PendingCalibrationRestoreOriginalButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Restore original calibration parameters", "恢复原始校准参数"),
         ("ScanDebug_PendingCalibrationCancelButton.Content", "Cancel", "取消"),
         ("ScanDebug_PendingCalibrationCancelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Cancel pending calibration review", "取消待处理校准审查"),
-        ("ScanDebug_AdvancedAutofocusTitle.Text", "Advanced Autofocus", "高级自动对焦"),
+        ("ScanDebug_AdvancedAutofocusTitle.Text", "Search parameters", "搜索参数"),
         ("ScanDebug_AdvancedAutofocusExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Advanced autofocus settings", "高级自动对焦设置"),
         ("ScanDebug_AdvancedAutofocusExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Expand to edit autofocus presets, custom algorithm inputs, and bounds.", "展开后编辑自动对焦预设、自定义算法输入和边界。"),
         ("ScanDebug_AutofocusPresetComboBox.Header", "Autofocus preset", "自动对焦预设"),
-        ("ScanDebug_AutofocusNote.Text", "Host-side scan-debug autofocus uses the persisted focus motor mapping. Choose a preset for deterministic bounds, or switch to Custom for direct algorithm inputs.", "主机端扫描调试自动对焦会使用已保存的对焦电机映射。选择预设可获得确定性边界，或切换到自定义直接输入算法参数。"),
+        ("ScanDebug_AutofocusNote.Text", "Autofocus uses the saved motor mapping. Select Custom to edit search bounds.", "自动对焦使用已保存的电机映射；自定义预设可调整搜索边界。"),
         ("ScanDebug_AutofocusMaxTiltIterationsTextBox.Header", "Max tilt iterations", "最大倾斜迭代次数"),
         ("ScanDebug_AutofocusPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Quick, Standard, and Fine fill deterministic autofocus distances and iteration limits; Custom enables manual values.", "快速、标准和精细会填入确定性的自动对焦距离与迭代限制；自定义允许手动输入。"),
         ("ScanDebug_AutofocusMaxZIterationsTextBox.Header", "Max Z iterations", "最大 Z 迭代次数"),
@@ -198,11 +198,11 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_Runtime_ChannelStatusCopiedUnverified", "Copied-Unverified", "已复制待验证"),
         ("ScanDebug_Runtime_ChannelStatusUnconfigured", "Missing", "缺少"),
         ("ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text", "Profile identity", "配置身份"),
-        ("ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text", "Edit the film-level name and document output choices. Changes stay in the workspace until you save or apply.", "编辑胶片级名称和文档输出选项。更改会保留在工作区中，直到保存或应用。"),
+        ("ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text", "Name and output options belong to the current draft; export JSON separately.", "名称和输出选项属于当前配置草稿；导出 JSON 需单独操作。"),
         ("ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text", "Color and scan recipe", "色彩与扫描配方"),
-        ("ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text", "These values come from the active profile snapshot and update the draft immediately, even while the scanner is offline.", "这些值来自活动配置快照，并会立即更新草稿，即使扫描仪离线也是如此。"),
-        ("ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text", "Current save and validation state", "当前保存与验证状态"),
-        ("ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text", "Validation lists exact field paths with actionable messages before Save or Apply can proceed.", "验证会列出准确字段路径和可操作消息，之后才能继续保存或应用。"),
+        ("ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text", "Output settings do not replace the selected channel's black / white calibration.", "这些输出设置不代替所选通道的黑白场校准。"),
+        ("ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text", "Current configuration issues", "当前配置问题"),
+        ("ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text", "Review field issues; choose a locatable item to jump to its editor.", "查看字段问题，选择可定位项可直接跳转修改。"),
         ("ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header", "Profile name", "配置名称"),
         ("ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText", "e.g. 5207", "例如 5207"),
         ("ScanDebug_FilmProfileWorkbenchBasicColorManagementToggleSwitch.Header", "Use profile color management", "使用配置色彩管理"),
@@ -502,7 +502,10 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
 
         Assert.Equal(1, CountOccurrences(xaml, $"x:Uid=\"{textBlockUid}\""));
         Assert.DoesNotContain($"<TextBlock x:Uid=\"{infoBarUid}\"", xaml, StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(xaml, $"<InfoBar x:Uid=\"{infoBarUid}\""));
+        Assert.Equal(1, CountOccurrences(xaml, $"<InfoBar x:Uid=\"{infoBarUid}\""));
+        Assert.Equal(1, CountOccurrences(xaml, "ItemsSource=\"{x:Bind ViewModel.CurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\""));
+        Assert.Equal(1, CountOccurrences(xaml, "ItemsSource=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\""));
+        Assert.DoesNotContain("AcquisitionCurrentFilmProfileValidationIssueScrollViewer", xaml, StringComparison.Ordinal);
 
         foreach (var (culture, expectedTitle) in new[]
         {
@@ -764,8 +767,10 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             "Stop all motors must remain in the non-scrolling run bar, above the task selector and motor card.");
         Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", english.Keys);
         Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", chinese.Keys);
-        Assert.Contains("ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", english.Keys);
-        Assert.Contains("ScanDebug_StopButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", chinese.Keys);
+        Assert.Contains("AutomationProperties.HelpText=\"{x:Bind ViewModel.StopDisabledReasonText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTipService.ToolTip=\"{x:Bind ViewModel.StopDisabledReasonText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Equal("No scan is running to stop.", english["ScanDebug_DisabledReasonNoActiveScan"]);
+        Assert.Equal("当前没有正在进行的采集。", chinese["ScanDebug_DisabledReasonNoActiveScan"]);
 
         Assert.Contains("x:Uid=\"ScanDebug_MotionReadRequiredTextBlock\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.MotionStateReadRequiredText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);

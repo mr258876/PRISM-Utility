@@ -24,6 +24,578 @@ public sealed class ScanDebugCalibrationStatusTests
 
     private static ScanParameterSnapshot Todo15InputSnapshot { get; } = new(1_000, 0, 1, 0, 1, 48_000);
 
+    [Theory]
+    [InlineData(nameof(ScanDebugViewModel.IsAutoFocusing), "ScanDebug_RunActivityAutoFocus", "Auto focusing")]
+    [InlineData(nameof(ScanDebugViewModel.IsManualFocusing), "ScanDebug_RunActivityManualFocus", "Manual focusing")]
+    [InlineData(nameof(ScanDebugViewModel.IsAutoCalibrating), "ScanDebug_RunActivityAutoCalibration", "Auto calibrating")]
+    [InlineData(nameof(ScanDebugViewModel.IsApplyingParameters), "ScanDebug_RunActivityApplyingParameters", "Applying channel parameters")]
+    [InlineData(nameof(ScanDebugViewModel.IsApplyingDeviceClock), "ScanDebug_RunActivityApplyingDeviceClock", "Applying device clock")]
+    [InlineData(nameof(ScanDebugViewModel.IsApplyingIllumination), "ScanDebug_RunActivityApplyingIllumination", "Applying illumination")]
+    [InlineData(nameof(ScanDebugViewModel.IsApplyingMotion), "ScanDebug_RunActivityApplyingMotion", "Applying motion settings")]
+    [InlineData(nameof(ScanDebugViewModel.IsUpdatingFocusMapping), "ScanDebug_RunActivityUpdatingFocusMapping", "Updating focus mapping")]
+    [InlineData(nameof(ScanDebugViewModel.IsOutputOperationRunning), "ScanDebug_RunActivityOutputOperation", "Processing output")]
+    [InlineData(nameof(ScanDebugViewModel.IsFilmProfileOperationRunning), "ScanDebug_RunActivityFilmProfileOperation", "Working with film profile")]
+    [InlineData(nameof(ScanDebugViewModel.IsCalibrationRepositoryOperationRunning), "ScanDebug_RunActivityCalibrationRepositoryOperation", "Saving calibration profile")]
+    public async Task RunActivity_WhenOperationIsActive_NamesThatOperation(string flag, string key, string fallback)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        typeof(ScanDebugViewModel).GetProperty(flag)!.SetValue(viewModel, true);
+
+        Assert.Equal(key.GetLocalizedOrFallback(fallback), viewModel.RunActivityText);
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunPresentationText);
+        Assert.Equal(viewModel.DeviceStateText, viewModel.RunContextText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunActivityText), notifications);
+    }
+
+    [Fact]
+    public async Task RunActivity_WhenWorkflowProgressArrives_ShowsTypedPassAndStageWithoutReplacingDiagnostic()
+    {
+        var release = new TaskCompletionSource<ScanWorkflowResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var workflow = new StatusWorkflow((_, _, _) => release.Task);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true, workflow: workflow);
+        var viewModel = harness.ViewModel;
+        viewModel.IsRunning = true;
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        var scan = InvokeRunWorkflowScanAsync(viewModel, CreateStreamingPreviewRequest());
+
+        workflow.ProgressCallback!(new ScanWorkflowProgress(2, 3, 1, true, "Waiting for motor"));
+        harness.Dispatcher.DrainAll();
+
+        var stage = ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage("Waiting for motor");
+        Assert.Equal("ScanDebug_RunActivityWorkflowProgress".GetLocalizedFormatOrFallback("Scanning · pass {0}/{1} · {2}", 2, 3, stage), viewModel.RunActivityText);
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunPresentationText);
+        Assert.Contains(stage, viewModel.RunActivityText);
+        Assert.DoesNotContain("Waiting for motor", viewModel.RunActivityText);
+        Assert.Equal("ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(2, 3, stage, 2), viewModel.StatusText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunPresentationText), notifications);
+
+        var snapshot = CreateProfile(1000).Parameters;
+        viewModel.PendingCalibrationResult = PendingCalibrationResult.Create(snapshot, snapshot,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0),
+            new CalibrationCandidateContext("Red", "workspace", "device"))
+            .Fail(new ScanCalibrationCandidateFailure("device-apply.failed", "candidate rejected"));
+        Assert.Equal(Assert.Single(viewModel.OperationNotices).Message, viewModel.RunPresentationText);
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunContextText);
+
+        release.SetResult(CreateStreamingPreviewFinalResult());
+        await scan;
+        Assert.Equal("ScanDebug_DisabledReasonScanRunning".GetLocalized(), viewModel.RunActivityText);
+    }
+
+    [Fact]
+    public async Task RunActivity_WhenWorkflowProgressIsQueuedAfterFailure_DoesNotReviveStageOrOverwriteError()
+    {
+        var release = new TaskCompletionSource<ScanWorkflowResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var workflow = new StatusWorkflow((_, _, _) => release.Task);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true, workflow: workflow);
+        harness.ViewModel.IsRunning = true;
+        var scan = InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        workflow.ProgressCallback!(new ScanWorkflowProgress(1, 2, 0, true, "Scanning"));
+        harness.Dispatcher.DrainAll();
+        Assert.Contains("1/2", harness.ViewModel.RunActivityText);
+
+        workflow.ProgressCallback(new ScanWorkflowProgress(2, 2, 1, false, "Returning"));
+        workflow.StatusCallback!("late status");
+        release.SetException(new IOException("terminal workflow error"));
+        await scan;
+        var terminalStatus = harness.ViewModel.StatusText;
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        harness.Dispatcher.DrainAll();
+        workflow.ProgressCallback(new ScanWorkflowProgress(2, 2, 1, false, "Completed"));
+        harness.Dispatcher.DrainAll();
+
+        Assert.Equal(terminalStatus, harness.ViewModel.StatusText);
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("ScanDebug_DisabledReasonScanRunning".GetLocalized(), harness.ViewModel.RunActivityText);
+        Assert.DoesNotContain("2/2", harness.ViewModel.RunContextText);
+    }
+
+    [Fact]
+    public async Task RunActivity_WhenPageOwnerChanges_RejectsQueuedWorkflowProgress()
+    {
+        var release = new TaskCompletionSource<ScanWorkflowResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var workflow = new StatusWorkflow((_, _, _) => release.Task);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true, workflow: workflow);
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        harness.ViewModel.IsRunning = true;
+        var scan = InvokeRunWorkflowScanAsync(harness.ViewModel, CreateStreamingPreviewRequest());
+        workflow.ProgressCallback!(new ScanWorkflowProgress(1, 2, 0, true, "Preparing"));
+        var nextOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(nextOwner));
+
+        harness.Dispatcher.DrainAll();
+
+        Assert.Equal("ScanDebug_DisabledReasonScanRunning".GetLocalized(), harness.ViewModel.RunActivityText);
+        release.SetResult(CreateStreamingPreviewFinalResult());
+        await scan;
+    }
+
+    [Fact]
+    public async Task RunContext_WhenOfflineStateIsPrimary_HasNoExtraContext()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+
+        Assert.Equal(viewModel.DeviceStateText, viewModel.RunPresentationText);
+        Assert.Empty(viewModel.RunContextText);
+
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        viewModel.IsRunning = true;
+
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunPresentationText);
+        Assert.Equal(viewModel.DeviceStateText, viewModel.RunContextText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunContextText), notifications);
+
+        viewModel.IsRunning = false;
+        Assert.Empty(viewModel.RunContextText);
+    }
+
+    [Fact]
+    public async Task RunContext_WhenFailureIsRetainedWhileOffline_ShowsActivityAndDeviceUntilAcknowledged()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        viewModel.IsRunning = true;
+        var snapshot = CreateProfile(1000).Parameters;
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        viewModel.PendingCalibrationResult = PendingCalibrationResult.Create(snapshot, snapshot,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0),
+            new CalibrationCandidateContext("Red", "workspace", "device"))
+            .Fail(new ScanCalibrationCandidateFailure("device-apply.failed", "candidate rejected"));
+
+        var notice = Assert.Single(viewModel.OperationNotices);
+        Assert.Equal(notice.Message, viewModel.RunPresentationText);
+        Assert.Equal($"{viewModel.RunActivityText} · {viewModel.DeviceStateText}", viewModel.RunContextText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunContextText), notifications);
+
+        notifications.Clear();
+        viewModel.AcknowledgeOperationNoticeCommand.Execute(notice.Id);
+
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunPresentationText);
+        Assert.Equal(viewModel.DeviceStateText, viewModel.RunContextText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunContextText), notifications);
+    }
+
+    [Fact]
+    public async Task RunContext_WhenNoticeIsRetainedWhileConnected_ShowsOnlyActivity()
+    {
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true),
+            parameters: new StatusParameters(globalClockApplyFailure: new IOException("clock write rejected")));
+        await SetValidParameterInputsAsync(harness, "125");
+        await harness.ViewModel.ApplyDeviceClockCommand.ExecuteAsync(null);
+        var viewModel = harness.ViewModel;
+        var notice = Assert.Single(viewModel.OperationNotices);
+
+        Assert.Empty(viewModel.RunContextText);
+
+        viewModel.IsRunning = true;
+
+        Assert.Equal(notice.Message, viewModel.RunPresentationText);
+        Assert.Equal(viewModel.RunActivityText, viewModel.RunContextText);
+
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        viewModel.IsConnected = false;
+
+        Assert.Equal(notice.Message, viewModel.RunPresentationText);
+        Assert.Equal($"{viewModel.RunActivityText} · {viewModel.DeviceStateText}", viewModel.RunContextText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunContextText), notifications);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenClockWriteFails_RemainsAfterDiscoveryRefreshAndDiagnosticUpdate()
+    {
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true),
+            parameters: new StatusParameters(globalClockApplyFailure: new IOException("clock write rejected")));
+        await SetValidParameterInputsAsync(harness, "125");
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        await harness.ViewModel.ApplyDeviceClockCommand.ExecuteAsync(null);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal(InfoBarSeverity.Error, notice.Severity);
+        Assert.Equal("DeviceClock", notice.Target);
+        Assert.Equal(harness.ViewModel.StatusText, notice.Message);
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        typeof(ScanDebugViewModel).GetMethod("RefreshTargets", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, null);
+        harness.ViewModel.StatusText = "later diagnostic";
+
+        Assert.Same(notice, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("later diagnostic", harness.ViewModel.CurrentDiagnosticText);
+        Assert.Contains(nameof(ScanDebugViewModel.RunPresentationText), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.CurrentDiagnosticText), notifications);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenFailuresDiffer_AcknowledgesOnlyMatchingId()
+    {
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true),
+            parameters: new StatusParameters(globalClockApplyFailure: new IOException("clock write rejected")));
+        await SetValidParameterInputsAsync(harness, "125");
+        await harness.ViewModel.ApplyDeviceClockCommand.ExecuteAsync(null);
+        var first = Assert.Single(harness.ViewModel.OperationNotices);
+        var snapshot = CreateProfile(1000).Parameters;
+        harness.ViewModel.PendingCalibrationResult = PendingCalibrationResult.Create(snapshot, snapshot,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0),
+            new CalibrationCandidateContext("Red", "workspace", "device"))
+            .Fail(new ScanCalibrationCandidateFailure("device-apply.failed", "candidate rejected"));
+
+        Assert.Equal(2, harness.ViewModel.OperationNotices.Count);
+        var second = harness.ViewModel.OperationNotices[1];
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.Equal(second.Message, harness.ViewModel.RunPresentationText);
+        harness.ViewModel.AcknowledgeOperationNoticeCommand.Execute(first.Id);
+
+        Assert.Same(second, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal(second.Message, harness.ViewModel.RunPresentationText);
+        harness.ViewModel.AcknowledgeOperationNoticeCommand.Execute(second.Id);
+        Assert.Empty(harness.ViewModel.OperationNotices);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenIlluminationApplyFails_SurvivesDiscoveryAndStatusUpdate()
+    {
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+
+        await harness.ViewModel.ApplyIlluminationCommand.ExecuteAsync(null);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("Illumination", notice.Target);
+        Assert.Equal(InfoBarSeverity.Error, notice.Severity);
+        Assert.Equal(harness.ViewModel.StatusText, notice.Message);
+
+        session.RefreshTargets();
+        harness.ViewModel.StatusText = "later diagnostic";
+        Assert.Same(notice, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("later diagnostic", harness.ViewModel.CurrentDiagnosticText);
+    }
+
+    [Theory]
+    [InlineData("0", "1", "2")]
+    [InlineData("1", "invalid", "2")]
+    [InlineData("1", "1", "invalid")]
+    public async Task RunNotice_WhenSessionIlluminationInputIsInvalid_RetainsFailureWithoutDeviceWrites(
+        string ledIndex, string level, string pulseClock)
+    {
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session, useConnectedSession: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: coordinator);
+        harness.ViewModel.SessionTestLedIndex = ledIndex;
+        harness.ViewModel.SessionTestLedLevel = level;
+        harness.ViewModel.SessionTestPulseClock = pulseClock;
+        Assert.True(harness.ViewModel.TestIlluminationSteadyCommand.CanExecute(null));
+
+        await harness.ViewModel.TestIlluminationSteadyCommand.ExecuteAsync(null);
+
+        Assert.NotEmpty(harness.ViewModel.StatusText);
+        Assert.Equal(0, coordinator.UseConnectedSessionCallCount);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("IlluminationTest", notice.Target);
+        Assert.Equal(InfoBarSeverity.Error, notice.Severity);
+        Assert.Equal(harness.ViewModel.StatusText, notice.Message);
+        harness.ViewModel.StatusText = "later routine diagnostic";
+        Assert.Same(notice, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("later routine diagnostic", harness.ViewModel.CurrentDiagnosticText);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenChannelProfileInputIsRejected_SurvivesStatusUpdate()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.ViewModel.SysClockMhz = "invalid";
+
+        await harness.ViewModel.SaveChannelProfileCommand.ExecuteAsync(null);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("ChannelProfile", notice.Target);
+        Assert.Equal(harness.ViewModel.StatusText, notice.Message);
+
+        harness.ViewModel.StatusText = "later diagnostic";
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("later diagnostic", harness.ViewModel.CurrentDiagnosticText);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RunNotice_WhenColumnSampleIsUnavailable_RetainsPreflightFailure(bool black)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        if (black)
+            await harness.ViewModel.SaveColumnSampleAsBlackLevelCommand.ExecuteAsync(null);
+        else
+            await harness.ViewModel.SaveColumnSampleAsWhiteLevelCommand.ExecuteAsync(null);
+
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("ColumnSample", notice.Target);
+        Assert.Equal(harness.ViewModel.StatusText, notice.Message);
+        harness.ViewModel.StatusText = "later diagnostic";
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RunNotice_WhenColumnLevelPersistenceFails_DoesNotClaimSaveSucceeded(bool black)
+    {
+        var profile = CreateProfile(1000);
+        var harness = await StatusHarness.CreateAsync(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = profile }, null,
+            attachRuntimeBindings: true,
+            autoCalibration: new StatusAutoCalibration(profile.Parameters, captureFrame: true,
+                autoBlackFailure: new OperationCanceledException("capture preview without saving")),
+            previewSample: 321, connected: true,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        await harness.SelectChannelAsync("Red");
+        await SetValidParameterInputsAsync(harness, "125");
+        await harness.ViewModel.AutoBlackAdjustCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        InvokeApplyScanFrame(harness.ViewModel);
+        await harness.FlushAsync();
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.True(black ? harness.ViewModel.SaveColumnSampleAsBlackLevelCommand.CanExecute(null)
+            : harness.ViewModel.SaveColumnSampleAsWhiteLevelCommand.CanExecute(null));
+        harness.Repository.FailProfileSave("Red", new IOException("disk rejected level"));
+
+        if (black)
+            await harness.ViewModel.SaveColumnSampleAsBlackLevelCommand.ExecuteAsync(null);
+        else
+            await harness.ViewModel.SaveColumnSampleAsWhiteLevelCommand.ExecuteAsync(null);
+
+        Assert.Contains("disk rejected level", harness.ViewModel.StatusText);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices, item => item.Target == "ColumnSample");
+        Assert.Equal("ColumnSample", notice.Target);
+        Assert.Contains("disk rejected level", notice.Message);
+        Assert.Equal(notice.Message, harness.ViewModel.StatusText);
+        Assert.Equal(profile, harness.Repository.Snapshot.Profiles["Red"]);
+        harness.ViewModel.StatusText = "later diagnostic";
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenFilmProfileErrorIsFollowedByCancel_RetainsOnlyError()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.ViewModel.FilmProfileName = "Unsaved draft";
+        await harness.FlushAsync();
+        var requested = new TaskCompletionSource<ScanFilmProfileDiscardConfirmationRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => requested.TrySetResult(request);
+        var operation = harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        (await requested.Task.WaitAsync(TimeSpan.FromSeconds(3))).CompletionSource.TrySetException(new IOException("dialog failed"));
+        await operation;
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("FilmProfile", notice.Target);
+        Assert.Equal(InfoBarSeverity.Error, notice.Severity);
+
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => request.CompletionSource.TrySetResult(false);
+        await harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.Same(notice, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenStopScanThrows_DoesNotRethrowAndRetainsScopedFailure()
+    {
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+        harness.ViewModel.IsRunning = true;
+
+        await harness.ViewModel.StopScanCommand.ExecuteAsync(null);
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Equal("ScanStop", notice.Target);
+        Assert.Equal(InfoBarSeverity.Error, notice.Severity);
+        Assert.Contains("Stop scan failed", notice.Message);
+        Assert.Equal(notice.Message, harness.ViewModel.StatusText);
+
+        harness.ViewModel.StatusText = "later diagnostic";
+        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Equal("later diagnostic", harness.ViewModel.CurrentDiagnosticText);
+    }
+
+    [Fact]
+    public async Task RunNotice_WhenManualFocusStopFailureIsQueued_OldOwnerCannotPublishIt()
+    {
+        var motion = new FocusMotionProbe { StopFailureMotorId = 0 };
+        var session = new StatusSession(isConnected: true, focusMotion: motion);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        var stop = typeof(ScanDebugViewModel).GetMethod("TryStopManualFocusMotorsAfterReleaseAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        await Assert.IsAssignableFrom<Task>(stop.Invoke(harness.ViewModel, null));
+        harness.Dispatcher.DrainAll();
+        var notice = Assert.Single(harness.ViewModel.OperationNotices);
+        Assert.Contains("Motor 0", notice.Message);
+        harness.ViewModel.AcknowledgeOperationNoticeCommand.Execute(notice.Id);
+
+        await Assert.IsAssignableFrom<Task>(stop.Invoke(harness.ViewModel, null));
+        var nextOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(nextOwner));
+        harness.Dispatcher.DrainAll();
+        Assert.Empty(harness.ViewModel.OperationNotices);
+        Assert.Equal(4, session.StopMotorRequests.Count);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunNotice_WhenReleaseStopFailsAfterSessionAdmission_RetainsOnlyCurrentOwnerFailure(bool switchOwner)
+    {
+        var admissionEntered = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var admitSession = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopCompleted = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var motion = new FocusMotionProbe { StopFailureMotorId = 0, PendingStop = stopCompleted };
+        var session = new StatusSession(isConnected: true, focusMotion: motion);
+        var coordinator = new StatusSessionCoordinator(session, useConnectedSession: true)
+        {
+            BeforeCallbackAdmission = async () =>
+            {
+                admissionEntered.TrySetResult(null);
+                await admitSession.Task;
+            }
+        };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: coordinator);
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        var stop = typeof(ScanDebugViewModel).GetMethod("TryStopManualFocusMotorsAfterReleaseAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var operation = Assert.IsAssignableFrom<Task>(stop.Invoke(harness.ViewModel, null));
+        await admissionEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if (switchOwner)
+        {
+            var nextOwner = harness.ViewModel.ReservePageActivation();
+            Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(nextOwner));
+        }
+
+        admitSession.SetResult(null);
+        await motion.StopMotorEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        stopCompleted.SetException(new IOException("delayed stop failure"));
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        harness.Dispatcher.DrainAll();
+
+        Assert.Equal([(byte)0, (byte)2], session.StopMotorRequests.Select(request => request.MotorId).ToArray());
+        if (switchOwner)
+            Assert.Empty(harness.ViewModel.OperationNotices);
+        else
+        {
+            var notice = Assert.Single(harness.ViewModel.OperationNotices);
+            Assert.Equal("ManualFocusStop", notice.Target);
+            Assert.Contains("Motor 0: delayed stop failure", notice.Message);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunNotice_WhenManualFocusJogFailsAfterOwnerChange_OnlyCurrentOwnerSeesFailure(bool switchOwner)
+    {
+        var motion = new FocusMotionProbe { BlockFirstManualMove = true };
+        var session = new StatusSession(isConnected: true, motionStates: CreateIdleMotionStates(), focusMotion: motion);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, deviceSettings: new StatusDeviceSettings(),
+            sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+        var oldOwner = harness.ViewModel.ReservePageActivation();
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+
+        harness.ViewModel.BeginManualFocusHold(positive: true);
+        var operation = ReadPrivateField<Task>(harness.ViewModel, "_manualFocusTask")!;
+        await motion.FirstManualMoveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if (switchOwner)
+        {
+            var nextOwner = harness.ViewModel.ReservePageActivation();
+            Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(nextOwner));
+            harness.ViewModel.StatusText = "new owner diagnostic";
+        }
+
+        motion.ReleaseFirstManualMove.SetException(new IOException("delayed jog failure"));
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        harness.Dispatcher.DrainAll();
+
+        Assert.Single(motion.ManualMoveRequests);
+        Assert.False(harness.ViewModel.IsManualFocusing);
+        if (switchOwner)
+        {
+            Assert.Equal("new owner diagnostic", harness.ViewModel.StatusText);
+            Assert.Empty(harness.ViewModel.OperationNotices);
+        }
+        else
+        {
+            var notice = Assert.Single(harness.ViewModel.OperationNotices);
+            Assert.Equal("ManualFocus", notice.Target);
+            Assert.Equal("ScanDebug_Runtime_StatusManualFocusFailed".GetLocalizedFormat("delayed jog failure"), notice.Message);
+            Assert.Equal(notice.Message, harness.ViewModel.StatusText);
+        }
+    }
+
+    [Fact]
+    public async Task FocusSummary_WhenPreviewSelectionChanges_UsesFocusEditorRange()
+    {
+        var roi = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, roi) }, "Red"));
+        var viewModel = harness.ViewModel;
+        viewModel.SelectedFocusRoiSelection = "Focus Left";
+        viewModel.UpdateSelectedRoiRange(170, 230, ScanDebugConstants.DecodedPixelsPerLine);
+        var focusSummary = viewModel.FocusRoiSummaryText;
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        viewModel.SelectedRoiSelection = "BW Active";
+
+        Assert.Equal(focusSummary, viewModel.FocusRoiSummaryText);
+        Assert.Contains("170", viewModel.FocusRoiSummaryText);
+        Assert.DoesNotContain("BW Active", viewModel.FocusRoiSummaryText);
+        viewModel.SelectedFocusRoiSelection = "Focus Right";
+        Assert.NotEqual(focusSummary, viewModel.FocusRoiSummaryText);
+        Assert.Contains(nameof(ScanDebugViewModel.FocusRoiSummaryText), notifications);
+    }
+
+    [Fact]
+    public async Task ObservationFooter_WhenFrameAppearsAndClears_UsesOnlyFrameEvidence()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        Assert.Empty(viewModel.ObservationFooterText);
+        Assert.Equal(Visibility.Collapsed, viewModel.ObservationFooterVisibility);
+
+        viewModel.PreviewFrame = new ScanPreviewFrame(new byte[16], 2, 2, 8, ScanPreviewPixelFormat.Bgra8, 1);
+
+        Assert.Contains("2 × 2", viewModel.ObservationFooterText);
+        Assert.Equal(Visibility.Visible, viewModel.ObservationFooterVisibility);
+        Assert.DoesNotContain(viewModel.SelectedCalibrationChannel, viewModel.ObservationFooterText);
+        viewModel.PreviewFrame = null;
+        Assert.Empty(viewModel.ObservationFooterText);
+        Assert.Equal(Visibility.Collapsed, viewModel.ObservationFooterVisibility);
+        Assert.Contains(nameof(ScanDebugViewModel.ObservationFooterVisibility), notifications);
+    }
+
     [Fact]
     public async Task PageReentry_ReservationKeepsPreviewAndStaleOwnerCannotDetachNewAttachment()
     {
@@ -5559,6 +6131,102 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task ManualFocusDistanceLimit_WhenDefaultDistanceIsValid_HidesNormalEcho()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        Assert.Equal("0.05", harness.ViewModel.ManualFocusDistanceMm);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+    }
+
+    [Fact]
+    public async Task ManualFocusDistanceLimit_WhenBelowMinimum_ShowsMinimumWarning()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        harness.ViewModel.ManualFocusDistanceMm = "0.0005";
+
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitDistanceCurrentBelowMinimum".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelManualFocusDistance".GetLocalized(), 0.001, 0.0005),
+            harness.ViewModel.ManualFocusDistanceLimitText);
+    }
+
+    [Fact]
+    public async Task ManualFocusDistanceLimit_WhenAboveMaximum_ShowsMaximumWarning()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        harness.ViewModel.ManualFocusDistanceMm = "1.001";
+
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_ErrorManualFocusDistanceMaximum".GetLocalizedFormat("1.0"),
+            harness.ViewModel.ManualFocusDistanceLimitText);
+    }
+
+    [Theory]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public async Task ManualFocusDistanceLimit_WhenNonfinite_ShowsFiniteValueWarning(string distance)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        harness.ViewModel.ManualFocusDistanceMm = distance;
+
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_ErrorManualFocusDistancePositive".GetLocalized(),
+            harness.ViewModel.ManualFocusDistanceLimitText);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task ManualFocusDistanceLimit_WhenMissing_ShowsMinimumWarning(string distance)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        harness.ViewModel.ManualFocusDistanceMm = distance;
+
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitDistanceMinimum".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelManualFocusDistance".GetLocalized(), 0.001),
+            harness.ViewModel.ManualFocusDistanceLimitText);
+    }
+
+    [Fact]
+    public async Task ManualFocusDistanceLimit_WhenInvalid_ShowsNumberWarning()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        harness.ViewModel.ManualFocusDistanceMm = "invalid";
+
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitDistanceInvalidNumber".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelManualFocusDistance".GetLocalized()),
+            harness.ViewModel.ManualFocusDistanceLimitText);
+    }
+
+    [Fact]
+    public async Task ManualFocusDistanceLimit_WhenEdited_NotifiesVisibilityInBothDirections()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        harness.ViewModel.ManualFocusDistanceMm = "1.001";
+
+        Assert.Contains(nameof(ScanDebugViewModel.ManualFocusDistanceLimitVisibility), notifications);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+
+        notifications.Clear();
+        harness.ViewModel.ManualFocusDistanceMm = "0.05";
+
+        Assert.Contains(nameof(ScanDebugViewModel.ManualFocusDistanceLimitVisibility), notifications);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ManualFocusDistanceLimitVisibility);
+    }
+
+    [Fact]
     public async Task Todo17ManualFocusSafety_GivenDistanceJustOverMaximum_ThenRejectsBeforeSessionIo()
     {
         await AssertManualFocusRejectedBeforeSessionIoAsync(
@@ -7552,10 +8220,14 @@ public sealed class ScanDebugCalibrationStatusTests
         }
 
         public int ExecuteCount { get; private set; }
+        public Action<ScanWorkflowProgress>? ProgressCallback { get; private set; }
+        public Action<string>? StatusCallback { get; private set; }
 
         public Task<ScanWorkflowResult> ExecuteAsync(IScanSessionService session, ScanWorkflowRequest request, CancellationToken ct, Action<ScanWorkflowProgress>? onProgress = null, Action<string>? onStatus = null, Action<string>? onDiagnostic = null, Action<int, int>? onByteProgress = null, ScanWorkflowRowsAvailableHandler? onRowsAvailable = null)
         {
             ExecuteCount++;
+            ProgressCallback = onProgress;
+            StatusCallback = onStatus;
             return _execute is null
                 ? Task.FromException<ScanWorkflowResult>(new NotSupportedException())
                 : _execute(request, onRowsAvailable, ct);
@@ -7890,7 +8562,15 @@ public sealed class ScanDebugCalibrationStatusTests
         {
             StopMotorRequests.Add((motorId, ct.CanBeCanceled));
             if (_focusMotion?.StopFailureMotorId == motorId)
+            {
+                if (_focusMotion.PendingStop is not null)
+                {
+                    _focusMotion.StopMotorEntered.TrySetResult(null);
+                    return _focusMotion.PendingStop.Task;
+                }
+
                 return Task.FromException(new IOException("injected stop failure"));
+            }
 
             return Task.CompletedTask;
         }
@@ -7954,6 +8634,10 @@ public sealed class ScanDebugCalibrationStatusTests
         public bool BlockMappingForwardCompletion { get; init; }
 
         public byte? StopFailureMotorId { get; init; }
+
+        public TaskCompletionSource<object?>? PendingStop { get; init; }
+
+        public TaskCompletionSource<object?> StopMotorEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public TaskCompletionSource<object?> FirstManualMoveEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

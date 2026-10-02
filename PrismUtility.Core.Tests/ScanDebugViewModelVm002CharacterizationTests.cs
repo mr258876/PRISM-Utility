@@ -22,7 +22,13 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
         foreach (var binding in new[]
         {
-            "Text=\"{x:Bind ViewModel.StatusText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.RunPresentationText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.RunContextText, Mode=OneWay}\"",
+            "ItemsSource=\"{x:Bind ViewModel.OperationNotices, Mode=OneWay}\"",
+            "Command=\"{Binding DataContext.AcknowledgeOperationNoticeCommand, ElementName=ScanDebugRootGrid}\"",
+            "Text=\"{x:Bind ViewModel.CurrentDiagnosticText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.ObservationFooterText, Mode=OneWay}\"",
+            "Visibility=\"{x:Bind ViewModel.ObservationFooterVisibility, Mode=OneWay}\"",
             "Command=\"{x:Bind ViewModel.StartScanCommand}\"",
             "Command=\"{x:Bind ViewModel.StopScanCommand}\"",
             "Command=\"{x:Bind ViewModel.ExportDngCommand}\"",
@@ -70,6 +76,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         {
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
         }
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.StatusText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
 
         var channelSelectionHandler = ExtractMemberBodyAtDeclaration(codeBehind, "private async void CalibrationChannelFallbackComboBox_SelectionChanged(");
         var channelSelectionPreflight = ExtractMemberBodyAtDeclaration(viewModel, "public async Task<bool> TrySelectCalibrationChannelAsync(");
@@ -115,6 +122,34 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
         Assert.Contains("ScanDebugViewModel viewModel => viewModel.ConnectDevicesCommand", shellViewModel, StringComparison.Ordinal);
         Assert.Contains("ScanDebugViewModel viewModel => viewModel.DisconnectDevicesCommand", shellViewModel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Vm002_RunFeedback_PreservesUnacknowledgedFailuresAndMovesDiagnosticsOffObservationFooter()
+    {
+        var source = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
+        var report = ExtractMemberBodyAtDeclaration(source, "private void ReportOperationFailure(");
+        var acknowledge = ExtractMemberBodyAtDeclaration(source, "private void AcknowledgeOperationNotice(");
+        var diagnostic = ExtractMemberBodyAtDeclaration(source, "partial void OnStatusTextChanged(");
+        var preview = ExtractMemberBodyAtDeclaration(source, "private void NotifyPreviewStatePropertiesChanged()");
+        var run = source[source.IndexOf("public string RunPresentationText =>", StringComparison.Ordinal)
+            ..source.IndexOf("public string ObservationFooterText =>", StringComparison.Ordinal)];
+
+        Assert.Contains("_operationNotices[^1].Message", run, StringComparison.Ordinal);
+        Assert.Contains("RunActivityText", run, StringComparison.Ordinal);
+        Assert.Contains("CanStartScan()", run, StringComparison.Ordinal);
+        Assert.Contains("BuildStartDisabledReason()", run, StringComparison.Ordinal);
+        Assert.Contains("DeviceStateText", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("StatusText", run, StringComparison.Ordinal);
+        Assert.Contains("_operationNotices.Add(new ScanDebugOperationNotice", report, StringComparison.Ordinal);
+        Assert.Contains("_operationNotices.Remove(notice);", acknowledge, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(RunPresentationText));", report, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(RunPresentationText));", acknowledge, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(CurrentDiagnosticText));", diagnostic, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnPropertyChanged(nameof(RunPresentationText));", diagnostic, StringComparison.Ordinal);
+        Assert.Contains("PreviewFrame is { Width: > 0, Height: > 0 }", source, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(ObservationFooterText));", preview, StringComparison.Ordinal);
+        Assert.Contains("OnPropertyChanged(nameof(ObservationFooterVisibility));", preview, StringComparison.Ordinal);
     }
 
     [Fact]

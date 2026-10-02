@@ -88,6 +88,8 @@ public sealed class ScanNoticeRequest
     public CancellationToken HostCancellationToken { get; internal set; }
 }
 
+public sealed record ScanDebugOperationNotice(Guid Id, string Message, InfoBarSeverity Severity, string Target);
+
 public sealed class ScanRoiValidationIssueDisplay
 {
     public required ScanRoiValidationIssue Issue { get; init; }
@@ -462,6 +464,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private readonly SemaphoreSlim _selectedCalibrationChannelPersistenceGate = new(1, 1);
     private readonly TimeProvider _operationTimeProvider;
     private readonly object _streamingPreviewLock = new();
+    private readonly ObservableCollection<ScanDebugOperationNotice> _operationNotices = new();
 
     private CancellationTokenSource? _scanCts;
     private byte[] _lineBuffer = Array.Empty<byte>();
@@ -512,6 +515,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private int _calibrationProjectionVersion;
     private int _streamingPreviewSessionVersion;
     private bool _isStreamingPreviewActive;
+    private ScanWorkflowProgress? _runWorkflowProgress;
     private int _streamingPreviewTargetRows;
     private int _pendingStreamingPreviewRows;
     private long _lastStreamingPreviewEnqueueTick;
@@ -794,6 +798,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void NotifyCaptureEvidenceChanged()
     {
         OnPropertyChanged(nameof(CaptureSourceText));
+        OnPropertyChanged(nameof(ObservationFooterText));
         OnPropertyChanged(nameof(DeviceEvidenceText));
         OnPropertyChanged(nameof(CaptureComparisonText));
         NotifyManualReferenceAvailabilityChanged();
@@ -1327,6 +1332,27 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string BwShieldRoiRangeText => FormatCurrentBwRoiRange(_roiSettings.ShieldRange);
 
+    public string FocusRoiSummaryText
+    {
+        get
+        {
+            if (_selectedCalibrationChannelLoad is { } load
+                && IsCurrentCalibrationChannel(load.Role)
+                && (!load.Completion.IsCompletedSuccessfully || !load.Completion.Result))
+                return "ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…");
+
+            var range = SelectedFocusRoiSelection switch
+            {
+                RoiSelectionFocusLeft => _roiSettings.FocusLeftRange,
+                RoiSelectionFocusRight => _roiSettings.FocusRightRange,
+                _ => _roiSettings.FocusOverallRange
+            };
+            return "ScanDebug_Runtime_RoiStatus".GetLocalizedFormatOrFallback("Selected focus ROI: {0}, {1}–{2} ({3} px); edit mode: {4}",
+                GetRoiSelectionDisplayName(SelectedFocusRoiSelection), range.Start, range.EndInclusive, range.Width,
+                IsRoiEditModeEnabled ? "ScanDebug_Runtime_RoiEditModeOn".GetLocalized() : "ScanDebug_Runtime_RoiEditModeOff".GetLocalized());
+        }
+    }
+
     private string FormatCurrentBwRoiRange(ScanColumnRange range)
         => _selectedCalibrationChannelLoad is { } load
             && IsCurrentCalibrationChannel(load.Role)
@@ -1435,6 +1461,105 @@ public partial class ScanDebugViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string StatusText { get; set; }
 
+    public string CurrentDiagnosticText => StatusText;
+
+    public ReadOnlyObservableCollection<ScanDebugOperationNotice> OperationNotices { get; }
+
+    public string RunActivityText
+    {
+        get
+        {
+            if (IsRunning && _scanCts?.IsCancellationRequested == true)
+                return "ScanDebug_Runtime_StatusStopRequested".GetLocalized();
+            if (IsRunning)
+                return _runWorkflowProgress is { } progress
+                    ? "ScanDebug_RunActivityWorkflowProgress".GetLocalizedFormatOrFallback("Scanning · pass {0}/{1} · {2}",
+                        progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage))
+                    : "ScanDebug_DisabledReasonScanRunning".GetLocalized();
+            if (IsAutoFocusing)
+                return "ScanDebug_RunActivityAutoFocus".GetLocalizedOrFallback("Auto focusing");
+            if (IsManualFocusing)
+                return "ScanDebug_RunActivityManualFocus".GetLocalizedOrFallback("Manual focusing");
+            if (IsAutoCalibrating)
+                return "ScanDebug_RunActivityAutoCalibration".GetLocalizedOrFallback("Auto calibrating");
+            if (IsApplyingParameters)
+                return "ScanDebug_RunActivityApplyingParameters".GetLocalizedOrFallback("Applying channel parameters");
+            if (IsApplyingDeviceClock)
+                return "ScanDebug_RunActivityApplyingDeviceClock".GetLocalizedOrFallback("Applying device clock");
+            if (IsApplyingIllumination)
+                return "ScanDebug_RunActivityApplyingIllumination".GetLocalizedOrFallback("Applying illumination");
+            if (IsApplyingMotion)
+                return "ScanDebug_RunActivityApplyingMotion".GetLocalizedOrFallback("Applying motion settings");
+            if (IsUpdatingFocusMapping)
+                return "ScanDebug_RunActivityUpdatingFocusMapping".GetLocalizedOrFallback("Updating focus mapping");
+            if (IsOutputOperationRunning)
+                return "ScanDebug_RunActivityOutputOperation".GetLocalizedOrFallback("Processing output");
+            if (IsFilmProfileOperationRunning)
+                return "ScanDebug_RunActivityFilmProfileOperation".GetLocalizedOrFallback("Working with film profile");
+            if (IsCalibrationRepositoryOperationRunning)
+                return "ScanDebug_RunActivityCalibrationRepositoryOperation".GetLocalizedOrFallback("Saving calibration profile");
+            return string.Empty;
+        }
+    }
+
+    public string RunPresentationText => _operationNotices.Count > 0
+        ? _operationNotices[^1].Message
+        : !string.IsNullOrEmpty(RunActivityText)
+            ? RunActivityText
+            : IsConnecting
+                ? "ScanDebug_Runtime_DeviceStateConnecting".GetLocalized()
+                : !IsConnected
+                    ? DeviceStateText
+                    : CanStartScan()
+                        ? "ScanDebug_DisabledReasonReady".GetLocalized()
+                        : BuildStartDisabledReason();
+
+    public string RunContextText
+    {
+        get
+        {
+            var activity = RunActivityText;
+            var hasNotice = _operationNotices.Count > 0;
+            if (!hasNotice && activity.Length == 0)
+                return string.Empty;
+
+            var device = !IsConnected && !IsConnecting ? DeviceStateText : string.Empty;
+            return hasNotice && activity.Length > 0
+                ? device.Length > 0 ? $"{activity} · {device}" : activity
+                : device;
+        }
+    }
+
+    public string ObservationFooterText => PreviewFrame is { Width: > 0, Height: > 0 } frame
+        ? _displayedCaptureEvidence is { } capture
+            ? $"{frame.Width} × {frame.Height} · {capture.Mode} · {capture.Role}"
+            : $"{frame.Width} × {frame.Height}"
+        : string.Empty;
+
+    public Visibility ObservationFooterVisibility => HasPreviewImage ? Visibility.Visible : Visibility.Collapsed;
+
+    private void ReportOperationFailure(string target, string message)
+    {
+        if (_operationNotices.Any(notice => notice.Target == target && notice.Message == message))
+            return;
+
+        _operationNotices.Add(new ScanDebugOperationNotice(Guid.NewGuid(), message, InfoBarSeverity.Error, target));
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
+    }
+
+    [RelayCommand]
+    private void AcknowledgeOperationNotice(Guid id)
+    {
+        var notice = _operationNotices.FirstOrDefault(item => item.Id == id);
+        if (notice is null)
+            return;
+
+        _operationNotices.Remove(notice);
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
+    }
+
     [ObservableProperty]
     public partial string DngAlignmentWarningMessage { get; set; }
 
@@ -1482,10 +1607,15 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => MirrorOutput("ScanDebug.RoiInput", value);
 
     partial void OnStatusTextChanged(string value)
-        => MirrorOutput("ScanDebug.Status", value);
+    {
+        MirrorOutput("ScanDebug.Status", value);
+        OnPropertyChanged(nameof(CurrentDiagnosticText));
+    }
 
     partial void OnPendingCalibrationResultChanged(PendingCalibrationResult? value)
     {
+        if (value is { State: PendingCalibrationResultState.Failed, Failure: { } failure })
+            ReportOperationFailure("Calibration", failure.Detail);
         AcceptPendingCalibrationCommand.NotifyCanExecuteChanged();
         AcceptAndSavePendingCalibrationCommand.NotifyCanExecuteChanged();
         RestorePendingCalibrationCommand.NotifyCanExecuteChanged();
@@ -2124,7 +2254,29 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string AutofocusZProbeStepsLimitText => BuildPositiveDistanceLimitText(AutofocusZProbeSteps, "Z probe distance");
 
-    public string ManualFocusDistanceLimitText => BuildPositiveDistanceLimitText(ManualFocusDistanceMm, "Manual focus distance");
+    public string ManualFocusDistanceLimitText
+    {
+        get
+        {
+            if (double.TryParse(ManualFocusDistanceMm, NumberStyles.Float, CultureInfo.InvariantCulture, out var distanceMm))
+            {
+                if (!double.IsFinite(distanceMm))
+                    return "ScanDebug_Runtime_ErrorManualFocusDistancePositive".GetLocalized();
+                if (distanceMm > ManualFocusMaximumDistanceMm)
+                    return "ScanDebug_Runtime_ErrorManualFocusDistanceMaximum".GetLocalizedFormat(
+                        ManualFocusMaximumDistanceMm.ToString("0.0", CultureInfo.InvariantCulture));
+            }
+
+            return BuildPositiveDistanceLimitText(ManualFocusDistanceMm, "Manual focus distance");
+        }
+    }
+
+    public Visibility ManualFocusDistanceLimitVisibility
+        => !double.TryParse(ManualFocusDistanceMm, NumberStyles.Float, CultureInfo.InvariantCulture, out var distanceMm)
+            || !double.IsFinite(distanceMm)
+            || distanceMm < AutofocusDistanceMinMm
+            || distanceMm > ManualFocusMaximumDistanceMm
+            ? Visibility.Visible : Visibility.Collapsed;
 
     public string AutofocusMotorIntervalLimitText => BuildLowerBoundLimitText(AutofocusMotorIntervalUs, ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs), "Motor interval");
 
@@ -2142,7 +2294,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public Brush AutofocusZProbeStepsLimitBrush => BuildPositiveDistanceLimitBrush(AutofocusZProbeSteps);
 
-    public Brush ManualFocusDistanceLimitBrush => BuildPositiveDistanceLimitBrush(ManualFocusDistanceMm);
+    public Brush ManualFocusDistanceLimitBrush => ManualFocusDistanceLimitVisibility == Visibility.Visible
+        ? LimitBlockAlertBrush.Value : LimitBlockNormalBrush.Value;
 
     public Brush AutofocusMotorIntervalLimitBrush => BuildLowerBoundLimitBrush(AutofocusMotorIntervalUs, ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
 
@@ -2160,7 +2313,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public Brush AutofocusZProbeStepsLimitTextBrush => BuildPositiveDistanceLimitTextBrush(AutofocusZProbeSteps);
 
-    public Brush ManualFocusDistanceLimitTextBrush => BuildPositiveDistanceLimitTextBrush(ManualFocusDistanceMm);
+    public Brush ManualFocusDistanceLimitTextBrush => ManualFocusDistanceLimitVisibility == Visibility.Visible
+        ? LimitBlockAlertTextBrush.Value : LimitBlockNormalTextBrush.Value;
 
     public Brush AutofocusMotorIntervalLimitTextBrush => BuildLowerBoundLimitTextBrush(AutofocusMotorIntervalUs, ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
 
@@ -2198,6 +2352,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _sessionCoordinator.SnapshotChanged += OnSessionCoordinatorSnapshotChanged;
         _dispatcher = dispatcher;
         _operationTimeProvider = operationTimeProvider ?? TimeProvider.System;
+        OperationNotices = new ReadOnlyObservableCollection<ScanDebugOperationNotice>(_operationNotices);
         _isSynchronizingFilmProfileWorkspace = true;
         _deviceSettingsInitializationTask = _deviceSettings.InitializeAsync();
         NavigationTimingLogger.Write($"ScanDebugViewModel.ctor dependencies={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
@@ -2786,6 +2941,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnSelectedFocusRoiSelectionChanged(string value)
     {
+        OnPropertyChanged(nameof(FocusRoiSummaryText));
         if (_isSynchronizingOwnerRoiSelections || value is not (RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight))
             return;
 
@@ -2828,6 +2984,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsRoiEditModeEnabledChanged(bool value)
     {
+        OnPropertyChanged(nameof(FocusRoiSummaryText));
         if (value && !CanEditRoiSelection)
         {
             IsRoiEditModeEnabled = false;
@@ -3518,6 +3675,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void RefreshTargets()
     {
         IsDevicesPresent = _session.Targets.IsDevicesPresent;
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
         RefreshLimitBlockBindings();
 
         if (!IsConnected)
@@ -3836,6 +3995,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     if (pass is null)
                     {
                         StatusText = "ScanDebug_Runtime_StatusExportNoWorkflowPass".GetLocalized();
+                        ReportOperationFailure("DngExport", StatusText);
                         ClearDngAlignmentWarning();
                         return;
                     }
@@ -3860,6 +4020,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 if (workflowRoles.Length != ScanDebugConstants.IlluminationChannelCount)
                 {
                     StatusText = "ScanDebug_Runtime_StatusExportRequiresSingleOrFourChannelWorkflow".GetLocalizedFormat(workflowRoles.Length);
+                    ReportOperationFailure("DngExport", StatusText);
                     ClearDngAlignmentWarning();
                     return;
                 }
@@ -3916,6 +4077,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "ScanDebug_Runtime_StatusExportFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("DngExport", StatusText);
             ClearDngAlignmentWarning();
         }
         finally
@@ -3940,6 +4102,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     "Shared_Dialog_UsbBusy_ScanDebugBlockedByUsbDebug.Content".GetLocalized(),
                     "Shared_Dialog_Ok.CloseButtonText".GetLocalized());
                 StatusText = "ScanDebug_Runtime_StatusUsbDebugActive".GetLocalized();
+                ReportOperationFailure("Connection", StatusText);
                 return;
             }
 
@@ -3948,6 +4111,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
+                ReportOperationFailure("Connection", StatusText);
                 return;
             }
 
@@ -3977,6 +4141,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             catch (Exception ex)
             {
                 statusNotes.Add("ScanDebug_Runtime_StatusParameterLoadUnavailable".GetLocalizedFormat(ex.Message));
+                ReportOperationFailure("Parameters", statusNotes[^1]);
             }
 
             await LoadSelectedCalibrationProfileAsync(SelectedCalibrationChannel, ++_profileLoadVersion, Volatile.Read(ref _calibrationProjectionVersion));
@@ -3990,6 +4155,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 ResetIlluminationInputs();
                 statusNotes.Add("ScanDebug_Runtime_StatusIlluminationUnavailable".GetLocalizedFormat(ex.Message));
+                ReportOperationFailure("Illumination", statusNotes[^1]);
             }
 
             try
@@ -4001,6 +4167,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 ResetMotionInputs();
                 statusNotes.Add("ScanDebug_Runtime_StatusMotionUnavailable".GetLocalizedFormat(ex.Message));
+                ReportOperationFailure("Motion", statusNotes[^1]);
             }
 
             if (_selectedFilmAcquisitionSettings is not null)
@@ -4010,6 +4177,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 var warmUpResult = await _sessionCoordinator.SetWarmUpAsync(true, _session.ConnectionToken);
                 statusNotes.Add(warmUpResult.Success ? "ScanDebug_Runtime_StatusWarmUpEnabled".GetLocalized() : "ScanDebug_Runtime_StatusWarmUpFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(warmUpResult.Message)));
+                if (!warmUpResult.Success)
+                    ReportOperationFailure("WarmUp", statusNotes[^1]);
             }
 
             StatusText = statusNotes.Count > 0
@@ -4022,6 +4191,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             SwitchToDiscoverySession();
             IsConnected = false;
             StatusText = "ScanDebug_Runtime_StatusConnectFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("Connection", StatusText);
         }
         finally
         {
@@ -4058,13 +4228,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 }
 
                 if (!warmUpResult.Success)
+                {
                     StatusText = "ScanDebug_Runtime_StatusWarmUpDisableBeforeDisconnectFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(warmUpResult.Message));
+                    ReportOperationFailure("WarmUp", StatusText);
+                }
             }
 
             var result = await _sessionCoordinator.DisconnectAsync(CancellationToken.None);
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
+                ReportOperationFailure("Disconnect", StatusText);
                 return;
             }
 
@@ -4097,6 +4271,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryParseSysClockMhzText(SysClockMhz, out var sysClockKhz))
         {
             StatusText = "ScanDebug_Runtime_StatusDeviceClockInvalid".GetLocalized();
+            ReportOperationFailure("DeviceClock", StatusText);
             return;
         }
 
@@ -4130,6 +4305,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             SetDeviceTimingState(new ScanDeviceTimingState(ScanDeviceClockStateKind.ReadRequired, GetKnownCalibrationChannelRoles()));
             StatusText = "ScanDebug_Runtime_StatusDeviceClockUpdateFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("DeviceClock", StatusText);
         }
         finally
         {
@@ -4162,6 +4338,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!_parameters.TryParseInput(ExposureMicroseconds, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockMhz, out var snapshot, out var parseError))
         {
             StatusText = parseError;
+            ReportOperationFailure("Parameters", StatusText);
             return;
         }
 
@@ -4209,6 +4386,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             SetDeviceTimingState(new ScanDeviceTimingState(ScanDeviceClockStateKind.ReadRequired, GetKnownCalibrationChannelRoles()));
             StatusText = "ScanDebug_Runtime_StatusParameterUpdateFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("Parameters", StatusText);
         }
         finally
         {
@@ -4256,6 +4434,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "ScanDebug_Runtime_StatusIlluminationRefreshFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("Illumination", StatusText);
         }
         finally
         {
@@ -4282,6 +4461,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             runtimeClaim?.Dispose();
             StatusText = error;
+            ReportOperationFailure("Illumination", StatusText);
             return;
         }
 
@@ -4308,6 +4488,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "ScanDebug_Runtime_StatusIlluminationUpdateFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("Illumination", StatusText);
         }
         finally
         {
@@ -4342,6 +4523,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "ScanDebug_Runtime_StatusMotionRefreshFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("Motion", StatusText);
         }
         finally
         {
@@ -4374,6 +4556,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var targetError))
         {
             StatusText = targetError;
+            ReportOperationFailure("MotorMove", StatusText);
             return;
         }
 
@@ -4385,6 +4568,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryBuildMotorMoveRequest(motorId, out var request, out var error))
         {
             StatusText = error;
+            ReportOperationFailure(motorName, StatusText);
             return;
         }
 
@@ -4421,6 +4605,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             StatusText = "ScanDebug_Runtime_StatusMotorMoveFailed".GetLocalizedFormat(motorName, ex.Message);
+            ReportOperationFailure(motorName, StatusText);
         }
         finally
         {
@@ -4441,6 +4626,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("MotorStop", StatusText);
             return;
         }
 
@@ -4470,6 +4656,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             StatusText = "ScanDebug_Runtime_StatusMotorStopFailed".GetLocalizedFormat(motorName, ex.Message);
+            ReportOperationFailure(motorName, StatusText);
         }
         finally
         {
@@ -4490,6 +4677,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryParseMotorTarget(motorDisplayId, out var motorId, out var motorName, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("MotorConfig", StatusText);
             return;
         }
 
@@ -4523,6 +4711,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             StatusText = "ScanDebug_Runtime_StatusMotorConfigFailed".GetLocalizedFormat(motorName, ex.Message);
+            ReportOperationFailure(motorName, StatusText);
         }
         finally
         {
@@ -4571,6 +4760,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!_parameters.TryParseInput(ExposureMicroseconds, Adc1Offset, Adc1Gain, Adc2Offset, Adc2Gain, SysClockMhz, out var snapshot, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("ChannelProfile", StatusText);
             return;
         }
 
@@ -4589,7 +4779,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (IsCurrentCalibrationChannel(channelRole))
+            {
                 StatusText = "ScanDebug_Runtime_StatusSaveChannelProfileFailed".GetLocalizedFormat(ex.Message);
+                ReportOperationFailure("ChannelProfile", StatusText);
+            }
         }
         finally
         {
@@ -4655,7 +4848,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (IsCurrentCalibrationChannel(channelRole))
+            {
                 StatusText = "ScanDebug_Runtime_StatusClearChannelProfileFailed".GetLocalizedFormat(ex.Message);
+                ReportOperationFailure("ChannelProfile", StatusText);
+            }
         }
         finally
         {
@@ -4984,6 +5180,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryBuildFocusMotorMappingFromInputs(out var mapping, out var error))
         {
             SetFocusMappingValidation(error);
+            ReportOperationFailure("FocusMapping", FocusMappingStatusText);
             return;
         }
 
@@ -5004,6 +5201,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             SetFocusMappingValidation("ScanDebug_Runtime_FocusMappingSaveFailed".GetLocalizedFormat(ex.Message));
+            ReportOperationFailure("FocusMapping", FocusMappingStatusText);
         }
         finally
         {
@@ -5028,6 +5226,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
         using (runtimeClaim)
         {
+            var noticeOrigin = (_attachedPageOwner ?? _reservedPageOwner, _rawPageEpoch, Volatile.Read(ref _calibrationDeviceSessionGeneration));
             var mappings = new[] { _activeAutoFocusMappingSnapshot, _activeManualFocusMappingSnapshot }
                 .Where(mapping => mapping is not null)
                 .Cast<ScanFocusMotorMapping>()
@@ -5049,7 +5248,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     async (session, _) =>
                     {
                         foreach (var motorId in mappings.SelectMany(mapping => new[] { mapping.LeftMotorId, mapping.RightMotorId }).Distinct())
-                            await TryStopManualFocusMotorAsync(session, motorId);
+                            await TryStopManualFocusMotorAsync(session, motorId, noticeOrigin);
                         return true;
                     },
                     CancellationToken.None);
@@ -5058,6 +5257,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             catch (Exception ex)
             {
                 StatusText = "ScanDebug_Runtime_StatusStopAllFocusFailed".GetLocalizedFormat(ex.Message);
+                ReportOperationFailure("FocusStop", StatusText);
             }
         }
     }
@@ -5089,11 +5289,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     MarkMotionStateReadRequired();
 
                 StatusText = LocalizeGlobalMotorStopResult(result);
+                if (!result.Success)
+                    ReportOperationFailure("GlobalMotorStop", StatusText);
             }
             catch (Exception ex)
             {
                 MarkMotionStateReadRequired();
                 StatusText = GetTodo18LocalizedFormat("ScanDebug_Runtime_StatusStopAllMotorsFailed", "Stop all motors failed: {0}", ex.Message);
+                ReportOperationFailure("GlobalMotorStop", StatusText);
             }
         }
     }
@@ -5119,6 +5322,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!focusRoi.IsValid)
         {
             StatusText = FormatRoiEditIssue(focusRoi.Issues[0]);
+            ReportOperationFailure("AutoFocus", StatusText);
             return;
         }
 
@@ -5145,6 +5349,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!TryBuildAutofocusRequest(out var request, out var error))
             {
                 StatusText = error;
+                ReportOperationFailure("AutoFocus", StatusText);
                 return;
             }
 
@@ -5200,6 +5405,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             MarkMotionStateReadRequired();
             AutofocusSummaryText = "ScanDebug_Runtime_AutofocusFailed".GetLocalizedFormat(ex.Message);
             StatusText = "ScanDebug_Runtime_StatusAutofocusFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("AutoFocus", StatusText);
         }
         finally
         {
@@ -5223,11 +5429,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     else
                     {
                         StatusText = "ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(restoreWarmUpResult.Message));
+                        ReportOperationFailure("WarmUp", StatusText);
                     }
                 }
                 catch (Exception ex)
                 {
                     StatusText = "ScanDebug_Runtime_StatusAutofocusWarmUpRestoreFailed".GetLocalizedFormat(ex.Message);
+                    ReportOperationFailure("WarmUp", StatusText);
                 }
             }
 
@@ -5296,6 +5504,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         CancellationTokenSource holdCts,
         CancellationTokenSource stopAllCts)
     {
+        var noticeOrigin = (_attachedPageOwner ?? _reservedPageOwner, _rawPageEpoch, Volatile.Read(ref _calibrationDeviceSessionGeneration));
         var manualToken = holdCts.Token;
         var stopAllToken = stopAllCts.Token;
         ScanFocusMotorMapping? activeMapping = null;
@@ -5307,6 +5516,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!TryBuildManualFocusRequest(positive, out var request, out var error))
             {
                 StatusText = error;
+                ReportOperationFailure("ManualFocus", StatusText);
                 return;
             }
 
@@ -5324,7 +5534,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                         using var linkedStepCts = completedFirstJog
                             ? CancellationTokenSource.CreateLinkedTokenSource(sessionToken, stopAllToken, manualToken)
                             : CancellationTokenSource.CreateLinkedTokenSource(sessionToken, stopAllToken);
-                        await ExecuteManualFocusJogAsync(session, request, linkedStepCts.Token);
+                        await ExecuteManualFocusJogAsync(session, request, linkedStepCts.Token, noticeOrigin);
                         completedFirstJog = true;
 
                         if (manualToken.IsCancellationRequested)
@@ -5348,7 +5558,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         catch (Exception ex)
         {
-            StatusText = "ScanDebug_Runtime_StatusManualFocusFailed".GetLocalizedFormat(ex.Message);
+            if (IsCurrentManualFocusOrigin(noticeOrigin))
+            {
+                StatusText = "ScanDebug_Runtime_StatusManualFocusFailed".GetLocalizedFormat(ex.Message);
+                ReportOperationFailure("ManualFocus", StatusText);
+            }
         }
         finally
         {
@@ -5380,12 +5594,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Manual focus motion refresh failed: {ex.Message}");
+                    QueueManualFocusFailure("ManualFocusMotionRead", ex.Message, noticeOrigin);
                 }
             }
         }
     }
 
-    private async Task ExecuteManualFocusJogAsync(IScanSessionService session, ManualFocusRequest request, CancellationToken ct)
+    private async Task ExecuteManualFocusJogAsync(IScanSessionService session, ManualFocusRequest request, CancellationToken ct, (object? Owner, int PageEpoch, int SessionGeneration) noticeOrigin)
     {
         try
         {
@@ -5399,7 +5614,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         catch (OperationCanceledException)
         {
-            await TryStopManualFocusMotorsAsync(session, request.FocusMotorMapping);
+            await TryStopManualFocusMotorsAsync(session, request.FocusMotorMapping, noticeOrigin);
             throw;
         }
         finally
@@ -5460,12 +5675,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private async Task TryStopManualFocusMotorsAfterReleaseAsync()
     {
+        var noticeOrigin = (_attachedPageOwner ?? _reservedPageOwner, _rawPageEpoch, Volatile.Read(ref _calibrationDeviceSessionGeneration));
         try
         {
             await _sessionCoordinator.UseConnectedSessionAsync(
                 async (session, _) =>
                 {
-                    await TryStopManualFocusMotorsAsync(session);
+                    await TryStopManualFocusMotorsAsync(session, noticeOrigin);
                     return true;
                 },
                 CancellationToken.None);
@@ -5473,28 +5689,29 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             Debug.WriteLine($"Manual focus release stop failed: {ex.Message}");
+            QueueManualFocusFailure("ManualFocusStop", ex.Message, noticeOrigin);
         }
     }
 
-    private async Task TryStopManualFocusMotorsAsync(IScanSessionService session)
+    private async Task TryStopManualFocusMotorsAsync(IScanSessionService session, (object? Owner, int PageEpoch, int SessionGeneration) noticeOrigin)
     {
         if (_activeManualFocusMappingSnapshot is { } activeMapping)
         {
-            await TryStopManualFocusMotorsAsync(session, activeMapping);
+            await TryStopManualFocusMotorsAsync(session, activeMapping, noticeOrigin);
             return;
         }
 
         if (TryGetValidatedFocusMotorMapping(_deviceSettings.Settings, out var mapping, out _))
-            await TryStopManualFocusMotorsAsync(session, mapping);
+            await TryStopManualFocusMotorsAsync(session, mapping, noticeOrigin);
     }
 
-    private async Task TryStopManualFocusMotorsAsync(IScanSessionService session, ScanFocusMotorMapping mapping)
+    private async Task TryStopManualFocusMotorsAsync(IScanSessionService session, ScanFocusMotorMapping mapping, (object? Owner, int PageEpoch, int SessionGeneration) noticeOrigin)
     {
-        await TryStopManualFocusMotorAsync(session, mapping.LeftMotorId);
-        await TryStopManualFocusMotorAsync(session, mapping.RightMotorId);
+        await TryStopManualFocusMotorAsync(session, mapping.LeftMotorId, noticeOrigin);
+        await TryStopManualFocusMotorAsync(session, mapping.RightMotorId, noticeOrigin);
     }
 
-    private async Task TryStopManualFocusMotorAsync(IScanSessionService session, byte motorId)
+    private async Task TryStopManualFocusMotorAsync(IScanSessionService session, byte motorId, (object? Owner, int PageEpoch, int SessionGeneration) noticeOrigin)
     {
         try
         {
@@ -5504,8 +5721,24 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             Debug.WriteLine($"Manual focus stop motor {motorId} failed: {ex.Message}");
+            QueueManualFocusFailure("ManualFocusStop", $"Motor {motorId}: {ex.Message}", noticeOrigin);
         }
     }
+
+    private void QueueManualFocusFailure(string target, string message, (object? Owner, int PageEpoch, int SessionGeneration) origin)
+    {
+        _dispatcher.TryEnqueue(() =>
+        {
+            if (IsCurrentManualFocusOrigin(origin))
+                ReportOperationFailure(target, message);
+        });
+    }
+
+    private bool IsCurrentManualFocusOrigin((object? Owner, int PageEpoch, int SessionGeneration) origin)
+        => !_isCleanedUp && origin.PageEpoch == _rawPageEpoch
+            && origin.SessionGeneration == Volatile.Read(ref _calibrationDeviceSessionGeneration)
+            && ReferenceEquals(origin.Owner, _attachedPageOwner ?? _reservedPageOwner)
+            && (origin.Owner is null || IsCurrentPageOwner(origin.Owner));
 
     [RelayCommand(CanExecute = nameof(CanStartScan))]
     private async Task StartScan()
@@ -5529,6 +5762,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 StatusText = IsWarmUpEnabled
                     ? "ScanDebug_Runtime_ErrorRowsWarmUpPositive".GetLocalized()
                     : "ScanDebug_Runtime_ErrorRowsRange".GetLocalizedFormat(singleTransferMaxRows);
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
@@ -5541,12 +5775,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!HasSelectedAcquisitionChannels())
             {
                 StatusText = "ScanDebug_DisabledReasonNoAcquisitionChannels".GetLocalized();
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
             if (!IsCaptureModeCompatibleWithSelection())
             {
                 StatusText = BuildCaptureModeUnavailableReason();
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
@@ -5554,6 +5790,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (shouldUseWorkflowScan && IsContinuousScanEnabled)
             {
                 StatusText = "ScanDebug_Runtime_ErrorWorkflowContinuousUnsupported".GetLocalized();
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
@@ -5562,6 +5799,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (shouldUseWorkflowScan && rows > workflowProgressMaxRows)
             {
                 StatusText = "ScanDebug_Runtime_ErrorRowsRange".GetLocalizedFormat(workflowProgressMaxRows);
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
@@ -5575,6 +5813,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (shouldUseWorkflowScan && !TryBuildDebugWorkflowRequest(rows, out workflowRequest, out var workflowError))
             {
                 StatusText = workflowError;
+                ReportOperationFailure("Scan", StatusText);
                 return;
             }
 
@@ -5603,6 +5842,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             {
                 MarkMotionStateReadRequired();
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(ex.Message);
+                ReportOperationFailure("Scan", StatusText);
             }
             finally
             {
@@ -5628,12 +5868,22 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         _scanCts?.Cancel();
+        OnPropertyChanged(nameof(RunActivityText));
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
         try
         {
             var result = await _sessionCoordinator.UseConnectedSessionAsync(
                 (session, _) => session.StopScanAsync(CancellationToken.None),
                 CancellationToken.None);
             StatusText = result.Success ? "ScanDebug_Runtime_StatusStopRequested".GetLocalized() : ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
+            if (!result.Success)
+                ReportOperationFailure("ScanStop", StatusText);
+        }
+        catch (Exception ex)
+        {
+            StatusText = "ScanDebug_Runtime_StatusStopScanFailed".GetLocalizedFormatOrFallback("Stop scan failed: {0}", ex.Message);
+            ReportOperationFailure("ScanStop", StatusText);
         }
         finally
         {
@@ -5735,7 +5985,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
         StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
         if (!result.Success || result.ImageBytes is null)
+        {
+            ReportOperationFailure("Scan", StatusText);
             return;
+        }
 
         _streamingWorkflowPreviewResult = null;
         _streamingWorkflowPreviewAssignment = null;
@@ -5764,12 +6017,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!result.Success)
             {
                 StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
+                ReportOperationFailure("ContinuousScan", StatusText);
                 return;
             }
 
             if (result.ImageBytes is null)
             {
                 StatusText = "ScanDebug_Runtime_StatusContinuousScanNoImageData".GetLocalized();
+                ReportOperationFailure("ContinuousScan", StatusText);
                 return;
             }
 
@@ -5793,18 +6048,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!HasCurrentColumnSample())
         {
             StatusText = "ScanDebug_Runtime_ColumnSampleUnavailable".GetLocalized();
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
         if (!TryGetCurrentColumnSampleMean(out var mean, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
         if (!TryResolveSnapshotForLevelSave(channelRole, out var snapshot, out error))
         {
             StatusText = error;
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
@@ -5818,7 +6076,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsCalibrationRepositoryOperationRunning = true;
         try
         {
-            await SaveCalibrationLevelsAsync(snapshot, blackLevel, whiteLevel, channelRole);
+            try
+            {
+                await SaveCalibrationLevelsAsync(snapshot, blackLevel, whiteLevel, channelRole);
+            }
+            catch (Exception ex)
+            {
+                if (IsCurrentCalibrationChannel(channelRole))
+                {
+                    StatusText = "ScanDebug_Runtime_StatusSaveChannelProfileFailed".GetLocalizedFormatOrFallback("Save calibration levels failed: {0}", ex.Message);
+                    ReportOperationFailure("ColumnSample", StatusText);
+                }
+                return;
+            }
             if (IsCurrentCalibrationChannel(channelRole))
             {
                 RefreshColumnSampleStatus();
@@ -5839,18 +6109,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!HasCurrentColumnSample())
         {
             StatusText = "ScanDebug_Runtime_ColumnSampleUnavailable".GetLocalized();
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
         if (!TryGetCurrentColumnSampleMean(out var mean, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
         if (!TryResolveSnapshotForLevelSave(channelRole, out var snapshot, out error))
         {
             StatusText = error;
+            ReportOperationFailure("ColumnSample", StatusText);
             return;
         }
 
@@ -5864,7 +6137,19 @@ public partial class ScanDebugViewModel : ObservableRecipient
         IsCalibrationRepositoryOperationRunning = true;
         try
         {
-            await SaveCalibrationLevelsAsync(snapshot, blackLevel, whiteLevel, channelRole);
+            try
+            {
+                await SaveCalibrationLevelsAsync(snapshot, blackLevel, whiteLevel, channelRole);
+            }
+            catch (Exception ex)
+            {
+                if (IsCurrentCalibrationChannel(channelRole))
+                {
+                    StatusText = "ScanDebug_Runtime_StatusSaveChannelProfileFailed".GetLocalizedFormatOrFallback("Save calibration levels failed: {0}", ex.Message);
+                    ReportOperationFailure("ColumnSample", StatusText);
+                }
+                return;
+            }
             if (IsCurrentCalibrationChannel(channelRole))
             {
                 RefreshColumnSampleStatus();
@@ -5893,7 +6178,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _pendingCaptureEvidence = capture;
         BeginRawCapture();
         var previewSessionVersion = BeginStreamingScanPreview(request.Rows);
+        var pageOwner = _attachedPageOwner;
+        var pageEpoch = _rawPageEpoch;
         var requestAssignment = BuildResultChannelAssignment(request.PassChannelRoles);
+        bool IsCurrentWorkflowPublication()
+        {
+            lock (_streamingPreviewLock)
+                return !_isCleanedUp && _isStreamingPreviewActive
+                    && _streamingPreviewSessionVersion == previewSessionVersion
+                    && pageEpoch == _rawPageEpoch && IsRawPageCaptureCurrent()
+                    && ReferenceEquals(pageOwner, _attachedPageOwner)
+                    && (pageOwner is null || IsCurrentPageOwner(pageOwner));
+        }
         try
         {
             var result = await _sessionCoordinator.RunConnectedSessionStateAsync(
@@ -5902,8 +6198,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     session,
                     request,
                     token,
-                    progress => _dispatcher.TryEnqueue(() => StatusText = "ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage), progress.LedChannelIndex + 1)),
-                    status => _dispatcher.TryEnqueue(() => StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status)),
+                    progress => _dispatcher.TryEnqueue(() =>
+                    {
+                        if (!IsCurrentWorkflowPublication())
+                            return;
+                        _runWorkflowProgress = progress;
+                        StatusText = "ScanDebug_Runtime_StatusMultiChannelProgress".GetLocalizedFormat(progress.CurrentPass, progress.TotalPasses, ScanRuntimeMessageLocalizer.LocalizeScanWorkflowStage(progress.Stage), progress.LedChannelIndex + 1);
+                        OnPropertyChanged(nameof(RunActivityText));
+                        OnPropertyChanged(nameof(RunPresentationText));
+                        OnPropertyChanged(nameof(RunContextText));
+                    }),
+                    status => _dispatcher.TryEnqueue(() =>
+                    {
+                        if (IsCurrentWorkflowPublication())
+                            StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(status);
+                    }),
                     diagnostic => _debugOutputMirror.Mirror("ScanDebug.WorkflowDiagnostic", diagnostic),
                     ReportScanReadProgress,
                     snapshot => QueueStreamingWorkflowPreviewFrame(previewSessionVersion, request, snapshot)),
@@ -5922,6 +6231,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 _streamingWorkflowPreviewAssignment = null;
                 _streamingWorkflowPreviewCompletedRowsByPassIndex = null;
                 StatusText = "ScanDebug_Runtime_StatusMultiChannelNoPassData".GetLocalized();
+                ReportOperationFailure("WorkflowScan", StatusText);
                 return;
             }
 
@@ -5975,6 +6285,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _streamingWorkflowPreviewAssignment = null;
             _streamingWorkflowPreviewCompletedRowsByPassIndex = null;
             StatusText = "ScanDebug_Runtime_StatusMultiChannelScanFailed".GetLocalizedFormat(ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(ex.Message));
+            ReportOperationFailure("WorkflowScan", StatusText);
+        }
+        finally
+        {
+            EndStreamingScanPreview(previewSessionVersion);
         }
     }
 
@@ -6500,6 +6815,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             var result = await _sessionCoordinator.SetWarmUpAsync(enabled, _session.ConnectionToken);
             StatusText = ScanRuntimeMessageLocalizer.LocalizeScanDebugStatus(result.Message);
+            if (!result.Success)
+                ReportOperationFailure("WarmUp", StatusText);
         }
         catch (OperationCanceledException)
         {
@@ -6523,6 +6840,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (roiSettings.Value is null)
         {
             StatusText = FormatRoiEditIssue(roiSettings.Issues.FirstOrDefault());
+            ReportOperationFailure("Calibration", StatusText);
             return;
         }
 
@@ -6612,7 +6930,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (IsCurrentCalibrationContext(context))
+            {
                 StatusText = "ScanDebug_Runtime_StatusAutoCalibrationFailed".GetLocalizedFormat(ex.Message);
+                ReportOperationFailure("Calibration", StatusText);
+            }
         }
         finally
         {
@@ -6642,6 +6963,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryBuildRawIlluminationState(out var state, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("IlluminationTest", StatusText);
             return;
         }
 
@@ -6914,11 +7236,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         var loadTask = CompleteSelectedCalibrationChannelLoadAsync(channelRole, loadVersion, projectionVersion);
         var load = new CalibrationChannelSelectionLoad(channelRole, loadVersion, projectionVersion, loadTask);
         _selectedCalibrationChannelLoad = load;
+        OnPropertyChanged(nameof(FocusRoiSummaryText));
         OnPropertyChanged(nameof(BwActiveRoiRangeText));
         OnPropertyChanged(nameof(BwShieldRoiRangeText));
         var loaded = await loadTask;
         if (ReferenceEquals(_selectedCalibrationChannelLoad, load))
         {
+            OnPropertyChanged(nameof(FocusRoiSummaryText));
             OnPropertyChanged(nameof(BwActiveRoiRangeText));
             OnPropertyChanged(nameof(BwShieldRoiRangeText));
         }
@@ -6934,7 +7258,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             if (loadVersion == _profileLoadVersion && string.Equals(channelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+            {
                 CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_LoadFailed".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole), ex.Message);
+                ReportOperationFailure("ChannelProfile", CalibrationChannelStatusText);
+            }
             return false;
         }
     }
@@ -7218,6 +7545,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void PublishFilmProfileOperation(string message, InfoBarSeverity severity)
     {
+        if (severity == InfoBarSeverity.Error)
+            ReportOperationFailure("FilmProfile", message);
         var publicationId = Interlocked.Increment(ref _filmProfileOperationPublicationId);
         CancelFilmProfileOperationAutoCloseTimer();
         FilmProfileOperationMessage = message;
@@ -7686,6 +8015,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         lock (_streamingPreviewLock)
         {
+            _runWorkflowProgress = null;
             _streamingPreviewSessionVersion++;
             _isStreamingPreviewActive = true;
             _streamingPreviewTargetRows = targetRows;
@@ -7704,11 +8034,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void EndStreamingScanPreview(int previewSessionVersion)
     {
+        var hadRunWorkflowProgress = false;
         lock (_streamingPreviewLock)
         {
             if (!_isStreamingPreviewActive || _streamingPreviewSessionVersion != previewSessionVersion)
                 return;
 
+            hadRunWorkflowProgress = _runWorkflowProgress is not null;
+            _runWorkflowProgress = null;
             _isStreamingPreviewActive = false;
             _streamingPreviewSessionVersion++;
             _pendingStreamingPreviewRows = 0;
@@ -7719,6 +8052,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _streamingWorkflowPreviewPassDirections = null;
             _streamingWorkflowPreviewPassMotorSteps = null;
             _streamingWorkflowPreviewPassMotorIntervals = null;
+        }
+        if (hadRunWorkflowProgress)
+        {
+            OnPropertyChanged(nameof(RunActivityText));
+            OnPropertyChanged(nameof(RunPresentationText));
+            OnPropertyChanged(nameof(RunContextText));
         }
     }
 
@@ -8303,6 +8642,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void RefreshRoiStatus()
     {
+        OnPropertyChanged(nameof(FocusRoiSummaryText));
         RefreshRawRoiIfChanged();
         EnsureRoiEditModeAvailability();
         EnsureColumnSampleEditModeAvailability();
@@ -9167,6 +9507,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(AutofocusTiltProbeStepsLimitText));
         OnPropertyChanged(nameof(AutofocusZProbeStepsLimitText));
         OnPropertyChanged(nameof(ManualFocusDistanceLimitText));
+        OnPropertyChanged(nameof(ManualFocusDistanceLimitVisibility));
         OnPropertyChanged(nameof(AutofocusMotorIntervalLimitText));
         OnPropertyChanged(nameof(Adc1OffsetLimitBrush));
         OnPropertyChanged(nameof(Adc2OffsetLimitBrush));
@@ -9196,6 +9537,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void NotifyPreviewStatePropertiesChanged()
     {
         OnPropertyChanged(nameof(HasPreviewImage));
+        OnPropertyChanged(nameof(ObservationFooterText));
+        OnPropertyChanged(nameof(ObservationFooterVisibility));
         OnPropertyChanged(nameof(IsPreviewImageAvailable));
         OnPropertyChanged(nameof(PreviewEmptyStateVisibility));
         OnPropertyChanged(nameof(PreviewEmptyStateTitleText));
@@ -9231,6 +9574,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void NotifyActionAvailabilityChanged()
     {
+        OnPropertyChanged(nameof(RunActivityText));
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
         OnPropertyChanged(nameof(IsStartActionAvailable));
         OnPropertyChanged(nameof(IsStopActionAvailable));
         OnPropertyChanged(nameof(IsExportDngActionAvailable));
@@ -9246,6 +9592,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void NotifyRuntimeOperationAvailabilityChanged()
     {
+        OnPropertyChanged(nameof(RunActivityText));
+        OnPropertyChanged(nameof(RunPresentationText));
+        OnPropertyChanged(nameof(RunContextText));
         ConnectDevicesCommand.NotifyCanExecuteChanged();
         DisconnectDevicesCommand.NotifyCanExecuteChanged();
         StartScanCommand.NotifyCanExecuteChanged();
@@ -9844,6 +10193,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryBuildSessionIlluminationTestState(kind, out var state, out var error))
         {
             StatusText = error;
+            ReportOperationFailure("IlluminationTest", StatusText);
             return;
         }
 
@@ -9872,6 +10222,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         catch (Exception ex)
         {
             StatusText = "ScanDebug_Runtime_StatusIlluminationUpdateFailed".GetLocalizedFormat(ex.Message);
+            ReportOperationFailure("IlluminationTest", StatusText);
         }
         finally
         {
@@ -10106,6 +10457,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             StatusText = enabled ? "ScanDebug_Runtime_StatusMotorEnableFailed".GetLocalizedFormat(motorName, ex.Message) : "ScanDebug_Runtime_StatusMotorDisableFailed".GetLocalizedFormat(motorName, ex.Message);
+            ReportOperationFailure(motorName, StatusText);
         }
         finally
         {
@@ -10856,6 +11208,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _focusMappingTestCts = mappingTestCts;
         IsManualFocusing = true;
         _activeManualFocusMappingSnapshot = mapping;
+        var noticeOrigin = (_attachedPageOwner ?? _reservedPageOwner, _rawPageEpoch, Volatile.Read(ref _calibrationDeviceSessionGeneration));
         try
         {
             await EnsureDeviceSettingsInitializedAsync();
@@ -10867,12 +11220,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!ScanTimingMath.TryConvertMillimetersToMotorSteps(FocusMappingTestMoveMm, settings.GetMotorSettings(motorId), out var steps) || steps == 0)
             {
                 SetFocusMappingValidation("ScanDebug_Runtime_ErrorFocusMappingTestMoveTooSmall".GetLocalized());
+                ReportOperationFailure("FocusMapping", FocusMappingStatusText);
                 return;
             }
 
             if (!ScanMotorIntervalText.TryParseMicroseconds(AutofocusMotorIntervalUs, out var intervalNs) || intervalNs < ScanDebugConstants.MotionMinIntervalNs)
             {
                 SetFocusMappingValidation("ScanDebug_Runtime_ErrorAutofocusIntervalMinimum".GetLocalizedFormat(ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs)));
+                ReportOperationFailure("FocusMapping", FocusMappingStatusText);
                 return;
             }
 
@@ -10892,7 +11247,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     }
                     finally
                     {
-                        await TryStopManualFocusMotorAsync(session, motorId);
+                        await TryStopManualFocusMotorAsync(session, motorId, noticeOrigin);
                     }
 
                     return true;
@@ -10912,6 +11267,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             MarkMotionStateReadRequired();
             SetFocusMappingValidation("ScanDebug_Runtime_FocusMappingTestMoveFailed".GetLocalizedFormatOrFallback("Focus mapping test failed: {0}", ex.Message));
+            ReportOperationFailure("FocusMapping", FocusMappingStatusText);
         }
         finally
         {
@@ -11456,6 +11812,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 if (singleActiveIndex >= _streamingWorkflowPreviewResult.Passes.Count)
                 {
                     StatusText = "ScanDebug_Runtime_StatusWorkflowPreviewChannelUnavailable".GetLocalized();
+                    ReportOperationFailure("Preview", StatusText);
                     return false;
                 }
 
@@ -11466,6 +11823,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 if (!_channelImages.TryBuildPartialRgbComposite(_streamingWorkflowPreviewResult, assignment, BuildDebugColorManagementOptions(), _streamingWorkflowPreviewCompletedRowsByPassIndex, null, out var streamingCompositeFrame, out var streamingCompositeError, _calibrationProfiles.Snapshot.Profiles, IsWhiteLevelPreviewEnabled) || streamingCompositeFrame is null)
                 {
                     StatusText = streamingCompositeError;
+                    ReportOperationFailure("Preview", StatusText);
                     return false;
                 }
 
@@ -11488,6 +11846,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     if (!_channelImages.TryBuildRgbComposite(_lastWorkflowResult, assignment, BuildDebugColorManagementOptions(), ScanChannelAlignmentMode.Ecc, null, out var compositeFrame, out var compositeError, _calibrationProfiles.Snapshot.Profiles, IsWhiteLevelPreviewEnabled) || compositeFrame is null)
                     {
                         StatusText = compositeError;
+                        ReportOperationFailure("Preview", StatusText);
                         return false;
                     }
 
@@ -11500,6 +11859,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                     if (!_channelImages.TryBuildPartialRgbComposite(_lastWorkflowResult, assignment, BuildDebugColorManagementOptions(), completedRowsByPassIndex, null, out var partialCompositeFrame, out var partialCompositeError, _calibrationProfiles.Snapshot.Profiles, IsWhiteLevelPreviewEnabled) || partialCompositeFrame is null)
                     {
                         StatusText = partialCompositeError;
+                        ReportOperationFailure("Preview", StatusText);
                         return false;
                     }
 
@@ -11530,6 +11890,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 out var error))
         {
             StatusText = error;
+            ReportOperationFailure("Preview", StatusText);
             return false;
         }
 

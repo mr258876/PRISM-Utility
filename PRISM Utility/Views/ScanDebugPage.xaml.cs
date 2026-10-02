@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
@@ -169,7 +170,6 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             Grid.SetRow(stopButtons[index], isCurrentAxis ? 0 : 1);
             Grid.SetColumn(stopButtons[index], isCurrentAxis ? 1 : nextOtherStopColumn++);
         }
-        EngineeringToolsScrollViewer.ChangeView(null, 0, null, true);
     }
 
     private async void CalibrationChannelFallbackComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -321,7 +321,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private void OpenAdvancedButton_Click(object sender, RoutedEventArgs e)
     {
         _isConfigurationWorkspaceOpen = true;
-        SetActiveWorkbenchSection(4);
+        SetActiveWorkbenchSection(5);
         EnqueueForCurrentActivation(() =>
         {
             if (WorkbenchSectionComboBox.Visibility == Visibility.Visible)
@@ -329,6 +329,12 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             else
                 WorkbenchSectionSelectorBar.Focus(FocusState.Programmatic);
         });
+    }
+
+    private void RunScannerConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow.Content is ShellPage shellPage)
+            shellPage.ShowScannerConnectionFlyout();
     }
 
     private void ReturnToWorkbenchTaskButton_Click(object sender, RoutedEventArgs e)
@@ -647,13 +653,21 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         ScanDebugRootGrid.RowSpacing = (double)Resources["ScanDebugInlineSpacing"];
         var wrapIdentity = availableWidth < ScanWorkbenchPreviewLayout.CompactThreshold;
+        var wrapRunStatus = availableWidth < ScanWorkbenchPreviewLayout.WideThreshold;
         Grid.SetRow(RunActionPanel, wrapIdentity ? 1 : 0);
         Grid.SetColumn(RunActionPanel, wrapIdentity ? 0 : 2);
         Grid.SetColumnSpan(RunActionPanel, wrapIdentity ? 3 : 1);
-        Grid.SetRow(RunStatusPanel, wrapIdentity ? 2 : 0);
-        Grid.SetColumn(RunStatusPanel, wrapIdentity ? 0 : 1);
-        Grid.SetColumnSpan(RunStatusPanel, wrapIdentity ? 3 : 1);
-        Grid.SetRow(RunProgressBar, wrapIdentity ? 3 : 1);
+        Grid.SetRow(RunStatusPanel, wrapIdentity ? 2 : wrapRunStatus ? 1 : 0);
+        Grid.SetColumn(RunStatusPanel, wrapRunStatus ? 0 : 1);
+        Grid.SetColumnSpan(RunStatusPanel, wrapRunStatus ? 3 : 1);
+        Grid.SetRow(RunProgressBar, wrapIdentity ? 3 : wrapRunStatus ? 2 : 1);
+        var stackRunStatusActions = availableWidth < (double)Resources["ScanDebugIdentityCompactWidth"];
+        RunStatusPanel.RowSpacing = stackRunStatusActions ? (double)Resources["ScanDebugTightSpacing"] : 0;
+        var runStatusActions = RunStatusPanel.Children.OfType<WrapPanel>().Single();
+        Grid.SetRow(runStatusActions, stackRunStatusActions ? 1 : 0);
+        Grid.SetColumn(runStatusActions, stackRunStatusActions ? 0 : 1);
+        Grid.SetColumnSpan(runStatusActions, stackRunStatusActions ? 2 : 1);
+        runStatusActions.HorizontalAlignment = stackRunStatusActions ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         Grid.SetRow(FilmProfileLifecycleActionsPanel, wrapIdentity ? 1 : 0);
         Grid.SetColumn(FilmProfileLifecycleActionsPanel, wrapIdentity ? 0 : 1);
         Grid.SetColumnSpan(FilmProfileLifecycleActionsPanel, wrapIdentity ? 2 : 1);
@@ -683,8 +697,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         WorkbenchSectionSelectorBar.Visibility = _isConfigurationWorkspaceOpen && isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
         WorkbenchSectionComboBox.Visibility = _isConfigurationWorkspaceOpen && !isWideSelectorAvailable ? Visibility.Visible : Visibility.Collapsed;
-        WorkbenchTaskSelectorBar.Visibility = isTaskSelectorBarAvailable ? Visibility.Visible : Visibility.Collapsed;
-        WorkbenchTaskComboBox.Visibility = isTaskSelectorBarAvailable ? Visibility.Collapsed : Visibility.Visible;
+        WorkbenchTaskSelectorBar.Visibility = ToVisibility(!_isConfigurationWorkspaceOpen && isTaskSelectorBarAvailable);
+        WorkbenchTaskComboBox.Visibility = ToVisibility(!_isConfigurationWorkspaceOpen && !isTaskSelectorBarAvailable);
         Grid.SetRow(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 1 : 0);
         Grid.SetColumn(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 0 : 1);
         Grid.SetColumnSpan(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 3 : 1);
@@ -880,7 +894,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             && ChannelCalibrationSection is not null
             && LiveCalibrationSection is not null
             && DeviceSettingsSection is not null
-            && EngineeringToolsSection is not null;
+            && EngineeringToolsSection is not null
+            && MotionTaskSection is not null;
 
     private int GetWorkbenchSectionSelectorIndex(SelectorBar selectorBar, SelectorBarItem? selectedItem)
     {
@@ -927,10 +942,11 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             ChannelCalibrationSection.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
             LiveCalibrationSection.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
             DeviceSettingsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
-            EngineeringToolsSection.Visibility = index == 5 ? Visibility.Visible : Visibility.Collapsed;
+            EngineeringToolsSection.Visibility = index == 5 && _isConfigurationWorkspaceOpen ? Visibility.Visible : Visibility.Collapsed;
+            MotionTaskSection.Visibility = index == 5 && !_isConfigurationWorkspaceOpen ? Visibility.Visible : Visibility.Collapsed;
             if (index == 2 && string.IsNullOrWhiteSpace(ViewModel.SelectedCalibrationChannel))
                 _ = ViewModel.TrySelectCalibrationChannelAsync(ViewModel.CalibrationChannelOptions[0]);
-            if (index == 5)
+            if (index == 5 && !_isConfigurationWorkspaceOpen)
                 FindName("MotionContent");
             SynchronizeWorkbenchSectionSelectors(index);
             UpdateWorkbenchPreviewLayout();

@@ -110,7 +110,7 @@ public sealed partial class ShellPage : Page
         }
     }
 
-    private void ShowScannerConnectionFlyout()
+    internal void ShowScannerConnectionFlyout()
         => FlyoutBase.ShowAttachedFlyout(ScannerConnectionItem);
 
     private void DeviceConfigurationButton_Click(object sender, RoutedEventArgs e)
