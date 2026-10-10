@@ -961,7 +961,7 @@
     <value>ADC1 Offset</value>
   </data>
   <data name="ScanDebug_Adc1OffsetTextBox.PlaceholderText" xml:space="preserve">
-    <value>-256 to +256</value>
+    <value>e.g. -10</value>
   </data>
   <data name="ScanDebug_Adc1GainTextBox.Header" xml:space="preserve">
     <value>ADC1 Gain</value>
@@ -973,7 +973,7 @@
     <value>ADC2 Offset</value>
   </data>
   <data name="ScanDebug_Adc2OffsetTextBox.PlaceholderText" xml:space="preserve">
-    <value>-256 to +256</value>
+    <value>e.g. -10</value>
   </data>
   <data name="ScanDebug_Adc2GainTextBox.Header" xml:space="preserve">
     <value>ADC2 Gain</value>
@@ -1121,6 +1121,21 @@
   <data name="ScanDebug_AutofocusMaxZIterationsTextBox.Header" xml:space="preserve">
     <value>Max Z iterations</value>
   </data>
+  <data name="ScanDebug_AutofocusResolutionLimitsLabel.Text" xml:space="preserve">
+    <value>Resolved steps and limits</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimatedCapturesLabel.Text" xml:space="preserve">
+    <value>Estimated captures</value>
+  </data>
+  <data name="ScanDebug_AutofocusCumulativeTravelLabel.Text" xml:space="preserve">
+    <value>Cumulative travel</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimatedDurationLabel.Text" xml:space="preserve">
+    <value>Estimated duration</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimateDisclaimer.Text" xml:space="preserve">
+    <value>Search-envelope estimate only.&#10;Not measured or guaranteed travel.</value>
+  </data>
   <data name="ScanDebug_FocusMappingTitle.Text" xml:space="preserve">
     <value>Device focus motor mapping</value>
   </data>
@@ -1224,7 +1239,7 @@
     <value>Current channel illumination</value>
   </data>
   <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
-    <value>These controls edit the LED bound to the selected calibration channel.</value>
+    <value>Current-channel illumination draft for the next capture. It is not device readback and does not turn on the LED.</value>
   </data>
   <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
     <value>Reverse row direction</value>
@@ -1623,13 +1638,13 @@
     <value>Move unit</value>
   </data>
   <data name="ScanDebug_Motor1SpeedValueTextBox.Header" xml:space="preserve">
-    <value>Speed value</value>
+    <value>Speed</value>
   </data>
   <data name="ScanDebug_Motor1SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 5</value>
   </data>
   <data name="ScanDebug_Motor1SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>Rate unit (per second)</value>
+    <value>Rate unit</value>
   </data>
   <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
@@ -1665,13 +1680,13 @@
     <value>Move unit</value>
   </data>
   <data name="ScanDebug_Motor2SpeedValueTextBox.Header" xml:space="preserve">
-    <value>Speed value</value>
+    <value>Speed</value>
   </data>
   <data name="ScanDebug_Motor2SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 5</value>
   </data>
   <data name="ScanDebug_Motor2SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>Rate unit (per second)</value>
+    <value>Rate unit</value>
   </data>
   <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
@@ -1707,13 +1722,13 @@
     <value>Move unit</value>
   </data>
   <data name="ScanDebug_Motor3SpeedValueTextBox.Header" xml:space="preserve">
-    <value>Speed value</value>
+    <value>Speed</value>
   </data>
   <data name="ScanDebug_Motor3SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>e.g. 5</value>
   </data>
   <data name="ScanDebug_Motor3SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>Rate unit (per second)</value>
+    <value>Rate unit</value>
   </data>
   <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve">
     <value>Steps</value>
@@ -1731,7 +1746,7 @@
     <value>Apply device motor config and refresh</value>
   </data>
   <data name="ScanDebug_RoiEditToggleSwitch.Header" xml:space="preserve">
-    <value>ROI Edit</value>
+    <value>Edit preview selection on image</value>
   </data>
   <data name="ScanDebug_RoiEditToggleSwitch.OnContent" xml:space="preserve">
     <value>On</value>
@@ -1746,7 +1761,7 @@
     <value>Reset Selected ROI</value>
   </data>
   <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve">
-    <value>Reset All ROIs</value>
+    <value>Reset all ROIs in current-channel draft</value>
   </data>
   <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve">
     <value>Cursor: (-, -) px</value>
@@ -1784,6 +1799,27 @@
   <data name="ScanDebug_ApplyRoiButton.Content" xml:space="preserve">
     <value>Apply ROI</value>
   </data>
+  <data name="ScanDebug_ApplyAdcRoiButton.Content" xml:space="preserve">
+    <value>Apply selected ADC ROI</value>
+  </data>
+  <data name="ScanDebug_ResetAdcRoiButton.Content" xml:space="preserve">
+    <value>Reset selected ADC ROI</value>
+  </data>
+  <data name="ScanDebug_ReloadAdcRoiInputsButton.Content" xml:space="preserve">
+    <value>Reload current ADC range</value>
+  </data>
+  <data name="ScanDebug_ApplyFocusRoiButton.Content" xml:space="preserve">
+    <value>Apply selected focus ROI</value>
+  </data>
+  <data name="ScanDebug_ResetFocusRoiButton.Content" xml:space="preserve">
+    <value>Reset selected focus ROI</value>
+  </data>
+  <data name="ScanDebug_ReloadFocusRoiInputsButton.Content" xml:space="preserve">
+    <value>Reload current focus range</value>
+  </data>
+  <data name="ScanDebug_RoiDraftSourceText.Text" xml:space="preserve">
+    <value>Source: this channel's ROI draft. Reload discards unapplied input; Apply changes only the selected ROI, not device or JSON.</value>
+  </data>
   <data name="ScanDebug_AdcRoiEditorTitle.Text" xml:space="preserve">
     <value>ADC calibration ROI</value>
   </data>
@@ -1809,7 +1845,7 @@
     <value>Choose the column range used to compute the current channel mean sample for Save as black or Save as white. This range does not change ADC ROIs or registration adjustment.</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>The Save columns buttons below use the current preview frame and selected channel to persist a sampled value in the local calibration library. They do not fill the manual editor or save configuration JSON. Clear or change frames to refresh the sampled mean.</value>
+    <value>Both actions use this preview's selected-channel column sample. Fill black/white changes local input only; Save black/white writes the selected channel's local calibration library, not device parameters or JSON.</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>Reference start column</value>
@@ -1830,13 +1866,13 @@
     <value>Black (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualBlackLevelButton.Content" xml:space="preserve">
-    <value>Use sample for black input</value>
+    <value>Fill black input from sample</value>
   </data>
   <data name="ScanDebug_ManualWhiteLevelTextBox.Header" xml:space="preserve">
     <value>White (ADU)</value>
   </data>
   <data name="ScanDebug_UseSampleAsManualWhiteLevelButton.Content" xml:space="preserve">
-    <value>Use sample for white input</value>
+    <value>Fill white input from sample</value>
   </data>
   <data name="ScanDebug_ManualReferenceSourceLabel.Text" xml:space="preserve">
     <value>Input source</value>
@@ -2889,6 +2925,12 @@
   <data name="ScanDebug_Runtime_RoiNumericMirror" xml:space="preserve">
     <value>Numeric ROI range mirrors {0}: {1} ~ {2}.</value>
   </data>
+  <data name="ScanDebug_Runtime_RoiNumericConflict" xml:space="preserve">
+    <value>{0}: ROI was changed since the draft opened. Use Reload current range to discard unapplied inputs before Apply.</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiNumericPendingInput" xml:space="preserve">
+    <value>{0}: Local ROI input not applied. Apply the selected ROI to update this channel draft.</value>
+  </data>
   <data name="ScanDebug_Runtime_RoiEditModeOn" xml:space="preserve">
     <value>edit mode: ON</value>
   </data>
@@ -2962,7 +3004,7 @@
     <value>State: -</value>
   </data>
   <data name="ScanDebug_Runtime_AutofocusIdle" xml:space="preserve">
-    <value>Autofocus: idle.</value>
+    <value>Idle</value>
   </data>
   <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve">
     <value>Export canceled.</value>
@@ -3663,8 +3705,26 @@
   <data name="ScanDebug_Runtime_AutofocusPresetCustom" xml:space="preserve">
     <value>Custom</value>
   </data>
-  <data name="ScanDebug_Runtime_AutofocusBounds" xml:space="preserve">
-    <value>Resolved bounds: tilt probe {0} steps, Z probe {1} steps, max tilt {2} steps, max Z {3} steps, {4} captures, {5} mm total movement, about {6}.</value>
+  <data name="ScanDebug_Runtime_AutofocusInputLimits" xml:space="preserve">
+    <value>Rows 1–{0}.&#10;Probes ≥ {1}&#160;mm.&#10;Interval ≥ {2}&#160;us; iterations ≥ 1.</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusMaxTiltIterationsLimit" xml:space="preserve">
+    <value>Max tilt iterations must be a positive integer (at least 1).</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusMaxZIterationsLimit" xml:space="preserve">
+    <value>Max Z iterations must be a positive integer (at least 1).</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusResolutionLimits" xml:space="preserve">
+    <value>Tilt: probe {0} steps; max {1} steps.&#10;Z: probe {2} steps; max {3} steps.</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusEstimatedCaptures" xml:space="preserve">
+    <value>{0} captures</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusCumulativeTravel" xml:space="preserve">
+    <value>{0}&#160;mm</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusEstimatedDuration" xml:space="preserve">
+    <value>about {0}</value>
   </data>
   <data name="ScanDebug_Runtime_AutofocusSummary" xml:space="preserve">
     <value>Autofocus: {0} rows, tilt={1} steps, Z={2} steps, overall={3}, left={4}, right={5}, imbalance={6}.</value>
@@ -3946,10 +4006,10 @@
     <value>Off</value>
   </data>
   <data name="ScanDebug_SaveColumnBlackLevelButton.Content" xml:space="preserve">
-    <value>Save columns as black level</value>
+    <value>Save black level to calibration library</value>
   </data>
   <data name="ScanDebug_SaveColumnWhiteLevelButton.Content" xml:space="preserve">
-    <value>Save columns as white level</value>
+    <value>Save white level to calibration library</value>
   </data>
   <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.Header" xml:space="preserve">
     <value>Use saved white level in preview</value>
@@ -4371,10 +4431,11 @@
   <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>Return to task</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>Move direction</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Motor move direction</value></data>
-  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>Plan and channel details</value></data>
+  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>Execution order and constraints</value></data>
+  <data name="ScanDebug_AcquisitionChannelOrderTitle.Text" xml:space="preserve"><value>Selected execution order</value></data>
   <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>Transport capture settings</value></data>
   <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>Channel library and parameters</value></data>
-  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>Sample source and clear options</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>Column sample actions and clear options</value></data>
   <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>Black / white (RAW ADU)</value></data>
   <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>Selected axis settings</value></data>
   <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>Edit black / white ROI</value></data>
@@ -4420,6 +4481,7 @@
   <data name="ScanDebug_BwShieldRoiLabel.Text" xml:space="preserve"><value>Shield</value></data>
   <data name="ScanDebug_BwRoiRange" xml:space="preserve"><value>{0}–{1} · {2}&#160;px</value></data>
   <data name="ScanDebug_BwRoiUnknown" xml:space="preserve"><value>Loading channel ROI…</value></data>
+  <data name="ScanDebug_BwRoiUnavailable" xml:space="preserve"><value>Channel ROI unavailable.</value></data>
   <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1} (invalid range)</value></data>
   <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
   <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>View issues</value></data>

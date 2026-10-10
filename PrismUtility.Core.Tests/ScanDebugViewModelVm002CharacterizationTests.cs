@@ -69,12 +69,38 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"",
             "SelectedItem=\"{x:Bind ViewModel.SelectedAdcRoiSelection, Mode=TwoWay}\"",
             "SelectedItem=\"{x:Bind ViewModel.SelectedFocusRoiSelection, Mode=TwoWay}\"",
-            "Command=\"{x:Bind ViewModel.ApplySelectedRoiInputsCommand}\"",
-            "Command=\"{x:Bind ViewModel.ResetSelectedRoiCommand}\"",
+            "Text=\"{x:Bind ViewModel.AdcRoiStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.AdcRoiEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.AdcRoiTargetText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.AdcRoiInputStatusText, Mode=OneWay}\"",
+            "Command=\"{x:Bind ViewModel.ApplyAdcRoiInputsCommand}\"",
+            "Command=\"{x:Bind ViewModel.ResetAdcRoiCommand}\"",
+            "Command=\"{x:Bind ViewModel.ReloadAdcRoiInputsCommand}\"",
+            "Text=\"{x:Bind ViewModel.FocusRoiStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.FocusRoiEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.FocusRoiTargetText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.FocusRoiInputStatusText, Mode=OneWay}\"",
+            "Command=\"{x:Bind ViewModel.ApplyFocusRoiInputsCommand}\"",
+            "Command=\"{x:Bind ViewModel.ResetFocusRoiCommand}\"",
+            "Command=\"{x:Bind ViewModel.ReloadFocusRoiInputsCommand}\"",
             "Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\""
         })
         {
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
+        }
+        foreach (var editor in new[]
+        {
+            ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard"),
+            ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander")
+        })
+        {
+            Assert.Contains("Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiStartInput", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiEndInput", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiInputStatusText", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.SelectedRoiSelection", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.ApplySelectedRoiInputsCommand", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.ResetSelectedRoiCommand", editor, StringComparison.Ordinal);
         }
         Assert.DoesNotContain("Text=\"{x:Bind ViewModel.StatusText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
 
@@ -519,6 +545,15 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
     private static string ReadRootSource(params string[] path)
         => File.ReadAllText(Path.Combine(FindRepositoryRoot(), Path.Combine(path)));
+
+    private static string ExtractNamedRegion(string source, string startName, string endName)
+    {
+        var start = source.IndexOf(startName, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Could not find region start: {startName}");
+        var end = source.IndexOf(endName, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Could not find region end: {endName}");
+        return source[start..end];
+    }
 
     private static string ExtractMemberBodyAtDeclaration(string source, string declaration)
     {

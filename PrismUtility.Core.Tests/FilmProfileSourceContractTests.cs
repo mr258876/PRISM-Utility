@@ -15,6 +15,7 @@ public sealed class FilmProfileSourceContractTests
         "CurrentCalibrationIlluminationWorkModeComboBox",
         "LiveFocusCard",
         "AdvancedAutofocusContent",
+        "AdvancedAutofocusResults",
         "DeviceClockContent",
         "AdvancedAdcAdjustmentContent",
         "FocusMappingContent",
@@ -34,6 +35,18 @@ public sealed class FilmProfileSourceContractTests
         "Motor1SettingsExpander",
         "Motor2SettingsExpander",
         "Motor3SettingsExpander",
+        "Motor1MoveValueTextBox",
+        "Motor1MoveUnitComboBox",
+        "Motor1SpeedValueTextBox",
+        "Motor1SpeedUnitComboBox",
+        "Motor2MoveValueTextBox",
+        "Motor2MoveUnitComboBox",
+        "Motor2SpeedValueTextBox",
+        "Motor2SpeedUnitComboBox",
+        "Motor3MoveValueTextBox",
+        "Motor3MoveUnitComboBox",
+        "Motor3SpeedValueTextBox",
+        "Motor3SpeedUnitComboBox",
         "Motor1MoveButton",
         "Motor2MoveButton",
         "Motor3MoveButton",
@@ -62,6 +75,10 @@ public sealed class FilmProfileSourceContractTests
         "AdcRoiTargetComboBox",
         "AdcRoiStartTextBox",
         "AdcRoiEndTextBox",
+        "Adc1OffsetTextBox",
+        "Adc1GainTextBox",
+        "Adc2OffsetTextBox",
+        "Adc2GainTextBox",
         "ImageReferenceRoiEditorCard",
         "ReferenceColumnSampleStartTextBox",
         "ReferenceColumnSampleEndTextBox",
@@ -83,6 +100,17 @@ public sealed class FilmProfileSourceContractTests
         "ChannelCalibrationIssuePanel",
         "ChannelCalibrationCompactScrollViewer",
         "ChannelCalibrationDetailsExpander",
+        "ChannelCalibrationTaskStack",
+        "ChannelCalibrationPrimaryActions",
+        "ChannelCalibrationActionsCard",
+        "ChannelCalibrationActionsStack",
+        "ChannelCalibrationIlluminationCard",
+        "ColumnSampleGroupTitle",
+        "ColumnSampleUseStack",
+        "ColumnSampleSaveActions",
+        "UseSampleAsManualBlackLevelButton",
+        "ClearManualReferenceLevelsButton",
+        "CurrentIlluminationDraftLabel",
         "ChannelCalibrationIssueItemsControl",
         "ManualBlackLevelTextBox",
         "ManualWhiteLevelTextBox",
@@ -93,6 +121,12 @@ public sealed class FilmProfileSourceContractTests
         "FocusRoiTargetComboBox",
         "FocusRoiStartTextBox",
         "FocusRoiEndTextBox",
+        "AutofocusSampleRowsTextBox",
+        "AutofocusTiltProbeStepsTextBox",
+        "AutofocusZProbeStepsTextBox",
+        "AutofocusMotorIntervalUsTextBox",
+        "AutofocusMaxTiltIterationsTextBox",
+        "AutofocusMaxZIterationsTextBox",
         "PreviewScrollViewer",
         "PreviewCanvas",
         "PreviewCanvasControl",
@@ -181,8 +215,11 @@ public sealed class FilmProfileSourceContractTests
         "ExposureMicrosecondsTextBox",
         "WorkbenchRunBar",
         "WorkbenchRunContentGrid",
+        "RunCaptureModePanel",
         "RunActionPanel",
         "RunStatusPanel",
+        "RunStatusTextPanel",
+        "RunRecoveryActionsPanel",
         "RunProgressBar",
         "EngineeringToolsScrollViewer",
         "MotionTaskSection",
@@ -256,9 +293,13 @@ public sealed class FilmProfileSourceContractTests
             ["MoveMotorCommand"] = 3,
             ["StopMotorCommand"] = 3,
             ["ApplyMotorConfigCommand"] = 3,
-            ["ResetSelectedRoiCommand"] = 2,
             ["ResetAllRoisCommand"] = 2,
-            ["ApplySelectedRoiInputsCommand"] = 2
+            ["ApplyAdcRoiInputsCommand"] = 1,
+            ["ResetAdcRoiCommand"] = 1,
+            ["ReloadAdcRoiInputsCommand"] = 1,
+            ["ApplyFocusRoiInputsCommand"] = 1,
+            ["ResetFocusRoiCommand"] = 1,
+            ["ReloadFocusRoiInputsCommand"] = 1
         };
 
     private static readonly IReadOnlyDictionary<string, int> ExpectedEventHandlerBindingCounts =
@@ -298,6 +339,7 @@ public sealed class FilmProfileSourceContractTests
             ["Click=BwReturnToParametersButton_Click"] = 1,
             ["Click=BwIssueButton_Click"] = 1,
             ["Click=BwConfigureChannelButton_Click"] = 1,
+            ["Click=BwOpenChannelDetailsButton_Click"] = 1,
             ["SelectionChanged=CalibrationChannelFallbackComboBox_SelectionChanged"] = 1,
             ["SizeChanged=BwAutoActionGrid_SizeChanged"] = 1,
             ["SizeChanged=ChannelCalibrationSection_SizeChanged"] = 1,
@@ -387,8 +429,8 @@ public sealed class FilmProfileSourceContractTests
         "IsEnabled=\"{Binding IsSelectionEditable}\"",
         "Text=\"{Binding ChannelLedBindingText}\"",
         "Text=\"{Binding CalibrationStatusText}\"",
-        "Text=\"{x:Bind ViewModel.AcquisitionPlanSummaryText, Mode=OneWay}\"",
-        "Text=\"{x:Bind ViewModel.ChannelLedBindingSummaryText, Mode=OneWay}\""
+        "x:Uid=\"ScanDebug_AcquisitionChannelOrderTitle\"",
+        "Text=\"{x:Bind ViewModel.AcquisitionChannelOrderText, Mode=OneWay}\""
     ];
 
     private static readonly string[] Todo10DebugOnlyAcquisitionSwitchBindings =
@@ -1275,6 +1317,45 @@ public sealed class FilmProfileSourceContractTests
         Assert.Equal("None", (string?)Named("CalibrationChannelStatusListView").Attribute("SelectionMode"));
         Assert.Contains(Named("AdcRoiEditorCard"), Named("AdcRoiDetailsExpander").Descendants());
         Assert.Contains(Named("FocusRoiEditorCard"), Named("FocusRoiDetailsExpander").Descendants());
+        Assert.Contains(Named("AdcRoiEditorCard"), channel.Descendants());
+        Assert.Contains(Named("FocusRoiEditorCard"), focus.Descendants());
+        Assert.DoesNotContain(Named("FocusRoiEditorCard"), channel.Descendants());
+        Assert.DoesNotContain(Named("AdcRoiEditorCard"), focus.Descendants());
+        Assert.Single(focus.Descendants(), element => (string?)element.Attribute("Text") == "{x:Bind ViewModel.FocusRoiSummaryText, Mode=OneWay}");
+        Assert.Single(channel.Descendants(), element => (string?)element.Attribute("Text") == "{x:Bind ViewModel.BwActiveRoiRangeText, Mode=OneWay}");
+        Assert.Single(channel.Descendants(), element => (string?)element.Attribute("Text") == "{x:Bind ViewModel.BwShieldRoiRangeText, Mode=OneWay}");
+        foreach (var owner in new[] { "Adc", "Focus" })
+        {
+            var card = Named($"{owner}RoiEditorCard");
+            var selector = Named($"{owner}RoiTargetComboBox");
+            Assert.Contains(selector, card.Descendants());
+            Assert.Equal($"{{x:Bind ViewModel.{owner}RoiSelectionOptions, Mode=OneWay}}", (string?)selector.Attribute("ItemsSource"));
+            Assert.Equal($"{{x:Bind ViewModel.Selected{owner}RoiSelection, Mode=TwoWay}}", (string?)selector.Attribute("SelectedItem"));
+            foreach (var (suffix, input) in new[] { ("Start", "Start"), ("End", "End") })
+            {
+                var textBox = Named($"{owner}Roi{suffix}TextBox");
+                Assert.Contains(textBox, card.Descendants());
+                Assert.Equal($"{{x:Bind ViewModel.{owner}Roi{input}Input, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}", (string?)textBox.Attribute("Text"));
+            }
+            Assert.Single(card.Descendants(), element => (string?)element.Attribute("Text") == $"{{x:Bind ViewModel.{owner}RoiTargetText, Mode=OneWay}}");
+            Assert.Single(card.Descendants(), element => (string?)element.Attribute("Text") == $"{{x:Bind ViewModel.{owner}RoiInputStatusText, Mode=OneWay}}");
+            var issues = Assert.Single(card.Descendants(), element => (string?)element.Attribute("ItemsSource") == $"{{x:Bind ViewModel.{owner}RoiValidationIssueDisplays, Mode=OneWay}}");
+            Assert.Single(issues.Descendants(), element => (string?)element.Attribute("Command") == "{Binding DataContext.NavigateToRoiIssueCommand, ElementName=ScanDebugRootGrid}");
+            foreach (var (action, command) in new[]
+            {
+                ($"Apply{owner}Roi", $"Apply{owner}RoiInputsCommand"),
+                ($"Reset{owner}Roi", $"Reset{owner}RoiCommand"),
+                ($"Reload{owner}RoiInputs", $"Reload{owner}RoiInputsCommand")
+            })
+            {
+                var button = Assert.Single(card.Descendants(), element => (string?)element.Attribute(x + "Uid") == $"ScanDebug_{action}Button");
+                Assert.Equal($"{{x:Bind ViewModel.{command}}}", (string?)button.Attribute("Command"));
+                Assert.Equal("{StaticResource ScanDebugWrappingButtonContentTemplate}", (string?)button.Attribute("ContentTemplate"));
+            }
+            Assert.Single(card.Descendants(), element => (string?)element.Attribute("Command") == "{x:Bind ViewModel.ResetAllRoisCommand}");
+            Assert.DoesNotContain(card.Descendants(), element => ((string?)element.Attribute("Text"))?.Contains("ViewModel.RoiStartInput", StringComparison.Ordinal) == true
+                || ((string?)element.Attribute("Text"))?.Contains("ViewModel.RoiEndInput", StringComparison.Ordinal) == true);
+        }
         Assert.DoesNotContain(Named("ChannelCalibrationIssueItemsControl"), Named("ChannelCalibrationDetailsExpander").Descendants());
         Assert.Contains(Named("ChannelCalibrationIssuePanel"), channel.Descendants());
         Assert.Contains(Named("ManualReferenceLevelsCard"), channel.Descendants());
@@ -1302,6 +1383,50 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains(Named("EngineeringToolsScrollViewer"), engineering.Descendants());
         Assert.DoesNotContain(Named("MotionScrollViewer"), engineering.Descendants());
         Assert.DoesNotContain(Named("EngineeringToolsScrollViewer"), motion.Descendants());
+        Assert.DoesNotContain("Command=\"{x:Bind ViewModel.ApplySelectedRoiInputsCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Command=\"{x:Bind ViewModel.ResetSelectedRoiCommand}\"", xaml, StringComparison.Ordinal);
+        var viewModel = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
+        foreach (var (owner, selection, canExecute) in new[]
+        {
+            ("Adc", "SelectedAdcRoiSelection", "CanEditAdcRoiDraft"),
+            ("Focus", "SelectedFocusRoiSelection", "CanEditFocusRoiDraft")
+        })
+        {
+            foreach (var (method, operation) in new[]
+            {
+                ($"Apply{owner}RoiInputs", "ApplyRoiNumericDraft"),
+                ($"Reset{owner}Roi", "ResetRoiNumericDraft"),
+                ($"Reload{owner}RoiInputs", "ReloadRoiNumericDraft")
+            })
+            {
+                Assert.Matches($@"\[RelayCommand\(CanExecute = nameof\({canExecute}\)\)\]\s+private void {method}\(\)\s*=> {operation}\({selection}\);", viewModel);
+            }
+            Assert.Contains($"get => GetRoiNumericDraft({selection})?.Start", viewModel, StringComparison.Ordinal);
+            Assert.Contains($"get => GetRoiNumericDraft({selection})?.End", viewModel, StringComparison.Ordinal);
+        }
+        var numericDraft = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "GetRoiNumericDraft");
+        Assert.Contains("(SelectedCalibrationChannel.ToUpperInvariant(), selection)", numericDraft, StringComparison.Ordinal);
+        Assert.Contains("GetRoiRange(_roiSettings, selection)", numericDraft, StringComparison.Ordinal);
+        var applyDraft = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "ApplyRoiNumericDraft");
+        Assert.Contains("GetRoiRange(_roiSettings, selection) != draft.AppliedRange", applyDraft, StringComparison.Ordinal);
+        Assert.Contains("TryBuildRoiEditCandidate(selection, new ScanColumnRange(start, end)", applyDraft, StringComparison.Ordinal);
+        Assert.Contains("TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs", applyDraft, StringComparison.Ordinal);
+        Assert.Contains("SynchronizeFilmProfileDraftFromInputs();", applyDraft, StringComparison.Ordinal);
+        var resetDraft = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "ResetRoiNumericDraft");
+        Assert.Contains("var defaults = ScanCalibrationRoiSettings.CreateDefault();", resetDraft, StringComparison.Ordinal);
+        Assert.Contains("GetRoiRange(defaults, selection)", resetDraft, StringComparison.Ordinal);
+        Assert.Contains("TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ResetSelectedRoi", resetDraft, StringComparison.Ordinal);
+        var reloadDraft = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "ReloadRoiNumericDraft");
+        Assert.Contains("GetRoiRange(_roiSettings, selection)", reloadDraft, StringComparison.Ordinal);
+        Assert.DoesNotContain("SynchronizeFilmProfileDraftFromInputs", reloadDraft, StringComparison.Ordinal);
+        var previewSelection = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "OnSelectedRoiSelectionChanged");
+        Assert.DoesNotContain("SelectedAdcRoiSelection =", previewSelection, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedFocusRoiSelection =", previewSelection, StringComparison.Ordinal);
+        Assert.DoesNotContain("_roiNumericDrafts", previewSelection, StringComparison.Ordinal);
+        Assert.Contains("SelectedRoiSelection = value;", ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "OnSelectedFocusRoiSelectionChanged"), StringComparison.Ordinal);
+        Assert.Contains("SelectedRoiSelection = value;", ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "OnSelectedAdcRoiSelectionChanged"), StringComparison.Ordinal);
+        foreach (var (method, command) in new[] { ("ApplySelectedRoiInputs", "ApplySelectedRoiInputs"), ("ResetSelectedRoi", "ResetSelectedRoi") })
+            Assert.Contains($"TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.{command}", ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, method), StringComparison.Ordinal);
         foreach (var motor in Enumerable.Range(1, 3))
         {
             var settings = Assert.Single(motion.Descendants(), element => element.Name.LocalName == "Expander"
@@ -3042,7 +3167,18 @@ public sealed class FilmProfileSourceContractTests
             Assert.Equal(1, CountOccurrences(codeBehind, handler));
         }
 
-        AssertCurrentRuntimeGatedCommandInventory(xaml, codeBehind, ReadAppSource("ViewModels", "ScanDebugViewModel.cs"));
+        var viewModel = ReadAppSource("ViewModels", "ScanDebugViewModel.cs");
+        var clearLibrary = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "ClearChannelProfile");
+        Assert.Contains("TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ClearChannelProfile", clearLibrary, StringComparison.Ordinal);
+        Assert.Contains("RequestCalibrationPromptAsync(new ScanCalibrationPrompt(", clearLibrary, StringComparison.Ordinal);
+        Assert.Contains("_calibrationProfiles.ClearProfileAsync(channelRole", clearLibrary, StringComparison.Ordinal);
+        Assert.True(clearLibrary.IndexOf("RequestCalibrationPromptAsync", StringComparison.Ordinal)
+            < clearLibrary.IndexOf("ClearProfileAsync", StringComparison.Ordinal));
+        var clearManual = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(viewModel, "ClearManualReferenceLevels");
+        Assert.Contains("RequestFilmProfileImportConfirmationAsync(new ScanFilmProfileDiscardConfirmationRequest(", clearManual, StringComparison.Ordinal);
+        Assert.True(clearManual.IndexOf("RequestFilmProfileImportConfirmationAsync", StringComparison.Ordinal)
+            < clearManual.IndexOf("CommitManualReferenceLevels(null, null);", StringComparison.Ordinal));
+        AssertCurrentRuntimeGatedCommandInventory(xaml, codeBehind, viewModel);
     }
 
     [Fact]
@@ -3057,6 +3193,12 @@ public sealed class FilmProfileSourceContractTests
             "CalibrationChannelStatusListView",
             "CalibrationChannelFallbackComboBox",
             "ChannelCalibrationLibraryActionsGrid",
+            "ChannelCalibrationPrimaryActions",
+            "ChannelCalibrationActionsCard",
+            "ColumnSampleUseStack",
+            "ColumnSampleSaveActions",
+            "ChannelCalibrationIlluminationCard",
+            "CurrentIlluminationDraftLabel",
             "CurrentCalibrationIlluminationEditorGrid",
             "CurrentCalibrationIlluminationLevelTextBox",
             "CurrentCalibrationIlluminationPulseClockTextBox",
@@ -3104,7 +3246,16 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("x:Uid=\"ScanDebug_SaveChannelButton\"", channel, StringComparison.Ordinal);
         Assert.Contains("x:Uid=\"ScanDebug_ClearChannelButton\"", channel, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"ScanDebugWrappingButtonContentTemplate\"", xaml, StringComparison.Ordinal);
-        Assert.Equal(18, CountOccurrences(channel, "ContentTemplate=\"{StaticResource ScanDebugWrappingButtonContentTemplate}\""));
+        var document = XDocument.Parse(xaml);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var channelElement = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "ChannelCalibrationSection");
+        var adcReload = Assert.Single(channelElement.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_ReloadAdcRoiInputsButton");
+        Assert.Equal("{x:Bind ViewModel.ReloadAdcRoiInputsCommand}", (string?)adcReload.Attribute("Command"));
+        Assert.Contains(adcReload, channelElement.Descendants().Single(element => (string?)element.Attribute(x + "Name") == "AdcRoiEditorCard").Descendants());
+        Assert.Equal("{StaticResource ScanDebugWrappingButtonContentTemplate}", (string?)adcReload.Attribute("ContentTemplate"));
+        Assert.Equal(18, channelElement.Descendants().Count(element => element.Name.LocalName == "Button"
+            && (string?)element.Attribute("ContentTemplate") == "{StaticResource ScanDebugWrappingButtonContentTemplate}"
+            && element != adcReload));
         Assert.Contains("<DataTemplate x:Key=\"ScanDebugWrappingButtonContentTemplate\">", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"WrapWholeWords\"/>", xaml, StringComparison.Ordinal);
@@ -3113,6 +3264,20 @@ public sealed class FilmProfileSourceContractTests
         Assert.DoesNotContain("SaveChannelProfileCommand", engineering, StringComparison.Ordinal);
         Assert.DoesNotContain("ClearChannelProfileCommand", engineering, StringComparison.Ordinal);
         Assert.DoesNotContain("CurrentCalibrationIlluminationEditorGrid", engineering, StringComparison.Ordinal);
+        var page = ReadAppSource("Views", "ScanDebugPage.xaml.cs");
+        var arrange = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(page, "ArrangeBlackWhiteTaskControls");
+        Assert.Contains("ChannelCalibrationPrimaryActions.Children.Insert(0, ChannelCalibrationIlluminationCard);", arrange, StringComparison.Ordinal);
+        Assert.Contains("ColumnSampleUseStack.Children.Insert(", arrange, StringComparison.Ordinal);
+        Assert.Contains("ColumnSampleSaveActions);", arrange, StringComparison.Ordinal);
+        Assert.DoesNotContain("Command.Execute", arrange, StringComparison.Ordinal);
+        var entry = Assert.Single(channelElement.Descendants(), element => (string?)element.Attribute("AutomationProperties.AutomationId") == "BwDetailsEntryButton");
+        Assert.Equal("BwOpenChannelDetailsButton_Click", (string?)entry.Attribute("Click"));
+        Assert.Null(entry.Attribute("Command"));
+        var openDetails = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(page, "BwConfigureChannelButton_Click");
+        Assert.Contains("_isConfigurationWorkspaceOpen = true;", openDetails, StringComparison.Ordinal);
+        Assert.Contains("ChannelCalibrationDetailsExpander.IsExpanded = true;", openDetails, StringComparison.Ordinal);
+        Assert.Contains("BeginIssueTargetFocus(2, ChannelCalibrationScrollViewer, ExposureMicrosecondsTextBox", openDetails, StringComparison.Ordinal);
+        Assert.Contains("BwConfigureChannelButton_Click(sender, e)", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -3129,9 +3294,12 @@ public sealed class FilmProfileSourceContractTests
         var supplement = Assert.Single(channel.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_ManualReferenceSupplementExpander");
         var manualButtons = card.Descendants().Concat(supplement.Descendants())
             .Where(element => element.Name.LocalName == "Button").ToArray();
-        Assert.Equal(13, wrappedButtons.Except(manualButtons).Count());
+        var adcReload = Assert.Single(channel.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_ReloadAdcRoiInputsButton");
+        Assert.Equal("{x:Bind ViewModel.ReloadAdcRoiInputsCommand}", (string?)adcReload.Attribute("Command"));
+        Assert.Contains(adcReload, wrappedButtons);
+        Assert.Equal(13, wrappedButtons.Except(manualButtons).Except([adcReload]).Count());
         Assert.Equal(6, manualButtons.Length);
-        Assert.Equal(18, wrappedButtons.Length);
+        Assert.Equal(18, wrappedButtons.Except([adcReload]).Count());
         Assert.Equal(3, card.Descendants().Count(element => element.Name.LocalName == "Button"));
         Assert.Equal(3, supplement.Descendants().Count(element => element.Name.LocalName == "Button"));
         var configure = Assert.Single(card.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_BwConfigureChannelButton");
@@ -3246,14 +3414,14 @@ public sealed class FilmProfileSourceContractTests
         {
             ("ScanDebug_ManualReferenceLevelsTitle.Text", "Channel black/white reference (RAW 16-bit ADU)", "通道黑白参考值（RAW 16 位 ADU）"),
             ("ScanDebug_ManualReferenceLevelsHelpText.Text", "Enter raw integers: black 0-65535, white 1-65535, with black below white. Typing or using a sample changes only the inputs; Apply updates the selected channel draft, not the ADC device, local library or configuration file.", "请输入原始整数：黑值 0-65535，白值 1-65535，黑值须小于白值。输入或使用采样只修改编辑框；应用只更新所选通道草稿，不写入 ADC 设备、本地库或配置文件。"),
-            ("ScanDebug_UseSampleAsManualBlackLevelButton.Content", "Use sample for black input", "使用采样填入黑值"),
-            ("ScanDebug_UseSampleAsManualWhiteLevelButton.Content", "Use sample for white input", "使用采样填入白值"),
+            ("ScanDebug_UseSampleAsManualBlackLevelButton.Content", "Fill black input from sample", "使用采样填入黑值"),
+            ("ScanDebug_UseSampleAsManualWhiteLevelButton.Content", "Fill white input from sample", "使用采样填入白值"),
             ("ScanDebug_ApplyManualReferenceLevelsButton.Content", "Apply to channel draft", "应用到通道草稿"),
             ("ScanDebug_RevertManualReferenceLevelsButton.Content", "Revert this edit", "撤销本次编辑"),
             ("ScanDebug_ClearManualReferenceLevelsButton.Content", "Clear channel references...", "清除通道参考值…"),
             ("ScanDebug_ManualReferenceClearHelpText.Text", "Clearing both channel-draft reference values requires confirmation. Save configuration separately; the local library and device are unchanged.", "清除通道草稿中的黑白参考值需要确认。配置须另行保存；本地校准库与设备不会改变。"),
-            ("ScanDebug_SaveColumnBlackLevelButton.Content", "Save columns as black level", "将列采样保存为黑电平"),
-            ("ScanDebug_SaveColumnWhiteLevelButton.Content", "Save columns as white level", "将列采样保存为白电平")
+            ("ScanDebug_SaveColumnBlackLevelButton.Content", "Save black level to calibration library", "保存黑电平到校准库"),
+            ("ScanDebug_SaveColumnWhiteLevelButton.Content", "Save white level to calibration library", "保存白电平到校准库")
         })
         {
             Assert.Equal(expectedEnglish, english[key]);
@@ -3482,10 +3650,17 @@ public sealed class FilmProfileSourceContractTests
         Assert.DoesNotContain("Expanding=\"DeferredExpander_Expanding\"", advanced, StringComparison.Ordinal);
         Assert.DoesNotContain("Tag=\"AdvancedAutofocusContent\"", advanced, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"AdvancedAutofocusContent\"", advanced, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(xaml, "x:Name=\"AdvancedAutofocusResults\""));
         Assert.DoesNotContain("x:Load=\"False\"", advanced, StringComparison.Ordinal);
         foreach (var automationId in new[]
         {
             "AdvancedAutofocusBoundsText",
+            "AutofocusInputLimitsText",
+            "AutofocusResolutionLimitsText",
+            "AutofocusEstimatedCapturesText",
+            "AutofocusCumulativeTravelText",
+            "AutofocusEstimatedDurationText",
+            "AutofocusEstimateDisclaimer",
             "AutofocusPresetComboBox",
             "AutofocusSampleRowsTextBox",
             "AutofocusTiltProbeStepsTextBox",
@@ -3496,6 +3671,7 @@ public sealed class FilmProfileSourceContractTests
         })
         {
             Assert.Contains($"AutomationProperties.AutomationId=\"{automationId}\"", advanced, StringComparison.Ordinal);
+            Assert.Equal(1, CountOccurrences(advanced, $"AutomationProperties.AutomationId=\"{automationId}\""));
         }
 
         Assert.Contains("x:Uid=\"ScanDebug_AutofocusPresetComboBox\"", advanced, StringComparison.Ordinal);

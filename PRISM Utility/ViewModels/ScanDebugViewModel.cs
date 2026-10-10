@@ -488,7 +488,6 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool _suppressWarmUpToggleCommand;
     private bool _isUpdatingRoiInputs;
     private bool _isUpdatingColumnSampleInputs;
-    private bool _isSynchronizingOwnerRoiSelections;
     private bool _isSynchronizingFilmProfileWorkspace;
     private bool _isSynchronizingTimingInputs;
     private ScanDeviceTimingState _deviceTimingState = ScanDeviceTimingState.Unknown;
@@ -528,6 +527,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private uint[]? _streamingWorkflowPreviewPassMotorIntervals;
     private ScanFilmAcquisitionSettings? _selectedFilmAcquisitionSettings;
     private ScanCalibrationRoiSettings _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
+    private sealed record RoiNumericDraft(string Start, string End, ScanColumnRange AppliedRange);
+    private readonly Dictionary<(string Channel, string Selection), RoiNumericDraft> _roiNumericDrafts = new();
     private ScanColumnRange _columnSampleRange = new(ScanDebugConstants.EffectivePixelStart, ScanDebugConstants.EffectivePixelEnd);
     private ushort? _columnSampleMean;
     private string? _columnSampleMeanChannelRole;
@@ -1339,7 +1340,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (_selectedCalibrationChannelLoad is { } load
                 && IsCurrentCalibrationChannel(load.Role)
                 && (!load.Completion.IsCompletedSuccessfully || !load.Completion.Result))
-                return "ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…");
+                return GetUnavailableRoiStatusText();
 
             var range = SelectedFocusRoiSelection switch
             {
@@ -1357,8 +1358,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         => _selectedCalibrationChannelLoad is { } load
             && IsCurrentCalibrationChannel(load.Role)
             && (!load.Completion.IsCompletedSuccessfully || !load.Completion.Result)
-                ? "ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…")
+                ? GetUnavailableRoiStatusText()
                 : FormatBwRoiRange(range);
+
+    private string GetUnavailableRoiStatusText()
+        => _selectedCalibrationChannelLoad?.Completion.IsCompleted == true
+            ? "ScanDebug_BwRoiUnavailable".GetLocalized()
+            : "ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…");
 
     private static string FormatBwRoiRange(ScanColumnRange range)
         => range.Width > 0
@@ -1373,6 +1379,35 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     [ObservableProperty]
     public partial string RoiInputStatusText { get; set; }
+
+    public string AdcRoiStartInput
+    {
+        get => GetRoiNumericDraft(SelectedAdcRoiSelection)?.Start ?? string.Empty;
+        set => SetRoiNumericDraft(SelectedAdcRoiSelection, value, true);
+    }
+
+    public string AdcRoiEndInput
+    {
+        get => GetRoiNumericDraft(SelectedAdcRoiSelection)?.End ?? string.Empty;
+        set => SetRoiNumericDraft(SelectedAdcRoiSelection, value, false);
+    }
+
+    public string FocusRoiStartInput
+    {
+        get => GetRoiNumericDraft(SelectedFocusRoiSelection)?.Start ?? string.Empty;
+        set => SetRoiNumericDraft(SelectedFocusRoiSelection, value, true);
+    }
+
+    public string FocusRoiEndInput
+    {
+        get => GetRoiNumericDraft(SelectedFocusRoiSelection)?.End ?? string.Empty;
+        set => SetRoiNumericDraft(SelectedFocusRoiSelection, value, false);
+    }
+
+    public string AdcRoiTargetText => FormatRoiNumericTarget(SelectedAdcRoiSelection);
+    public string FocusRoiTargetText => FormatRoiNumericTarget(SelectedFocusRoiSelection);
+    public string AdcRoiInputStatusText => FormatRoiNumericStatus(SelectedAdcRoiSelection);
+    public string FocusRoiInputStatusText => FormatRoiNumericStatus(SelectedFocusRoiSelection);
 
     [ObservableProperty]
     public partial int RoiOverlayVersion { get; set; }
@@ -2226,7 +2261,21 @@ public partial class ScanDebugViewModel : ObservableRecipient
     public partial string AutofocusSummaryText { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutofocusBoundsErrorVisibility))]
     public partial string AutofocusBoundsText { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutofocusResolvedBoundsVisibility))]
+    public partial string AutofocusResolutionLimitsText { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusEstimatedCapturesText { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusCumulativeTravelText { get; set; }
+
+    [ObservableProperty]
+    public partial string AutofocusEstimatedDurationText { get; set; }
 
     [ObservableProperty]
     public partial string FocusMappingStatusText { get; set; }
@@ -2250,9 +2299,42 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string AutofocusSampleRowsLimitText => BuildBoundedLimitText(AutofocusSampleRows, AutofocusRowsMin, _session.SingleTransferMaxRows, "Sample rows");
 
+    public Visibility AutofocusSampleRowsLimitVisibility
+        => int.TryParse(AutofocusSampleRows, out var rows) && rows >= AutofocusRowsMin && rows <= _session.SingleTransferMaxRows
+            ? Visibility.Collapsed : Visibility.Visible;
+
     public string AutofocusTiltProbeStepsLimitText => BuildPositiveDistanceLimitText(AutofocusTiltProbeSteps, "Tilt probe distance");
 
+    public Visibility AutofocusTiltProbeStepsLimitVisibility => ValidAutofocusDistance(AutofocusTiltProbeSteps)
+        ? Visibility.Collapsed : Visibility.Visible;
+
     public string AutofocusZProbeStepsLimitText => BuildPositiveDistanceLimitText(AutofocusZProbeSteps, "Z probe distance");
+
+    public Visibility AutofocusZProbeStepsLimitVisibility => ValidAutofocusDistance(AutofocusZProbeSteps)
+        ? Visibility.Collapsed : Visibility.Visible;
+
+    public string AutofocusMaxTiltIterationsLimitText => "ScanDebug_Runtime_AutofocusMaxTiltIterationsLimit".GetLocalized();
+
+    public Visibility AutofocusMaxTiltIterationsLimitVisibility
+        => int.TryParse(AutofocusMaxTiltIterations, out var iterations) && iterations > 0
+            ? Visibility.Collapsed : Visibility.Visible;
+
+    public string AutofocusMaxZIterationsLimitText => "ScanDebug_Runtime_AutofocusMaxZIterationsLimit".GetLocalized();
+
+    public Visibility AutofocusMaxZIterationsLimitVisibility
+        => int.TryParse(AutofocusMaxZIterations, out var iterations) && iterations > 0
+            ? Visibility.Collapsed : Visibility.Visible;
+
+    public string AutofocusInputLimitsText => "ScanDebug_Runtime_AutofocusInputLimits".GetLocalizedFormat(
+        _session.SingleTransferMaxRows,
+        AutofocusDistanceMinMm.ToString("0.###", CultureInfo.InvariantCulture),
+        ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
+
+    public Visibility AutofocusResolvedBoundsVisibility => string.IsNullOrEmpty(AutofocusResolutionLimitsText)
+        ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility AutofocusBoundsErrorVisibility => string.IsNullOrEmpty(AutofocusBoundsText)
+        ? Visibility.Collapsed : Visibility.Visible;
 
     public string ManualFocusDistanceLimitText
     {
@@ -2278,7 +2360,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
             || distanceMm > ManualFocusMaximumDistanceMm
             ? Visibility.Visible : Visibility.Collapsed;
 
-    public string AutofocusMotorIntervalLimitText => BuildLowerBoundLimitText(AutofocusMotorIntervalUs, ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs), "Motor interval");
+    public string AutofocusMotorIntervalLimitText => "ScanDebug_Runtime_ErrorAutofocusIntervalMinimum".GetLocalizedFormat(
+        ScanMotorIntervalText.MinimumWholeMicroseconds(ScanDebugConstants.MotionMinIntervalNs));
+
+    public Visibility AutofocusMotorIntervalLimitVisibility
+        => ScanMotorIntervalText.TryParseMicroseconds(AutofocusMotorIntervalUs, out var intervalNs)
+            && intervalNs >= ScanDebugConstants.MotionMinIntervalNs
+            ? Visibility.Collapsed : Visibility.Visible;
 
     public Brush Adc1OffsetLimitBrush => BuildBoundedLimitBrush(Adc1Offset, CalibrationOffsetMin, CalibrationOffsetMax);
 
@@ -2663,12 +2751,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnAutofocusMaxTiltIterationsChanged(string value)
     {
+        RefreshLimitBlockBindings();
         RefreshAutofocusBounds();
         NotifyAutofocusAvailabilityChanged();
     }
 
     partial void OnAutofocusMaxZIterationsChanged(string value)
     {
+        RefreshLimitBlockBindings();
         RefreshAutofocusBounds();
         NotifyAutofocusAvailabilityChanged();
     }
@@ -2926,14 +3016,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnSelectedRoiSelectionChanged(string value)
     {
-        SynchronizeOwnerRoiSelections(value);
         RefreshRoiInputTexts();
         RefreshRoiStatus();
     }
 
     partial void OnSelectedAdcRoiSelectionChanged(string value)
     {
-        if (_isSynchronizingOwnerRoiSelections || value is not (RoiSelectionBwActive or RoiSelectionBwShield))
+        NotifyRoiNumericDraftsChanged();
+        if (value is not (RoiSelectionBwActive or RoiSelectionBwShield))
             return;
 
         SelectedRoiSelection = value;
@@ -2942,26 +3032,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     partial void OnSelectedFocusRoiSelectionChanged(string value)
     {
         OnPropertyChanged(nameof(FocusRoiSummaryText));
-        if (_isSynchronizingOwnerRoiSelections || value is not (RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight))
+        NotifyRoiNumericDraftsChanged();
+        if (value is not (RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight))
             return;
 
         SelectedRoiSelection = value;
-    }
-
-    private void SynchronizeOwnerRoiSelections(string value)
-    {
-        _isSynchronizingOwnerRoiSelections = true;
-        try
-        {
-            if (value is RoiSelectionBwActive or RoiSelectionBwShield)
-                SelectedAdcRoiSelection = value;
-            else if (value is RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight)
-                SelectedFocusRoiSelection = value;
-        }
-        finally
-        {
-            _isSynchronizingOwnerRoiSelections = false;
-        }
     }
 
     partial void OnIsBwActiveRoiOverlayVisibleChanged(bool value)
@@ -3465,6 +3540,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!_areRuntimeBindingsAttached)
             ActivateRawPage();
         SubscribeFilmProfileWorkspace();
+        if (string.IsNullOrWhiteSpace(SelectedCalibrationChannel))
+            SelectedCalibrationChannel = CalibrationChannelOptions[0];
+        else if (_selectedCalibrationChannelLoad is not { } load
+            || !IsCurrentCalibrationChannel(load.Role)
+            || load.LoadVersion != _profileLoadVersion
+            || IsCalibrationProjectionStale(load.ProjectionVersion))
+            _ = HandleSelectedCalibrationChannelChangedAsync(SelectedCalibrationChannel, Volatile.Read(ref _calibrationProjectionVersion));
         if (_areRuntimeBindingsAttached)
             return;
 
@@ -3976,6 +4058,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private bool CanEditProfileDraft()
         => CanExecuteRuntimeCommand(ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs);
 
+    private bool CanEditAdcRoiDraft()
+        => CanEditProfileDraft() && IsRoiNumericChannelReady() && IsAdcRoiSelection(SelectedAdcRoiSelection);
+
+    private bool CanEditFocusRoiDraft()
+        => CanEditProfileDraft() && IsRoiNumericChannelReady() && IsFocusRoiSelection(SelectedFocusRoiSelection);
+
     [RelayCommand(CanExecute = nameof(CanExportDng), IncludeCancelCommand = true)]
     private async Task ExportDng(CancellationToken cancellationToken)
     {
@@ -4144,7 +4232,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 ReportOperationFailure("Parameters", statusNotes[^1]);
             }
 
-            await LoadSelectedCalibrationProfileAsync(SelectedCalibrationChannel, ++_profileLoadVersion, Volatile.Read(ref _calibrationProjectionVersion));
+            await HandleSelectedCalibrationChannelChangedAsync(SelectedCalibrationChannel, Volatile.Read(ref _calibrationProjectionVersion));
 
             try
             {
@@ -4748,8 +4836,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
 
         _copiedUnverifiedCalibrationProfiles[SelectedCalibrationChannel] = sourceProfile;
+        var previousProjectionVersion = Volatile.Read(ref _calibrationProjectionVersion);
         AdvanceCalibrationProjectionVersion();
         ApplyCalibrationProfileProjection(sourceProfile);
+        ReconcileSelectedCalibrationChannelProjection(SelectedCalibrationChannel, previousProjectionVersion);
+        RefreshInvalidatedSelectedCalibrationChannelLoad(SelectedCalibrationChannel);
         RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
     }
@@ -4788,6 +4879,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             runtimeClaim?.Dispose();
             IsCalibrationRepositoryOperationRunning = false;
+            RefreshInvalidatedSelectedCalibrationChannelLoad(SelectedCalibrationChannel, preserveStatus: !IsCurrentCalibrationChannel(channelRole));
         }
     }
 
@@ -5173,6 +5265,30 @@ public partial class ScanDebugViewModel : ObservableRecipient
             SynchronizeFilmProfileDraftFromInputs();
         }
     }
+
+    [RelayCommand(CanExecute = nameof(CanEditAdcRoiDraft))]
+    private void ApplyAdcRoiInputs()
+        => ApplyRoiNumericDraft(SelectedAdcRoiSelection);
+
+    [RelayCommand(CanExecute = nameof(CanEditFocusRoiDraft))]
+    private void ApplyFocusRoiInputs()
+        => ApplyRoiNumericDraft(SelectedFocusRoiSelection);
+
+    [RelayCommand(CanExecute = nameof(CanEditAdcRoiDraft))]
+    private void ResetAdcRoi()
+        => ResetRoiNumericDraft(SelectedAdcRoiSelection);
+
+    [RelayCommand(CanExecute = nameof(CanEditFocusRoiDraft))]
+    private void ResetFocusRoi()
+        => ResetRoiNumericDraft(SelectedFocusRoiSelection);
+
+    [RelayCommand(CanExecute = nameof(CanEditAdcRoiDraft))]
+    private void ReloadAdcRoiInputs()
+        => ReloadRoiNumericDraft(SelectedAdcRoiSelection);
+
+    [RelayCommand(CanExecute = nameof(CanEditFocusRoiDraft))]
+    private void ReloadFocusRoiInputs()
+        => ReloadRoiNumericDraft(SelectedFocusRoiSelection);
 
     [RelayCommand(CanExecute = nameof(CanSaveFocusMapping))]
     private async Task SaveFocusMapping()
@@ -6099,6 +6215,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             runtimeClaim?.Dispose();
             IsCalibrationRepositoryOperationRunning = false;
+            RefreshInvalidatedSelectedCalibrationChannelLoad(SelectedCalibrationChannel, preserveStatus: !IsCurrentCalibrationChannel(channelRole));
         }
     }
 
@@ -6161,6 +6278,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         {
             runtimeClaim?.Dispose();
             IsCalibrationRepositoryOperationRunning = false;
+            RefreshInvalidatedSelectedCalibrationChannelLoad(SelectedCalibrationChannel, preserveStatus: !IsCurrentCalibrationChannel(channelRole));
         }
     }
 
@@ -7134,7 +7252,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
     }
 
-    private async Task<bool> LoadSelectedCalibrationProfileAsync(string channelRole, int loadVersion, int projectionVersion)
+    private async Task<bool> LoadSelectedCalibrationProfileAsync(string channelRole, int loadVersion, int projectionVersion, bool preserveStatus)
     {
         if (string.IsNullOrWhiteSpace(channelRole))
             return false;
@@ -7162,7 +7280,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!CanApplyCalibrationProfileProjection(loadVersion, projectionVersion))
                 return false;
             ApplyCalibrationProfileProjection(copiedProfile);
-            RefreshPreviewIfPossible();
+            if (!preserveStatus)
+                RefreshPreviewIfPossible();
             RefreshCalibrationChannelItems();
             NotifyChannelProfileOverviewChanged();
             return true;
@@ -7173,8 +7292,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             if (!CanApplyCalibrationProfileProjection(loadVersion, projectionVersion))
                 return false;
             ApplyCalibrationProfileProjection(draftProfile);
-            CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
-            RefreshPreviewIfPossible();
+            if (!preserveStatus)
+                CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
+            if (!preserveStatus)
+                RefreshPreviewIfPossible();
             RefreshCalibrationChannelItems();
             NotifyChannelProfileOverviewChanged();
             return true;
@@ -7192,8 +7313,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
             }
             _selectedCalibrationEditorReferenceRole = channelRole;
             _selectedCalibrationEditorReferenceProfile = profile;
-            CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
-            RefreshPreviewIfPossible();
+            if (!preserveStatus)
+                CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
+            if (!preserveStatus)
+                RefreshPreviewIfPossible();
             RefreshCalibrationChannelItems();
             NotifyChannelProfileOverviewChanged();
             return true;
@@ -7203,11 +7326,14 @@ public partial class ScanDebugViewModel : ObservableRecipient
         _roiSettings = ScanCalibrationRoiSettings.CreateDefault();
         RefreshRoiStatus();
         RefreshColumnSampleStatus();
-        CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
-        RefreshPreviewIfPossible();
+        if (!preserveStatus)
+            CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_NoSavedProfile".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole));
+        if (!preserveStatus)
+            RefreshPreviewIfPossible();
         RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
-        RefreshPreviewIfPossible();
+        if (!preserveStatus)
+            RefreshPreviewIfPossible();
         RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
         return true;
@@ -7222,6 +7348,33 @@ public partial class ScanDebugViewModel : ObservableRecipient
     private void AdvanceCalibrationProjectionVersion()
         => Interlocked.Increment(ref _calibrationProjectionVersion);
 
+    private void ReconcileSelectedCalibrationChannelProjection(string channelRole, int previousProjectionVersion)
+    {
+        if (!IsCurrentCalibrationChannel(channelRole)
+            || _selectedCalibrationChannelLoad is not { } load
+            || !IsCurrentCalibrationChannel(channelRole, load.LoadVersion)
+            || load.ProjectionVersion != previousProjectionVersion
+            || !load.Completion.IsCompletedSuccessfully
+            || !load.Completion.Result)
+            return;
+
+        _selectedCalibrationChannelLoad = load with { ProjectionVersion = Volatile.Read(ref _calibrationProjectionVersion) };
+        ReconcileRoiNumericDrafts();
+    }
+
+    private void RefreshInvalidatedSelectedCalibrationChannelLoad(string channelRole, bool preserveStatus = false)
+    {
+        if (string.IsNullOrWhiteSpace(channelRole)
+            || !IsCurrentCalibrationChannel(channelRole)
+            || _selectedCalibrationChannelLoad is not { } load
+            || !string.Equals(load.Role, channelRole, StringComparison.OrdinalIgnoreCase)
+            || load.LoadVersion != _profileLoadVersion
+            || (!IsCalibrationProjectionStale(load.ProjectionVersion) && load.Completion.IsCompletedSuccessfully && load.Completion.Result))
+            return;
+
+        _ = HandleSelectedCalibrationChannelChangedAsync(channelRole, Volatile.Read(ref _calibrationProjectionVersion), preserveStatus);
+    }
+
     private bool IsCalibrationProjectionStale(int projectionVersion)
         => projectionVersion != Volatile.Read(ref _calibrationProjectionVersion);
 
@@ -7230,18 +7383,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
             && loadVersion == _profileLoadVersion
             && !IsCalibrationProjectionStale(projectionVersion);
 
-    private async Task<bool> HandleSelectedCalibrationChannelChangedAsync(string channelRole, int projectionVersion)
+    private async Task<bool> HandleSelectedCalibrationChannelChangedAsync(string channelRole, int projectionVersion, bool preserveStatus = false)
     {
         var loadVersion = ++_profileLoadVersion;
-        var loadTask = CompleteSelectedCalibrationChannelLoadAsync(channelRole, loadVersion, projectionVersion);
+        var loadTask = CompleteSelectedCalibrationChannelLoadAsync(channelRole, loadVersion, projectionVersion, preserveStatus);
         var load = new CalibrationChannelSelectionLoad(channelRole, loadVersion, projectionVersion, loadTask);
         _selectedCalibrationChannelLoad = load;
+        NotifyRoiNumericDraftsChanged();
         OnPropertyChanged(nameof(FocusRoiSummaryText));
         OnPropertyChanged(nameof(BwActiveRoiRangeText));
         OnPropertyChanged(nameof(BwShieldRoiRangeText));
         var loaded = await loadTask;
         if (ReferenceEquals(_selectedCalibrationChannelLoad, load))
         {
+            ReconcileRoiNumericDrafts();
             OnPropertyChanged(nameof(FocusRoiSummaryText));
             OnPropertyChanged(nameof(BwActiveRoiRangeText));
             OnPropertyChanged(nameof(BwShieldRoiRangeText));
@@ -7249,11 +7404,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
         return loaded;
     }
 
-    private async Task<bool> CompleteSelectedCalibrationChannelLoadAsync(string channelRole, int loadVersion, int projectionVersion)
+    private async Task<bool> CompleteSelectedCalibrationChannelLoadAsync(string channelRole, int loadVersion, int projectionVersion, bool preserveStatus)
     {
         try
         {
-            return await LoadSelectedCalibrationProfileAsync(channelRole, loadVersion, projectionVersion);
+            return await LoadSelectedCalibrationProfileAsync(channelRole, loadVersion, projectionVersion, preserveStatus);
         }
         catch (Exception ex)
         {
@@ -7287,24 +7442,20 @@ public partial class ScanDebugViewModel : ObservableRecipient
             return;
 
         var existingProfile = TryGetCalibrationProfile(channelRole, out var profile) ? profile : null;
+        var previousProjectionVersion = Volatile.Read(ref _calibrationProjectionVersion);
         AdvanceCalibrationProjectionVersion();
-        try
-        {
-            await _calibrationProfiles.SaveProfileAsync(
-                channelRole,
-                new ScanChannelCalibrationProfile(
-                    snapshot,
-                    roiSettings,
-                    useCapturedLevels ? blackLevel : existingProfile?.BlackLevel,
-                    useCapturedLevels ? whiteLevel : existingProfile?.WhiteLevel),
-                CancellationToken.None);
-        }
-        finally
-        {
-        }
+        await _calibrationProfiles.SaveProfileAsync(
+            channelRole,
+            new ScanChannelCalibrationProfile(
+                snapshot,
+                roiSettings,
+                useCapturedLevels ? blackLevel : existingProfile?.BlackLevel,
+                useCapturedLevels ? whiteLevel : existingProfile?.WhiteLevel),
+            CancellationToken.None);
         _copiedUnverifiedCalibrationProfiles.Remove(channelRole);
         if (IsCurrentCalibrationChannel(channelRole))
         {
+            ReconcileSelectedCalibrationChannelProjection(channelRole, previousProjectionVersion);
             CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedAt".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole), DateTime.Now.ToString("HH:mm:ss"));
             RefreshColumnSampleStatus();
         }
@@ -7317,6 +7468,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (string.IsNullOrWhiteSpace(channelRole))
             return;
 
+        var previousProjectionVersion = Volatile.Read(ref _calibrationProjectionVersion);
         AdvanceCalibrationProjectionVersion();
         try
         {
@@ -7335,7 +7487,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
         _copiedUnverifiedCalibrationProfiles.Remove(channelRole);
         if (IsCurrentCalibrationChannel(channelRole))
+        {
+            ReconcileSelectedCalibrationChannelProjection(channelRole, previousProjectionVersion);
             CalibrationChannelStatusText = "ScanDebug_Runtime_CalibrationChannel_SavedAt".GetLocalizedFormat(GetCalibrationChannelDisplayName(channelRole), DateTime.Now.ToString("HH:mm:ss"));
+        }
         RefreshCalibrationChannelItems();
         NotifyChannelProfileOverviewChanged();
     }
@@ -7871,6 +8026,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 draft.ScanRecipeSettings));
             if (string.IsNullOrWhiteSpace(channel) && draft.ChannelProfiles.Count > 0)
                 channel = draft.ChannelProfiles.Keys.First();
+            if (string.IsNullOrWhiteSpace(channel))
+                channel = !string.IsNullOrWhiteSpace(draft.SelectedCalibrationChannel)
+                    && CalibrationChannelOptions.Contains(draft.SelectedCalibrationChannel, StringComparer.OrdinalIgnoreCase)
+                    ? draft.SelectedCalibrationChannel
+                    : CalibrationChannelOptions[0];
             SelectedCalibrationChannel = channel;
             RefreshCalibrationChannelItems();
             if (!string.IsNullOrWhiteSpace(channel))
@@ -7895,10 +8055,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _hasInvalidFilmProfileInput = false;
             RefreshFilmProfileWorkspaceProjection();
         }
+        if (_areRuntimeBindingsAttached && !wasSynchronizing && !IsFilmProfileOperationRunning)
+            _ = HandleSelectedCalibrationChannelChangedAsync(SelectedCalibrationChannel, Volatile.Read(ref _calibrationProjectionVersion));
     }
 
     private void ResetProfileEditorFields()
     {
+        _roiNumericDrafts.Clear();
         ClearSelectedCalibrationEditorBaseline();
         FilmProfileName = string.Empty;
         SelectedCalibrationChannel = string.Empty;
@@ -8642,6 +8805,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void RefreshRoiStatus()
     {
+        ReconcileRoiNumericDrafts();
         OnPropertyChanged(nameof(FocusRoiSummaryText));
         RefreshRawRoiIfChanged();
         EnsureRoiEditModeAvailability();
@@ -8812,6 +8976,184 @@ public partial class ScanDebugViewModel : ObservableRecipient
         RoiInputStatusText = "ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(GetRoiSelectionDisplayName(SelectedRoiSelection), range.Start, range.EndInclusive);
     }
 
+    private static bool IsAdcRoiSelection(string selection)
+        => selection is RoiSelectionBwActive or RoiSelectionBwShield;
+
+    private static bool IsFocusRoiSelection(string selection)
+        => selection is RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight;
+
+    private bool IsRoiNumericChannelReady()
+        => !string.IsNullOrWhiteSpace(SelectedCalibrationChannel)
+            && _selectedCalibrationChannelLoad is { } load
+            && IsCurrentCalibrationChannel(load.Role)
+            && load.LoadVersion == _profileLoadVersion
+            && !IsCalibrationProjectionStale(load.ProjectionVersion)
+            && load.Completion.IsCompletedSuccessfully
+            && load.Completion.Result;
+
+    private static ScanColumnRange GetRoiRange(ScanCalibrationRoiSettings settings, string selection)
+        => selection switch
+        {
+            RoiSelectionBwActive => settings.EffectiveRange,
+            RoiSelectionBwShield => settings.ShieldRange,
+            RoiSelectionFocusOverall => settings.FocusOverallRange,
+            RoiSelectionFocusLeft => settings.FocusLeftRange,
+            RoiSelectionFocusRight => settings.FocusRightRange,
+            _ => new ScanColumnRange(0, -1)
+        };
+
+    private RoiNumericDraft? GetRoiNumericDraft(string selection)
+    {
+        if (!IsRoiNumericChannelReady() || !(IsAdcRoiSelection(selection) || IsFocusRoiSelection(selection)))
+            return null;
+
+        var key = (SelectedCalibrationChannel.ToUpperInvariant(), selection);
+        if (!_roiNumericDrafts.TryGetValue(key, out var draft))
+        {
+            var range = GetRoiRange(_roiSettings, selection);
+            draft = new RoiNumericDraft(range.Start.ToString(CultureInfo.InvariantCulture),
+                range.EndInclusive.ToString(CultureInfo.InvariantCulture), range);
+            _roiNumericDrafts.Add(key, draft);
+        }
+        return draft;
+    }
+
+    private void SetRoiNumericDraft(string selection, string value, bool isStart)
+    {
+        var draft = GetRoiNumericDraft(selection);
+        if (draft is null)
+            return;
+
+        var updated = isStart ? draft with { Start = value } : draft with { End = value };
+        _roiNumericDrafts[(SelectedCalibrationChannel.ToUpperInvariant(), selection)] = updated;
+        NotifyRoiNumericDraftsChanged();
+    }
+
+    private string FormatRoiNumericTarget(string selection)
+        => $"{GetCalibrationChannelDisplayName(SelectedCalibrationChannel)} · {GetRoiSelectionDisplayName(selection)}";
+
+    private string FormatRoiNumericStatus(string selection)
+    {
+        var draft = GetRoiNumericDraft(selection);
+        if (draft is null)
+            return GetUnavailableRoiStatusText();
+
+        var current = GetRoiRange(_roiSettings, selection);
+        if (current != draft.AppliedRange)
+            return "ScanDebug_Runtime_RoiNumericConflict".GetLocalizedFormat(FormatRoiNumericTarget(selection));
+        if (draft.Start != current.Start.ToString(CultureInfo.InvariantCulture)
+            || draft.End != current.EndInclusive.ToString(CultureInfo.InvariantCulture))
+            return "ScanDebug_Runtime_RoiNumericPendingInput".GetLocalizedFormat(FormatRoiNumericTarget(selection));
+        return "ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(GetRoiSelectionDisplayName(selection), current.Start, current.EndInclusive);
+    }
+
+    private void NotifyRoiNumericDraftsChanged()
+    {
+        OnPropertyChanged(nameof(AdcRoiStartInput));
+        OnPropertyChanged(nameof(AdcRoiEndInput));
+        OnPropertyChanged(nameof(FocusRoiStartInput));
+        OnPropertyChanged(nameof(FocusRoiEndInput));
+        OnPropertyChanged(nameof(AdcRoiTargetText));
+        OnPropertyChanged(nameof(FocusRoiTargetText));
+        OnPropertyChanged(nameof(AdcRoiInputStatusText));
+        OnPropertyChanged(nameof(FocusRoiInputStatusText));
+        ApplyAdcRoiInputsCommand.NotifyCanExecuteChanged();
+        ResetAdcRoiCommand.NotifyCanExecuteChanged();
+        ReloadAdcRoiInputsCommand.NotifyCanExecuteChanged();
+        ApplyFocusRoiInputsCommand.NotifyCanExecuteChanged();
+        ResetFocusRoiCommand.NotifyCanExecuteChanged();
+        ReloadFocusRoiInputsCommand.NotifyCanExecuteChanged();
+        NotifyRoiEditCandidateAvailabilityChanged();
+        NotifyRoiValidationIssuesChanged();
+    }
+
+    private void ReconcileRoiNumericDrafts()
+    {
+        if (IsRoiNumericChannelReady())
+        {
+            foreach (var selection in RoiSelectionLabels)
+            {
+                var key = (SelectedCalibrationChannel.ToUpperInvariant(), selection);
+                if (!_roiNumericDrafts.TryGetValue(key, out var draft))
+                    continue;
+                var current = GetRoiRange(_roiSettings, selection);
+                if (draft.AppliedRange == current)
+                    continue;
+                if (draft.Start == draft.AppliedRange.Start.ToString(CultureInfo.InvariantCulture)
+                    && draft.End == draft.AppliedRange.EndInclusive.ToString(CultureInfo.InvariantCulture))
+                    _roiNumericDrafts[key] = new RoiNumericDraft(current.Start.ToString(CultureInfo.InvariantCulture),
+                        current.EndInclusive.ToString(CultureInfo.InvariantCulture), current);
+            }
+        }
+        NotifyRoiNumericDraftsChanged();
+    }
+
+    private void ApplyRoiNumericDraft(string selection)
+    {
+        if (!IsRoiNumericChannelReady())
+            return;
+        var draft = GetRoiNumericDraft(selection);
+        if (draft is null || GetRoiRange(_roiSettings, selection) != draft.AppliedRange)
+        {
+            NotifyRoiNumericDraftsChanged();
+            return;
+        }
+        if (!int.TryParse(draft.Start, NumberStyles.Integer, CultureInfo.InvariantCulture, out var start)
+            || !int.TryParse(draft.End, NumberStyles.Integer, CultureInfo.InvariantCulture, out var end)
+            || !TryBuildRoiEditCandidate(selection, new ScanColumnRange(start, end), GetRoiEditingWidth(), out var candidate, out _))
+        {
+            NotifyRoiNumericDraftsChanged();
+            return;
+        }
+        if (!TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs, out var runtimeClaim))
+            return;
+        using (runtimeClaim)
+        {
+            if (!IsRoiNumericChannelReady() || GetRoiRange(_roiSettings, selection) != draft.AppliedRange
+                || !TryBuildRoiEditCandidate(selection, new ScanColumnRange(start, end), GetRoiEditingWidth(), out candidate, out _))
+                return;
+            _roiSettings = candidate;
+            _roiNumericDrafts[(SelectedCalibrationChannel.ToUpperInvariant(), selection)] = draft with { AppliedRange = new ScanColumnRange(start, end) };
+            RefreshRoiStatus();
+            SynchronizeFilmProfileDraftFromInputs();
+        }
+    }
+
+    private void ResetRoiNumericDraft(string selection)
+    {
+        if (!IsRoiNumericChannelReady() || GetRoiNumericDraft(selection) is null)
+            return;
+        var defaults = ScanCalibrationRoiSettings.CreateDefault();
+        var range = GetRoiRange(defaults, selection);
+        if (!TryBuildRoiEditCandidate(selection, range, GetRoiEditingWidth(), out var candidate, out _))
+            return;
+        if (!TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ResetSelectedRoi, out var runtimeClaim))
+            return;
+        using (runtimeClaim)
+        {
+            if (!IsRoiNumericChannelReady())
+                return;
+            if (!TryBuildRoiEditCandidate(selection, range, GetRoiEditingWidth(), out candidate, out _))
+                return;
+            _roiSettings = candidate;
+            _roiNumericDrafts[(SelectedCalibrationChannel.ToUpperInvariant(), selection)] = new RoiNumericDraft(
+                range.Start.ToString(CultureInfo.InvariantCulture), range.EndInclusive.ToString(CultureInfo.InvariantCulture), range);
+            RefreshRoiStatus();
+            SynchronizeFilmProfileDraftFromInputs();
+        }
+    }
+
+    private void ReloadRoiNumericDraft(string selection)
+    {
+        if (!IsRoiNumericChannelReady() || GetRoiNumericDraft(selection) is null)
+            return;
+
+        var range = GetRoiRange(_roiSettings, selection);
+        _roiNumericDrafts[(SelectedCalibrationChannel.ToUpperInvariant(), selection)] = new RoiNumericDraft(
+            range.Start.ToString(CultureInfo.InvariantCulture), range.EndInclusive.ToString(CultureInfo.InvariantCulture), range);
+        NotifyRoiNumericDraftsChanged();
+    }
+
     public bool TryNavigateToRoiIssue(ScanRoiValidationIssue issue)
     {
         if (issue is { Owner: ScanRoiOperationOwner.ImageReferenceSampling, FieldPath: "ColumnRange" })
@@ -8823,6 +9165,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (!TryResolveRoiEditorTarget(issue, out var target, out var selection))
             return false;
 
+        if (issue.Owner == ScanRoiOperationOwner.AdcCalibration)
+            SelectedAdcRoiSelection = selection;
+        else
+            SelectedFocusRoiSelection = selection;
         SelectedRoiSelection = selection;
         RoiIssueNavigationRequested?.Invoke(new ScanRoiIssueNavigationRequest(issue.Owner, target, issue.FieldPath));
         return true;
@@ -8976,8 +9322,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private bool TryBuildRoiEditCandidate(ScanColumnRange range, int imageWidth, out ScanCalibrationRoiSettings candidate, out ScanRoiValidationIssue? issue)
+        => TryBuildRoiEditCandidate(SelectedRoiSelection, range, imageWidth, out candidate, out issue);
+
+    private bool TryBuildRoiEditCandidate(string selection, ScanColumnRange range, int imageWidth, out ScanCalibrationRoiSettings candidate, out ScanRoiValidationIssue? issue)
     {
-        candidate = SelectedRoiSelection switch
+        candidate = selection switch
         {
             RoiSelectionBwActive => _roiSettings with { EffectiveRange = range },
             RoiSelectionBwShield => _roiSettings with { ShieldRange = range },
@@ -8987,17 +9336,23 @@ public partial class ScanDebugViewModel : ObservableRecipient
             _ => _roiSettings
         };
 
-        if (SelectedRoiSelection is not (RoiSelectionBwActive or RoiSelectionBwShield or RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight))
+        if (selection is not (RoiSelectionBwActive or RoiSelectionBwShield or RoiSelectionFocusOverall or RoiSelectionFocusLeft or RoiSelectionFocusRight))
         {
             issue = new ScanRoiValidationIssue(ScanRoiOperationOwner.AdcCalibration, ScanRoiValidationCode.Missing, "RoiSelection");
             return false;
         }
 
-        return TryValidateRoiOperation(candidate, imageWidth, GetSelectedRoiOwner(), out issue);
+        return TryValidateRoiOperation(candidate, imageWidth,
+            IsAdcRoiSelection(selection) ? ScanRoiOperationOwner.AdcCalibration : ScanRoiOperationOwner.AutoFocus, out issue);
     }
 
     private IReadOnlyList<ScanRoiValidationIssue> BuildAdcRoiValidationIssues()
     {
+        if (GetRoiNumericDraft(SelectedAdcRoiSelection) is { } adcDraft
+            && (adcDraft.Start != adcDraft.AppliedRange.Start.ToString(CultureInfo.InvariantCulture)
+                || adcDraft.End != adcDraft.AppliedRange.EndInclusive.ToString(CultureInfo.InvariantCulture)))
+            return BuildRoiNumericValidationIssues(SelectedAdcRoiSelection, adcDraft);
+
         if (GetSelectedRoiOwner() == ScanRoiOperationOwner.AdcCalibration)
         {
             if (!TryBuildRoiEditCandidate(out var candidate, out var issue))
@@ -9012,6 +9367,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private IReadOnlyList<ScanRoiValidationIssue> BuildFocusRoiValidationIssues()
     {
+        if (GetRoiNumericDraft(SelectedFocusRoiSelection) is { } focusDraft
+            && (focusDraft.Start != focusDraft.AppliedRange.Start.ToString(CultureInfo.InvariantCulture)
+                || focusDraft.End != focusDraft.AppliedRange.EndInclusive.ToString(CultureInfo.InvariantCulture)))
+            return BuildRoiNumericValidationIssues(SelectedFocusRoiSelection, focusDraft);
+
         if (GetSelectedRoiOwner() == ScanRoiOperationOwner.AutoFocus)
         {
             if (!TryBuildRoiEditCandidate(out var candidate, out var issue))
@@ -9033,9 +9393,35 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private bool IsRoiEditCandidateValid(ScanRoiOperationOwner owner)
-        => GetSelectedRoiOwner() == owner
+    {
+        var selection = owner == ScanRoiOperationOwner.AdcCalibration ? SelectedAdcRoiSelection : SelectedFocusRoiSelection;
+        if (GetRoiNumericDraft(selection) is { } draft
+            && (draft.Start != draft.AppliedRange.Start.ToString(CultureInfo.InvariantCulture)
+                || draft.End != draft.AppliedRange.EndInclusive.ToString(CultureInfo.InvariantCulture)))
+            return BuildRoiNumericValidationIssues(selection, draft).Count == 0;
+        return GetSelectedRoiOwner() == owner
             ? TryBuildRoiEditCandidate(out _, out _)
             : TryValidateRoiOperation(_roiSettings, GetRoiEditingWidth(), owner, out _);
+    }
+
+    private IReadOnlyList<ScanRoiValidationIssue> BuildRoiNumericValidationIssues(string selection, RoiNumericDraft draft)
+    {
+        var owner = IsAdcRoiSelection(selection) ? ScanRoiOperationOwner.AdcCalibration : ScanRoiOperationOwner.AutoFocus;
+        var fieldPath = selection switch
+        {
+            RoiSelectionBwActive => "EffectiveRange",
+            RoiSelectionBwShield => "ShieldRange",
+            RoiSelectionFocusOverall => "FocusOverallRange",
+            RoiSelectionFocusLeft => "FocusLeftRange",
+            _ => "FocusRightRange"
+        };
+        if (!int.TryParse(draft.Start, NumberStyles.Integer, CultureInfo.InvariantCulture, out var start)
+            || !int.TryParse(draft.End, NumberStyles.Integer, CultureInfo.InvariantCulture, out var end))
+            return [new ScanRoiValidationIssue(owner, ScanRoiValidationCode.Missing, fieldPath)];
+        if (!TryBuildRoiEditCandidate(selection, new ScanColumnRange(start, end), GetRoiEditingWidth(), out _, out var issue))
+            return issue is null ? [] : [issue];
+        return [];
+    }
 
     private static bool TryValidateRoiOperation(ScanCalibrationRoiSettings settings, int imageWidth, ScanRoiOperationOwner owner, out ScanRoiValidationIssue? issue)
     {
@@ -9454,7 +9840,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         if (string.IsNullOrWhiteSpace(text))
             return "ScanDebug_Runtime_LimitDistanceMinimum".GetLocalizedFormat(GetLimitLabelDisplayName(label), AutofocusDistanceMinMm);
 
-        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
             return "ScanDebug_Runtime_LimitDistanceInvalidNumber".GetLocalizedFormat(GetLimitLabelDisplayName(label));
 
         return value < AutofocusDistanceMinMm
@@ -9483,14 +9869,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
             : LimitBlockAlertTextBrush.Value;
 
     private static Brush BuildPositiveDistanceLimitBrush(string text)
-        => string.IsNullOrWhiteSpace(text) || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= AutofocusDistanceMinMm
+        => string.IsNullOrWhiteSpace(text) || ValidAutofocusDistance(text)
             ? LimitBlockNormalBrush.Value
             : LimitBlockAlertBrush.Value;
 
     private static Brush BuildPositiveDistanceLimitTextBrush(string text)
-        => string.IsNullOrWhiteSpace(text) || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= AutofocusDistanceMinMm
+        => string.IsNullOrWhiteSpace(text) || ValidAutofocusDistance(text)
             ? LimitBlockNormalTextBrush.Value
             : LimitBlockAlertTextBrush.Value;
+
+    private static bool ValidAutofocusDistance(string text)
+        => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            && double.IsFinite(value) && value >= AutofocusDistanceMinMm;
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
         => Application.Current?.Resources.TryGetValue(resourceKey, out var resource) == true && resource is Brush brush
@@ -9504,11 +9894,18 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(Adc1GainLimitText));
         OnPropertyChanged(nameof(Adc2GainLimitText));
         OnPropertyChanged(nameof(AutofocusSampleRowsLimitText));
+        OnPropertyChanged(nameof(AutofocusSampleRowsLimitVisibility));
         OnPropertyChanged(nameof(AutofocusTiltProbeStepsLimitText));
+        OnPropertyChanged(nameof(AutofocusTiltProbeStepsLimitVisibility));
         OnPropertyChanged(nameof(AutofocusZProbeStepsLimitText));
+        OnPropertyChanged(nameof(AutofocusZProbeStepsLimitVisibility));
+        OnPropertyChanged(nameof(AutofocusMaxTiltIterationsLimitVisibility));
+        OnPropertyChanged(nameof(AutofocusMaxZIterationsLimitVisibility));
+        OnPropertyChanged(nameof(AutofocusInputLimitsText));
         OnPropertyChanged(nameof(ManualFocusDistanceLimitText));
         OnPropertyChanged(nameof(ManualFocusDistanceLimitVisibility));
         OnPropertyChanged(nameof(AutofocusMotorIntervalLimitText));
+        OnPropertyChanged(nameof(AutofocusMotorIntervalLimitVisibility));
         OnPropertyChanged(nameof(Adc1OffsetLimitBrush));
         OnPropertyChanged(nameof(Adc2OffsetLimitBrush));
         OnPropertyChanged(nameof(Adc1GainLimitBrush));
@@ -9635,6 +10032,12 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ResetSelectedRoiCommand.NotifyCanExecuteChanged();
         ApplySelectedRoiInputsCommand.NotifyCanExecuteChanged();
         ResetAllRoisCommand.NotifyCanExecuteChanged();
+        ApplyAdcRoiInputsCommand.NotifyCanExecuteChanged();
+        ResetAdcRoiCommand.NotifyCanExecuteChanged();
+        ReloadAdcRoiInputsCommand.NotifyCanExecuteChanged();
+        ApplyFocusRoiInputsCommand.NotifyCanExecuteChanged();
+        ResetFocusRoiCommand.NotifyCanExecuteChanged();
+        ReloadFocusRoiInputsCommand.NotifyCanExecuteChanged();
     }
 
     private void MarkMotionStateReadRequired()
@@ -11423,6 +11826,10 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     private void RefreshAutofocusBounds()
     {
+        AutofocusResolutionLimitsText = string.Empty;
+        AutofocusEstimatedCapturesText = string.Empty;
+        AutofocusCumulativeTravelText = string.Empty;
+        AutofocusEstimatedDurationText = string.Empty;
         if (!TryBuildAutofocusDefinitionFromInputs(out var definition, out var error))
         {
             AutofocusBoundsText = error;
@@ -11440,14 +11847,17 @@ public partial class ScanDebugViewModel : ObservableRecipient
         try
         {
             var resolved = ScanAutofocusPresetResolver.Resolve(definition, mechanics);
-            AutofocusBoundsText = "ScanDebug_Runtime_AutofocusBounds".GetLocalizedFormat(
-                resolved.TiltProbeSteps,
-                resolved.ZProbeSteps,
-                resolved.Bounds.MaxTiltSteps,
-                resolved.Bounds.MaxZSteps,
-                resolved.Bounds.CaptureCount,
-                resolved.Bounds.TotalMovementMillimeters.ToString("0.###", CultureInfo.InvariantCulture),
+            AutofocusEstimatedCapturesText = "ScanDebug_Runtime_AutofocusEstimatedCaptures".GetLocalizedFormat(resolved.Bounds.CaptureCount);
+            AutofocusCumulativeTravelText = "ScanDebug_Runtime_AutofocusCumulativeTravel".GetLocalizedFormat(
+                resolved.Bounds.TotalMovementMillimeters.ToString("0.###", CultureInfo.InvariantCulture));
+            AutofocusEstimatedDurationText = "ScanDebug_Runtime_AutofocusEstimatedDuration".GetLocalizedFormat(
                 TimeSpan.FromMilliseconds(resolved.Bounds.EstimatedDurationMs).ToString(@"m\:ss", CultureInfo.InvariantCulture));
+            AutofocusResolutionLimitsText = "ScanDebug_Runtime_AutofocusResolutionLimits".GetLocalizedFormat(
+                resolved.TiltProbeSteps,
+                resolved.Bounds.MaxTiltSteps,
+                resolved.ZProbeSteps,
+                resolved.Bounds.MaxZSteps);
+            AutofocusBoundsText = string.Empty;
         }
         catch (Exception ex)
         {

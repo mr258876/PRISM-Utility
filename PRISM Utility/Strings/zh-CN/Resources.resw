@@ -962,7 +962,7 @@
     <value>ADC1 偏移</value>
   </data>
   <data name="ScanDebug_Adc1OffsetTextBox.PlaceholderText" xml:space="preserve">
-    <value>-256 to +256</value>
+    <value>如 -10</value>
   </data>
   <data name="ScanDebug_Adc1GainTextBox.Header" xml:space="preserve">
     <value>ADC1 增益</value>
@@ -974,7 +974,7 @@
     <value>ADC2 偏移</value>
   </data>
   <data name="ScanDebug_Adc2OffsetTextBox.PlaceholderText" xml:space="preserve">
-    <value>-256 to +256</value>
+    <value>如 -10</value>
   </data>
   <data name="ScanDebug_Adc2GainTextBox.Header" xml:space="preserve">
     <value>ADC2 增益</value>
@@ -1122,6 +1122,21 @@
   <data name="ScanDebug_AutofocusMaxZIterationsTextBox.Header" xml:space="preserve">
     <value>最大 Z 迭代次数</value>
   </data>
+  <data name="ScanDebug_AutofocusResolutionLimitsLabel.Text" xml:space="preserve">
+    <value>解析步数与上限</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimatedCapturesLabel.Text" xml:space="preserve">
+    <value>预计采集</value>
+  </data>
+  <data name="ScanDebug_AutofocusCumulativeTravelLabel.Text" xml:space="preserve">
+    <value>累计移动估算</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimatedDurationLabel.Text" xml:space="preserve">
+    <value>预计耗时</value>
+  </data>
+  <data name="ScanDebug_AutofocusEstimateDisclaimer.Text" xml:space="preserve">
+    <value>仅为搜索范围估算。&#10;非实测，也非必然位移。</value>
+  </data>
   <data name="ScanDebug_FocusMappingTitle.Text" xml:space="preserve">
     <value>设备对焦电机映射</value>
   </data>
@@ -1225,7 +1240,7 @@
     <value>当前通道照明</value>
   </data>
   <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
-    <value>这些控件会编辑所选校准通道绑定的 LED。</value>
+    <value>当前通道下一次采集使用的照明草稿；不是设备照明读回，也不会点亮 LED。</value>
   </data>
   <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
     <value>行方向反转</value>
@@ -1624,13 +1639,13 @@
     <value>移动单位</value>
   </data>
   <data name="ScanDebug_Motor1SpeedValueTextBox.Header" xml:space="preserve">
-    <value>速度值</value>
+    <value>速度</value>
   </data>
   <data name="ScanDebug_Motor1SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>例如 5</value>
   </data>
   <data name="ScanDebug_Motor1SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>速度单位（每秒）</value>
+    <value>速度单位</value>
   </data>
   <data name="ScanDebug_Motor1MoveStepsTextBox.Header" xml:space="preserve">
     <value>步数</value>
@@ -1666,13 +1681,13 @@
     <value>移动单位</value>
   </data>
   <data name="ScanDebug_Motor2SpeedValueTextBox.Header" xml:space="preserve">
-    <value>速度值</value>
+    <value>速度</value>
   </data>
   <data name="ScanDebug_Motor2SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>例如 5</value>
   </data>
   <data name="ScanDebug_Motor2SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>速度单位（每秒）</value>
+    <value>速度单位</value>
   </data>
   <data name="ScanDebug_Motor2MoveStepsTextBox.Header" xml:space="preserve">
     <value>步数</value>
@@ -1708,13 +1723,13 @@
     <value>移动单位</value>
   </data>
   <data name="ScanDebug_Motor3SpeedValueTextBox.Header" xml:space="preserve">
-    <value>速度值</value>
+    <value>速度</value>
   </data>
   <data name="ScanDebug_Motor3SpeedValueTextBox.PlaceholderText" xml:space="preserve">
     <value>例如 5</value>
   </data>
   <data name="ScanDebug_Motor3SpeedUnitComboBox.Header" xml:space="preserve">
-    <value>速度单位（每秒）</value>
+    <value>速度单位</value>
   </data>
   <data name="ScanDebug_Motor3MoveStepsTextBox.Header" xml:space="preserve">
     <value>步数</value>
@@ -1732,7 +1747,7 @@
     <value>应用设备电机配置并刷新</value>
   </data>
   <data name="ScanDebug_RoiEditToggleSwitch.Header" xml:space="preserve">
-    <value>ROI 编辑</value>
+    <value>在图像上编辑预览选区</value>
   </data>
   <data name="ScanDebug_RoiEditToggleSwitch.OnContent" xml:space="preserve">
     <value>开</value>
@@ -1747,7 +1762,7 @@
     <value>重置所选 ROI</value>
   </data>
   <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve">
-    <value>重置所有 ROI</value>
+    <value>重置当前通道草稿的所有 ROI</value>
   </data>
   <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve">
     <value>光标：(-, -) px</value>
@@ -1785,6 +1800,27 @@
   <data name="ScanDebug_ApplyRoiButton.Content" xml:space="preserve">
     <value>应用 ROI</value>
   </data>
+  <data name="ScanDebug_ApplyAdcRoiButton.Content" xml:space="preserve">
+    <value>应用所选 ADC ROI</value>
+  </data>
+  <data name="ScanDebug_ResetAdcRoiButton.Content" xml:space="preserve">
+    <value>重置所选 ADC ROI</value>
+  </data>
+  <data name="ScanDebug_ReloadAdcRoiInputsButton.Content" xml:space="preserve">
+    <value>重新载入当前 ADC 范围</value>
+  </data>
+  <data name="ScanDebug_ApplyFocusRoiButton.Content" xml:space="preserve">
+    <value>应用所选对焦 ROI</value>
+  </data>
+  <data name="ScanDebug_ResetFocusRoiButton.Content" xml:space="preserve">
+    <value>重置所选对焦 ROI</value>
+  </data>
+  <data name="ScanDebug_ReloadFocusRoiInputsButton.Content" xml:space="preserve">
+    <value>重新载入当前对焦范围</value>
+  </data>
+  <data name="ScanDebug_RoiDraftSourceText.Text" xml:space="preserve">
+    <value>来源：当前通道 ROI 草稿。重新载入舍弃未应用输入；应用仅修改所选 ROI，不写设备或 JSON。</value>
+  </data>
   <data name="ScanDebug_AdcRoiEditorTitle.Text" xml:space="preserve">
     <value>ADC 校准 ROI</value>
   </data>
@@ -1810,7 +1846,7 @@
     <value>选择列范围以计算当前通道均值，并保存为黑场或白场。不会更改 ADC ROI 或配准。</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>下方“将列采样保存”按钮会把当前预览帧中所选通道的采样值写入本地校准库；不会填入手动编辑框，也不会保存配置 JSON。清除或更换预览帧可刷新采样均值。</value>
+    <value>两类操作共用当前预览中所选通道的列采样。填入黑值或白值仅更改本地输入框；保存黑电平或白电平写入所选通道的本地校准库，不应用设备参数或导出 JSON。</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>参考起始列</value>
@@ -2890,6 +2926,12 @@
   <data name="ScanDebug_Runtime_RoiNumericMirror" xml:space="preserve">
     <value>数值 ROI 范围与 {0} 同步：{1} ~ {2}。</value>
   </data>
+  <data name="ScanDebug_Runtime_RoiNumericConflict" xml:space="preserve">
+    <value>{0}：打开输入草稿后 ROI 已更改。应用前请先重新载入当前范围，舍弃未应用的输入。</value>
+  </data>
+  <data name="ScanDebug_Runtime_RoiNumericPendingInput" xml:space="preserve">
+    <value>{0}：本地 ROI 输入尚未应用。点击所选 ROI 的“应用”按钮可更新当前通道草稿。</value>
+  </data>
   <data name="ScanDebug_Runtime_RoiEditModeOn" xml:space="preserve">
     <value>编辑模式：开</value>
   </data>
@@ -2963,7 +3005,7 @@
     <value>状态：-</value>
   </data>
   <data name="ScanDebug_Runtime_AutofocusIdle" xml:space="preserve">
-    <value>自动对焦：空闲。</value>
+    <value>空闲</value>
   </data>
   <data name="ScanDebug_Runtime_StatusExportCanceled" xml:space="preserve">
     <value>导出已取消。</value>
@@ -3665,8 +3707,26 @@
   <data name="ScanDebug_Runtime_AutofocusPresetCustom" xml:space="preserve">
     <value>自定义</value>
   </data>
-  <data name="ScanDebug_Runtime_AutofocusBounds" xml:space="preserve">
-    <value>解析边界：倾斜探测 {0} 步，Z 探测 {1} 步，最大倾斜 {2} 步，最大 Z {3} 步，{4} 次采集，总移动 {5} mm，约 {6}。</value>
+  <data name="ScanDebug_Runtime_AutofocusInputLimits" xml:space="preserve">
+    <value>采样 1–{0} 行。&#10;探测 ≥ {1}&#160;mm。&#10;间隔 ≥ {2}&#160;us；迭代 ≥ 1。</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusMaxTiltIterationsLimit" xml:space="preserve">
+    <value>倾斜最大迭代次数需为正整数（至少 1）。</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusMaxZIterationsLimit" xml:space="preserve">
+    <value>Z 最大迭代次数需为正整数（至少 1）。</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusResolutionLimits" xml:space="preserve">
+    <value>倾斜：探测 {0} 步；上限 {1} 步。&#10;Z：探测 {2} 步；上限 {3} 步。</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusEstimatedCaptures" xml:space="preserve">
+    <value>{0} 次</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusCumulativeTravel" xml:space="preserve">
+    <value>{0}&#160;mm</value>
+  </data>
+  <data name="ScanDebug_Runtime_AutofocusEstimatedDuration" xml:space="preserve">
+    <value>约 {0}</value>
   </data>
   <data name="ScanDebug_Runtime_AutofocusSummary" xml:space="preserve">
     <value>自动对焦：{0} 行，倾斜={1} 步，Z={2} 步，整体={3}，左侧={4}，右侧={5}，失衡={6}。</value>
@@ -3948,10 +4008,10 @@
     <value>关</value>
   </data>
   <data name="ScanDebug_SaveColumnBlackLevelButton.Content" xml:space="preserve">
-    <value>将列采样保存为黑电平</value>
+    <value>保存黑电平到校准库</value>
   </data>
   <data name="ScanDebug_SaveColumnWhiteLevelButton.Content" xml:space="preserve">
-    <value>将列采样保存为白电平</value>
+    <value>保存白电平到校准库</value>
   </data>
   <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.Header" xml:space="preserve">
     <value>预览使用已保存白电平</value>
@@ -4380,10 +4440,11 @@
   <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>返回上次任务</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>移动方向</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>电机移动方向</value></data>
-  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>计划与通道详情</value></data>
+  <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>执行顺序与约束</value></data>
+  <data name="ScanDebug_AcquisitionChannelOrderTitle.Text" xml:space="preserve"><value>所选通道执行顺序</value></data>
   <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>传送采集设置</value></data>
   <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>通道库与参数</value></data>
-  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>采样来源与清除选项</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>列采样操作与清除选项</value></data>
   <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>黑白参考值 (RAW ADU)</value></data>
   <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>当前轴设置</value></data>
   <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
@@ -4429,6 +4490,7 @@
   <data name="ScanDebug_BwShieldRoiLabel.Text" xml:space="preserve"><value>屏蔽区</value></data>
   <data name="ScanDebug_BwRoiRange" xml:space="preserve"><value>{0}–{1} · {2}&#160;px</value></data>
   <data name="ScanDebug_BwRoiUnknown" xml:space="preserve"><value>正在读取通道 ROI…</value></data>
+  <data name="ScanDebug_BwRoiUnavailable" xml:space="preserve"><value>通道 ROI 不可用。</value></data>
   <data name="ScanDebug_BwRoiInvalidRange" xml:space="preserve"><value>{0}–{1}（范围无效）</value></data>
   <data name="ScanDebug_BwValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
   <data name="ScanDebug_BwViewIssuesButton.Content" xml:space="preserve"><value>查看问题</value></data>

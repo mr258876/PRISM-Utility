@@ -392,7 +392,58 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
     }
 
     [Fact]
-    public void Ui007_SourceOnly_RoiOverlayTextBoxAndCommandBindingsStayOnViewModelSurface()
+    public void Ui007_SourceOnly_RoiEditorsBindOwnerDraftsWithoutUsingPreviewNumericInputs()
+    {
+        var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
+        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard");
+        var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander");
+        var english = ReadHostSource("PRISM Utility", "Strings", "en-us", "Resources.resw");
+        var chinese = ReadHostSource("PRISM Utility", "Strings", "zh-CN", "Resources.resw");
+
+        foreach (var (editor, owner) in new[] { (adc, "Adc"), (focus, "Focus") })
+        {
+            Assert.Contains($"SelectedItem=\"{{x:Bind ViewModel.Selected{owner}RoiSelection, Mode=TwoWay}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Text=\"{{x:Bind ViewModel.{owner}RoiTargetText, Mode=OneWay}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Text=\"{{x:Bind ViewModel.{owner}RoiStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Text=\"{{x:Bind ViewModel.{owner}RoiEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Text=\"{{x:Bind ViewModel.{owner}RoiInputStatusText, Mode=OneWay}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Command=\"{{x:Bind ViewModel.Apply{owner}RoiInputsCommand}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Command=\"{{x:Bind ViewModel.Reset{owner}RoiCommand}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains($"Command=\"{{x:Bind ViewModel.Reload{owner}RoiInputsCommand}}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("x:Uid=\"ScanDebug_RoiDraftSourceText\"", editor, StringComparison.Ordinal);
+            Assert.Contains("x:Uid=\"ScanDebug_PreviewSelectionLabel\"", editor, StringComparison.Ordinal);
+            Assert.Contains("Text=\"{x:Bind ViewModel.RoiStatusText, Mode=OneWay}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("IsOn=\"{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}\"", editor, StringComparison.Ordinal);
+            Assert.Contains("Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiStartInput,", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiEndInput,", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.RoiInputStatusText,", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.ApplySelectedRoiInputsCommand", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("ViewModel.ResetSelectedRoiCommand", editor, StringComparison.Ordinal);
+            Assert.DoesNotContain("SelectedItem=\"{x:Bind ViewModel.SelectedRoiSelection", editor, StringComparison.Ordinal);
+
+            var resetAllIndex = editor.IndexOf("Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"", StringComparison.Ordinal);
+            var statusIndex = editor.IndexOf($"ViewModel.{owner}RoiInputStatusText", StringComparison.Ordinal);
+            Assert.True(resetAllIndex > statusIndex, "Reset all must stay separate from the selected ROI action row.");
+
+            foreach (var resource in new[] { english, chinese })
+            {
+                foreach (var action in new[] { $"Apply{owner}RoiButton", $"Reset{owner}RoiButton", $"Reload{owner}RoiInputsButton" })
+                    Assert.Contains($"name=\"ScanDebug_{action}.Content\"", resource, StringComparison.Ordinal);
+                Assert.Contains("name=\"ScanDebug_RoiDraftSourceText.Text\"", resource, StringComparison.Ordinal);
+            }
+        }
+
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AdcRoiSelectionOptions, Mode=OneWay}\"", adc, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"", focus, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.FocusRoiStartInput", adc, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.AdcRoiStartInput", focus, StringComparison.Ordinal);
+        Assert.Contains("current-channel draft", english, StringComparison.Ordinal);
+        Assert.Contains("当前通道草稿", chinese, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ui007_SourceOnly_RoiPreviewOverlayAndCommandGuardsRemainIndependent()
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
         var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanDebugViewModel.cs");
@@ -401,6 +452,9 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var startChanged = ExtractMemberBodyAtDeclaration(viewModel, "partial void OnRoiStartInputChanged(string value)");
         var endChanged = ExtractMemberBodyAtDeclaration(viewModel, "partial void OnRoiEndInputChanged(string value)");
         var applyInputs = ExtractMemberBodyAtDeclaration(viewModel, "private void ApplySelectedRoiInputs()");
+        var applyNumericDraft = ExtractMemberBodyAtDeclaration(viewModel, "private void ApplyRoiNumericDraft(string selection)");
+        var resetNumericDraft = ExtractMemberBodyAtDeclaration(viewModel, "private void ResetRoiNumericDraft(string selection)");
+        var reloadNumericDraft = ExtractMemberBodyAtDeclaration(viewModel, "private void ReloadRoiNumericDraft(string selection)");
         var refreshInputs = ExtractMemberBodyAtDeclaration(viewModel, "private void RefreshRoiInputTexts()");
         var refreshStatus = ExtractMemberBodyAtDeclaration(viewModel, "private void RefreshRoiStatus()");
 
@@ -408,11 +462,6 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         {
             "IsEnabled=\"{x:Bind ViewModel.CanEditRoiSelection, Mode=OneWay}\"",
             "IsOn=\"{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}\"",
-            "ItemsSource=\"{x:Bind ViewModel.AdcRoiSelectionOptions, Mode=OneWay}\"",
-            "ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedAdcRoiSelection, Mode=TwoWay}\"",
-            "SelectedItem=\"{x:Bind ViewModel.SelectedFocusRoiSelection, Mode=TwoWay}\"",
-            "Command=\"{x:Bind ViewModel.ResetSelectedRoiCommand}\"",
             "Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"",
             "IsChecked=\"{x:Bind ViewModel.IsBwActiveRoiOverlayVisible, Mode=TwoWay}\"",
             "IsChecked=\"{x:Bind ViewModel.IsBwShieldRoiOverlayVisible, Mode=TwoWay}\"",
@@ -421,10 +470,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
             "IsChecked=\"{x:Bind ViewModel.IsFocusRightRoiOverlayVisible, Mode=TwoWay}\"",
             "IsChecked=\"{x:Bind ViewModel.IsImageReferenceOverlayVisible, Mode=TwoWay}\"",
             "Text=\"{x:Bind ViewModel.RoiStatusText, Mode=OneWay}\"",
-            "Text=\"{x:Bind ViewModel.RoiStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
-            "Text=\"{x:Bind ViewModel.RoiEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
-            "Command=\"{x:Bind ViewModel.ApplySelectedRoiInputsCommand}\"",
-            "Text=\"{x:Bind ViewModel.RoiInputStatusText, Mode=OneWay}\""
+            "Text=\"{x:Bind ViewModel.FocusRoiInputStatusText, Mode=OneWay}\""
         })
         {
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
@@ -441,14 +487,28 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("RefreshRoiStatus();", constructorDefaults, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiInputTexts();", selectedChanged, StringComparison.Ordinal);
         Assert.Contains("RefreshRoiStatus();", selectedChanged, StringComparison.Ordinal);
-        Assert.Contains("SynchronizeOwnerRoiSelections(value);", selectedChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedAdcRoiSelection =", selectedChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedFocusRoiSelection =", selectedChanged, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeChanged\".GetLocalized();", startChanged, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeChanged\".GetLocalized();", endChanged, StringComparison.Ordinal);
+        Assert.Contains("NotifyRoiValidationIssuesChanged();", startChanged, StringComparison.Ordinal);
+        Assert.Contains("NotifyRoiValidationIssuesChanged();", endChanged, StringComparison.Ordinal);
         Assert.Contains("TryBuildRoiEditCandidate(out var candidate, out var issue)", applyInputs, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = FormatRoiEditIssue(issue);", applyInputs, StringComparison.Ordinal);
         Assert.Contains("_roiSettings = candidate;", applyInputs, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateSelectedRoiRange", applyInputs, StringComparison.Ordinal);
         Assert.Contains("RoiInputStatusText = \"ScanDebug_Runtime_RoiRangeApplied\".GetLocalized();", applyInputs, StringComparison.Ordinal);
+        Assert.Contains("GetRoiNumericDraft(selection)", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("GetRoiRange(_roiSettings, selection) != draft.AppliedRange", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("TryBuildRoiEditCandidate(selection, new ScanColumnRange(start, end)", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("_roiSettings = candidate;", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("SynchronizeFilmProfileDraftFromInputs();", applyNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("TryBuildRoiEditCandidate(selection, range", resetNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ResetSelectedRoi", resetNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("GetRoiRange(_roiSettings, selection)", reloadNumericDraft, StringComparison.Ordinal);
+        Assert.Contains("NotifyRoiNumericDraftsChanged();", reloadNumericDraft, StringComparison.Ordinal);
+        Assert.DoesNotContain("_roiSettings =", reloadNumericDraft, StringComparison.Ordinal);
         Assert.Contains("_isUpdatingRoiInputs = true;", refreshInputs, StringComparison.Ordinal);
         Assert.Contains("RoiStartInput = range.Start.ToString();", refreshInputs, StringComparison.Ordinal);
         Assert.Contains("RoiEndInput = range.EndInclusive.ToString();", refreshInputs, StringComparison.Ordinal);

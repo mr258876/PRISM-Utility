@@ -7,6 +7,7 @@ using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -72,6 +73,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private bool _isNarrowPreviewOpen;
     private bool _isConfigurationWorkspaceOpen;
     private bool? _inspectionOpenOverride;
+    private readonly string _inspectionActionLabel;
     private double _workbenchPreviewEditorRatio = ScanWorkbenchPreviewLayout.DefaultEditorRatio;
     private int _workbenchFocusHandoffVersion;
     private int _bwFocusRequestVersion;
@@ -115,10 +117,13 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
         stepStopwatch.Restart();
         InitializeComponent();
+        _inspectionActionLabel = (string)InspectionToggleButton.Content;
+        ArrangeBlackWhiteTaskControls();
         ComposeWorkspaceHeader();
         SetActiveWorkbenchSection(_activeWorkbenchSectionIndex);
         UpdateRawSignalMode();
         InitializeCurrentCalibrationIlluminationEditor();
+        CurrentIlluminationDraftLabel.Text = "ScanDebug_BwIssueCurrentDraft".GetLocalized();
         NavigationTimingLogger.Write($"ScanDebugPage.ctor InitializeComponent={stepStopwatch.Elapsed.TotalMilliseconds:0.0} ms");
 
         Loaded += OnLoaded;
@@ -145,6 +150,47 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         WorkspacePreviewToolbar.Children.Insert(1, PreviewToolbar);
     }
 
+    private void UpdateAcquisitionTransportVisibility()
+    {
+        if (_isConfigurationWorkspaceOpen && _activeWorkbenchSectionIndex == 1)
+        {
+            AcquisitionTransportDetailsExpander.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (!ViewModel.IsScanMotorTransportEnabled
+            && AcquisitionTransportDetailsExpander.Visibility == Visibility.Visible
+            && XamlRoot is { } root
+            && FocusManager.GetFocusedElement(root) is DependencyObject focused
+            && IsFocusedWithin(focused, AcquisitionTransportDetailsExpander))
+            _ = CaptureModeComboBox.Focus(FocusState.Programmatic);
+
+        AcquisitionTransportDetailsExpander.Visibility = ToVisibility(ViewModel.IsScanMotorTransportEnabled);
+    }
+
+    private void ArrangeBlackWhiteTaskControls()
+    {
+        ChannelCalibrationTaskStack.Children.Remove(ChannelCalibrationIlluminationCard);
+        ChannelCalibrationPrimaryActions.Children.Insert(0, ChannelCalibrationIlluminationCard);
+
+        ChannelCalibrationActionsStack.Children.Remove(ColumnSampleGroupTitle);
+        ColumnSampleUseStack.Children.Insert(
+            ColumnSampleUseStack.Children.IndexOf(UseSampleAsManualBlackLevelButton), ColumnSampleGroupTitle);
+        ChannelCalibrationActionsStack.Children.Remove(ImageReferenceRoiEditorCard);
+        ColumnSampleUseStack.Children.Insert(
+            ColumnSampleUseStack.Children.IndexOf(UseSampleAsManualBlackLevelButton), ImageReferenceRoiEditorCard);
+        ChannelCalibrationActionsStack.Children.Remove(ColumnSampleSaveActions);
+        ColumnSampleUseStack.Children.Insert(
+            ColumnSampleUseStack.Children.IndexOf(ClearManualReferenceLevelsButton), ColumnSampleSaveActions);
+
+        var detailGrid = (Grid)ChannelCalibrationDetailsExpander.Content;
+        foreach (var section in detailGrid.Children.OfType<Border>().OrderBy(Grid.GetRow).ToArray())
+        {
+            detailGrid.Children.Remove(section);
+            detailGrid.Children.Add(section);
+        }
+    }
+
     private void MotorAxisComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (Motor1DetailsExpander is null || Motor2DetailsExpander is null || Motor3DetailsExpander is null)
@@ -169,6 +215,20 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             var isCurrentAxis = MotorAxisComboBox.SelectedIndex == index;
             Grid.SetRow(stopButtons[index], isCurrentAxis ? 0 : 1);
             Grid.SetColumn(stopButtons[index], isCurrentAxis ? 1 : nextOtherStopColumn++);
+        }
+    }
+
+    private void AlignMotionUnitHeaders()
+    {
+        foreach (var unit in new[] { Motor1MoveUnitComboBox, Motor1SpeedUnitComboBox,
+            Motor2MoveUnitComboBox, Motor2SpeedUnitComboBox, Motor3MoveUnitComboBox, Motor3SpeedUnitComboBox })
+        {
+            if (unit.Header is not string localizedHeader)
+                continue;
+
+            unit.Tag = localizedHeader;
+            AutomationProperties.SetName(unit, localizedHeader);
+            unit.Header = null;
         }
     }
 
@@ -463,11 +523,17 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         ExitBwIssueView(returnFocus: true);
     }
 
+    private void BwOpenChannelDetailsButton_Click(object sender, RoutedEventArgs e)
+        => BwConfigureChannelButton_Click(sender, e);
+
     private void BwConfigureChannelButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.CancelPendingCurrentFilmProfileIssueNavigation();
         ExitBwIssueView(returnFocus: false);
+        _isConfigurationWorkspaceOpen = true;
+        SetActiveWorkbenchSection(2);
         ChannelCalibrationDetailsExpander.IsExpanded = true;
+        _ = ReturnToWorkbenchTaskButton.Focus(FocusState.Programmatic);
         BeginIssueTargetFocus(2, ChannelCalibrationScrollViewer, ExposureMicrosecondsTextBox,
             ViewModel.SelectedCalibrationChannel);
     }
@@ -643,6 +709,16 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     private void UpdateWorkbenchPreviewLayout()
         => UpdateWorkbenchPreviewLayout(ScanDebugRootGrid.ActualWidth);
 
+    private static double MeasureNaturalWidth(FrameworkElement element)
+    {
+        var visibility = element.Visibility;
+        element.Visibility = Visibility.Visible;
+        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var width = element.DesiredSize.Width;
+        element.Visibility = visibility;
+        return width;
+    }
+
     private void UpdateWorkbenchPreviewLayout(double availableWidth)
     {
         if (!IsWorkbenchSectionUiReady())
@@ -652,22 +728,30 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             availableWidth = 0;
 
         ScanDebugRootGrid.RowSpacing = (double)Resources["ScanDebugInlineSpacing"];
+        var spacing = (double)Resources["ScanDebugInlineSpacing"];
+        var modeWidth = MeasureNaturalWidth(RunCaptureModePanel);
+        var stopWidth = MeasureNaturalWidth(RunActionPanel);
+        var statusWidth = MeasureNaturalWidth(RunStatusTextPanel);
+        var recoveryWidth = MeasureNaturalWidth(RunRecoveryActionsPanel);
         var wrapIdentity = availableWidth < ScanWorkbenchPreviewLayout.CompactThreshold;
-        var wrapRunStatus = availableWidth < ScanWorkbenchPreviewLayout.WideThreshold;
-        Grid.SetRow(RunActionPanel, wrapIdentity ? 1 : 0);
-        Grid.SetColumn(RunActionPanel, wrapIdentity ? 0 : 2);
-        Grid.SetColumnSpan(RunActionPanel, wrapIdentity ? 3 : 1);
-        Grid.SetRow(RunStatusPanel, wrapIdentity ? 2 : wrapRunStatus ? 1 : 0);
+        var wrapRunActions = availableWidth < modeWidth + stopWidth + spacing;
+        var wrapRunStatus = wrapRunActions || availableWidth < modeWidth + statusWidth + recoveryWidth + stopWidth + spacing * 3;
+        Grid.SetRow(RunActionPanel, wrapRunActions ? 1 : 0);
+        Grid.SetColumn(RunActionPanel, wrapRunActions ? 0 : 2);
+        Grid.SetColumnSpan(RunActionPanel, wrapRunActions ? 3 : 1);
+        Grid.SetRow(RunStatusPanel, wrapRunActions ? 2 : wrapRunStatus ? 1 : 0);
         Grid.SetColumn(RunStatusPanel, wrapRunStatus ? 0 : 1);
         Grid.SetColumnSpan(RunStatusPanel, wrapRunStatus ? 3 : 1);
-        Grid.SetRow(RunProgressBar, wrapIdentity ? 3 : wrapRunStatus ? 2 : 1);
-        var stackRunStatusActions = availableWidth < (double)Resources["ScanDebugIdentityCompactWidth"];
+        Grid.SetRow(RunProgressBar, wrapRunActions ? 3 : wrapRunStatus ? 2 : 1);
+        var statusAvailableWidth = availableWidth - (wrapRunStatus ? 0 : modeWidth + stopWidth + spacing * 2);
+        var stackRunStatusActions = statusAvailableWidth < statusWidth + recoveryWidth + spacing;
         RunStatusPanel.RowSpacing = stackRunStatusActions ? (double)Resources["ScanDebugTightSpacing"] : 0;
-        var runStatusActions = RunStatusPanel.Children.OfType<WrapPanel>().Single();
-        Grid.SetRow(runStatusActions, stackRunStatusActions ? 1 : 0);
-        Grid.SetColumn(runStatusActions, stackRunStatusActions ? 0 : 1);
-        Grid.SetColumnSpan(runStatusActions, stackRunStatusActions ? 2 : 1);
-        runStatusActions.HorizontalAlignment = stackRunStatusActions ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        RunStatusPanel.ColumnDefinitions[0].MaxWidth = Math.Max(0,
+            statusAvailableWidth - (stackRunStatusActions ? 0 : recoveryWidth + spacing));
+        Grid.SetRow(RunRecoveryActionsPanel, stackRunStatusActions ? 1 : 0);
+        Grid.SetColumn(RunRecoveryActionsPanel, stackRunStatusActions ? 0 : 1);
+        Grid.SetColumnSpan(RunRecoveryActionsPanel, stackRunStatusActions ? 2 : 1);
+        RunRecoveryActionsPanel.HorizontalAlignment = stackRunStatusActions ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         Grid.SetRow(FilmProfileLifecycleActionsPanel, wrapIdentity ? 1 : 0);
         Grid.SetColumn(FilmProfileLifecycleActionsPanel, wrapIdentity ? 0 : 1);
         Grid.SetColumnSpan(FilmProfileLifecycleActionsPanel, wrapIdentity ? 2 : 1);
@@ -681,8 +765,41 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             availableWidth, HasValidPreviewFrame(), _isNarrowPreviewOpen, _workbenchPreviewEditorRatio,
             inspectionOpen, _isConfigurationWorkspaceOpen));
         var isWideSelectorAvailable = availableWidth >= ScanWorkbenchPreviewLayout.WideThreshold;
-        var isTaskSelectorBarAvailable = availableWidth >= ScanWorkbenchPreviewLayout.WideThreshold;
-        var wrapWorkspaceToolbar = availableWidth < ScanWorkbenchPreviewLayout.CompactThreshold;
+        var inspectionActionLabel = layout.Mode == ScanWorkbenchPreviewLayoutMode.NarrowInspection
+            ? (_isNarrowPreviewOpen ? OpenPreviewButton.Content : BackToEditorButton.Content)
+            : _inspectionActionLabel;
+        if (!Equals(InspectionToggleButton.Content, inspectionActionLabel))
+            InspectionToggleButton.Content = inspectionActionLabel;
+        AutomationProperties.SetName(InspectionToggleButton, inspectionActionLabel?.ToString() ?? string.Empty);
+        var previewMaxWidth = PreviewToolbar.MaxWidth;
+        var previewVisibility = PreviewToolbar.Visibility;
+        var signalVisibility = RawSignalModeSelector.Visibility;
+        var backVisibility = BackToEditorButton.Visibility;
+        var inspectionVisibility = InspectionToggleButton.Visibility;
+        PreviewToolbar.MaxWidth = double.PositiveInfinity;
+        if (layout.IsPreviewVisible)
+        {
+            PreviewToolbar.Visibility = Visibility.Visible;
+            RawSignalModeSelector.Visibility = Visibility.Visible;
+            if (layout.IsBackToEditorButtonVisible)
+                BackToEditorButton.Visibility = Visibility.Visible;
+        }
+        InspectionToggleButton.Visibility = Visibility.Visible;
+        var backExtraWidth = backVisibility == Visibility.Visible && !layout.IsBackToEditorButtonVisible
+            ? MeasureNaturalWidth(BackToEditorButton) + spacing : 0;
+        var toolbarWidth = layout.IsPreviewVisible
+            ? MeasureNaturalWidth(WorkspacePreviewToolbar) - backExtraWidth
+            : MeasureNaturalWidth(InspectionToggleButton);
+        var taskSelectorWidth = MeasureNaturalWidth(WorkbenchTaskSelectorBar);
+        PreviewToolbar.Visibility = previewVisibility;
+        RawSignalModeSelector.Visibility = signalVisibility;
+        BackToEditorButton.Visibility = backVisibility;
+        InspectionToggleButton.Visibility = inspectionVisibility;
+        PreviewToolbar.MaxWidth = previewMaxWidth;
+        var previewEntryWidth = layout.IsPreviewOpenButtonVisible ? MeasureNaturalWidth(OpenPreviewButton) + spacing : 0;
+        var isTaskSelectorBarAvailable = availableWidth >= taskSelectorWidth + toolbarWidth + spacing + previewEntryWidth;
+        var wrapWorkspaceToolbar = availableWidth <
+            (isTaskSelectorBarAvailable ? taskSelectorWidth : WorkbenchTaskComboBox.MinWidth) + toolbarWidth + spacing + previewEntryWidth;
         var focusedElement = XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null;
         var focusReplacement = FindWorkbenchFocusReplacement(focusedElement, layout, isWideSelectorAvailable, isTaskSelectorBarAvailable);
         var focusHandoffVersion = ++_workbenchFocusHandoffVersion;
@@ -704,6 +821,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         Grid.SetColumnSpan(WorkspacePreviewToolbar, wrapWorkspaceToolbar ? 3 : 1);
         WorkspacePreviewToolbar.HorizontalAlignment = wrapWorkspaceToolbar ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
         WorkspacePreviewToolbar.Visibility = ToVisibility(!_isConfigurationWorkspaceOpen);
+        RawSignalModeSelector.Visibility = ToVisibility(layout.IsPreviewVisible);
+        PreviewToolbar.Visibility = ToVisibility(layout.IsPreviewVisible);
         PreviewToolbar.MaxWidth = availableWidth;
         ReturnToWorkbenchTaskButton.Visibility = ToVisibility(_isConfigurationWorkspaceOpen);
         WorkbenchEditorColumn.Width = new GridLength(layout.EditorWidth);
@@ -747,6 +866,12 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (WorkspacePreviewToolbar.Visibility == Visibility.Visible && _isConfigurationWorkspaceOpen
             && IsFocusedWithin(focusedElement, WorkspacePreviewToolbar))
             return selector;
+        if (!layout.IsPreviewVisible && !_isConfigurationWorkspaceOpen
+            && (IsFocusedWithin(focusedElement, RawSignalModeSelector) || IsFocusedWithin(focusedElement, PreviewToolbar)))
+            return layout.IsPreviewOpenButtonVisible ? OpenPreviewButton : InspectionToggleButton;
+        if (BackToEditorButton.Visibility == Visibility.Visible && !layout.IsBackToEditorButtonVisible
+            && IsFocusedWithin(focusedElement, BackToEditorButton))
+            return InspectionToggleButton;
         if (WorkbenchTaskSelectorBar.Visibility == Visibility.Visible && !isTaskSelectorBarAvailable
             && IsFocusedWithin(focusedElement, WorkbenchTaskSelectorBar))
             return WorkbenchTaskComboBox;
@@ -940,14 +1065,25 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             BasicInfoSection.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
             AcquisitionPlanSection.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
             ChannelCalibrationSection.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+            UpdateAcquisitionTransportVisibility();
             LiveCalibrationSection.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
             DeviceSettingsSection.Visibility = index == 4 ? Visibility.Visible : Visibility.Collapsed;
             EngineeringToolsSection.Visibility = index == 5 && _isConfigurationWorkspaceOpen ? Visibility.Visible : Visibility.Collapsed;
             MotionTaskSection.Visibility = index == 5 && !_isConfigurationWorkspaceOpen ? Visibility.Visible : Visibility.Collapsed;
+            var showChannelDetail = index == 2 && _isConfigurationWorkspaceOpen;
+            ChannelCalibrationPrimaryActions.Visibility = ToVisibility(index == 2 && !showChannelDetail);
+            ChannelCalibrationActionsCard.Visibility = ToVisibility(index == 2 && !showChannelDetail);
+            ChannelCalibrationDetailsExpander.Visibility = ToVisibility(showChannelDetail);
+            BwRoiSummary.Visibility = ToVisibility(index == 2 && !showChannelDetail);
+            if (showChannelDetail)
+                ChannelCalibrationDetailsExpander.IsExpanded = true;
             if (index == 2 && string.IsNullOrWhiteSpace(ViewModel.SelectedCalibrationChannel))
                 _ = ViewModel.TrySelectCalibrationChannelAsync(ViewModel.CalibrationChannelOptions[0]);
             if (index == 5 && !_isConfigurationWorkspaceOpen)
+            {
                 FindName("MotionContent");
+                EnqueueForCurrentActivation(AlignMotionUnitHeaders);
+            }
             SynchronizeWorkbenchSectionSelectors(index);
             UpdateWorkbenchPreviewLayout();
         }
@@ -1237,6 +1373,9 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         _isNarrowPreviewOpen = false;
         _inspectionOpenOverride = false;
         _isConfigurationWorkspaceOpen = sectionIndex is 0 or 1;
+        if (sectionIndex == 2 && request.EditorTarget is
+            ScanFilmProfileIssueEditorTarget.ChannelStatus or ScanFilmProfileIssueEditorTarget.ChannelParameters)
+            _isConfigurationWorkspaceOpen = true;
         SetActiveWorkbenchSection(sectionIndex);
         if (sectionIndex == 1 && (request.EditorTarget is ScanFilmProfileIssueEditorTarget.ScanMotor
             or ScanFilmProfileIssueEditorTarget.MotorDistancePerLine))
@@ -1251,6 +1390,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             if (request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelRoiSettings)
                 AdcRoiDetailsExpander.IsExpanded = true;
         }
+        if (sectionIndex == 2 && _isConfigurationWorkspaceOpen)
+            _ = ReturnToWorkbenchTaskButton.Focus(FocusState.Programmatic);
         BeginIssueTargetFocus(sectionIndex, scroller, target, request.ChannelRole,
             request.EditorTarget == ScanFilmProfileIssueEditorTarget.ChannelAssignment
                 ? () => FindFirstEligibleAssignmentCheckBox() : null,
@@ -1788,6 +1929,9 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ScanDebugViewModel.IsScanMotorTransportEnabled))
+            EnqueueForCurrentActivation(UpdateAcquisitionTransportVisibility);
+
         if (e.PropertyName == nameof(ScanDebugViewModel.FilmProfileImportResultReviewVisibility))
             EnqueueForCurrentActivation(UpdateWorkbenchReviewEntry);
 

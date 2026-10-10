@@ -576,6 +576,531 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task R01_FirstFocusOpenOfflineWithoutBwOrChannelReselect_LoadsSelectedChannelRoi()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var pageOwner = viewModel.ReservePageActivation();
+
+        Assert.True(viewModel.AttachRuntimeBindingsForPage(pageOwner));
+        await harness.FlushAsync();
+
+        var expected = ScanCalibrationRoiSettings.CreateDefault().FocusOverallRange;
+        Assert.Equal("Red", viewModel.SelectedCalibrationChannel);
+        Assert.Equal("Focus Overall", viewModel.SelectedFocusRoiSelection);
+        Assert.Equal(expected.Start.ToString(CultureInfo.InvariantCulture), viewModel.FocusRoiStartInput);
+        Assert.Equal(expected.EndInclusive.ToString(CultureInfo.InvariantCulture), viewModel.FocusRoiEndInput);
+        Assert.Equal("ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(
+            "ScanDebug_Runtime_RoiSelectionFocusOverall".GetLocalized(), expected.Start, expected.EndInclusive),
+            viewModel.FocusRoiInputStatusText);
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Theory]
+    [InlineData(null, "Red")]
+    [InlineData("Green", "Green")]
+    public async Task R01_LateEmptyWorkspaceProjectionWithoutReselect_KeepsFocusOnAnEditableChannel(
+        string? draftChannel, string expectedChannel)
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var pageOwner = viewModel.ReservePageActivation();
+        Assert.True(viewModel.AttachRuntimeBindingsForPage(pageOwner));
+        await harness.FlushAsync();
+
+        var emptyDraft = new ScanFilmProfileDraft(string.Empty, DateTimeOffset.UnixEpoch,
+            EmptyProfiles, draftChannel, ScanFilmAcquisitionSettings.CreateDefault(), null);
+        harness.Workspace.SetCurrentDraft(emptyDraft);
+        await harness.FlushAsync();
+        var load = ReadPrivateField<object>(viewModel, "_selectedCalibrationChannelLoad")!;
+        var completed = (Task<bool>)load.GetType().GetProperty("Completion")!.GetValue(load)!;
+        Assert.True(await completed.WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.FlushAsync();
+
+        var expected = ScanCalibrationRoiSettings.CreateDefault().FocusOverallRange;
+        Assert.Equal(expectedChannel, viewModel.SelectedCalibrationChannel);
+        Assert.Equal("Focus Overall", viewModel.SelectedFocusRoiSelection);
+        Assert.Equal(expected.Start.ToString(CultureInfo.InvariantCulture), viewModel.FocusRoiStartInput);
+        Assert.Equal(expected.EndInclusive.ToString(CultureInfo.InvariantCulture), viewModel.FocusRoiEndInput);
+        Assert.Equal("ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(
+            "ScanDebug_Runtime_RoiSelectionFocusOverall".GetLocalized(), expected.Start, expected.EndInclusive),
+            viewModel.FocusRoiInputStatusText);
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Fact]
+    public async Task R01_FirstFocusOpenWithExistingDraftWithoutReselect_ProjectsSelectedChannelRoi()
+    {
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Green"] = CreateProfile(2000, green) }, "Green"));
+        var pageOwner = harness.ViewModel.ReservePageActivation();
+
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(pageOwner));
+        await harness.FlushAsync();
+
+        Assert.Equal("Green", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.Equal("760", harness.ViewModel.FocusRoiStartInput);
+        Assert.Equal("1020", harness.ViewModel.FocusRoiEndInput);
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Fact]
+    public async Task R01_FirstFocusOpen_WhenChannelLoadFails_ReportsUnavailableInsteadOfLoading()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.Repository.BlockSelectedChannelWrite("Red", new IOException("ROI selection failed"));
+        var pageOwner = harness.ViewModel.ReservePageActivation();
+
+        Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(pageOwner));
+        Assert.Equal("ScanDebug_BwRoiUnknown".GetLocalizedOrFallback("Loading channel ROI…"),
+            harness.ViewModel.FocusRoiInputStatusText);
+        harness.Repository.ReleaseSelectedChannelWrite("Red");
+        await harness.Repository.WaitForSelectedChannelWriteCompletionAsync("Red");
+        var load = ReadPrivateField<object>(harness.ViewModel, "_selectedCalibrationChannelLoad")!;
+        var completed = (Task<bool>)load.GetType().GetProperty("Completion")!.GetValue(load)!;
+        Assert.False(await completed.WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.FlushAsync();
+
+        Assert.Empty(harness.ViewModel.FocusRoiStartInput);
+        Assert.False(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.Equal("ScanDebug_BwRoiUnavailable".GetLocalized(), harness.ViewModel.FocusRoiInputStatusText);
+        Assert.Contains("LoadFailed", harness.ViewModel.CalibrationChannelStatusText);
+    }
+
+    [Fact]
+    public async Task R01_FirstFocusOpenWithoutReselect_ProjectsFocusRangeAndAppliesOnlyFocus()
+    {
+        var red = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var profiles = new Dictionary<string, ScanChannelCalibrationProfile>
+        {
+            ["Red"] = CreateProfile(1000, red), ["Green"] = CreateProfile(2000, green)
+        };
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(profiles, "Red"));
+        await harness.SelectChannelAsync("Green");
+        var viewModel = harness.ViewModel;
+
+        Assert.Equal("Focus Overall", viewModel.SelectedFocusRoiSelection);
+        Assert.Equal("BW Active", viewModel.SelectedRoiSelection);
+        Assert.Equal("760", viewModel.FocusRoiStartInput);
+        Assert.Equal("1020", viewModel.FocusRoiEndInput);
+        Assert.Equal("700", viewModel.AdcRoiStartInput);
+        Assert.Contains("Green", viewModel.FocusRoiTargetText);
+        viewModel.FocusRoiEndInput = "1030";
+        viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+        await harness.FlushAsync();
+
+        var updated = harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles;
+        Assert.Equal(new ScanColumnRange(760, 1030), updated["Green"].RoiSettings.FocusOverallRange);
+        Assert.Equal(green.EffectiveRange, updated["Green"].RoiSettings.EffectiveRange);
+        Assert.Equal(green.ShieldRange, updated["Green"].RoiSettings.ShieldRange);
+        Assert.Equal(green.FocusLeftRange, updated["Green"].RoiSettings.FocusLeftRange);
+        Assert.Equal(green.FocusRightRange, updated["Green"].RoiSettings.FocusRightRange);
+        Assert.Equal(red, updated["Red"].RoiSettings);
+    }
+
+    [Fact]
+    public async Task R01_DirtyDraftSurvivesPreviewDragTargetAndChannelChanges_ConflictBlocksApply()
+    {
+        var red = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, red), ["Green"] = CreateProfile(2000, green)
+            }, "Red"));
+        await harness.SelectChannelAsync("Green");
+        var viewModel = harness.ViewModel;
+        viewModel.FocusRoiStartInput = "invalid";
+        Assert.Equal("ScanDebug_Runtime_RoiNumericPendingInput".GetLocalizedFormat(viewModel.FocusRoiTargetText),
+            viewModel.FocusRoiInputStatusText);
+        Assert.Equal("FocusOverallRange", Assert.Single(viewModel.FocusRoiValidationIssues).FieldPath);
+        Assert.Empty(viewModel.AdcRoiValidationIssues);
+        viewModel.SelectedRoiSelection = "Focus Left";
+        viewModel.UpdateSelectedRoiRange(780, 830, ScanDebugConstants.DecodedPixelsPerLine);
+        Assert.Equal("invalid", viewModel.FocusRoiStartInput);
+        viewModel.SelectedFocusRoiSelection = "Focus Right";
+        Assert.Equal("940", viewModel.FocusRoiStartInput);
+        viewModel.SelectedFocusRoiSelection = "Focus Overall";
+        await harness.SelectChannelAsync("Red");
+        Assert.Equal("160", viewModel.FocusRoiStartInput);
+        await harness.SelectChannelAsync("Green");
+        Assert.Equal("invalid", viewModel.FocusRoiStartInput);
+        viewModel.FocusRoiEndInput = "1030";
+        viewModel.SelectedRoiSelection = "Focus Overall";
+        viewModel.UpdateSelectedRoiRange(760, 1035, ScanDebugConstants.DecodedPixelsPerLine);
+        Assert.Equal("ScanDebug_Runtime_RoiNumericConflict".GetLocalizedFormat(viewModel.FocusRoiTargetText),
+            viewModel.FocusRoiInputStatusText);
+        viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+        Assert.Equal("1030", viewModel.FocusRoiEndInput);
+        Assert.Contains("1035", viewModel.FocusRoiSummaryText);
+        viewModel.ResetFocusRoiCommand.Execute(null);
+        Assert.Equal("1030", viewModel.FocusRoiEndInput);
+        Assert.Contains("1035", viewModel.FocusRoiSummaryText);
+        Assert.Equal(green.EffectiveRange, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings.EffectiveRange);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task R01_ReloadConflictedTarget_DiscardsOnlySelectedTextWithoutChangingAppliedRoi(bool focus)
+    {
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile> { ["Green"] = CreateProfile(2000, green) }, "Green"));
+        await harness.SelectChannelAsync("Red");
+        await harness.SelectChannelAsync("Green");
+        var viewModel = harness.ViewModel;
+        var target = focus ? "Focus Overall" : "BW Active";
+        viewModel.SelectedRoiSelection = target;
+        if (focus)
+        {
+            viewModel.AdcRoiStartInput = "pending ADC";
+            viewModel.FocusRoiEndInput = "1030";
+            Assert.Equal("ScanDebug_Runtime_RoiNumericPendingInput".GetLocalizedFormat(viewModel.FocusRoiTargetText),
+                viewModel.FocusRoiInputStatusText);
+        }
+        else
+        {
+            viewModel.FocusRoiStartInput = "pending Focus";
+            viewModel.AdcRoiEndInput = "1090";
+            Assert.Equal("ScanDebug_Runtime_RoiNumericPendingInput".GetLocalizedFormat(viewModel.AdcRoiTargetText),
+                viewModel.AdcRoiInputStatusText);
+        }
+        viewModel.UpdateSelectedRoiRange(focus ? 760 : 700, focus ? 1035 : 1095, ScanDebugConstants.DecodedPixelsPerLine);
+        await harness.FlushAsync();
+        var applied = harness.Workspace.Snapshot.CurrentDraft;
+        var selectedRange = focus ? new ScanColumnRange(760, 1035) : new ScanColumnRange(700, 1095);
+        Assert.Equal(selectedRange, focus ? applied.ChannelProfiles["Green"].RoiSettings.FocusOverallRange
+            : applied.ChannelProfiles["Green"].RoiSettings.EffectiveRange);
+
+        if (focus)
+        {
+            Assert.Equal("1030", viewModel.FocusRoiEndInput);
+            Assert.Equal("ScanDebug_Runtime_RoiNumericConflict".GetLocalizedFormat(viewModel.FocusRoiTargetText),
+                viewModel.FocusRoiInputStatusText);
+            viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+            Assert.Same(applied, harness.Workspace.Snapshot.CurrentDraft);
+            viewModel.ReloadFocusRoiInputsCommand.Execute(null);
+            Assert.Equal("1035", viewModel.FocusRoiEndInput);
+            Assert.Equal("ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(
+                "ScanDebug_Runtime_RoiSelectionFocusOverall".GetLocalized(), 760, 1035),
+                viewModel.FocusRoiInputStatusText);
+            Assert.Equal("pending ADC", viewModel.AdcRoiStartInput);
+            Assert.Equal("1100", viewModel.AdcRoiEndInput);
+        }
+        else
+        {
+            Assert.Equal("1090", viewModel.AdcRoiEndInput);
+            Assert.Equal("ScanDebug_Runtime_RoiNumericConflict".GetLocalizedFormat(viewModel.AdcRoiTargetText),
+                viewModel.AdcRoiInputStatusText);
+            viewModel.ApplyAdcRoiInputsCommand.Execute(null);
+            Assert.Same(applied, harness.Workspace.Snapshot.CurrentDraft);
+            viewModel.ReloadAdcRoiInputsCommand.Execute(null);
+            Assert.Equal("1095", viewModel.AdcRoiEndInput);
+            Assert.Equal("ScanDebug_Runtime_RoiNumericMirror".GetLocalizedFormat(
+                "ScanDebug_Runtime_RoiSelectionBwActive".GetLocalized(), 700, 1095),
+                viewModel.AdcRoiInputStatusText);
+            Assert.Equal("pending Focus", viewModel.FocusRoiStartInput);
+            Assert.Equal("1020", viewModel.FocusRoiEndInput);
+        }
+
+        Assert.Same(applied, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Equal(selectedRange, focus ? harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings.FocusOverallRange
+            : harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings.EffectiveRange);
+
+        if (focus)
+        {
+            viewModel.FocusRoiEndInput = "1040";
+            viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+            Assert.Equal(new ScanColumnRange(760, 1040), harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings.FocusOverallRange);
+        }
+        else
+        {
+            viewModel.AdcRoiEndInput = "1090";
+            viewModel.ApplyAdcRoiInputsCommand.Execute(null);
+            Assert.Equal(new ScanColumnRange(700, 1090), harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings.EffectiveRange);
+        }
+    }
+
+    [Theory]
+    [InlineData("en-us", "ROI was changed", "Reload current range", "Local ROI input not applied", "Channel ROI unavailable")]
+    [InlineData("zh-CN", "ROI 已更改", "重新载入当前范围", "本地 ROI 输入尚未应用", "通道 ROI 不可用")]
+    public void R01_RoiDraftStatuses_HaveLocalizedTargetConflictAndPendingActions(
+        string cultureName, string conflictDetail, string reloadAction, string pendingDetail, string unavailableDetail)
+    {
+        var resources = FilmProfileContractSource.ReadResources(cultureName);
+        var target = $"Green · {resources["ScanDebug_Runtime_RoiSelectionFocusOverall"]}";
+        var conflict = string.Format(CultureInfo.GetCultureInfo(cultureName), resources["ScanDebug_Runtime_RoiNumericConflict"], target);
+        var pending = string.Format(CultureInfo.GetCultureInfo(cultureName), resources["ScanDebug_Runtime_RoiNumericPendingInput"], target);
+
+        Assert.StartsWith(target, conflict);
+        Assert.Contains(conflictDetail, conflict, StringComparison.Ordinal);
+        Assert.Contains(reloadAction, conflict, StringComparison.Ordinal);
+        Assert.Contains(pendingDetail, pending, StringComparison.Ordinal);
+        Assert.Contains(target, pending, StringComparison.Ordinal);
+        Assert.Contains(unavailableDetail, resources["ScanDebug_BwRoiUnavailable"], StringComparison.Ordinal);
+        Assert.DoesNotContain("{0}", conflict, StringComparison.Ordinal);
+        Assert.DoesNotContain("{0}", pending, StringComparison.Ordinal);
+        if (cultureName == "zh-CN")
+        {
+            Assert.DoesNotContain("ROI was changed", conflict, StringComparison.Ordinal);
+            Assert.DoesNotContain("Local ROI input not applied", pending, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task R01_PendingChannelLoad_RejectsOldDraftApplyAndReset()
+    {
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000), ["Green"] = CreateProfile(2000, green)
+            }, "Red"));
+        harness.Repository.BlockSelectedChannelWrite("Green");
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        Assert.Empty(harness.ViewModel.FocusRoiStartInput);
+        Assert.False(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.False(harness.ViewModel.ResetAdcRoiCommand.CanExecute(null));
+        Assert.False(harness.ViewModel.ReloadFocusRoiInputsCommand.CanExecute(null));
+        Assert.False(harness.ViewModel.ReloadAdcRoiInputsCommand.CanExecute(null));
+        harness.ViewModel.FocusRoiStartInput = "100";
+        harness.ViewModel.ApplyFocusRoiInputsCommand.Execute(null);
+        harness.ViewModel.ReloadFocusRoiInputsCommand.Execute(null);
+        Assert.Equal(green, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Green"].RoiSettings);
+        harness.Repository.ReleaseSelectedChannelWrite("Green");
+        await harness.Repository.WaitForSelectedChannelWriteCompletionAsync("Green");
+        var load = ReadPrivateField<object>(harness.ViewModel, "_selectedCalibrationChannelLoad")!;
+        var completed = (Task<bool>)load.GetType().GetProperty("Completion")!.GetValue(load)!;
+        Assert.True(await completed.WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.FlushAsync();
+        Assert.Equal("760", harness.ViewModel.FocusRoiStartInput);
+    }
+
+    [Fact]
+    public async Task R01_NumericCommands_NotifyTheirOwnersAcrossSelectionLoadAndRuntimeGate()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        await harness.SelectChannelAsync("Blue");
+        await harness.SelectChannelAsync("Red");
+        var viewModel = harness.ViewModel;
+        var commands = new System.Windows.Input.ICommand[]
+        {
+            viewModel.ApplyAdcRoiInputsCommand, viewModel.ResetAdcRoiCommand, viewModel.ReloadAdcRoiInputsCommand,
+            viewModel.ApplyFocusRoiInputsCommand, viewModel.ResetFocusRoiCommand, viewModel.ReloadFocusRoiInputsCommand
+        };
+        var notifications = new int[commands.Length];
+        for (var index = 0; index < commands.Length; index++)
+        {
+            var owner = index;
+            commands[index].CanExecuteChanged += (_, _) => notifications[owner]++;
+        }
+
+        harness.Repository.BlockSelectedChannelWrite("Green");
+        viewModel.SelectedCalibrationChannel = "Green";
+        Assert.All(commands, command => Assert.False(command.CanExecute(null)));
+        Assert.All(notifications, count => Assert.True(count > 0));
+        Array.Clear(notifications);
+
+        harness.Repository.ReleaseSelectedChannelWrite("Green");
+        await harness.Repository.WaitForSelectedChannelWriteCompletionAsync("Green");
+        var load = ReadPrivateField<object>(viewModel, "_selectedCalibrationChannelLoad")!;
+        Assert.True(await ((Task<bool>)load.GetType().GetProperty("Completion")!.GetValue(load)!).WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.FlushAsync();
+        Assert.All(commands, command => Assert.True(command.CanExecute(null)));
+        Assert.All(notifications, count => Assert.True(count > 0));
+        Array.Clear(notifications);
+
+        viewModel.IsCalibrationRepositoryOperationRunning = true;
+        viewModel.IsFilmProfileOperationRunning = true;
+        Assert.All(commands, command => Assert.False(command.CanExecute(null)));
+        Assert.All(notifications, count => Assert.True(count > 0));
+        Array.Clear(notifications);
+        viewModel.IsCalibrationRepositoryOperationRunning = false;
+        viewModel.IsFilmProfileOperationRunning = false;
+        Assert.All(commands, command => Assert.True(command.CanExecute(null)));
+        Assert.All(notifications, count => Assert.True(count > 0));
+    }
+
+    [Fact]
+    public async Task R01_CopyCurrentChannel_KeepsEditorReadyAndDirtyRangeConflicts()
+    {
+        var red = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var green = CreateRoi(700, 1100, 600, 680, 760, 840, 940, 1020, 760, 1020);
+        var harness = await CreateAttachedHarnessAsync(new Dictionary<string, ScanChannelCalibrationProfile>
+        {
+            ["Green"] = CreateProfile(2000, green)
+        }, CreateDraft(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, red) }, "Red"));
+        await harness.SelectChannelAsync("Green");
+        await harness.SelectChannelAsync("Red");
+        var viewModel = harness.ViewModel;
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        viewModel.FocusRoiEndInput = "410";
+        viewModel.SelectedCalibrationCopySourceChannel = "Green";
+        viewModel.CopyCalibrationProfileFromChannelCommand.Execute(null);
+        await harness.FlushAsync();
+
+        Assert.Equal("410", viewModel.FocusRoiEndInput);
+        Assert.Equal("ScanDebug_Runtime_RoiNumericConflict".GetLocalizedFormat(viewModel.FocusRoiTargetText), viewModel.FocusRoiInputStatusText);
+        Assert.True(viewModel.ReloadFocusRoiInputsCommand.CanExecute(null));
+        viewModel.ReloadFocusRoiInputsCommand.Execute(null);
+        Assert.Equal("1020", viewModel.FocusRoiEndInput);
+        viewModel.AdcRoiEndInput = "1090";
+        viewModel.ApplyAdcRoiInputsCommand.Execute(null);
+        Assert.Equal(new ScanColumnRange(700, 1090), harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].RoiSettings.EffectiveRange);
+        Assert.Equal(green, harness.Repository.Snapshot.Profiles["Green"].RoiSettings);
+    }
+
+    [Fact]
+    public async Task R01_SaveCurrentChannel_KeepsBothNumericEditorsReady()
+    {
+        var red = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var green = CreateProfile(2000);
+        var harness = await CreateAttachedHarnessAsync(new Dictionary<string, ScanChannelCalibrationProfile> { ["Green"] = green },
+            CreateDraft(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000, red) }, "Red"));
+        await harness.SelectChannelAsync("Green");
+        await harness.SelectChannelAsync("Red");
+        var viewModel = harness.ViewModel;
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        viewModel.FocusRoiEndInput = "410";
+        await viewModel.SaveChannelProfileCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.Equal("410", viewModel.FocusRoiEndInput);
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+        Assert.Equal(new ScanColumnRange(160, 410), harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].RoiSettings.FocusOverallRange);
+        viewModel.AdcRoiEndInput = "490";
+        viewModel.ApplyAdcRoiInputsCommand.Execute(null);
+        Assert.Equal(new ScanColumnRange(100, 490), harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].RoiSettings.EffectiveRange);
+        Assert.Equal(green, harness.Repository.Snapshot.Profiles["Green"]);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task R01_SaveCurrentSampleLevel_KeepsNumericEditorReady(bool black)
+    {
+        var red = CreateProfile(1000, blackLevel: 10, whiteLevel: 60000);
+        var green = CreateProfile(2000);
+        var harness = await CreateAttachedHarnessAsync(new Dictionary<string, ScanChannelCalibrationProfile>
+        {
+            ["Red"] = red, ["Green"] = green
+        }, CreateDraft(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red }, "Red"),
+            previewSample: 321, connected: true);
+        await harness.SelectChannelAsync("Green");
+        await harness.SelectChannelAsync("Red");
+        InvokeApplyScanFrame(harness.ViewModel);
+        await harness.FlushAsync();
+        var viewModel = harness.ViewModel;
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        viewModel.SelectedFocusRoiSelection = "Focus Left";
+        viewModel.FocusRoiStartInput = (red.RoiSettings.FocusLeftRange.Start + 1).ToString(CultureInfo.InvariantCulture);
+        if (black)
+            await viewModel.SaveColumnSampleAsBlackLevelCommand.ExecuteAsync(null);
+        else
+            await viewModel.SaveColumnSampleAsWhiteLevelCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.True(viewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        viewModel.ApplyFocusRoiInputsCommand.Execute(null);
+        Assert.Equal(red.RoiSettings.FocusLeftRange.Start + 1,
+            harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"].RoiSettings.FocusLeftRange.Start);
+        Assert.Equal(green, harness.Repository.Snapshot.Profiles["Green"]);
+    }
+
+    [Fact]
+    public async Task R01_FakeConnection_ReplacesSelectedLoadWithoutReselection()
+    {
+        var session = new StatusSession(isConnected: true);
+        var coordinator = new StatusSessionCoordinator(session) { ConnectResult = new ScanOperationResult(true, "connected") };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            scanSession: session, sessionCoordinator: coordinator);
+        await harness.SelectChannelAsync("Green");
+        await harness.SelectChannelAsync("Red");
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        coordinator.PublishSnapshot(ScannerDeviceSessionSnapshot.Disconnected(DateTimeOffset.UtcNow));
+        await harness.FlushAsync();
+
+        await harness.ViewModel.ConnectDevicesCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        harness.ViewModel.FocusRoiStartInput = "1";
+        Assert.Equal("1", harness.ViewModel.FocusRoiStartInput);
+    }
+
+    [Fact]
+    public async Task R01_CopyDuringPendingSelection_RejectsOldLoadAndProjectsCopyOnce()
+    {
+        var red = CreateProfile(1000);
+        var harness = await CreateAttachedHarnessAsync(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = red }, null);
+        harness.Repository.BlockSelectedChannelWrite("Green");
+        harness.ViewModel.SelectedCalibrationChannel = "Green";
+        var staleLoad = ReadPrivateField<object>(harness.ViewModel, "_selectedCalibrationChannelLoad")!;
+        harness.ViewModel.SelectedCalibrationCopySourceChannel = "Red";
+        harness.ViewModel.CopyCalibrationProfileFromChannelCommand.Execute(null);
+        Assert.False(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        harness.Repository.ReleaseSelectedChannelWrite("Green");
+        Assert.False(await ((Task<bool>)staleLoad.GetType().GetProperty("Completion")!.GetValue(staleLoad)!).WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.Repository.WaitForSelectedChannelWriteCompletionAsync("Green");
+        var currentLoad = ReadPrivateField<object>(harness.ViewModel, "_selectedCalibrationChannelLoad")!;
+        Assert.NotSame(staleLoad, currentLoad);
+        Assert.True(await ((Task<bool>)currentLoad.GetType().GetProperty("Completion")!.GetValue(currentLoad)!).WaitAsync(TimeSpan.FromSeconds(5)));
+        await harness.FlushAsync();
+
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.Equal(red.RoiSettings.FocusOverallRange.Start.ToString(CultureInfo.InvariantCulture), harness.ViewModel.FocusRoiStartInput);
+        Assert.False(harness.Repository.Snapshot.Profiles.ContainsKey("Green"));
+    }
+
+    [Fact]
+    public async Task R01_AdcApplyAndFocusReset_AreBoundToTheirOwnTargetAndChannel()
+    {
+        var red = CreateRoi(100, 500, 20, 80, 160, 240, 320, 400, 160, 400);
+        var defaults = ScanCalibrationRoiSettings.CreateDefault();
+        var green = defaults with
+        {
+            ShieldRange = new ScanColumnRange(defaults.ShieldRange.Start + 10, defaults.ShieldRange.EndInclusive),
+            FocusRightRange = new ScanColumnRange(defaults.FocusRightRange.Start + 1, defaults.FocusRightRange.EndInclusive)
+        };
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
+            new Dictionary<string, ScanChannelCalibrationProfile>
+            {
+                ["Red"] = CreateProfile(1000, red), ["Green"] = CreateProfile(2000, green)
+            }, "Red"));
+        await harness.SelectChannelAsync("Green");
+        var viewModel = harness.ViewModel;
+        viewModel.SelectedAdcRoiSelection = "BW Shield";
+        viewModel.AdcRoiStartInput = (green.ShieldRange.Start + 1).ToString(CultureInfo.InvariantCulture);
+        viewModel.SelectedRoiSelection = "Focus Right";
+        viewModel.ApplyAdcRoiInputsCommand.Execute(null);
+        await harness.FlushAsync();
+        var updated = harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles;
+        Assert.Equal(new ScanColumnRange(green.ShieldRange.Start + 1, green.ShieldRange.EndInclusive), updated["Green"].RoiSettings.ShieldRange);
+        Assert.Equal(green.EffectiveRange, updated["Green"].RoiSettings.EffectiveRange);
+        Assert.Equal(green.FocusOverallRange, updated["Green"].RoiSettings.FocusOverallRange);
+        Assert.Equal(red, updated["Red"].RoiSettings);
+
+        viewModel.SelectedFocusRoiSelection = "Focus Right";
+        viewModel.FocusRoiStartInput = (defaults.FocusRightRange.Start + 2).ToString(CultureInfo.InvariantCulture);
+        viewModel.ResetFocusRoiCommand.Execute(null);
+        await harness.FlushAsync();
+        updated = harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles;
+        Assert.Equal(ScanCalibrationRoiSettings.CreateDefault().FocusRightRange, updated["Green"].RoiSettings.FocusRightRange);
+        Assert.Equal(new ScanColumnRange(green.ShieldRange.Start + 1, green.ShieldRange.EndInclusive), updated["Green"].RoiSettings.ShieldRange);
+        Assert.Equal(green.FocusLeftRange, updated["Green"].RoiSettings.FocusLeftRange);
+        Assert.Equal(red, updated["Red"].RoiSettings);
+    }
+
+    [Fact]
     public async Task ObservationFooter_WhenFrameAppearsAndClears_UsesOnlyFrameEvidence()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
@@ -2508,7 +3033,7 @@ public sealed class ScanDebugCalibrationStatusTests
     public async Task DelayedSave_CapturesRedAndLeavesCurrentGreenStatusAndSiblingCopyUntouched()
     {
         var red = CreateProfile(1000);
-        var green = CreateProfile(2000, blackLevel: 123, whiteLevel: 60_000);
+        var green = CreateProfile(2000, CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020), blackLevel: 123, whiteLevel: 60_000);
         var blue = CreateProfile(3000);
         var harness = await CreateAttachedHarnessAsync(
             new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
@@ -2541,6 +3066,12 @@ public sealed class ScanDebugCalibrationStatusTests
         AssertStatus(harness.ViewModel, "Blue", CalibrationChannelStatusKind.CopiedUnverified);
         Assert.Equal("green-current-status", harness.ViewModel.StatusText);
         Assert.Equal("green-current-calibration-status", harness.ViewModel.CalibrationChannelStatusText);
+        Assert.Equal("760", harness.ViewModel.FocusRoiStartInput);
+        Assert.Equal("1020", harness.ViewModel.FocusRoiEndInput);
+        Assert.Equal("700", harness.ViewModel.AdcRoiStartInput);
+        Assert.Equal("1100", harness.ViewModel.AdcRoiEndInput);
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.True(harness.ViewModel.ApplyAdcRoiInputsCommand.CanExecute(null));
     }
 
     [Fact]
@@ -2588,7 +3119,7 @@ public sealed class ScanDebugCalibrationStatusTests
     {
         const ushort sample = 321;
         var red = CreateProfile(1000, blackLevel: 12, whiteLevel: 1000);
-        var green = CreateProfile(2000, blackLevel: 34, whiteLevel: 2000);
+        var green = CreateProfile(2000, CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020), blackLevel: 34, whiteLevel: 2000);
         var harness = await StatusHarness.CreateAsync(
             new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
             {
@@ -2613,16 +3144,25 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.Repository.WaitForProfileSaveAsync("Red");
         await harness.SelectChannelAsync("Green");
         harness.ViewModel.StatusText = "green-current-status";
+        harness.ViewModel.CalibrationChannelStatusText = "green-current-calibration-status";
 
         harness.Repository.ReleaseProfileSave("Red");
         await saveTask;
         await harness.FlushAsync();
 
         var savedRed = harness.Repository.Snapshot.Profiles["Red"];
+        Assert.Equal(new[] { "Red" }, harness.Repository.SavedProfileRoles);
         Assert.Equal(sample, savedRed.BlackLevel);
         Assert.Equal(red.WhiteLevel, savedRed.WhiteLevel);
         Assert.Equal(green, harness.Repository.Snapshot.Profiles["Green"]);
         Assert.Equal("green-current-status", harness.ViewModel.StatusText);
+        Assert.Equal("green-current-calibration-status", harness.ViewModel.CalibrationChannelStatusText);
+        Assert.Equal("760", harness.ViewModel.FocusRoiStartInput);
+        Assert.Equal("1020", harness.ViewModel.FocusRoiEndInput);
+        Assert.Equal("700", harness.ViewModel.AdcRoiStartInput);
+        Assert.Equal("1100", harness.ViewModel.AdcRoiEndInput);
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.True(harness.ViewModel.ApplyAdcRoiInputsCommand.CanExecute(null));
     }
 
     [Fact]
@@ -3705,7 +4245,7 @@ public sealed class ScanDebugCalibrationStatusTests
     {
         const ushort sample = 321;
         var red = CreateProfile(1000, blackLevel: 12, whiteLevel: 1000);
-        var green = CreateProfile(2000, blackLevel: 34, whiteLevel: 2000);
+        var green = CreateProfile(2000, CreateRoi(700, 1_100, 600, 680, 760, 840, 940, 1_020, 760, 1_020), blackLevel: 34, whiteLevel: 2000);
         var harness = await StatusHarness.CreateAsync(
             new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
             {
@@ -3732,6 +4272,7 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.Repository.WaitForProfileSaveAsync("Red");
         await harness.SelectChannelAsync("Green");
         harness.ViewModel.StatusText = "green-current-status";
+        harness.ViewModel.CalibrationChannelStatusText = "green-current-calibration-status";
 
         harness.Repository.ReleaseProfileSave("Red");
         await saveTask;
@@ -3743,6 +4284,13 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Equal(sample, savedRed.WhiteLevel);
         Assert.Equal(green, harness.Repository.Snapshot.Profiles["Green"]);
         Assert.Equal("green-current-status", harness.ViewModel.StatusText);
+        Assert.Equal("green-current-calibration-status", harness.ViewModel.CalibrationChannelStatusText);
+        Assert.Equal("760", harness.ViewModel.FocusRoiStartInput);
+        Assert.Equal("1020", harness.ViewModel.FocusRoiEndInput);
+        Assert.Equal("700", harness.ViewModel.AdcRoiStartInput);
+        Assert.Equal("1100", harness.ViewModel.AdcRoiEndInput);
+        Assert.True(harness.ViewModel.ApplyFocusRoiInputsCommand.CanExecute(null));
+        Assert.True(harness.ViewModel.ApplyAdcRoiInputsCommand.CanExecute(null));
     }
 
     [Theory]
@@ -5765,6 +6313,129 @@ public sealed class ScanDebugCalibrationStatusTests
         await AssertEditRefreshesAutofocusAvailabilityAsync(() => harness.ViewModel.FocusMappingZPositiveDirection = "Dir1");
         await AssertEditRefreshesAutofocusAvailabilityAsync(() => harness.ViewModel.FocusMappingTiltPositiveDirection = "Dir1");
         AssertAutofocusCanExecute(true);
+    }
+
+    [Fact]
+    public async Task FocusAdvanced_ValidPreset_SeparatesResolvedLimitsFromEstimatedReadouts()
+    {
+        var session = new StatusSession();
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, scanSession: session);
+        var viewModel = harness.ViewModel;
+        var settings = ScanDeviceSettings.CreateDefault().Normalize();
+        var resolved = ScanAutofocusPresetResolver.Resolve(
+            ScanAutofocusPresetCatalog.Get(ScanAutofocusPresetKind.Standard),
+            settings.GetMotorSettings((settings.FocusMotorMapping ?? new ScanFocusMotorMapping()).LeftMotorId));
+
+        Assert.Equal("ScanDebug_Runtime_AutofocusResolutionLimits".GetLocalizedFormat(
+            resolved.TiltProbeSteps, resolved.Bounds.MaxTiltSteps,
+            resolved.ZProbeSteps, resolved.Bounds.MaxZSteps), viewModel.AutofocusResolutionLimitsText);
+        Assert.Equal("ScanDebug_Runtime_AutofocusEstimatedCaptures".GetLocalizedFormat(resolved.Bounds.CaptureCount),
+            viewModel.AutofocusEstimatedCapturesText);
+        Assert.Equal("ScanDebug_Runtime_AutofocusCumulativeTravel".GetLocalizedFormat(
+            resolved.Bounds.TotalMovementMillimeters.ToString("0.###", CultureInfo.InvariantCulture)),
+            viewModel.AutofocusCumulativeTravelText);
+        Assert.Equal("ScanDebug_Runtime_AutofocusEstimatedDuration".GetLocalizedFormat(
+            TimeSpan.FromMilliseconds(resolved.Bounds.EstimatedDurationMs).ToString(@"m\:ss", CultureInfo.InvariantCulture)),
+            viewModel.AutofocusEstimatedDurationText);
+        Assert.Equal("ScanDebug_Runtime_AutofocusInputLimits".GetLocalizedFormat(
+            session.SingleTransferMaxRows, "0.001", 1u), viewModel.AutofocusInputLimitsText);
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusResolvedBoundsVisibility);
+        Assert.Equal(Visibility.Collapsed, viewModel.AutofocusBoundsErrorVisibility);
+        Assert.Empty(viewModel.AutofocusBoundsText);
+    }
+
+    [Fact]
+    public async Task FocusAdvanced_InvalidInputOrMapping_ClearsEveryPreviousEstimateUntilValidAgain()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        viewModel.SelectedAutofocusPreset = ScanAutofocusPresetKind.Custom;
+        Assert.NotEmpty(viewModel.AutofocusResolutionLimitsText);
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
+
+        void AssertNoEstimate()
+        {
+            Assert.Empty(viewModel.AutofocusResolutionLimitsText);
+            Assert.Empty(viewModel.AutofocusEstimatedCapturesText);
+            Assert.Empty(viewModel.AutofocusCumulativeTravelText);
+            Assert.Empty(viewModel.AutofocusEstimatedDurationText);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusResolvedBoundsVisibility);
+            Assert.Equal(Visibility.Visible, viewModel.AutofocusBoundsErrorVisibility);
+            Assert.NotEmpty(viewModel.AutofocusBoundsText);
+        }
+
+        viewModel.AutofocusSampleRows = "not a number";
+        AssertNoEstimate();
+        Assert.Contains(nameof(ScanDebugViewModel.AutofocusResolvedBoundsVisibility), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.AutofocusBoundsErrorVisibility), notifications);
+
+        viewModel.AutofocusSampleRows = "128";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusResolvedBoundsVisibility);
+        Assert.Empty(viewModel.AutofocusBoundsText);
+
+        viewModel.FocusMappingRightMotor = viewModel.FocusMappingLeftMotor;
+        AssertNoEstimate();
+        viewModel.FocusMappingRightMotor = "Motor3";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusResolvedBoundsVisibility);
+        Assert.Equal(Visibility.Collapsed, viewModel.AutofocusBoundsErrorVisibility);
+    }
+
+    [Fact]
+    public async Task FocusAdvanced_FieldLimits_HideNormalEchoesButShowInvalidInputsAndRealLimits()
+    {
+        var session = new StatusSession();
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, scanSession: session);
+        var viewModel = harness.ViewModel;
+        viewModel.SelectedAutofocusPreset = ScanAutofocusPresetKind.Custom;
+
+        void AssertNormalFieldsHidden()
+        {
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusSampleRowsLimitVisibility);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusTiltProbeStepsLimitVisibility);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusZProbeStepsLimitVisibility);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusMotorIntervalLimitVisibility);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusMaxTiltIterationsLimitVisibility);
+            Assert.Equal(Visibility.Collapsed, viewModel.AutofocusMaxZIterationsLimitVisibility);
+        }
+
+        AssertNormalFieldsHidden();
+        viewModel.AutofocusSampleRows = "0";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusSampleRowsLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitBoundedCurrentOutOfRange".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelSampleRows".GetLocalized(), 1, session.SingleTransferMaxRows, 0),
+            viewModel.AutofocusSampleRowsLimitText);
+        viewModel.AutofocusSampleRows = "128";
+
+        viewModel.AutofocusTiltProbeSteps = "NaN";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusTiltProbeStepsLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitDistanceInvalidNumber".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelTiltProbeDistance".GetLocalized()), viewModel.AutofocusTiltProbeStepsLimitText);
+        viewModel.AutofocusTiltProbeSteps = "0.5";
+
+        viewModel.AutofocusZProbeSteps = "0";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusZProbeStepsLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_LimitDistanceCurrentBelowMinimum".GetLocalizedFormat(
+            "ScanDebug_Runtime_LimitLabelZProbeDistance".GetLocalized(), 0.001, 0d),
+            viewModel.AutofocusZProbeStepsLimitText);
+        viewModel.AutofocusZProbeSteps = "1";
+
+        viewModel.AutofocusMotorIntervalUs = "bad";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusMotorIntervalLimitVisibility);
+        Assert.Equal("ScanDebug_Runtime_ErrorAutofocusIntervalMinimum".GetLocalizedFormat(1u), viewModel.AutofocusMotorIntervalLimitText);
+        viewModel.AutofocusMotorIntervalUs = "500";
+
+        viewModel.AutofocusMaxTiltIterations = "bad";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusMaxTiltIterationsLimitVisibility);
+        Assert.NotEmpty(viewModel.AutofocusMaxTiltIterationsLimitText);
+        viewModel.AutofocusMaxTiltIterations = "8";
+        viewModel.AutofocusMaxZIterations = "-1";
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusMaxZIterationsLimitVisibility);
+        Assert.NotEmpty(viewModel.AutofocusMaxZIterationsLimitText);
+        viewModel.AutofocusMaxZIterations = "10";
+
+        AssertNormalFieldsHidden();
+        Assert.Equal(Visibility.Visible, viewModel.AutofocusResolvedBoundsVisibility);
     }
 
     [Fact]
@@ -8349,8 +9020,16 @@ public sealed class ScanDebugCalibrationStatusTests
 
         public bool IsConnectBlockedByUsbDebug() => false;
 
+        public ScanOperationResult? ConnectResult { get; init; }
+
         public Task<ScanOperationResult> ConnectAsync(CancellationToken ct)
-            => Task.FromException<ScanOperationResult>(new NotSupportedException());
+        {
+            if (ConnectResult is null)
+                return Task.FromException<ScanOperationResult>(new NotSupportedException());
+            PublishSnapshot(new ScannerDeviceSessionSnapshot(ScannerSessionState.Connected, null, null, null,
+                ScannerReconnectPromptState.None, DateTimeOffset.UtcNow));
+            return Task.FromResult(ConnectResult);
+        }
 
         public Task<ScanOperationResult> DisconnectAsync(CancellationToken ct)
             => Task.FromException<ScanOperationResult>(new NotSupportedException());
