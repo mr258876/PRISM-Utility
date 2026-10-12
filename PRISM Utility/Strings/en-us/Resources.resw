@@ -940,7 +940,7 @@
     <value>Calibration channel</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>Save channel calibration to library</value>
+    <value>Save current channel profile</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
     <value>Remove channel calibration from library</value>
@@ -4459,7 +4459,7 @@
   <data name="ScanDebug_WorkbenchInspectionCaptureSourceLabel.Text" xml:space="preserve"><value>Capture source</value></data>
   <data name="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel.Text" xml:space="preserve"><value>Device evidence</value></data>
   <data name="ScanDebug_WorkbenchInspectionCaptureComparisonLabel.Text" xml:space="preserve"><value>Capture / device / draft comparison</value></data>
-  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>Preview selection</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>Current algorithm range draft</value></data>
   <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>Column sample</value></data>
   <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>Edit black / white ROI</value></data>
   <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>Review status</value></data>
@@ -4559,4 +4559,43 @@
   <data name="ScanDebug_RawSignalSource" xml:space="preserve"><value>Capture {0}; pass index {1} (-1 = single capture); logical channel {2}; result version {3}; profile row {4}; ROI columns {5}-{6} inclusive; completed rows {7}. Device samples before display processing.</value></data>
   <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [RAW pass coordinates, not composite image pixels.]</value></data>
   <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>N={0}; minimum={1} ADU; maximum={2} ADU; mean={3:F2} ADU; saturation={4}/{0} samples at 65535 ADU.</value></data>
-  </root>
+    <data name="ScanDebug_ObservationLive" xml:space="preserve"><value>Live observation</value></data>
+  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>Display frozen · acquisition unaffected</value></data>
+  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>Viewing baseline A · acquisition unaffected</value></data>
+  <data name="ScanDebug_FreezeObservation" xml:space="preserve"><value>Freeze display</value></data>
+  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>Resume live display</value></data>
+  <data name="ScanDebug_ShowCurrentObservation" xml:space="preserve"><value>Show current sample</value></data>
+  <data name="ScanDebug_ShowBaselineObservation" xml:space="preserve"><value>Show baseline A</value></data>
+  <data name="ScanDebug_SetObservationBaselineButton.Content" xml:space="preserve"><value>Set baseline A</value></data>
+  <data name="ScanDebug_SetObservationBaselineButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Copy the displayed sample and its source, replacing baseline A.</value></data>
+  <data name="ScanDebug_ClearObservationBaselineButton.Content" xml:space="preserve"><value>Clear baseline</value></data>
+  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>Sample {0} · channel {1} · LED index {2} · {3} rows · {4}</value></data>
+  <data name="ScanDebug_ObservationSourceUnknown" xml:space="preserve"><value>No verified capture source; the image cannot validate current parameters.</value></data>
+  <data name="ScanDebug_ObservationChannelMismatch" xml:space="preserve"><value>The display is from {0}; editing {1}. Resample to validate the selected channel.</value></data>
+  <data name="ScanDebug_ObservationParametersChanged" xml:space="preserve"><value>Device parameter command history has changed. This image is from an earlier capture; resample to verify.</value></data>
+  <data name="ScanDebug_ObservationBaselineEmpty" xml:space="preserve"><value>Baseline A is empty. Freeze and baseline affect display only.</value></data>
+  <data name="ScanDebug_ObservationBaselineSummary" xml:space="preserve"><value>Baseline A: sample {0} · image source {1} · RAW {3} mean {2} ADU; compare each sample with its own source.</value></data>
+  <data name="ScanDebug_ObservationCopyUnavailable" xml:space="preserve"><value>Cannot copy this display: no valid image or its buffer exceeds 64 MiB. Acquisition was not stopped.</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Save current channel parameters, ROI and applied reference levels to the local calibration library.</value></data>
+  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>Manage profiles</value></data>
+  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>Saves to the local calibration library. Save configuration JSON separately using the file controls above.</value></data>
+  <data name="ScanDebug_ReviewCalibrationCandidateButton.Content" xml:space="preserve"><value>Review calibration candidate</value></data>
+  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>Applies to the current film profile draft without writing ADC. Channel profile and JSON saves are separate actions.</value></data>
+  <data name="ScanDebug_ObservationSelectionSummary" xml:space="preserve"><value>Observation selection: RAW columns {0}–{1}, inclusive. Independent of calibration and focus ranges.</value></data>
+  <data name="ScanDebug_ObservationSelectionInvalid" xml:space="preserve"><value>Invalid observation selection: enter integer columns within the decoded width, start no greater than end.</value></data>
+  <data name="ScanDebug_ObservationSelectionCopied" xml:space="preserve"><value>Filled the {0} inputs. Apply them in the corresponding editor; configuration and device parameters are unchanged.</value></data>
+  <data name="ScanDebug_ObservationSelectionExpander.Header" xml:space="preserve"><value>Observation selection (RAW measurement only)</value></data>
+  <data name="ScanDebug_ObservationStartInput.Header" xml:space="preserve"><value>Start column</value></data>
+  <data name="ScanDebug_ObservationEndInput.Header" xml:space="preserve"><value>End column (inclusive)</value></data>
+  <data name="ScanDebug_ObservationSelectionToggle.Header" xml:space="preserve"><value>Drag observation range on a single-channel image</value></data>
+  <data name="ScanDebug_ObservationUseRangeButton.Content" xml:space="preserve"><value>Use for algorithm ROI…</value></data>
+  <data name="ScanDebug_ObservationCopyTarget.Header" xml:space="preserve"><value>Target range</value></data>
+  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>Fills the selected algorithm range inputs only. Its Apply action commits the configuration draft. Does not write ADC or start focus.</value></data>
+  <data name="ScanDebug_ObservationCopyRangeButton.Content" xml:space="preserve"><value>Fill target range inputs</value></data>
+  <data name="ScanDebug_ObservationInvertToggle.Header" xml:space="preserve"><value>Invert display (RAW unchanged)</value></data>
+  <data name="ScanDebug_ObservationRawContext" xml:space="preserve"><value>RAW measurement: {0} · row {1} · columns {2}–{3}; not display pixel values.</value></data>
+  <data name="ScanDebug_ObservationSelectionSnapshot" xml:space="preserve"><value>Snapshot selection: RAW columns {0}–{1}. Resume the current display to edit.</value></data>
+  <data name="ScanDebug_ObservationDisplaySettingsScope.Text" xml:space="preserve"><value>Gamma and white-level settings apply to the live display. Frozen frames and baselines retain their original display pixels. Inversion can be toggled separately.</value></data>
+  <data name="ScanDebug_ObservationCompositeRole" xml:space="preserve"><value>reference pass {0} (composite)</value></data>
+  <data name="ScanDebug_ObservationCompositeComparison" xml:space="preserve"><value>This is a channel composite. RAW measurements use a separate channel and original pass coordinates; verify each source individually.</value></data>
+</root>

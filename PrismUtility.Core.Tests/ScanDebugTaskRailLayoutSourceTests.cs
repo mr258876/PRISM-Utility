@@ -30,7 +30,11 @@ public sealed class ScanDebugTaskRailLayoutSourceTests
         Assert.Equal("2", (string?)xaml.Descendants().Single(element => (string?)element.Attribute("AutomationProperties.AutomationId") == "ChannelCalibrationStatusCard").Attribute("Grid.Row"));
         Assert.Contains("ExposureMicrosecondsTextBox", detail.ToString(), StringComparison.Ordinal);
         Assert.Contains("Adc1OffsetTextBox", detail.ToString(), StringComparison.Ordinal);
-        Assert.Contains("SaveChannelProfileCommand", detail.ToString(), StringComparison.Ordinal);
+        var footer = Named(xaml, "ChannelCalibrationSaveFooter");
+        Assert.DoesNotContain("SaveChannelProfileCommand", detail.ToString(), StringComparison.Ordinal);
+        Assert.Contains("SaveChannelProfileCommand", footer.ToString(), StringComparison.Ordinal);
+        Assert.Equal("3", (string?)footer.Attribute("Grid.Row"));
+        Assert.Contains(footer, Named(xaml, "ChannelCalibrationRail").Elements());
         Assert.Equal(4, Named(xaml, "WorkbenchTaskSelectorBar").Elements().Count());
         Assert.Equal(4, Named(xaml, "WorkbenchTaskComboBox").Elements().Count());
     }

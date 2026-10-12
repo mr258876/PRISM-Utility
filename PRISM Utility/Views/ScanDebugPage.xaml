@@ -1106,6 +1106,7 @@
                                  <RowDefinition Height="Auto"/>
                                  <RowDefinition x:Name="ChannelCalibrationBodyRow" Height="*"/>
                                  <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
                              </Grid.RowDefinitions>
                               <Grid x:Name="ChannelCalibrationIdentityHeader"
                                     SizeChanged="ChannelCalibrationSummary_SizeChanged"
@@ -1148,11 +1149,90 @@
                                              Margin="0,0,12,0">
                                     <StackPanel x:Name="ChannelCalibrationPrimaryActions"
                                                 Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                         <ContentControl x:Name="PendingCalibrationCandidateReviewCard" AutomationProperties.AutomationId="PendingCalibrationCandidateReviewCard"
+                                                        AutomationProperties.AccessibilityView="Control"
+                                                        Visibility="{x:Bind ViewModel.PendingCalibrationCandidateReviewVisibility, Mode=OneWay}">
+                                            <Border Style="{StaticResource ScanDebugSectionCardStyle}">
+                                            <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                                 <TextBlock x:Uid="ScanDebug_PendingCalibrationCandidateReviewTitle"
+                                                            Style="{StaticResource ScanDebugGroupTitleStyle}"
+                                                           TextWrapping="WrapWholeWords"/>
+                                                <TextBlock x:Uid="ScanDebug_PendingCalibrationCandidateReviewHelperText"
+                                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"
+                                                           TextWrapping="WrapWholeWords"/>
+                                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                         <RowDefinition Height="Auto"/>
+                                                         <RowDefinition Height="Auto"/>
+                                                     </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationSelectedChannelLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationSelectedChannelText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationAdcDifferenceLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationAdcDifferenceText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationBlackDeviationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationBlackDeviationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationSaturationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationSaturationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationNoiseLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationNoiseText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationValidationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    <StackPanel Grid.Row="5" Grid.Column="1" Spacing="4">
+                                                        <TextBlock Text="{x:Bind ViewModel.PendingCalibrationValidationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
+                                                        <TextBlock Text="{x:Bind ViewModel.PendingCalibrationValidationIssuesText, Mode=OneWay}" Style="{StaticResource ScanDebugQuietTextBlockStyle}" TextWrapping="WrapWholeWords"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
+                                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                     <Grid.RowDefinitions>
+                                                         <RowDefinition Height="Auto"/>
+                                                         <RowDefinition Height="Auto"/>
+                                                         <RowDefinition Height="Auto"/>
+                                                     </Grid.RowDefinitions>
+                                                    <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationAcceptDeviceOnlyButton"
+                                                            AutomationProperties.AutomationId="PendingCalibrationAcceptDeviceOnlyButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{x:Bind ViewModel.AcceptPendingCalibrationCommand}"
+                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                                    <Button Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_PendingCalibrationAcceptAndSaveButton"
+                                                            AutomationProperties.AutomationId="PendingCalibrationAcceptAndSaveButton"
+                                                            Style="{StaticResource AccentButtonStyle}"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{x:Bind ViewModel.AcceptAndSavePendingCalibrationCommand}"
+                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                                    <Button Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationRestoreOriginalButton"
+                                                            AutomationProperties.AutomationId="PendingCalibrationRestoreOriginalButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{x:Bind ViewModel.RestorePendingCalibrationCommand}"
+                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                                    <Button Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_PendingCalibrationCancelButton"
+                                                            AutomationProperties.AutomationId="PendingCalibrationCancelButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{x:Bind ViewModel.CancelPendingCalibrationCommand}"
+                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
+                                                </Grid>
+                                            </StackPanel>
+                                            </Border>
+                                         </ContentControl>
                                      <Border x:Name="ManualReferenceLevelsCard"
                                             AutomationProperties.AutomationId="ManualReferenceLevelsCard">
                                         <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
                                             <TextBlock x:Uid="ScanDebug_ManualReferenceCompactTitle"
                                                        Style="{StaticResource ScanDebugGroupTitleStyle}"/>
+                                            <TextBlock x:Uid="ScanDebug_ManualReferenceScopeText"
+                                                       Style="{StaticResource ScanDebugMetadataStyle}"/>
                                            <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}">
                                               <Grid.ColumnDefinitions>
                                                   <ColumnDefinition Width="*"/>
@@ -1237,11 +1317,11 @@
                                            AutomationProperties.AutomationId="BwDetailsEntryButton"
                                            HorizontalAlignment="Stretch"
                                            Click="BwOpenChannelDetailsButton_Click"/>
-                                   <ContentControl AutomationProperties.AutomationId="PendingCalibrationCandidateReviewEntry"
-                                                  Visibility="{x:Bind ViewModel.PendingCalibrationCandidateReviewVisibility, Mode=OneWay}">
-                                      <TextBlock x:Uid="ScanDebug_PendingCalibrationCandidateReviewTitle"
-                                                 Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                  </ContentControl>
+                                   <Button x:Uid="ScanDebug_ReviewCalibrationCandidateButton"
+                                           AutomationProperties.AutomationId="PendingCalibrationCandidateReviewEntry"
+                                           Visibility="{x:Bind ViewModel.PendingCalibrationCandidateReviewVisibility, Mode=OneWay}"
+                                           Click="BwReviewCandidateButton_Click"/>
+
                                     <Expander x:Uid="ScanDebug_ManualReferenceSupplementExpander"
                                               AutomationProperties.AutomationId="ColumnSampleActionsExpander"
                                               Style="{StaticResource ScanDebugExpanderStyle}"
@@ -1406,13 +1486,7 @@
                                                     x:Uid="ScanDebug_CopyCalibrationProfileButton"
                                                     AutomationProperties.AutomationId="CopyCalibrationProfileButton"
                                                     Command="{x:Bind ViewModel.CopyCalibrationProfileFromChannelCommand}"/>
-                                             <Button Grid.Row="1"
-                                                     Grid.Column="0"
-                                                     x:Uid="ScanDebug_SaveChannelButton"
-                                                     AutomationProperties.AutomationId="SaveChannelLibraryActionButton"
-                                                     Style="{StaticResource ScanDebugChannelLibraryActionButtonStyle}"
-                                                     ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
-                                                     Command="{x:Bind ViewModel.SaveChannelProfileCommand}"/>
+
                                               <Button Grid.Row="1"
                                                       Grid.Column="1"
                                                       x:Uid="ScanDebug_ClearChannelButton"
@@ -1651,83 +1725,7 @@
                                              </StackPanel>
                                          </Border>
                                          </Expander>
-                                         <ContentControl AutomationProperties.AutomationId="PendingCalibrationCandidateReviewCard"
-                                                        AutomationProperties.AccessibilityView="Control"
-                                                        Visibility="{x:Bind ViewModel.PendingCalibrationCandidateReviewVisibility, Mode=OneWay}">
-                                            <Border Style="{StaticResource ScanDebugSectionCardStyle}">
-                                            <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
-                                                 <TextBlock x:Uid="ScanDebug_PendingCalibrationCandidateReviewTitle"
-                                                            Style="{StaticResource ScanDebugGroupTitleStyle}"
-                                                           TextWrapping="WrapWholeWords"/>
-                                                <TextBlock x:Uid="ScanDebug_PendingCalibrationCandidateReviewHelperText"
-                                                           Style="{StaticResource ScanDebugQuietTextBlockStyle}"
-                                                           TextWrapping="WrapWholeWords"/>
-                                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                         <RowDefinition Height="Auto"/>
-                                                         <RowDefinition Height="Auto"/>
-                                                     </Grid.RowDefinitions>
-                                                    <TextBlock Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationSelectedChannelLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationSelectedChannelText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationAdcDifferenceLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationAdcDifferenceText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="2" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationBlackDeviationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationBlackDeviationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationSaturationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationSaturationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationNoiseLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.PendingCalibrationNoiseText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationValidationLabel" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    <StackPanel Grid.Row="5" Grid.Column="1" Spacing="4">
-                                                        <TextBlock Text="{x:Bind ViewModel.PendingCalibrationValidationText, Mode=OneWay}" TextWrapping="WrapWholeWords"/>
-                                                        <TextBlock Text="{x:Bind ViewModel.PendingCalibrationValidationIssuesText, Mode=OneWay}" Style="{StaticResource ScanDebugQuietTextBlockStyle}" TextWrapping="WrapWholeWords"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                                <Grid ColumnSpacing="{StaticResource ScanDebugInlineSpacing}"
-                                                      RowSpacing="{StaticResource ScanDebugInlineSpacing}">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                     <Grid.RowDefinitions>
-                                                         <RowDefinition Height="Auto"/>
-                                                         <RowDefinition Height="Auto"/>
-                                                         <RowDefinition Height="Auto"/>
-                                                     </Grid.RowDefinitions>
-                                                    <Button Grid.Row="0" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationAcceptDeviceOnlyButton"
-                                                            AutomationProperties.AutomationId="PendingCalibrationAcceptDeviceOnlyButton"
-                                                            HorizontalAlignment="Stretch"
-                                                            Command="{x:Bind ViewModel.AcceptPendingCalibrationCommand}"
-                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                                    <Button Grid.Row="0" Grid.Column="1" x:Uid="ScanDebug_PendingCalibrationAcceptAndSaveButton"
-                                                            AutomationProperties.AutomationId="PendingCalibrationAcceptAndSaveButton"
-                                                            Style="{StaticResource AccentButtonStyle}"
-                                                            HorizontalAlignment="Stretch"
-                                                            Command="{x:Bind ViewModel.AcceptAndSavePendingCalibrationCommand}"
-                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                                    <Button Grid.Row="1" Grid.Column="0" x:Uid="ScanDebug_PendingCalibrationRestoreOriginalButton"
-                                                            AutomationProperties.AutomationId="PendingCalibrationRestoreOriginalButton"
-                                                            HorizontalAlignment="Stretch"
-                                                            Command="{x:Bind ViewModel.RestorePendingCalibrationCommand}"
-                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                                    <Button Grid.Row="1" Grid.Column="1" x:Uid="ScanDebug_PendingCalibrationCancelButton"
-                                                            AutomationProperties.AutomationId="PendingCalibrationCancelButton"
-                                                            HorizontalAlignment="Stretch"
-                                                            Command="{x:Bind ViewModel.CancelPendingCalibrationCommand}"
-                                                            ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"/>
-                                                </Grid>
-                                            </StackPanel>
-                                            </Border>
-                                         </ContentControl>
+
                                          <TextBlock x:Name="ColumnSampleGroupTitle"
                                                     x:Uid="ScanDebug_CalibrationTitle"
                                                     Style="{StaticResource ScanDebugGroupTitleStyle}"/>
@@ -1781,7 +1779,7 @@
                                                 </Grid>
                                                  <TextBlock Text="{x:Bind ViewModel.ColumnSampleStatusText, Mode=OneWay}"
                                                             AutomationProperties.HelpText="{x:Bind ViewModel.CaptureSourceText, Mode=OneWay}"
-                                                            ToolTipService.ToolTip="{x:Bind ViewModel.CaptureSourceText, Mode=OneWay}"
+                                                            ToolTipService.ToolTip="{x:Bind ViewModel.ObservationFullSourceText, Mode=OneWay}"
                                                             Style="{StaticResource ScanDebugQuietTextBlockStyle}"
                                                             TextWrapping="WrapWholeWords"/>
                                                 <ItemsControl ItemsSource="{x:Bind ViewModel.ImageReferenceRoiValidationIssueDisplays, Mode=OneWay}">
@@ -1951,6 +1949,30 @@
                                             Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                              </controls:WrapPanel>
                          </Grid>
+
+                         <StackPanel x:Name="ChannelCalibrationSaveFooter" Grid.Row="3"
+                                     Spacing="4" Margin="0,8,0,0">
+                             <Grid ColumnSpacing="8">
+                                 <Grid.ColumnDefinitions>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="Auto"/>
+                                 </Grid.ColumnDefinitions>
+                                             <Button Grid.Row="0"
+                                                     Grid.Column="0"
+                                                     x:Uid="ScanDebug_SaveChannelButton"
+                                                     AutomationProperties.AutomationId="SaveChannelLibraryActionButton"
+                                                     Style="{StaticResource ScanDebugChannelLibraryActionButtonStyle}"
+                                                     ContentTemplate="{StaticResource ScanDebugWrappingButtonContentTemplate}"
+                                                     Command="{x:Bind ViewModel.SaveChannelProfileCommand}"/>
+                                 <Button Grid.Column="1" x:Uid="ScanDebug_ManageChannelProfilesButton"
+                                         AutomationProperties.AutomationId="ManageChannelProfilesButton"
+                                         Click="BwOpenChannelDetailsButton_Click"/>
+                             </Grid>
+                             <TextBlock x:Uid="ScanDebug_ChannelSaveScopeText"
+                                        Style="{StaticResource ScanDebugMetadataStyle}"/>
+                             <TextBlock Text="{x:Bind ViewModel.CalibrationChannelStatusText, Mode=OneWay}"
+                                        Style="{StaticResource ScanDebugMetadataStyle}"/>
+                         </StackPanel>
                          </Grid>
                          <ScrollViewer x:Name="ChannelCalibrationCompactScrollViewer"
                                        Visibility="Collapsed"
@@ -3392,6 +3414,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -3462,6 +3485,10 @@
                                             <StackPanel x:Name="PreviewDisplayToolsContent"
                                                         x:Load="False"
                                                         Spacing="{StaticResource ScanDebugInlineSpacing}">
+                                                <TextBlock x:Uid="ScanDebug_ObservationDisplaySettingsScope"
+                                                           Style="{StaticResource ScanDebugMetadataStyle}"/>
+                                                <ToggleSwitch x:Uid="ScanDebug_ObservationInvertToggle"
+                                                              IsOn="{x:Bind ViewModel.IsObservationInverted, Mode=TwoWay}"/>
                                                 <TextBlock x:Uid="ScanDebug_PreviewDisplayToolsDescription"
                                                             Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                                 <ToggleSwitch
@@ -3472,12 +3499,13 @@
                                                     x:Name="PreviewGammaToggleSwitch"
                                                     x:Uid="ScanDebug_PreviewGammaToggleSwitch"
                                                     AutomationProperties.AutomationId="PreviewGammaToggleSwitch"
+                                                    IsEnabled="{x:Bind ViewModel.IsObservationLive, Mode=OneWay}"
                                                     IsOn="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=TwoWay}"/>
                                                 <TextBox
                                                     x:Name="PreviewGammaTextBox"
                                                     x:Uid="ScanDebug_PreviewGammaTextBox"
                                                     AutomationProperties.AutomationId="PreviewGammaTextBox"
-                                                    IsEnabled="{x:Bind ViewModel.IsGammaCorrectionEnabled, Mode=OneWay}"
+                                                    IsEnabled="{x:Bind ViewModel.CanEditObservationGamma, Mode=OneWay}"
                                                     Text="{x:Bind ViewModel.PreviewGamma, Mode=TwoWay}"/>
                                                 <StackPanel x:Name="WaterfallPreviewOptionsPanel"
                                                             Spacing="{StaticResource ScanDebugInlineSpacing}"
@@ -3488,6 +3516,7 @@
                                                 </StackPanel>
                                                 <ToggleSwitch
                                                     x:Uid="ScanDebug_WhiteLevelPreviewToggleSwitch"
+                                                    IsEnabled="{x:Bind ViewModel.IsObservationLive, Mode=OneWay}"
                                                     IsOn="{x:Bind ViewModel.IsWhiteLevelPreviewEnabled, Mode=TwoWay}"/>
                                             </StackPanel>
                                         </ScrollViewer>
@@ -3594,8 +3623,82 @@
                          </controls:WrapPanel>
                     </Grid>
 
+                    <StackPanel Grid.Row="1" x:Name="ObservationContextPanel" Spacing="4" Margin="0,0,0,8">
+                        <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="4">
+                            <TextBlock Text="{x:Bind ViewModel.ObservationModeText, Mode=OneWay}"
+                                       VerticalAlignment="Center" Style="{StaticResource ScanDebugGroupTitleStyle}"/>
+                            <Button x:Name="FreezeObservationButton"
+                                    AutomationProperties.AutomationId="FreezeObservationButton"
+                                    Content="{x:Bind ViewModel.ObservationFreezeActionText, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ToggleObservationFreezeCommand}"/>
+                            <Button x:Uid="ScanDebug_SetObservationBaselineButton"
+                                    AutomationProperties.AutomationId="SetObservationBaselineButton"
+                                    Command="{x:Bind ViewModel.SetObservationBaselineCommand}"/>
+                            <Button AutomationProperties.AutomationId="ShowObservationBaselineButton"
+                                    Content="{x:Bind ViewModel.ObservationBaselineActionText, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ToggleObservationBaselineCommand}"/>
+                            <Button x:Uid="ScanDebug_ClearObservationBaselineButton"
+                                    AutomationProperties.AutomationId="ClearObservationBaselineButton"
+                                    Command="{x:Bind ViewModel.ClearObservationBaselineCommand}"/>
+                        </controls:WrapPanel>
+                        <TextBlock AutomationProperties.AutomationId="ObservationSourceSummaryText"
+                                   Text="{x:Bind ViewModel.ObservationSourceSummaryText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugMetadataStyle}"/>
+                        <TextBlock AutomationProperties.AutomationId="ObservationComparisonText"
+                                   Text="{x:Bind ViewModel.ObservationComparisonText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugBodyStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.ObservationBaselineSummaryText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugMetadataStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.ObservationRawContextText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugMetadataStyle}"/>
+                        <TextBlock AutomationProperties.AutomationId="ObservationRawReadout"
+                                   Text="{x:Bind ViewModel.ObservationRawStatisticsText, Mode=OneWay}"
+                                   Style="{StaticResource ScanDebugBodyStyle}"/>
+                        <Expander x:Uid="ScanDebug_ObservationSelectionExpander"
+                                  Style="{StaticResource ScanDebugExpanderStyle}" IsExpanded="False"
+                                  AutomationProperties.AutomationId="ObservationSelectionExpander">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{x:Bind ViewModel.ObservationSelectionStatusText, Mode=OneWay}"
+                                           Style="{StaticResource ScanDebugMetadataStyle}"/>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Uid="ScanDebug_ObservationStartInput" InputScope="Number"
+                                             IsEnabled="{x:Bind ViewModel.IsObservationLive, Mode=OneWay}"
+                                             Text="{x:Bind ViewModel.ObservationStartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBox Grid.Column="1" x:Uid="ScanDebug_ObservationEndInput" InputScope="Number"
+                                             IsEnabled="{x:Bind ViewModel.IsObservationLive, Mode=OneWay}"
+                                             Text="{x:Bind ViewModel.ObservationEndInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Grid>
+                                <ToggleSwitch x:Uid="ScanDebug_ObservationSelectionToggle"
+                                              IsEnabled="{x:Bind ViewModel.CanEditObservationFromPreview, Mode=OneWay}"
+                                              IsOn="{x:Bind ViewModel.IsObservationSelectionEnabled, Mode=TwoWay}"/>
+                                <Button x:Uid="ScanDebug_ObservationUseRangeButton" HorizontalAlignment="Left">
+                                    <Button.Flyout>
+                                        <Flyout FlyoutPresenterStyle="{StaticResource ScanDebugLocalFlyoutPresenterBaseStyle}">
+                                            <StackPanel Spacing="8" MaxWidth="320">
+                                                <TextBlock x:Uid="ScanDebug_ObservationCopyRangeScope" TextWrapping="WrapWholeWords"/>
+                                                <ComboBox x:Uid="ScanDebug_ObservationCopyTarget"
+                                                          ItemsSource="{x:Bind ViewModel.RoiSelectionOptions, Mode=OneWay}"
+                                                          ItemTemplate="{StaticResource ScanRoiSelectionOptionTemplate}"
+                                                          SelectedItem="{x:Bind ViewModel.SelectedRoiSelection, Mode=TwoWay}"/>
+                                                <Button x:Uid="ScanDebug_ObservationCopyRangeButton"
+                                                        Command="{x:Bind ViewModel.UseObservationRangeForCalibrationCommand}"/>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                        </Expander>
+                        <TextBlock Text="{x:Bind ViewModel.ObservationFeedbackText, Mode=OneWay}"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   Style="{StaticResource ScanDebugMetadataStyle}"/>
+                    </StackPanel>
+
                     <Border
-                        Grid.Row="1"
+                        Grid.Row="2"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="{StaticResource ScanDebugCardBorderThickness}"
                         CornerRadius="{StaticResource ScanDebugCardCornerRadius}"
@@ -3676,14 +3779,15 @@
                                      <TextBlock x:Name="RawSignalStatusTextBlock" Grid.Row="0"
                                                AutomationProperties.AutomationId="RawSignalStatusText"
                                                AutomationProperties.LiveSetting="Polite"
-                                               Text="{x:Bind ViewModel.RawSignalStatusText, Mode=OneWay}"
+                                               Text="{x:Bind ViewModel.ObservationRawStatusText, Mode=OneWay}"
                                                TextWrapping="WrapWholeWords"
                                                Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                      <TextBox x:Name="RawSignalRowTextBox" Grid.Row="1"
                                              x:Uid="ScanDebug_RawSignalRowTextBox"
+                                             IsEnabled="{x:Bind ViewModel.IsObservationLive, Mode=OneWay}"
                                              AutomationProperties.AutomationId="RawSignalRowTextBox"
                                              InputScope="Number"
-                                             Text="{x:Bind ViewModel.RawSignalRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                             Text="{x:Bind ViewModel.ObservationRawRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                      <Grid x:Name="RawSignalResultDetails"
                                            Grid.Row="2"
                                            Visibility="Collapsed"
@@ -3700,7 +3804,7 @@
                                                                HorizontalAlignment="Stretch"
                                                                VerticalAlignment="Stretch"
                                                                ClearColor="Transparent"
-                                                              Tag="{x:Bind ViewModel.RawSignalResult, Mode=OneWay}"
+                                                              Tag="{x:Bind ViewModel.ObservationRawSignalResult, Mode=OneWay}"
                                                               CreateResources="RawSignalCanvasControl_CreateResources"
                                                               Draw="RawSignalCanvasControl_Draw"
                                                               SizeChanged="RawSignalCanvasControl_SizeChanged"
@@ -3720,11 +3824,11 @@
                                                      <TextBlock x:Uid="ScanDebug_RawSignalHistogramAxis" TextWrapping="WrapWholeWords"/>
                                                      <TextBlock x:Uid="ScanDebug_RawSignalSourceLabel" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                                      <TextBlock AutomationProperties.AutomationId="RawSignalSourceText"
-                                                                Text="{x:Bind ViewModel.RawSignalSourceText, Mode=OneWay}"
+                                                                Text="{x:Bind ViewModel.ObservationRawSourceText, Mode=OneWay}"
                                                                 TextWrapping="WrapWholeWords"/>
                                                      <TextBlock x:Uid="ScanDebug_RawSignalStatisticsLabel" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                                      <TextBlock AutomationProperties.AutomationId="RawSignalStatisticsText"
-                                                                Text="{x:Bind ViewModel.RawSignalStatisticsText, Mode=OneWay}"
+                                                                Text="{x:Bind ViewModel.ObservationRawStatisticsText, Mode=OneWay}"
                                                                 TextWrapping="WrapWholeWords"/>
                                                  </StackPanel>
                                              </ScrollViewer>
@@ -3800,19 +3904,21 @@
                         <TextBlock Text="{x:Bind ViewModel.RoiStatusText, Mode=OneWay}"
                                    Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                         <TextBlock x:Uid="ScanDebug_WorkbenchInspectionColumnTitle"
+                                   Visibility="{x:Bind ViewModel.ObservationLiveToolsVisibility, Mode=OneWay}"
                                    Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                          <TextBlock Text="{x:Bind ViewModel.ColumnSampleStatusText, Mode=OneWay}"
+                                   Visibility="{x:Bind ViewModel.ObservationLiveToolsVisibility, Mode=OneWay}"
                                     Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                          <TextBlock x:Uid="ScanDebug_WorkbenchInspectionCaptureSourceLabel"
                                     Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                         <TextBlock Text="{x:Bind ViewModel.CaptureSourceText, Mode=OneWay}"
+                         <TextBlock Text="{x:Bind ViewModel.ObservationFullSourceText, Mode=OneWay}"
                                      TextWrapping="WrapWholeWords"
                                      Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                          <TextBlock x:Uid="ScanDebug_WorkbenchInspectionCaptureComparisonLabel"
                                     Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                          <TextBlock AutomationProperties.AutomationId="CaptureComparisonText"
-                                    AutomationProperties.Name="{x:Bind ViewModel.CaptureComparisonText, Mode=OneWay}"
-                                    Text="{x:Bind ViewModel.CaptureComparisonText, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind ViewModel.ObservationComparisonText, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.ObservationComparisonText, Mode=OneWay}"
                                     Style="{StaticResource ScanDebugQuietTextBlockStyle}"
                                     TextWrapping="WrapWholeWords"/>
                           <Expander IsExpanded="False"
@@ -3825,7 +3931,7 @@
                              <StackPanel Spacing="{StaticResource ScanDebugInlineSpacing}">
                                  <TextBlock x:Uid="ScanDebug_WorkbenchInspectionSource" Style="{StaticResource ScanDebugQuietTextBlockStyle}"/>
                                  <TextBlock AutomationProperties.AutomationId="CaptureSourceText"
-                                            Text="{x:Bind ViewModel.CaptureSourceText, Mode=OneWay}"
+                                            Text="{x:Bind ViewModel.ObservationFullSourceText, Mode=OneWay}"
                                             TextWrapping="WrapWholeWords"/>
                                  <TextBlock x:Uid="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                  <TextBlock AutomationProperties.AutomationId="DeviceEvidenceText"

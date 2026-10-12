@@ -77,17 +77,17 @@ public sealed class ScanDebugRawSignalUiSourceTests
         var rowInput = Named(page, "RawSignalRowTextBox");
         var details = Named(page, "RawSignalResultDetails");
 
-        Assert.Equal("{x:Bind ViewModel.RawSignalStatusText, Mode=OneWay}",
+        Assert.Equal("{x:Bind ViewModel.ObservationRawStatusText, Mode=OneWay}",
             (string?)Named(page, "RawSignalStatusTextBlock").Attribute("Text"));
         Assert.Equal("Polite", (string?)Named(page, "RawSignalStatusTextBlock").Attribute("AutomationProperties.LiveSetting"));
-        Assert.Equal("{x:Bind ViewModel.RawSignalRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}",
+        Assert.Equal("{x:Bind ViewModel.ObservationRawRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}",
             (string?)rowInput.Attribute("Text"));
-        Assert.Equal("{x:Bind ViewModel.RawSignalResult, Mode=OneWay}", (string?)chart.Attribute("Tag"));
+        Assert.Equal("{x:Bind ViewModel.ObservationRawSignalResult, Mode=OneWay}", (string?)chart.Attribute("Tag"));
         Assert.Equal("Collapsed", (string?)details.Attribute("Visibility"));
         Assert.Contains(details, profile.Descendants());
-        Assert.Equal("{x:Bind ViewModel.RawSignalSourceText, Mode=OneWay}",
+        Assert.Equal("{x:Bind ViewModel.ObservationRawSourceText, Mode=OneWay}",
             (string?)Identified(details, "RawSignalSourceText").Attribute("Text"));
-        Assert.Equal("{x:Bind ViewModel.RawSignalStatisticsText, Mode=OneWay}",
+        Assert.Equal("{x:Bind ViewModel.ObservationRawStatisticsText, Mode=OneWay}",
             (string?)Identified(details, "RawSignalStatisticsText").Attribute("Text"));
         Assert.Equal("Raw", (string?)chart.Attribute("AutomationProperties.AccessibilityView"));
 
@@ -102,7 +102,7 @@ public sealed class ScanDebugRawSignalUiSourceTests
         Assert.Contains("result.SaturationRatio.ToString", mode, StringComparison.Ordinal);
         Assert.DoesNotContain("Command.Execute", mode, StringComparison.Ordinal);
         Assert.DoesNotContain("StartScanCommand", mode, StringComparison.Ordinal);
-        Assert.Contains("nameof(ScanDebugViewModel.RawSignalResult)", code, StringComparison.Ordinal);
+        Assert.Contains("nameof(ScanDebugViewModel.ObservationRawSignalResult)", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class ScanDebugRawSignalUiSourceTests
         Assert.Contains(Named(page, "RawSignalInspectionMeanText"), inspection.Descendants());
         Assert.Contains(Named(page, "RawSignalInspectionRangeText"), inspection.Descendants());
         Assert.Contains(Named(page, "RawSignalInspectionSamplesText"), inspection.Descendants());
-        Assert.Contains("var result = ViewModel.RawSignalResult;", update, StringComparison.Ordinal);
+        Assert.Contains("var result = ViewModel.ObservationRawSignalResult;", update, StringComparison.Ordinal);
         Assert.Contains("result.Mean.ToString", update, StringComparison.Ordinal);
         Assert.Contains("result.Minimum, result.Maximum", update, StringComparison.Ordinal);
         Assert.Contains("result.SampleCount.ToString", update, StringComparison.Ordinal);
@@ -142,7 +142,7 @@ public sealed class ScanDebugRawSignalUiSourceTests
         var page = ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
         var chart = Between(page, "private void RawSignalCanvasControl_Draw(", "private void PreviewCanvasControl_Draw(");
 
-        Assert.Contains("var result = ViewModel.RawSignalResult;", chart, StringComparison.Ordinal);
+        Assert.Contains("var result = ViewModel.ObservationRawSignalResult;", chart, StringComparison.Ordinal);
         Assert.Contains("var profile = result.Profile;", chart, StringComparison.Ordinal);
         Assert.Contains("ScanRawSignalAnalyzer.ReduceProfile(profile,", chart, StringComparison.Ordinal);
         Assert.Contains("bucket.Minimum", chart, StringComparison.Ordinal);

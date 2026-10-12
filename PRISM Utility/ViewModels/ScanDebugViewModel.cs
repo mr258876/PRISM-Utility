@@ -563,6 +563,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         public string? ConfigurationIdentity { get; init; }
         public string? CalibrationIdentity { get; init; }
         public bool HasSubmittedParameters { get; init; }
+        public bool IsComposite { get; init; }
         public int DeviceParameterCommandGeneration { get; init; }
     }
 #if PRISM_VISUAL_QA
@@ -763,7 +764,9 @@ public partial class ScanDebugViewModel : ObservableRecipient
         && string.Equals(evidence.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)
         ? string.Empty : "ScanDebug_ManualReferenceSampleUnavailable".GetLocalized();
 
-    public string CaptureSourceText => _displayedCaptureEvidence is { } capture
+    public string CaptureSourceText => BuildCaptureSourceText(_displayedCaptureEvidence);
+
+    private string BuildCaptureSourceText(CaptureEvidence? evidence) => evidence is { } capture
         ? "ScanDebug_CaptureSource".GetLocalizedFormatOrFallback("Capture {0}; logical channel {1}; mode {2}; completed/requested rows {3}/{4}; data stage {5}; parameter evidence: {6}.", capture.Id, capture.Role, capture.Mode,
             capture.CompletedRows, capture.RequestedRows, capture.Stage, capture.Parameters)
             + "ScanDebug_CaptureSourceDetails".GetLocalizedFormatOrFallback(
@@ -803,6 +806,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         OnPropertyChanged(nameof(DeviceEvidenceText));
         OnPropertyChanged(nameof(CaptureComparisonText));
         NotifyManualReferenceAvailabilityChanged();
+        NotifyObservationChanged();
     }
 
     private CaptureEvidence CreateCaptureEvidence(int rows, string mode, string role, string parameters)
@@ -1565,13 +1569,13 @@ public partial class ScanDebugViewModel : ObservableRecipient
         }
     }
 
-    public string ObservationFooterText => PreviewFrame is { Width: > 0, Height: > 0 } frame
-        ? _displayedCaptureEvidence is { } capture
+    public string ObservationFooterText => ObservationFrame is { Width: > 0, Height: > 0 } frame
+        ? VisibleObservationEvidence is { } capture
             ? $"{frame.Width} × {frame.Height} · {capture.Mode} · {capture.Role}"
             : $"{frame.Width} × {frame.Height}"
         : string.Empty;
 
-    public Visibility ObservationFooterVisibility => HasPreviewImage ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ObservationFooterVisibility => ObservationFrame is { Width: > 0, Height: > 0 } ? Visibility.Visible : Visibility.Collapsed;
 
     private void ReportOperationFailure(string target, string message)
     {
@@ -1660,6 +1664,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnPreviewFrameChanged(ScanPreviewFrame? value)
     {
+        NotifyObservationChanged();
         InvalidateColumnSampleCache();
         NotifyColumnSampleAvailabilityChanged();
         NotifyPreviewStatePropertiesChanged();
@@ -3059,6 +3064,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsRoiEditModeEnabledChanged(bool value)
     {
+        if (value)
+            IsObservationSelectionEnabled = false;
         OnPropertyChanged(nameof(FocusRoiSummaryText));
         if (value && !CanEditRoiSelection)
         {
@@ -3071,6 +3078,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsColumnSampleEditModeEnabledChanged(bool value)
     {
+        if (value)
+            IsObservationSelectionEnabled = false;
         if (value && !CanEditColumnSampleSelection)
         {
             IsColumnSampleEditModeEnabled = false;
@@ -3272,6 +3281,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     partial void OnIsGammaCorrectionEnabledChanged(bool value)
     {
+        OnPropertyChanged(nameof(CanEditObservationGamma));
         if (!_hasValidScanBuffer || _previewRows <= 0 || !IsPreviewEnabled || IsPreviewForcedOffForRows(_previewRows))
             return;
 
@@ -3509,11 +3519,11 @@ public partial class ScanDebugViewModel : ObservableRecipient
 
     public string CaptureModeUnavailableReasonText => BuildCaptureModeUnavailableReason();
 
-    public bool CanEditRoiSelection => PreviewFrame is not null && !IsWaterfallEnabled && IsPreviewEnabled;
+    public bool CanEditRoiSelection => IsObservationLive && PreviewFrame is not null && !IsWaterfallEnabled && IsPreviewEnabled;
 
     public bool CanMutateRoiFromPreview => CanEditRoiSelection && IsRoiEditModeEnabled;
 
-    public bool CanEditColumnSampleSelection => PreviewFrame is not null && !IsWaterfallEnabled && IsPreviewEnabled;
+    public bool CanEditColumnSampleSelection => IsObservationLive && PreviewFrame is not null && !IsWaterfallEnabled && IsPreviewEnabled;
 
     public bool CanMutateColumnSampleFromPreview => CanEditColumnSampleSelection && IsColumnSampleEditModeEnabled;
 
@@ -6377,6 +6387,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
                 DeviceId = provenance?.DeviceIdentity ?? capture.DeviceId,
                 ConfigurationIdentity = provenance?.ConfigurationIdentity,
                 CalibrationIdentity = provenance?.CalibrationIdentity,
+                IsComposite = singleActiveIndex < 0,
                 Stage = singleActiveIndex >= 0
                     ? "ScanDebug_CaptureRawStage".GetLocalized()
                     : "Scan_Runtime_PreviewModeRgbComposite".GetLocalized()
@@ -8491,6 +8502,8 @@ public partial class ScanDebugViewModel : ObservableRecipient
                         : capture.Parameters,
                     HasSubmittedParameters = workflowRequest is not null && passIndex >= 0
                         && passIndex < workflowRequest.PassParameterProfiles.Length || capture.HasSubmittedParameters,
+                    IsComposite = workflowRequest is not null && workflowAssignment is not null
+                        && GetSingleActiveRoleIndex(workflowAssignment) < 0,
                     Stage = workflowRequest is null || workflowAssignment is null
                         ? capture.Stage
                         : GetSingleActiveRoleIndex(workflowAssignment) >= 0
@@ -8634,7 +8647,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         sample = 0;
 
-        if (!_hasValidScanBuffer || PreviewFrame is null || _lineBuffer.Length == 0 || !IsPreviewEnabled || IsWaterfallEnabled)
+        if (!IsObservationLive || !_hasValidScanBuffer || PreviewFrame is null || _lineBuffer.Length == 0 || !IsPreviewEnabled || IsWaterfallEnabled)
             return false;
 
         if (x < 0 || y < 0 || x >= PreviewFrame.Width || y >= PreviewFrame.Height)
@@ -9603,7 +9616,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     }
 
     private bool HasCurrentColumnSample()
-        => _columnSampleMean is not null
+        => IsObservationLive && _columnSampleMean is not null
             && PreviewFrame is { } previewFrame
             && _columnSampleFrameVersion == previewFrame.Version
             && _columnSampleMeanRange == _columnSampleRange
@@ -10031,6 +10044,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
         ValidateFilmProfileCommand.NotifyCanExecuteChanged();
         ResetSelectedRoiCommand.NotifyCanExecuteChanged();
         ApplySelectedRoiInputsCommand.NotifyCanExecuteChanged();
+        UseObservationRangeForCalibrationCommand.NotifyCanExecuteChanged();
         ResetAllRoisCommand.NotifyCanExecuteChanged();
         ApplyAdcRoiInputsCommand.NotifyCanExecuteChanged();
         ResetAdcRoiCommand.NotifyCanExecuteChanged();
@@ -12407,6 +12421,7 @@ public partial class ScanDebugViewModel : ObservableRecipient
     {
         await Task.CompletedTask;
         _attachedPageOwner = null;
+        ClearObservationCopies();
         DeactivateRawPage();
         EndStreamingScanPreview(_streamingPreviewSessionVersion);
         DetachRuntimeBindings();

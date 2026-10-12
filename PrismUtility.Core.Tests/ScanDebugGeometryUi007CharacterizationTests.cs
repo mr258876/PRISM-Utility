@@ -69,12 +69,12 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var clearDrag = ExtractMemberBodyAtDeclaration(codeBehind, "private void ClearRoiDragState()");
         var drawAxes = ExtractMemberBodyAtDeclaration(codeBehind, "private void DrawAxes(int imageWidth, int imageHeight)");
 
-        Assert.Contains("if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview) || ViewModel.PreviewFrame is null)", pointerPressed, StringComparison.Ordinal);
-        Assert.Contains("if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.PreviewFrame.Width || point.Position.Y >= ViewModel.PreviewFrame.Height)", pointerPressed, StringComparison.Ordinal);
-        Assert.Contains("Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewFrame.Width - 1, 0))", pointerPressed, StringComparison.Ordinal);
-        Assert.Contains("_isColumnSampleDrag = ViewModel.CanMutateColumnSampleFromPreview;", pointerPressed, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.TryGetColumnSampleRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)", pointerPressed, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview && !ViewModel.CanMutateObservationFromPreview) || ViewModel.ObservationFrame is null)", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.ObservationFrame.Width || point.Position.Y >= ViewModel.ObservationFrame.Height)", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.ObservationFrame.Width - 1, 0))", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("_isColumnSampleDrag = !_isObservationDrag && ViewModel.CanMutateColumnSampleFromPreview;", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetColumnSampleRange(ViewModel.ObservationFrame.Width, out _roiOriginalRange)", pointerPressed, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetSelectedRoiRange(ViewModel.ObservationFrame.Width, out _roiOriginalRange)", pointerPressed, StringComparison.Ordinal);
         Assert.Contains("_isRoiMoveMode = hasRange && x >= _roiOriginalRange.Start && x <= _roiOriginalRange.EndInclusive;", pointerPressed, StringComparison.Ordinal);
 
         Assert.Contains("var x = (int)Math.Floor(point.X);", pointerMoved, StringComparison.Ordinal);
@@ -96,7 +96,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
                 < pointerReleased.IndexOf("PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);", StringComparison.Ordinal),
             "Move-mode release should apply the original-range total delta before resize-mode forwarding can run.");
 
-        Assert.Contains("if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0 || ViewModel.IsObservationSnapshotVisible)", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.Width))", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Width = overlay.Range.Width", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Height = bitmap.Height", drawOverlays, StringComparison.Ordinal);
@@ -167,7 +167,8 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("ApplyRoiDragRangeIfChanged(new ScanColumnRange(_roiDragStartX, x), bitmap.Width);", pointerMoved, StringComparison.Ordinal);
         Assert.Contains("PreviewCanvasControl_PointerMoved(PreviewCanvasControl, e);", pointerReleased, StringComparison.Ordinal);
         Assert.Contains("if (_roiDragHasAppliedRange)", rangeApply, StringComparison.Ordinal);
-        Assert.Contains("ViewModel.TryGetColumnSampleRange(imageWidth, out var currentRange)", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetColumnSampleRange(imageWidth, out currentRange)", rangeApply, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.TryGetObservationRange(imageWidth, out currentRange)", rangeApply, StringComparison.Ordinal);
         Assert.Contains("ViewModel.TryGetSelectedRoiRange(imageWidth, out currentRange)", rangeApply, StringComparison.Ordinal);
         Assert.Contains("currentRangeValid && currentRange == range", rangeApply, StringComparison.Ordinal);
         Assert.Contains("_roiDragHasAppliedRange = true;", rangeApply, StringComparison.Ordinal);
@@ -329,7 +330,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
     public void Ui007_RoiLayout_SourceOnly_EditorsWrapActionsAndKeepTechnicalPathsSecondary()
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
-        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard");
+        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "ColumnSampleGroupTitle");
         var reference = ExtractNamedRegion(xaml, "ImageReferenceRoiEditorCard", "ChannelCalibrationIlluminationCard");
         var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander");
         var referenceColumnSampleTextBoxIndex = reference.IndexOf("ReferenceColumnSampleStartTextBox", StringComparison.Ordinal);
@@ -395,7 +396,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
     public void Ui007_SourceOnly_RoiEditorsBindOwnerDraftsWithoutUsingPreviewNumericInputs()
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
-        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard");
+        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "ColumnSampleGroupTitle");
         var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander");
         var english = ReadHostSource("PRISM Utility", "Strings", "en-us", "Resources.resw");
         var chinese = ReadHostSource("PRISM Utility", "Strings", "zh-CN", "Resources.resw");
@@ -548,7 +549,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("ViewModel.CalibrationPromptRequested -= OnCalibrationPromptRequested;", unsubscribe, StringComparison.Ordinal);
         Assert.Contains("ViewModel.NoticeRequested -= OnNoticeRequested;", unsubscribe, StringComparison.Ordinal);
 
-        Assert.Contains("nameof(ScanDebugViewModel.PreviewFrame)", propertyChanged, StringComparison.Ordinal);
+        Assert.Contains("nameof(ScanDebugViewModel.ObservationFrame)", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("RefreshPreviewLayout();", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("PreviewCanvasControl.Invalidate();", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("nameof(ScanDebugViewModel.RoiOverlayVersion)", propertyChanged, StringComparison.Ordinal);

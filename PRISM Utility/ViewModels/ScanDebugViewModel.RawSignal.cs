@@ -36,25 +36,44 @@ public partial class ScanDebugViewModel
     public ScanRawSignalResult? RawSignalResult
     {
         get => _rawSignalResult;
-        private set => SetProperty(ref _rawSignalResult, value);
+        private set
+        {
+            if (SetProperty(ref _rawSignalResult, value))
+            {
+                OnPropertyChanged(nameof(ObservationRawSignalResult));
+                OnPropertyChanged(nameof(ObservationRawContextText));
+            }
+        }
     }
 
     public string RawSignalStatusText
     {
         get => _rawSignalStatusText;
-        private set => SetProperty(ref _rawSignalStatusText, value);
+        private set
+        {
+            if (SetProperty(ref _rawSignalStatusText, value))
+                OnPropertyChanged(nameof(ObservationRawStatusText));
+        }
     }
 
     public string RawSignalSourceText
     {
         get => _rawSignalSourceText;
-        private set => SetProperty(ref _rawSignalSourceText, value);
+        private set
+        {
+            if (SetProperty(ref _rawSignalSourceText, value))
+                OnPropertyChanged(nameof(ObservationRawSourceText));
+        }
     }
 
     public string RawSignalStatisticsText
     {
         get => _rawSignalStatisticsText;
-        private set => SetProperty(ref _rawSignalStatisticsText, value);
+        private set
+        {
+            if (SetProperty(ref _rawSignalStatisticsText, value))
+                OnPropertyChanged(nameof(ObservationRawStatisticsText));
+        }
     }
 
     public string RawSignalRowInput
@@ -65,6 +84,7 @@ public partial class ScanDebugViewModel
             if (!SetProperty(ref _rawRowInput, value))
                 return;
             _rawRowIsAutomatic = false;
+            OnPropertyChanged(nameof(ObservationRawRowInput));
             RefreshRawSignal();
         }
     }
@@ -213,12 +233,13 @@ public partial class ScanDebugViewModel
     {
         var text = row.ToString(CultureInfo.InvariantCulture);
         SetProperty(ref _rawRowInput, text, nameof(RawSignalRowInput));
+        OnPropertyChanged(nameof(ObservationRawRowInput));
     }
 
     private void RefreshRawRoiIfChanged()
     {
         var width = _imageDecoder.GetDecodedPixelsPerLine();
-        var columns = TryGetSelectedRoiRange(width, out var selected) ? selected.Clamp(width) : null;
+        var columns = TryGetObservationRange(width, out var selected) ? selected.Clamp(width) : null;
         if (Equals(columns, _rawLastColumns))
             return;
         _rawLastColumns = columns;
@@ -245,7 +266,7 @@ public partial class ScanDebugViewModel
             RawSignalStatusText = "ScanDebug_RawSignalInvalidRow".GetLocalized();
             return;
         }
-        if (!TryGetSelectedRoiRange(_imageDecoder.GetDecodedPixelsPerLine(), out var selectedRange))
+        if (!TryGetObservationRange(_imageDecoder.GetDecodedPixelsPerLine(), out var selectedRange))
         {
             RawSignalStatusText = "ScanDebug_RawSignalInvalidRoi".GetLocalized();
             return;

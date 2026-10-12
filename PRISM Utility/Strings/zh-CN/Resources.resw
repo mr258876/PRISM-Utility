@@ -941,7 +941,7 @@
     <value>校准通道</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>将通道校准保存到校准库</value>
+    <value>保存当前通道档案</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
     <value>从校准库移除通道校准</value>
@@ -4468,7 +4468,7 @@
   <data name="ScanDebug_WorkbenchInspectionCaptureSourceLabel.Text" xml:space="preserve"><value>采集数据来源</value></data>
   <data name="ScanDebug_WorkbenchInspectionDeviceEvidenceLabel.Text" xml:space="preserve"><value>设备状态依据</value></data>
   <data name="ScanDebug_WorkbenchInspectionCaptureComparisonLabel.Text" xml:space="preserve"><value>采集 / 设备 / 草稿对比</value></data>
-  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>预览选区</value></data>
+  <data name="ScanDebug_WorkbenchInspectionRoiTitle.Text" xml:space="preserve"><value>当前算法范围草稿</value></data>
   <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>列采样</value></data>
   <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
   <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>审查状态</value></data>
@@ -4568,4 +4568,43 @@
   <data name="ScanDebug_RawSignalSource" xml:space="preserve"><value>采集 {0}；通道遍次索引 {1}（-1 表示单次采集）；逻辑通道 {2}；结果版本 {3}；剖面行号 {4}；列 ROI {5}-{6}（含端点）；已完成 {7} 行。数据为显示处理前的设备样本。</value></data>
   <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [原始遍次坐标，非合成图像像素坐标。]</value></data>
   <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>样本数 N={0}；最小值={1} ADU；最大值={2} ADU；均值={3:F2} ADU；饱和样本={4}/{0}（阈值 65535 ADU）。</value></data>
-  </root>
+    <data name="ScanDebug_ObservationLive" xml:space="preserve"><value>实时观察</value></data>
+  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>已冻结显示 · 采集不受影响</value></data>
+  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>正在查看基线 A · 采集不受影响</value></data>
+  <data name="ScanDebug_FreezeObservation" xml:space="preserve"><value>冻结显示</value></data>
+  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>恢复实时显示</value></data>
+  <data name="ScanDebug_ShowCurrentObservation" xml:space="preserve"><value>查看当前样本</value></data>
+  <data name="ScanDebug_ShowBaselineObservation" xml:space="preserve"><value>查看基线 A</value></data>
+  <data name="ScanDebug_SetObservationBaselineButton.Content" xml:space="preserve"><value>设为基线 A</value></data>
+  <data name="ScanDebug_SetObservationBaselineButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>复制当前显示及其来源，替换唯一的基线 A。</value></data>
+  <data name="ScanDebug_ClearObservationBaselineButton.Content" xml:space="preserve"><value>清除基线</value></data>
+  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>样本 {0} · 通道 {1} · LED 索引 {2} · 已采 {3} 行 · {4}</value></data>
+  <data name="ScanDebug_ObservationSourceUnknown" xml:space="preserve"><value>尚无可信采样来源；图像不能证明当前参数已验证。</value></data>
+  <data name="ScanDebug_ObservationChannelMismatch" xml:space="preserve"><value>画面来自 {0}，正在编辑 {1}。重新采样后再验证当前通道。</value></data>
+  <data name="ScanDebug_ObservationParametersChanged" xml:space="preserve"><value>设备参数写入记录已变化；这张画面仍来自旧采样，请重新采样验证。</value></data>
+  <data name="ScanDebug_ObservationBaselineEmpty" xml:space="preserve"><value>尚未设置基线 A。冻结和基线只影响显示。</value></data>
+  <data name="ScanDebug_ObservationBaselineSummary" xml:space="preserve"><value>基线 A：样本 {0} · 图像来源 {1} · RAW {3} 均值 {2} ADU；按各自来源比较。</value></data>
+  <data name="ScanDebug_ObservationCopyUnavailable" xml:space="preserve"><value>无法复制此画面：缺少有效图像或显示缓冲超过 64 MiB。采集未停止。</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>将当前通道参数、ROI 和已应用参考值保存到本地校准库。</value></data>
+  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>管理档案</value></data>
+  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>保存到本地校准库；配置 JSON 通过顶部文件操作另行保存。</value></data>
+  <data name="ScanDebug_ReviewCalibrationCandidateButton.Content" xml:space="preserve"><value>查看校准候选</value></data>
+  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>应用到当前胶片配置草稿，不写 ADC；下方档案保存和顶部 JSON 保存各自独立。</value></data>
+  <data name="ScanDebug_ObservationSelectionSummary" xml:space="preserve"><value>观察选区：RAW 列 {0}–{1}（含端点）。独立于黑白场和对焦范围。</value></data>
+  <data name="ScanDebug_ObservationSelectionInvalid" xml:space="preserve"><value>观察选区无效：请输入解码范围内的整数列，起点不大于终点。</value></data>
+  <data name="ScanDebug_ObservationSelectionCopied" xml:space="preserve"><value>已填入 {0} 的输入框，请在对应编辑区应用；配置与设备参数尚未改变。</value></data>
+  <data name="ScanDebug_ObservationSelectionExpander.Header" xml:space="preserve"><value>观察选区（仅 RAW 测量）</value></data>
+  <data name="ScanDebug_ObservationStartInput.Header" xml:space="preserve"><value>起始列</value></data>
+  <data name="ScanDebug_ObservationEndInput.Header" xml:space="preserve"><value>结束列（含）</value></data>
+  <data name="ScanDebug_ObservationSelectionToggle.Header" xml:space="preserve"><value>在单通道图像上拖选观察范围</value></data>
+  <data name="ScanDebug_ObservationUseRangeButton.Content" xml:space="preserve"><value>用于算法 ROI…</value></data>
+  <data name="ScanDebug_ObservationCopyTarget.Header" xml:space="preserve"><value>目标范围</value></data>
+  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>仅填入所选算法范围的输入框；点击该范围的“应用”后才改配置草稿。不写 ADC，不启动对焦。</value></data>
+  <data name="ScanDebug_ObservationCopyRangeButton.Content" xml:space="preserve"><value>填入目标范围输入</value></data>
+  <data name="ScanDebug_ObservationInvertToggle.Header" xml:space="preserve"><value>显示反相（不改变 RAW）</value></data>
+  <data name="ScanDebug_ObservationRawContext" xml:space="preserve"><value>RAW 测量：{0} · 第 {1} 行 · 列 {2}–{3}；不是显示像素值。</value></data>
+  <data name="ScanDebug_ObservationSelectionSnapshot" xml:space="preserve"><value>快照选区：RAW 列 {0}–{1}。恢复当前显示后可编辑。</value></data>
+  <data name="ScanDebug_ObservationDisplaySettingsScope.Text" xml:space="preserve"><value>Gamma 和白点设置用于实时画面；冻结与基线保留创建时的显示像素。显示反相可单独切换。</value></data>
+  <data name="ScanDebug_ObservationCompositeRole" xml:space="preserve"><value>参考遍次 {0}（合成图）</value></data>
+  <data name="ScanDebug_ObservationCompositeComparison" xml:space="preserve"><value>这是一幅通道合成图；RAW 测量来自独立通道与原始遍次坐标，请按各自来源验证。</value></data>
+</root>

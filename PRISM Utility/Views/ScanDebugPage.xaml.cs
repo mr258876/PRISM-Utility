@@ -168,6 +168,11 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         AcquisitionTransportDetailsExpander.Visibility = ToVisibility(ViewModel.IsScanMotorTransportEnabled);
     }
 
+    private void BwReviewCandidateButton_Click(object sender, RoutedEventArgs e)
+    {
+        PendingCalibrationCandidateReviewCard.StartBringIntoView();
+    }
+
     private void ArrangeBlackWhiteTaskControls()
     {
         ChannelCalibrationTaskStack.Children.Remove(ChannelCalibrationIlluminationCard);
@@ -279,7 +284,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             return;
 
         var useSingleScroll = availableHeight < Math.Max(320,
-            ChannelCalibrationIdentityHeader.ActualHeight + BwRoiSummary.ActualHeight + 144);
+            ChannelCalibrationIdentityHeader.ActualHeight + BwRoiSummary.ActualHeight + ChannelCalibrationSaveFooter.ActualHeight + 144);
         if (_bwCompactMode == useSingleScroll)
             return;
 
@@ -436,7 +441,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void UpdateRawSignalResultSurface()
     {
-        var result = ViewModel.RawSignalResult;
+        var result = ViewModel.ObservationRawSignalResult;
         var hasResult = result is not null;
         RawSignalResultDetails.Visibility = ToVisibility(hasResult);
         RawSignalInspectionDetails.Visibility = ToVisibility(hasResult
@@ -938,7 +943,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             ? WorkbenchTaskComboBox : WorkbenchTaskSelectorBar.SelectedItem!;
 
     private bool HasValidPreviewFrame()
-        => ViewModel.PreviewFrame is { Width: > 0, Height: > 0 };
+        => ViewModel.ObservationFrame is { Width: > 0, Height: > 0 };
 
     private static Visibility ToVisibility(bool isVisible)
         => isVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -1641,7 +1646,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void RawSignalCanvasControl_Draw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        var result = ViewModel.RawSignalResult;
+        var result = ViewModel.ObservationRawSignalResult;
         if (result is null || RawSignalProfileScrollViewer.Visibility != Visibility.Visible)
             return;
 
@@ -1742,12 +1747,20 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void PreviewCanvasControl_Draw(CanvasControl sender, CanvasDrawEventArgs args)
     {
-        var frame = ViewModel.PreviewFrame;
+        var frame = ViewModel.ObservationFrame;
         if (frame is null || !EnsurePreviewBitmap(sender, frame))
             return;
 
-        args.DrawingSession.DrawImage(_previewBitmap);
+        if (ViewModel.IsObservationInverted)
+        {
+            using var effect = new Microsoft.Graphics.Canvas.Effects.InvertEffect { Source = _previewBitmap };
+            args.DrawingSession.DrawImage(effect);
+        }
+        else
+            args.DrawingSession.DrawImage(_previewBitmap);
     }
+
+    private ScanPreviewFrame? _previewBitmapFrame;
 
     private bool EnsurePreviewBitmap(CanvasControl resourceCreator, ScanPreviewFrame frame)
     {
@@ -1755,6 +1768,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             return false;
 
         if (_previewBitmap is not null
+            && ReferenceEquals(_previewBitmapFrame, frame)
             && _previewBitmapVersion == frame.Version
             && _previewBitmapWidth == frame.Width
             && _previewBitmapHeight == frame.Height)
@@ -1765,6 +1779,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         DisposePreviewBitmap();
         var pixels = GetCanvasPixels(frame);
         _previewBitmap = CanvasBitmap.CreateFromBytes(resourceCreator, pixels, frame.Width, frame.Height, DirectXPixelFormat.B8G8R8A8UIntNormalized, 96, CanvasAlphaMode.Premultiplied);
+        _previewBitmapFrame = frame;
         _previewBitmapVersion = frame.Version;
         _previewBitmapWidth = frame.Width;
         _previewBitmapHeight = frame.Height;
@@ -1788,6 +1803,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         _previewBitmap?.Dispose();
         _previewBitmap = null;
+        _previewBitmapFrame = null;
         _previewBitmapVersion = -1;
         _previewBitmapWidth = -1;
         _previewBitmapHeight = -1;
@@ -1941,14 +1957,29 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
             CancelIssueTargetFocus();
         }
 
-        if (e.PropertyName == nameof(ScanDebugViewModel.PreviewFrame))
+        if (e.PropertyName == nameof(ScanDebugViewModel.IsObservationInverted))
+            EnqueueForCurrentActivation(() => PreviewCanvasControl.Invalidate());
+
+        if (e.PropertyName == nameof(ScanDebugViewModel.IsObservationSelectionEnabled)
+            || e.PropertyName == nameof(ScanDebugViewModel.ObservationStartInput)
+            || e.PropertyName == nameof(ScanDebugViewModel.ObservationEndInput))
+            EnqueueForCurrentActivation(DrawRoiOverlays);
+
+        if (e.PropertyName == nameof(ScanDebugViewModel.IsObservationSnapshotVisible))
+            EnqueueForCurrentActivation(() =>
+            {
+                CancelPreviewVisualInteraction();
+                DrawRoiOverlays();
+            });
+
+        if (e.PropertyName == nameof(ScanDebugViewModel.ObservationFrame))
             EnqueueForCurrentActivation(() =>
             {
                 RefreshPreviewLayout();
                 PreviewCanvasControl.Invalidate();
             });
 
-        if (e.PropertyName == nameof(ScanDebugViewModel.RawSignalResult))
+        if (e.PropertyName == nameof(ScanDebugViewModel.ObservationRawSignalResult))
             EnqueueForCurrentActivation(UpdateRawSignalResultSurface);
 
         if (e.PropertyName == nameof(ScanDebugViewModel.RoiOverlayVersion)
@@ -1975,7 +2006,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         UpdateWorkbenchPreviewLayout();
         UpdatePreviewEmptyStateVisibility();
-        var frame = ViewModel.PreviewFrame;
+        var frame = ViewModel.ObservationFrame;
         if (frame is null || frame.Width <= 0 || frame.Height <= 0)
         {
             PreviewCanvasControl.Width = 0;
@@ -2025,7 +2056,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void UpdatePreviewEmptyStateVisibility()
     {
-        var hasPreviewFrame = ViewModel.PreviewFrame is { Width: > 0, Height: > 0 };
+        var hasPreviewFrame = ViewModel.ObservationFrame is { Width: > 0, Height: > 0 };
         CursorReadoutBorder.Visibility = ToVisibility(hasPreviewFrame
             && !ReferenceEquals(RawSignalModeSelector.SelectedItem, RawSignalProfileModeItem));
         PreviewEmptyStateGrid.Visibility = hasPreviewFrame || ReferenceEquals(RawSignalModeSelector.SelectedItem, RawSignalProfileModeItem)
@@ -2073,7 +2104,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 
     private void PreviewScrollViewer_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
-        if (ViewModel.PreviewFrame is null)
+        if (ViewModel.ObservationFrame is null)
             return;
 
         var wheelDelta = e.GetCurrentPoint(PreviewScrollViewer).Properties.MouseWheelDelta;
@@ -2090,7 +2121,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 #if PRISM_VISUAL_QA
         _visualQaPreviewScrollPressedCount++;
 #endif
-        if (ViewModel.PreviewFrame is null)
+        if (ViewModel.ObservationFrame is null)
             return;
 
         PreviewCanvasControl_PointerPressed(PreviewCanvasControl, e);
@@ -2306,12 +2337,14 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         PreviewScrollViewer.ReleasePointerCapture(e.Pointer);
     }
 
+    private bool _isObservationDrag;
+
     private void PreviewCanvasControl_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
 #if PRISM_VISUAL_QA
         _visualQaPreviewCanvasPressedCount++;
 #endif
-        if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview) || ViewModel.PreviewFrame is null)
+        if ((!ViewModel.CanMutateRoiFromPreview && !ViewModel.CanMutateColumnSampleFromPreview && !ViewModel.CanMutateObservationFromPreview) || ViewModel.ObservationFrame is null)
             return;
 
         var point = e.GetCurrentPoint(PreviewCanvasControl);
@@ -2321,22 +2354,25 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!point.Properties.IsLeftButtonPressed)
             return;
 
-        if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.PreviewFrame.Width || point.Position.Y >= ViewModel.PreviewFrame.Height)
+        if (point.Position.X < 0 || point.Position.Y < 0 || point.Position.X >= ViewModel.ObservationFrame.Width || point.Position.Y >= ViewModel.ObservationFrame.Height)
             return;
 
-        var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.PreviewFrame.Width - 1, 0));
+        var x = Math.Clamp((int)Math.Floor(point.Position.X), 0, Math.Max(ViewModel.ObservationFrame.Width - 1, 0));
         _isRoiDragging = true;
-        _isColumnSampleDrag = ViewModel.CanMutateColumnSampleFromPreview;
+        _isObservationDrag = ViewModel.CanMutateObservationFromPreview;
+        _isColumnSampleDrag = !_isObservationDrag && ViewModel.CanMutateColumnSampleFromPreview;
         _activeRoiPointerId = point.PointerId;
         _roiDragStartX = x;
-        _roiDragImageWidth = ViewModel.PreviewFrame.Width;
-        _roiDragFrameVersion = ViewModel.PreviewFrame.Version;
+        _roiDragImageWidth = ViewModel.ObservationFrame.Width;
+        _roiDragFrameVersion = ViewModel.ObservationFrame.Version;
         _roiDragSelection = ViewModel.SelectedRoiSelection;
         _roiDragCalibrationChannel = ViewModel.SelectedCalibrationChannel;
         _roiDragHasAppliedRange = false;
-        var hasRange = _isColumnSampleDrag
-            ? ViewModel.TryGetColumnSampleRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange)
-            : ViewModel.TryGetSelectedRoiRange(ViewModel.PreviewFrame.Width, out _roiOriginalRange);
+        var hasRange = _isObservationDrag
+            ? ViewModel.TryGetObservationRange(ViewModel.ObservationFrame.Width, out _roiOriginalRange)
+            : _isColumnSampleDrag
+            ? ViewModel.TryGetColumnSampleRange(ViewModel.ObservationFrame.Width, out _roiOriginalRange)
+            : ViewModel.TryGetSelectedRoiRange(ViewModel.ObservationFrame.Width, out _roiOriginalRange);
         _isRoiMoveMode = hasRange && x >= _roiOriginalRange.Start && x <= _roiOriginalRange.EndInclusive;
         PreviewCanvasControl.CapturePointer(e.Pointer);
         e.Handled = true;
@@ -2347,7 +2383,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
 #if PRISM_VISUAL_QA
         _visualQaPreviewCanvasMovedCount++;
 #endif
-        var bitmap = ViewModel.PreviewFrame;
+        var bitmap = ViewModel.ObservationFrame;
         if (bitmap is null)
             return;
 
@@ -2373,7 +2409,8 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (!_isRoiDragging)
             return;
 
-        if (_isColumnSampleDrag ? !ViewModel.CanMutateColumnSampleFromPreview : !ViewModel.CanMutateRoiFromPreview)
+        if (_isObservationDrag ? !ViewModel.CanMutateObservationFromPreview
+            : _isColumnSampleDrag ? !ViewModel.CanMutateColumnSampleFromPreview : !ViewModel.CanMutateRoiFromPreview)
         {
             EndRoiDrag(e);
             return;
@@ -2409,7 +2446,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         if (point.PointerId != _activeRoiPointerId)
             return;
 
-        var bitmap = ViewModel.PreviewFrame;
+        var bitmap = ViewModel.ObservationFrame;
         if (bitmap is not null)
         {
             var x = (int)Math.Floor(point.Position.X);
@@ -2472,6 +2509,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         _isRoiDragging = false;
         _isColumnSampleDrag = false;
+        _isObservationDrag = false;
         _isRoiMoveMode = false;
         _activeRoiPointerId = 0;
         _roiDragStartX = 0;
@@ -2502,15 +2540,20 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         if (_roiDragHasAppliedRange)
         {
-            var currentRangeValid = _isColumnSampleDrag
-                ? ViewModel.TryGetColumnSampleRange(imageWidth, out var currentRange)
+            ScanColumnRange currentRange;
+            var currentRangeValid = _isObservationDrag
+                ? ViewModel.TryGetObservationRange(imageWidth, out currentRange)
+                : _isColumnSampleDrag
+                ? ViewModel.TryGetColumnSampleRange(imageWidth, out currentRange)
                 : ViewModel.TryGetSelectedRoiRange(imageWidth, out currentRange);
             if (currentRangeValid && currentRange == range)
                 return;
         }
 
         _roiDragHasAppliedRange = true;
-        if (_isColumnSampleDrag)
+        if (_isObservationDrag)
+            ViewModel.UpdateObservationRange(range.Start, range.EndInclusive, imageWidth);
+        else if (_isColumnSampleDrag)
             ViewModel.UpdateColumnSampleRange(range.Start, range.EndInclusive, imageWidth);
         else
             ViewModel.UpdateSelectedRoiRange(range.Start, range.EndInclusive, imageWidth);
@@ -2520,7 +2563,7 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
         => bitmap.Width == _roiDragImageWidth
             && bitmap.Version == _roiDragFrameVersion
             && string.Equals(ViewModel.SelectedCalibrationChannel, _roiDragCalibrationChannel, StringComparison.Ordinal)
-            && (_isColumnSampleDrag || string.Equals(ViewModel.SelectedRoiSelection, _roiDragSelection, StringComparison.Ordinal));
+            && (_isObservationDrag || _isColumnSampleDrag || string.Equals(ViewModel.SelectedRoiSelection, _roiDragSelection, StringComparison.Ordinal));
 
     private void EndRoiDragOrPanForPointer(PointerRoutedEventArgs e)
     {
@@ -2592,9 +2635,21 @@ public sealed partial class ScanDebugPage : Page, IPageViewModelHost<ScanDebugVi
     {
         RoiCanvas.Children.Clear();
 
-        var bitmap = ViewModel.PreviewFrame;
-        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+        var bitmap = ViewModel.ObservationFrame;
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0 || ViewModel.IsObservationSnapshotVisible)
             return;
+
+        if (ViewModel.IsObservationSelectionEnabled && ViewModel.TryGetObservationRange(bitmap.Width, out var observationRange))
+        {
+            var selection = new Rectangle
+            {
+                Width = observationRange.Width, Height = bitmap.Height,
+                Stroke = RawSignalHistogramSwatch.Foreground, StrokeThickness = 2
+            };
+            Canvas.SetLeft(selection, AxisMarginLeft + observationRange.Start);
+            Canvas.SetTop(selection, AxisMarginTop);
+            RoiCanvas.Children.Add(selection);
+        }
 
         var labels = new List<(TextBlock Element, double AnchorX, bool IsSelected, bool IsBottomAnchored)>();
 

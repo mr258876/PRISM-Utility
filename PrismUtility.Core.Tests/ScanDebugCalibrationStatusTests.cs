@@ -1227,6 +1227,91 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task Observation_FreezeAndBaselineKeepCopiesWhileLiveFramesAdvance()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.ViewModel.IsPreviewEnabled = true;
+        byte[] pixels = [1, 2, 3, 255];
+        harness.ViewModel.PreviewFrame = new(pixels, 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+        harness.ViewModel.ToggleObservationFreezeCommand.Execute(null);
+        pixels[0] = 99;
+        var next = new ScanPreviewFrame([7, 8, 9, 255], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 2);
+        harness.ViewModel.PreviewFrame = next;
+        Assert.True(harness.ViewModel.IsObservationSnapshotVisible);
+        Assert.Equal(1, harness.ViewModel.ObservationFrame!.Pixels[0]);
+        Assert.False(harness.ViewModel.TryGetPreviewSample16(0, 0, out _));
+        Assert.False(harness.ViewModel.CanMutateRoiFromPreview);
+        Assert.False(harness.ViewModel.CanMutateColumnSampleFromPreview);
+        Assert.Null(harness.ViewModel.ObservationRawSignalResult);
+
+        harness.ViewModel.SetObservationBaselineCommand.Execute(null);
+        harness.ViewModel.ToggleObservationFreezeCommand.Execute(null);
+        Assert.Same(next, harness.ViewModel.ObservationFrame);
+        harness.ViewModel.ToggleObservationBaselineCommand.Execute(null);
+        Assert.Equal(1, harness.ViewModel.ObservationFrame!.Pixels[0]);
+        harness.ViewModel.ClearObservationBaselineCommand.Execute(null);
+        Assert.Same(next, harness.ViewModel.ObservationFrame);
+        Assert.False(harness.ViewModel.HasObservationBaseline);
+    }
+
+    [Fact]
+    public async Task Observation_GammaEditingTracksGammaAndDisplayModeChanges()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var vm = harness.ViewModel;
+        vm.IsGammaCorrectionEnabled = false;
+        var notifications = 0;
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(vm.CanEditObservationGamma))
+                notifications++;
+        };
+        Assert.False(vm.CanEditObservationGamma);
+        // Gamma changes must notify bindings even before a valid scan buffer exists.
+        vm.IsGammaCorrectionEnabled = true;
+        Assert.True(vm.CanEditObservationGamma);
+        Assert.Equal(1, notifications);
+        vm.PreviewFrame = new([1, 2, 3, 255], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+
+        void ChangeDisplayMode(Action action, bool expectedEnabled)
+        {
+            var previousNotifications = notifications;
+            action();
+            Assert.Equal(expectedEnabled, vm.CanEditObservationGamma);
+            Assert.True(notifications > previousNotifications);
+        }
+
+        ChangeDisplayMode(() => vm.ToggleObservationFreezeCommand.Execute(null), false);
+        vm.SetObservationBaselineCommand.Execute(null);
+        ChangeDisplayMode(() => vm.ToggleObservationFreezeCommand.Execute(null), true);
+        ChangeDisplayMode(() => vm.ToggleObservationBaselineCommand.Execute(null), false);
+        ChangeDisplayMode(() => vm.ClearObservationBaselineCommand.Execute(null), true);
+        vm.IsGammaCorrectionEnabled = false;
+        Assert.False(vm.CanEditObservationGamma);
+    }
+
+    [Fact]
+    public async Task Observation_RangeEditsDoNotMutateAlgorithmRoiAndSnapshotsAreReleasedOnDeactivation()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var roi = ReadPrivateField<ScanCalibrationRoiSettings>(harness.ViewModel, "_roiSettings");
+        harness.ViewModel.ObservationStartInput = "17";
+        harness.ViewModel.ObservationEndInput = "23";
+        Assert.True(harness.ViewModel.TryGetObservationRange(100, out var range));
+        Assert.Equal(new ScanColumnRange(17, 23), range);
+        Assert.Equal(roi, ReadPrivateField<ScanCalibrationRoiSettings>(harness.ViewModel, "_roiSettings"));
+        harness.ViewModel.ObservationStartInput = "24";
+        Assert.False(harness.ViewModel.TryGetObservationRange(100, out _));
+        harness.ViewModel.PreviewFrame = new([1, 2, 3, 255], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+        harness.ViewModel.SetObservationBaselineCommand.Execute(null);
+        harness.ViewModel.ToggleObservationFreezeCommand.Execute(null);
+        await harness.ViewModel.DeactivateAsync();
+        Assert.False(harness.ViewModel.HasObservationBaseline);
+        Assert.False(harness.ViewModel.IsObservationSnapshotVisible);
+        Assert.Null(harness.ViewModel.ObservationFrame);
+    }
+
+    [Fact]
     public async Task RawSignal_WhenNoCaptureExists_InitialChannelSelectionReportsNoSample()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true);

@@ -9,6 +9,10 @@ public sealed class FilmProfileSourceContractTests
 {
     private static readonly string[] ExpectedNamedElements =
     [
+        "ChannelCalibrationSaveFooter",
+        "PendingCalibrationCandidateReviewCard",
+        "ObservationContextPanel",
+        "FreezeObservationButton",
         "CurrentCalibrationIlluminationEditorGrid",
         "CurrentCalibrationIlluminationLevelTextBox",
         "CurrentCalibrationIlluminationPulseClockTextBox",
@@ -277,6 +281,11 @@ public sealed class FilmProfileSourceContractTests
             ["SaveFocusMappingCommand"] = 1,
             ["TestLeftFocusMappingCommand"] = 1,
             ["TestRightFocusMappingCommand"] = 1,
+            ["ToggleObservationFreezeCommand"] = 1,
+            ["SetObservationBaselineCommand"] = 1,
+            ["ToggleObservationBaselineCommand"] = 1,
+            ["ClearObservationBaselineCommand"] = 1,
+            ["UseObservationRangeForCalibrationCommand"] = 1,
             ["QuickFocusCommand"] = 1,
             ["FineFocusCommand"] = 1,
             ["StopAllFocusCommand"] = 1,
@@ -339,7 +348,8 @@ public sealed class FilmProfileSourceContractTests
             ["Click=BwReturnToParametersButton_Click"] = 1,
             ["Click=BwIssueButton_Click"] = 1,
             ["Click=BwConfigureChannelButton_Click"] = 1,
-            ["Click=BwOpenChannelDetailsButton_Click"] = 1,
+            ["Click=BwOpenChannelDetailsButton_Click"] = 2,
+            ["Click=BwReviewCandidateButton_Click"] = 1,
             ["SelectionChanged=CalibrationChannelFallbackComboBox_SelectionChanged"] = 1,
             ["SizeChanged=BwAutoActionGrid_SizeChanged"] = 1,
             ["SizeChanged=ChannelCalibrationSection_SizeChanged"] = 1,
@@ -1131,7 +1141,7 @@ public sealed class FilmProfileSourceContractTests
         Assert.Equal("ChannelCalibrationSection_Loaded", (string?)channel.Attribute("Loaded"));
         Assert.Equal("ChannelCalibrationSection_SizeChanged", (string?)channel.Attribute("SizeChanged"));
         Assert.Contains(rail, channel.Descendants());
-        Assert.Equal(["Auto", "*", "Auto"], rail.Elements().Single(element => element.Name.LocalName == "Grid.RowDefinitions")
+        Assert.Equal(["Auto", "*", "Auto", "Auto"], rail.Elements().Single(element => element.Name.LocalName == "Grid.RowDefinitions")
             .Elements().Select(element => (string?)element.Attribute("Height")));
         Assert.Same(rail, identity.Parent);
         Assert.Contains(Named("CalibrationChannelFallbackComboBox"), identity.Descendants());
@@ -1602,7 +1612,7 @@ public sealed class FilmProfileSourceContractTests
 
         Assert.Contains(comparison, inspection.Descendants());
         Assert.DoesNotContain(comparison, evidence.Descendants());
-        Assert.Equal("{x:Bind ViewModel.CaptureComparisonText, Mode=OneWay}", (string?)comparison.Attribute("Text"));
+        Assert.Equal("{x:Bind ViewModel.ObservationComparisonText, Mode=OneWay}", (string?)comparison.Attribute("Text"));
         Assert.Equal((string?)comparison.Attribute("Text"), (string?)comparison.Attribute("AutomationProperties.Name"));
         Assert.Equal("WrapWholeWords", (string?)comparison.Attribute("TextWrapping"));
         Assert.Null(comparison.Attribute("MaxLines"));
@@ -2456,6 +2466,22 @@ public sealed class FilmProfileSourceContractTests
         Assert.Contains("ConfigureLocalFlyoutBounds(PreviewDisplayToolsFlyout, PreviewDisplayToolsScrollViewer, PreviewDisplayToolsContent);", codeBehind, StringComparison.Ordinal);
         Assert.Contains("ConfigureLocalFlyoutBounds(OverlayToolsFlyout, OverlayToolsScrollViewer, OverlayToolsContent);", codeBehind, StringComparison.Ordinal);
         Assert.Contains("const double targetFlyoutWidth = 420;", codeBehind, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ObservationDisplayTools_GammaEnablementIsOwnedByControls()
+    {
+        var page = XDocument.Parse(ReadAppSource("Views", "ScanDebugPage.xaml"));
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var elements = page.Descendants().ToArray();
+        Assert.All(elements.Where(element => element.Name.LocalName is "StackPanel" or "Grid" or "Border" or "RelativePanel"),
+            element => Assert.Null(element.Attribute("IsEnabled")));
+        var toggle = elements.Single(element => (string?)element.Attribute(x + "Name") == "PreviewGammaToggleSwitch");
+        var input = elements.Single(element => (string?)element.Attribute(x + "Name") == "PreviewGammaTextBox");
+        Assert.Equal("ToggleSwitch", toggle.Name.LocalName);
+        Assert.Equal("TextBox", input.Name.LocalName);
+        Assert.Equal("{x:Bind ViewModel.IsObservationLive, Mode=OneWay}", (string?)toggle.Attribute("IsEnabled"));
+        Assert.Equal("{x:Bind ViewModel.CanEditObservationGamma, Mode=OneWay}", (string?)input.Attribute("IsEnabled"));
     }
 
     [Fact]
