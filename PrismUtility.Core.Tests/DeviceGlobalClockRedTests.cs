@@ -230,7 +230,8 @@ public sealed class DeviceGlobalClockRedTests
         Assert.DoesNotContain("System clock:", serviceSource, StringComparison.Ordinal);
         Assert.Contains("SysClockMhzDisplay = LocalizeSysClockMhzDisplay(displays.SysClockMhzDisplay);", viewModelSource, StringComparison.Ordinal);
         Assert.Contains("private static string LocalizeSysClockMhzDisplay(string sysClockPayload)", viewModelSource, StringComparison.Ordinal);
-        Assert.Contains("ScanDebug_Runtime_SystemClockFormat", viewModelSource, StringComparison.Ordinal);
+        Assert.Contains("ScanDebug_Runtime_ClockDraftFormat", viewModelSource, StringComparison.Ordinal);
+        Assert.Contains("ScanDebug_Runtime_DeviceClockFormat", viewModelSource, StringComparison.Ordinal);
         Assert.Contains("name=\"ScanDebug_Runtime_SystemClockFormat\"", englishResources, StringComparison.Ordinal);
         Assert.Contains("<value>System clock: {0}</value>", englishResources, StringComparison.Ordinal);
         Assert.Contains("name=\"ScanDebug_Runtime_SystemClockFormat\"", chineseResources, StringComparison.Ordinal);

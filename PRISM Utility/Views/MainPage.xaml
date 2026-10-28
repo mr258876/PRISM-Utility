@@ -4,108 +4,109 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:behaviors="using:PRISM_Utility.Behaviors"
+    behaviors:NavigationViewHeaderBehavior.HeaderMode="Never"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style x:Key="MainWorkflowCardStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+    </Page.Resources>
 
     <ScrollViewer
         VerticalScrollBarVisibility="Auto"
         VerticalScrollMode="Auto"
         HorizontalScrollBarVisibility="Disabled"
-        HorizontalScrollMode="Disabled">
-        <StackPanel
-            x:Name="ContentArea"
-            Margin="{StaticResource SmallLeftRightMargin}"
-            Spacing="12">
-            <TextBlock
-                x:Uid="Main_PageTitle"
-                Margin="{StaticResource SmallTopBottomMargin}"
-                Style="{ThemeResource TitleTextBlockStyle}" />
-            <TextBlock
-                x:Uid="Main_PageDescription"
-                Opacity="0.8"
-                TextWrapping="WrapWholeWords" />
+        HorizontalScrollMode="Disabled"
+        HorizontalContentAlignment="Stretch">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="1040" />
+            </Grid.ColumnDefinitions>
+            <StackPanel
+                x:Name="ContentArea"
+                Margin="0,12,0,24"
+                HorizontalAlignment="Stretch"
+                Spacing="16">
+                <StackPanel Spacing="8">
+                    <TextBlock
+                        x:Uid="Main_PageTitle"
+                        Style="{ThemeResource TitleTextBlockStyle}"
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        x:Uid="Main_PageDescription"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
 
-            <controls:WrapPanel
-                Orientation="Horizontal"
-                HorizontalSpacing="12"
-                VerticalSpacing="12">
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_StatusConnectionTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_StatusConnectionText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Border>
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_StatusConfigTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_StatusConfigText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Border>
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_StatusExportTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_StatusExportText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Border>
-            </controls:WrapPanel>
-
-            <TextBlock x:Uid="Main_WorkflowsTitle" Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <controls:WrapPanel
-                Orientation="Horizontal"
-                HorizontalSpacing="12"
-                VerticalSpacing="12">
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_ScanCardTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_ScanCardText" Opacity="0.8" TextWrapping="WrapWholeWords" />
+                <InfoBar
+                    IsOpen="True"
+                    IsClosable="False"
+                    Title="{x:Bind ViewModel.ScannerStatusTitle, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.ScannerStatusDescription, Mode=OneWay}"
+                    Severity="{x:Bind ViewModel.ScannerStatusSeverity, Mode=OneWay}">
+                    <InfoBar.ActionButton>
                         <Button
+                            Content="{x:Bind ViewModel.ScannerWorkspaceActionText, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.ScannerWorkspaceActionVisibility, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.NavigateToScannerWorkspaceCommand}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <Grid x:Name="WorkflowCards" RowSpacing="12" SizeChanged="WorkflowCards_SizeChanged">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="SecondaryWorkflowColumn" Width="0" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                <Border Style="{StaticResource MainWorkflowCardStyle}">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Uid="Main_ScanCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="WrapWholeWords" />
+                        <TextBlock Grid.Row="1" x:Uid="Main_ScanCardText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="WrapWholeWords" />
+                        <Button Grid.Row="2"
                             x:Uid="Main_OpenScanButton"
+                            Margin="0,4,0,0"
+                            Style="{StaticResource AccentButtonStyle}"
                             Command="{x:Bind ViewModel.NavigateToScanCommand}" />
-                    </StackPanel>
+                    </Grid>
                 </Border>
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_ScanDebugCardTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_ScanDebugCardText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                        <Button
+                <Border x:Name="CalibrationWorkflowCard" Grid.Row="1" Style="{StaticResource MainWorkflowCardStyle}">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Uid="Main_ScanDebugCardTitle" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="WrapWholeWords" />
+                        <TextBlock Grid.Row="1" x:Uid="Main_ScanDebugCardText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="WrapWholeWords" />
+                        <Button Grid.Row="2"
                             x:Uid="Main_OpenScanDebugButton"
+                            Margin="0,4,0,0"
                             Command="{x:Bind ViewModel.NavigateToScanDebugCommand}" />
-                    </StackPanel>
+                    </Grid>
                 </Border>
-                <Border
-                    Width="260"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    Padding="12">
-                    <StackPanel Spacing="6">
-                        <TextBlock x:Uid="Main_SettingsCardTitle" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Uid="Main_SettingsCardText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                        <Button
-                            x:Uid="Main_OpenSettingsButton"
-                            Command="{x:Bind ViewModel.NavigateToSettingsCommand}" />
-                    </StackPanel>
-                </Border>
-            </controls:WrapPanel>
-        </StackPanel>
+                </Grid>
+                <StackPanel Spacing="4">
+                    <HyperlinkButton
+                        x:Uid="Main_OpenSettingsButton"
+                        Padding="0,8"
+                        Command="{x:Bind ViewModel.NavigateToSettingsCommand}" />
+                    <TextBlock x:Uid="Main_SettingsCardText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

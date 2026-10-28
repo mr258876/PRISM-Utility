@@ -19,6 +19,6 @@ This project contains shared models and services used by the WinUI application.
 
 The application project references this library directly. In normal development you will build it through the solution root:
 
-```bash
-dotnet build "PRISM Utility.sln"
+```powershell
+.\tools\build.ps1
 ```

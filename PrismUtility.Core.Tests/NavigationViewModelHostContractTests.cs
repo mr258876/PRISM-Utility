@@ -22,7 +22,7 @@ public sealed class NavigationViewModelHostContractTests
         (AppRoute.Scan, "ScanPage", "ScanViewModel"),
         (AppRoute.ScanDebug, "ScanDebugPage", "ScanDebugViewModel"),
         (AppRoute.Settings, "SettingsPage", "SettingsViewModel"),
-        (AppRoute.DeviceConfiguration, "DeviceConfigurationPage", "DeviceConfigurationViewModel")
+        (AppRoute.DeviceConfiguration, "SettingsPage", "SettingsViewModel")
     ];
 
     [Fact]
@@ -269,7 +269,7 @@ public sealed class NavigationViewModelHostContractTests
                         (AppRoute.Scan, typeof(ScanPage), typeof(ScanViewModel)),
                         (AppRoute.ScanDebug, typeof(ScanDebugPage), typeof(ScanDebugViewModel)),
                         (AppRoute.Settings, typeof(SettingsPage), typeof(SettingsViewModel)),
-                        (AppRoute.DeviceConfiguration, typeof(DeviceConfigurationPage), typeof(DeviceConfigurationViewModel))
+                        (AppRoute.DeviceConfiguration, typeof(SettingsPage), typeof(SettingsViewModel))
                     };
 
                     var pageService = new PageService();
@@ -304,8 +304,8 @@ public sealed class NavigationViewModelHostContractTests
                     }
                     """);
 
-                var result = DotnetRunner.Run("run --project ProductionProbe.csproj --disable-build-servers --no-launch-profile --no-self-contained -p:Platform=x64", workspace, TimeSpan.FromMinutes(2));
-                Assert.Equal(0, result.ExitCode);
+                var result = DotnetRunner.Run("run --project ProductionProbe.csproj --configuration Debug --disable-build-servers --no-launch-profile --no-self-contained -p:Platform=x64", workspace, TimeSpan.FromMinutes(2));
+                Assert.True(result.ExitCode == 0, $"Production app probe exited {result.ExitCode}.\n{result.StandardOutput}\n{result.StandardError}");
                 foreach (var (route, page, viewModel) in expectedRouteHosts)
                 {
                     Assert.Contains($"{route}|PrismUtility|PRISM_Utility.Views.{page}|PRISM_Utility.ViewModels.{viewModel}|", result.StandardOutput, StringComparison.Ordinal);

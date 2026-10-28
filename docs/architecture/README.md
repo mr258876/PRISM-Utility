@@ -2,6 +2,8 @@
 
 This index points to the architecture documents for PRISM Utility. Start with the system overview, then use the grouped topic documents for module details, source paths, risks, and test coverage.
 
+Current implementation status, verification results and remaining work are maintained in the [project backlog](../TODO.md).
+
 ## System map
 
 - [System overview](system-overview.md)

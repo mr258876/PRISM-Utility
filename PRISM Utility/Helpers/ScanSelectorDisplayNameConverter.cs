@@ -1,11 +1,54 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Data;
 using PRISM_Utility.Core.Models;
 using PRISM_Utility.Models;
 
 namespace PRISM_Utility.Helpers;
 
+public sealed class ScanMotorDirectionOption(string token) : ObservableObject
+{
+    private string _displayName = token;
+
+    public string Token { get; } = token;
+    public string DisplayName
+    {
+        get => _displayName;
+        set => SetProperty(ref _displayName, value);
+    }
+}
+
 public sealed class ScanSelectorDisplayNameConverter : IValueConverter
 {
+    public static string GetMappedMotorDirectionDisplayName(
+        string token, byte motorId, ScanFocusMotorMapping? focusMapping, byte? transportMotorId)
+    {
+        if (token is not ("Dir0" or "Dir1"))
+            return token;
+
+        var direction = token == "Dir1";
+        var labels = new List<string>();
+        if (focusMapping is { } mapping && mapping.Validate().IsValid
+            && (mapping.LeftMotorId == motorId || mapping.RightMotorId == motorId))
+        {
+            labels.Add(direction == mapping.ZPositiveDirection
+                ? "ScanDebug_Runtime_MotorMoveFocusPositive".GetLocalizedOrFallback("Focus positive (Z+)")
+                : "ScanDebug_Runtime_MotorMoveFocusNegative".GetLocalizedOrFallback("Focus negative (Z−)"));
+        }
+
+        if (transportMotorId == motorId)
+        {
+            labels.Add(direction
+                ? "ScanDebug_Runtime_MotorMoveTransportForward".GetLocalizedOrFallback("Film forward")
+                : "ScanDebug_Runtime_MotorMoveTransportReverse".GetLocalizedOrFallback("Film reverse"));
+        }
+
+        return labels.Count > 0
+            ? string.Join(" · ", labels)
+            : direction
+                ? "ScanDebug_Runtime_MotorMoveDirection1".GetLocalizedOrFallback("Direction 1")
+                : "ScanDebug_Runtime_MotorMoveDirection0".GetLocalizedOrFallback("Direction 0");
+    }
+
     public object Convert(object value, Type targetType, object parameter, string language)
     {
         if (parameter as string == "DngExportMode" && value is ScanDngExportMode exportMode)
@@ -36,6 +79,8 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             "PreviewMode" => GetPreviewModeDisplayName(token),
             "TargetWhitePointMode" => GetTargetWhitePointModeDisplayName(token),
             "Motor" => GetMotorDisplayName(token),
+            "MotorUnit" => GetMotorUnitDisplayName(token),
+            "MotorRateUnit" => GetMotorRateUnitDisplayName(token),
             "CalibrationChannel" => GetCalibrationChannelDisplayName(token),
             "MotorDirection" => GetMotorDirectionDisplayName(token),
             "RoiSelection" => GetRoiSelectionDisplayName(token),
@@ -73,22 +118,23 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
             "Raw Channel 2" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(2),
             "Raw Channel 3" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(3),
             "Raw Channel 4" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(4),
+            "Raw Channel 5" => "Scan_Runtime_PreviewModeRawChannel".GetLocalizedFormat(5),
             _ => mode
         };
 
     public static string GetDngExportModeDisplayName(ScanDngExportMode mode)
         => mode switch
         {
-            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_DngExportModeLinearRaw4".GetLocalized(),
-            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_DngExportModeLinearRgbIrw".GetLocalized(),
+            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_DngExportModeLinearRaw4".GetLocalizedOrFallback("Raw channel DNG"),
+            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_DngExportModeLinearRgbIrw".GetLocalizedOrFallback("RGB composite and auxiliary DNG"),
             _ => mode.ToString()
         };
 
     public static string GetProfileDngExportModeDisplayName(ScanDngExportMode mode)
         => mode switch
         {
-            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_ProfileDngExportModeLinearRaw4".GetLocalized(),
-            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_ProfileDngExportModeLinearRgbIrw".GetLocalized(),
+            ScanDngExportMode.LinearRaw4 => "Scan_Runtime_ProfileDngExportModeLinearRaw4".GetLocalizedOrFallback("Raw channel DNG"),
+            ScanDngExportMode.LinearRgbIrw => "Scan_Runtime_ProfileDngExportModeLinearRgbIrw".GetLocalizedOrFallback("RGB composite and auxiliary DNG"),
             _ => mode.ToString()
         };
 
@@ -132,10 +178,29 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
     private static string GetMotorDisplayName(string motor)
         => motor switch
         {
-            "Motor1" => "Scan_Runtime_MotorOption1".GetLocalized(),
-            "Motor2" => "Scan_Runtime_MotorOption2".GetLocalized(),
-            "Motor3" => "Scan_Runtime_MotorOption3".GetLocalized(),
+            "Motor1" => "Scan_Runtime_MotorOption1".GetLocalizedOrFallback("Motor 1 (M1)"),
+            "Motor2" => "Scan_Runtime_MotorOption2".GetLocalizedOrFallback("Motor 2 (M2)"),
+            "Motor3" => "Scan_Runtime_MotorOption3".GetLocalizedOrFallback("Motor 3 (M3)"),
             _ => motor
+        };
+
+    private static string GetMotorUnitDisplayName(string unit)
+        => unit switch
+        {
+            "steps" => "ScanDebug_Runtime_MotorUnitSteps".GetLocalizedOrFallback("steps"),
+            "steps/s" => "ScanDebug_Runtime_MotorUnitStepsPerSecond".GetLocalizedOrFallback("steps/s"),
+            "um" => "μm",
+            "um/s" => "μm/s",
+            _ => unit
+        };
+
+    private static string GetMotorRateUnitDisplayName(string unit)
+        => unit switch
+        {
+            "steps" => GetMotorUnitDisplayName("steps/s"),
+            "um" => "μm/s",
+            "mm" => "mm/s",
+            _ => GetMotorUnitDisplayName(unit)
         };
 
     private static string GetCalibrationChannelDisplayName(string channelRole)
@@ -144,8 +209,8 @@ public sealed class ScanSelectorDisplayNameConverter : IValueConverter
     private static string GetMotorDirectionDisplayName(string direction)
         => direction switch
         {
-            "Dir0" => "ScanDebug_Runtime_MotorDirectionDir0".GetLocalized(),
-            "Dir1" => "ScanDebug_Runtime_MotorDirectionDir1".GetLocalized(),
+            "Dir0" => "ScanDebug_Runtime_MotorDirectionDir0".GetLocalizedOrFallback("Direction 0 (Dir0)"),
+            "Dir1" => "ScanDebug_Runtime_MotorDirectionDir1".GetLocalizedOrFallback("Direction 1 (Dir1)"),
             _ => direction
         };
 

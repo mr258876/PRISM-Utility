@@ -30,7 +30,7 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
         nameof(ScanChannelAssignment.Channel3Reversed),
         nameof(ScanChannelAssignment.Channel4Reversed)
     ];
-    public const int CurrentSchemaVersionValue = 6;
+    public const int CurrentSchemaVersionValue = 7;
 
     public int CurrentSchemaVersion => CurrentSchemaVersionValue;
 
@@ -75,7 +75,9 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
             return new ScanFilmProfileDocumentParseResult(null, new ScanFilmProfileValidationResult(requiredIssues));
 
         var materialized = (JObject)root.DeepClone();
-        if (schemaVersion == CurrentSchemaVersionValue)
+        if (schemaVersion < 7)
+            StripWhiteSourceMembers(materialized);
+        if (schemaVersion >= 6)
         {
             if (CanonicalizeAndValidateV6Acquisition(materialized) is { } malformedPath)
                 return Failure(ScanFilmProfileValidationCode.MalformedJson, malformedPath, "FilmProfile.Validation.MalformedJson");
@@ -86,6 +88,11 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
         {
             StripV6OnlyAcquisitionMembers(materialized);
         }
+
+        // Pre-source documents always mean a dedicated White LED, even if they
+        // contain unrelated/unknown fields that resemble the new format.
+        if (schemaVersion >= 7 && !ValidateWhiteSettingsJson(materialized))
+            return Failure(ScanFilmProfileValidationCode.MalformedJson, "acquisitionSettings.whiteChannelSettings", "FilmProfile.Validation.MalformedJson");
 
         try
         {
@@ -125,7 +132,9 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
     {
         var issues = new List<ScanFilmProfileValidationIssue>();
         var profileName = root.Property("ProfileName", StringComparison.Ordinal)?.Value;
-        if (profileName is not JValue { Type: JTokenType.String, Value: string name })
+        if (profileName is null || profileName.Type == JTokenType.Null)
+            root["ProfileName"] = string.Empty;
+        else if (profileName is not JValue { Type: JTokenType.String, Value: string })
             issues.Add(Issue(ScanFilmProfileValidationCode.MissingRequiredProperty, "profileName", "FilmProfile.Validation.ProfileNameMissing"));
 
         var timestamp = root.Property("SavedAtUtc", StringComparison.Ordinal)?.Value;
@@ -152,6 +161,63 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
         SetDefault(acquisition, nameof(ScanFilmAcquisitionSettings.StartingDirectionPositive), defaults.StartingDirectionPositive);
         SetDefault(acquisition, nameof(ScanFilmAcquisitionSettings.WarmUpEnabled), defaults.WarmUpEnabled);
         SetDefault(acquisition, nameof(ScanFilmAcquisitionSettings.TransportStrategy), (int)defaults.TransportStrategy);
+    }
+
+    private static void StripWhiteSourceMembers(JObject root)
+    {
+        foreach (var acquisition in root.Properties().Where(p => string.Equals(p.Name, "AcquisitionSettings", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value).OfType<JObject>())
+            foreach (var property in acquisition.Properties().Where(p => string.Equals(p.Name, nameof(ScanFilmAcquisitionSettings.WhiteChannelSettings), StringComparison.OrdinalIgnoreCase)).ToArray())
+                property.Remove();
+        foreach (var assignment in root.Descendants().OfType<JObject>().Where(obj => obj.Property("Channel1Role", StringComparison.OrdinalIgnoreCase) is not null))
+            foreach (var property in assignment.Properties().Where(p => p.Name.Equals("Channel5Role", StringComparison.OrdinalIgnoreCase) || p.Name.Equals("Channel5Reversed", StringComparison.OrdinalIgnoreCase)).ToArray())
+                property.Remove();
+    }
+
+    private static bool ValidateWhiteSettingsJson(JObject root)
+    {
+        if (root["AcquisitionSettings"] is not JObject acquisition)
+            return true;
+        var matches = acquisition.Properties().Where(p => p.Name.Equals("WhiteChannelSettings", StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matches.Length == 0)
+            return true;
+        if (matches.Length != 1)
+            return false;
+        CanonicalizeProperty(matches[0], "WhiteChannelSettings");
+        if (acquisition["WhiteChannelSettings"]!.Type == JTokenType.Null)
+            return true;
+        if (acquisition["WhiteChannelSettings"] is not JObject settings)
+            return false;
+        if (!ValidateOptionalMembers(settings, ("Source", JTokenType.Integer), ("DedicatedLed", JTokenType.Object), ("RgbComposite", JTokenType.Object)))
+            return false;
+        foreach (var slot in new[] { settings["DedicatedLed"], settings["RgbComposite"] }.OfType<JObject>())
+        {
+            if (!ValidateOptionalMembers(slot, ("Profile", JTokenType.Object), ("Lighting", JTokenType.Object)))
+                return false;
+            if (slot["Lighting"] is not JObject lighting)
+                continue;
+            if (!ValidateOptionalMembers(lighting, ("DedicatedLed", JTokenType.Object), ("Red", JTokenType.Object), ("Green", JTokenType.Object), ("Blue", JTokenType.Object)))
+                return false;
+            foreach (var component in new[] { lighting["DedicatedLed"], lighting["Red"], lighting["Green"], lighting["Blue"] }.OfType<JObject>())
+                if (!ValidateOptionalMembers(component, ("Level", JTokenType.Integer), ("PulseClock", JTokenType.Integer), ("Mode", JTokenType.Integer)))
+                    return false;
+        }
+        return true;
+    }
+
+    private static bool ValidateOptionalMembers(JObject value, params (string Name, JTokenType Type)[] members)
+    {
+        foreach (var member in members)
+        {
+            var matches = value.Properties().Where(p => p.Name.Equals(member.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length == 0)
+                continue;
+            if (matches.Length != 1 || (matches[0].Value.Type != JTokenType.Null && matches[0].Value.Type != member.Type))
+                return false;
+            if (matches[0].Value.Type == JTokenType.Null && member.Type == JTokenType.Integer)
+                return false;
+            CanonicalizeProperty(matches[0], member.Name);
+        }
+        return true;
     }
 
     private static string? CanonicalizeAndValidateV6Acquisition(JObject root)
@@ -215,6 +281,10 @@ public sealed class ScanFilmProfileDocumentService : IScanFilmProfileDocumentSer
                 return false;
             CanonicalizeProperty(matches[0], memberName);
         }
+
+        if (!ValidateOptionalMembers(assignment, (nameof(ScanChannelAssignment.Channel5Role), JTokenType.String),
+                (nameof(ScanChannelAssignment.Channel5Reversed), JTokenType.Boolean)))
+            return false;
 
         return true;
     }

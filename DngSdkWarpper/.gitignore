@@ -1,3 +1,5 @@
 Adobe_DNG_SDK/*
 x64/*
+Win32/
+ARM64/
 DngSdkWarpper/*

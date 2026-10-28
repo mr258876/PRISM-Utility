@@ -111,7 +111,7 @@ composite processor 对空 pass, RGB 角色缺失或重复, 非有限色彩参�
 
 ## Test coverage
 
-codegraph 显示 `IScanCompositeImageProcessor.TryBuildRgbComposite` 的 core 实现有 `Host Software/PrismUtility.Core.Tests/ScanCompositeImageProcessorTests.cs` 覆盖, `ScanChannelAlignmentService` 有 `Host Software/PrismUtility.Core.Tests/ScanChannelAlignmentServiceTests.cs` 覆盖。SCAN-002 focused 26 个 tests 两次通过, combined managed suite 为 487/487；覆盖 typed `Aligned`、`Disabled`、`Fallback`、`Failed`, diagnostic kinds/native metadata, ECC to MI fallback visibility, fatal no buffers, usable fallback buffers, cancellation propagation 和所有 alignment callers mirror diagnostics。SCAN-001 cancellation 和 output ownership 由 `Host Software/PrismUtility.Core.Tests/Scan001CancellationTests.cs` 与 `Host Software/PrismUtility.Core.Tests/Scan001OutputOwnershipTests.cs` 覆盖。本文不把这些 managed tests 说成 live UI file picker 或物理 scanner smoke。
+`IScanCompositeImageProcessor.TryBuildRgbComposite` 由 `Host Software/PrismUtility.Core.Tests/ScanCompositeImageProcessorTests.cs` 覆盖，`ScanChannelAlignmentService` 由 `Host Software/PrismUtility.Core.Tests/ScanChannelAlignmentServiceTests.cs` 覆盖。SCAN-002 测试覆盖 typed `Aligned`、`Disabled`、`Fallback`、`Failed`、diagnostic kinds/native metadata、ECC to MI fallback、fatal no buffers、usable fallback buffers、取消传播和调用方诊断镜像。SCAN-001 的取消和输出所有权由 `Host Software/PrismUtility.Core.Tests/Scan001CancellationTests.cs` 与 `Host Software/PrismUtility.Core.Tests/Scan001OutputOwnershipTests.cs` 覆盖。这些测试不验证真实文件选择器或物理扫描仪；当前结果见[项目待办](../TODO.md)。
 
 ## Known issues and solutions
 

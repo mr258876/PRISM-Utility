@@ -27,8 +27,8 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
             "ViewModel.HeaderScanStatusText",
             "ViewModel.TopRiskBannerText",
             "ViewModel.StartValidationPromptText",
-            "ViewModel.DeviceStatusSummaryText",
-            "ViewModel.ConfigurationStatusSummaryText",
+            "ViewModel.PreparationTitle",
+            "ViewModel.PreparationSteps",
             "ViewModel.SelectedConfigProfileName",
             "ViewModel.LoadedScanRecipeSummaryText",
             "ViewModel.IsColorManagementEnabled",
@@ -38,11 +38,16 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
             "ViewModel.OutputGamma",
             "ViewModel.SelectedTargetWhitePointMode",
             "ViewModel.ManualWhitePointColorTemperatureK",
-            "ViewModel.ExecutionConfigSummaryText",
+            "ViewModel.ExecutionRowsSummaryText",
+            "ViewModel.ExecutionChannelsSummaryText",
+            "ViewModel.ExecutionMotionSummaryText",
+            "ViewModel.ExecutionPreviewSummaryText",
+            "ViewModel.RuntimeFeedbackText",
+            "ViewModel.OutputFeedbackText",
+            "ViewModel.RestoreLoadedSettingsCommand",
+            "ViewModel.OpenLastOutputFolderCommand",
             "ViewModel.RowOptions",
             "ViewModel.SelectedRows",
-            "ViewModel.MotorOptions",
-            "ViewModel.SelectedScanMotor",
             "ViewModel.MotorDistancePerLineValue",
             "ViewModel.MotorDistancePerLineUnitOptions",
             "ViewModel.IsWarmUpEnabled",
@@ -62,6 +67,8 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
         {
             Assert.Contains(binding, xaml, StringComparison.Ordinal);
         }
+        Assert.DoesNotContain("ViewModel.SelectedScanMotor", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Uid=\"Scan_ScanMotorComboBox\"", xaml, StringComparison.Ordinal);
 
         foreach (var command in new[]
         {
@@ -115,9 +122,8 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
         var viewModel = ReadHostSource("PRISM Utility", "ViewModels", "ScanViewModel.cs");
         var constructor = ExtractMemberBodyAtDeclaration(viewModel, "public ScanViewModel(");
         var loadConfig = ExtractMemberBodyAtDeclaration(viewModel, "private async Task LoadConfigProfile()");
+        var applyConfig = ExtractMemberBodyAtDeclaration(viewModel, "private async Task ApplyConfigProfileAsync(ScanFilmParameterProfileSet profile, int activationEpoch, CancellationToken ct)");
         var applyRecipe = ExtractMemberBodyAtDeclaration(viewModel, "private void ApplyScanRecipeSettings(ScanFilmScanRecipeSettings? settings)");
-        var colorChanged = ExtractMemberBodyAtDeclaration(viewModel, "private void OnColorManagementChanged(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)");
-        var saveColor = ExtractMemberBodyAtDeclaration(viewModel, "private async Task SaveColorManagementSettingsAsync(Func<ScanColorManagementOptions, ScanColorManagementOptions> mutate)");
         var disconnect = ExtractMemberBodyAtDeclaration(viewModel, "private async Task DisconnectDevices()");
 
         Assert.Contains("private ScanWorkflowResult? _lastResult;", viewModel, StringComparison.Ordinal);
@@ -130,21 +136,27 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
         Assert.Contains("UpdatePreviewState();", constructor, StringComparison.Ordinal);
         Assert.Contains("UpdateReadinessSummaries();", constructor, StringComparison.Ordinal);
 
-        Assert.Contains("_filmProfileFiles.ImportAsync(CancellationToken.None)", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("_calibrationProfiles.ReplaceAsync", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("_selectedConfigAcquisitionSettings = profile.AcquisitionSettings?.Normalize();", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings);", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("ApplyScanRecipeSettings(profile.ScanRecipeSettings);", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("RefreshLoadedScanRecipeSummary();", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("UpdateExecutionConfigSummary();", loadConfig, StringComparison.Ordinal);
-        Assert.Contains("UpdateReadinessSummaries();", loadConfig, StringComparison.Ordinal);
+        Assert.Contains("_filmProfileFiles.ImportAsync(ct)", loadConfig, StringComparison.Ordinal);
+        Assert.Contains("await ApplyConfigProfileAsync(imported.Profile, activationEpoch, ct);", loadConfig, StringComparison.Ordinal);
+        Assert.Contains("_calibrationProfiles.ReplaceAsync", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("_selectedConfigAcquisitionSettings = profile.AcquisitionSettings?.Normalize();", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("ApplyAcquisitionSettingsToInputs(_selectedConfigAcquisitionSettings ?? (ScanFilmAcquisitionSettings.CreateDefault() with", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("ScanMotorId = _deviceSettings.Settings.Normalize().DefaultScanMotorId!.Value", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("ApplyScanRecipeSettings(profile.ScanRecipeSettings);", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("RefreshLoadedScanRecipeSummary();", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("UpdateExecutionConfigSummary();", applyConfig, StringComparison.Ordinal);
+        Assert.Contains("UpdateReadinessSummaries();", applyConfig, StringComparison.Ordinal);
 
         Assert.Contains("IsColorManagementEnabled = colorManagement.IsEnabled;", applyRecipe, StringComparison.Ordinal);
         Assert.Contains("SelectedAlignmentMode = alignmentMode;", applyRecipe, StringComparison.Ordinal);
         Assert.Contains("SelectedDngExportMode = dngExportMode;", applyRecipe, StringComparison.Ordinal);
-        Assert.Contains("UpdatePreviewState();", colorChanged, StringComparison.Ordinal);
-        Assert.Contains("SaveColorManagementSettingsAsync(mutate);", colorChanged, StringComparison.Ordinal);
-        Assert.Contains("_colorManagementSettings.SetSettingsAsync", saveColor, StringComparison.Ordinal);
+        Assert.Contains("var loadedAssignment = settings?.ChannelAssignment ?? _selectedConfigAcquisitionSettings?.AcquisitionChannelAssignment;", applyRecipe, StringComparison.Ordinal);
+        Assert.Contains("_loadedConfigChannelRoles = loadedAssignment?.Roles.ToArray()", applyRecipe, StringComparison.Ordinal);
+        Assert.DoesNotContain("_colorManagementSettings.SetSettingsAsync", viewModel, StringComparison.Ordinal);
+        var defaultsIndex = applyConfig.IndexOf("ApplyColorManagementSettings(_colorManagementSettings.Settings);", StringComparison.Ordinal);
+        var profileIndex = applyConfig.IndexOf("ApplyScanRecipeSettings(profile.ScanRecipeSettings);", StringComparison.Ordinal);
+        Assert.True(defaultsIndex >= 0 && profileIndex > defaultsIndex,
+            "Each import must reset to current defaults before applying the configuration's own color settings.");
 
         Assert.Contains("_loadedSnapshot = null;", disconnect, StringComparison.Ordinal);
         Assert.Contains("_lastResult = null;", disconnect, StringComparison.Ordinal);
@@ -203,17 +215,10 @@ public sealed class ScanWorkspaceUi006CharacterizationTests
     }
 
     [Fact]
-    public void Ui006_SourceOnly_NoDuplicateScanWorkspaceOrExtractionAbstractionExistsWhileVm001Blocks()
+    public void ScanOwnership_DoesNotIntroduceDuplicateWorkspacesOrPresenters()
     {
         var productionSources = EnumerateProductionSources().ToArray();
         var app = ReadHostSource("PRISM Utility", "App.xaml.cs");
-        var issueRegistry = ReadHostSource("docs", "architecture", "issues-and-remediation.md");
-        var priorities = ReadHostSource("docs", "architecture", "design-correction-priorities.md");
-
-        Assert.Contains("VM-001 extraction hard gate 当前为 `EXTRACTION_BLOCKED`", issueRegistry, StringComparison.Ordinal);
-        Assert.Contains("不得做 adapter/extraction", issueRegistry, StringComparison.Ordinal);
-        Assert.Contains("VM-001 extraction hard gate 为 `EXTRACTION_BLOCKED`", priorities, StringComparison.Ordinal);
-
         foreach (var forbidden in new[]
         {
             "IScanPageWorkspace",

@@ -31,7 +31,9 @@ public sealed partial class ShellPage : Page
 
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _scannerStatusBadgeTimer;
     private int _scannerStatusBadgeFrameIndex;
-    private readonly Thickness _defaultPageContentMargin;
+#if PRISM_VISUAL_QA
+    internal string GetVisualQaContentMargin() => PageContentHost.Margin.ToString();
+#endif
 
     public ShellViewModel ViewModel
     {
@@ -43,10 +45,9 @@ public sealed partial class ShellPage : Page
         ViewModel = viewModel;
         InitializeComponent();
 
-        _defaultPageContentMargin = PageContentHost.Margin;
-        NavigationFrame.Navigated += NavigationFrame_Navigated;
         ViewModel.NavigationService.Frame = NavigationFrame;
         ViewModel.NavigationViewService.Initialize(NavigationViewControl);
+        NavigationViewControl.ItemInvoked += NavigationViewControl_ItemInvoked;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         RefreshScannerStatusBadgeIcon();
 
@@ -63,20 +64,9 @@ public sealed partial class ShellPage : Page
     private void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         TitleBarHelper.UpdateTitleBar(RequestedTheme);
-        UpdatePageContentMargin(NavigationFrame.Content?.GetType());
 
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu));
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.GoBack));
-    }
-
-    private void NavigationFrame_Navigated(object sender, NavigationEventArgs e)
-        => UpdatePageContentMargin(e.SourcePageType);
-
-    private void UpdatePageContentMargin(Type? pageType)
-    {
-        PageContentHost.Margin = pageType == typeof(ScanDebugPage)
-            ? (Thickness)Resources["ScanDebugShellContentMargin"]
-            : _defaultPageContentMargin;
     }
 
     private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
@@ -95,6 +85,12 @@ public sealed partial class ShellPage : Page
         };
     }
 
+    private void NavigationViewControl_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (args.IsSettingsInvoked && NavigationFrame.Content is SettingsPage settingsPage)
+            settingsPage.TryReturnToOverview();
+    }
+
     private void ScannerConnectionItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
         ShowScannerConnectionFlyout();
@@ -110,8 +106,8 @@ public sealed partial class ShellPage : Page
         }
     }
 
-    internal void ShowScannerConnectionFlyout()
-        => FlyoutBase.ShowAttachedFlyout(ScannerConnectionItem);
+    internal void ShowScannerConnectionFlyout(FrameworkElement? anchor = null)
+        => ScannerConnectionFlyout.ShowAt(anchor ?? ScannerConnectionItem);
 
     private void DeviceConfigurationButton_Click(object sender, RoutedEventArgs e)
     {
@@ -191,9 +187,9 @@ public sealed partial class ShellPage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         StopScannerStatusBadgeAnimation();
-        NavigationFrame.Navigated -= NavigationFrame_Navigated;
         App.MainWindow.Activated -= MainWindow_Activated;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        NavigationViewControl.ItemInvoked -= NavigationViewControl_ItemInvoked;
         ViewModel.NavigationViewService.UnregisterEvents();
         ViewModel.UnregisterNavigation();
         Unloaded -= OnUnloaded;
@@ -216,6 +212,12 @@ public sealed partial class ShellPage : Page
     private static void OnKeyboardAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         var navigationService = App.GetService<INavigationService>();
+
+        if (navigationService.Frame?.Content is SettingsPage settingsPage && settingsPage.TryReturnToOverview())
+        {
+            args.Handled = true;
+            return;
+        }
 
         var result = navigationService.GoBack();
 

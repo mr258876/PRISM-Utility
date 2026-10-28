@@ -17,8 +17,94 @@ using Xunit;
 
 namespace PrismUtility.Core.Tests;
 
-public sealed class ScanDebugCalibrationStatusTests
+public sealed partial class ScanDebugCalibrationStatusTests
 {
+    public ScanDebugCalibrationStatusTests()
+        // The managed test host has no application resource package.
+        => AppContext.SetSwitch("PRISM.Utility.UseResourceFallbacks", true);
+
+    [Fact]
+    public async Task FilmProfileSave_OfflineValidConfigurationIsSaveableAndPublishesSuccessfulExport()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        Assert.False(harness.ViewModel.IsConnected);
+        Assert.True(harness.ViewModel.CanSaveFilmProfileFile);
+        harness.FilmProfileFiles.ExportSucceeds = true;
+
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.Equal(1, harness.ViewModel.FilmProfileExportVersion);
+        Assert.NotNull(harness.Workspace.LastSavedDocument);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+    }
+
+    [Fact]
+    public async Task FilmProfileSave_CancelAfterPreviousSuccessDoesNotPublishAnotherExport()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        harness.FilmProfileFiles.ExportSucceeds = true;
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        var exportVersion = harness.ViewModel.FilmProfileExportVersion;
+        var saved = harness.Workspace.LastSavedDocument;
+        Assert.NotNull(saved);
+        Assert.Equal(1, exportVersion);
+        harness.FilmProfileFiles.ExportSucceeds = false;
+
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.Equal(exportVersion, harness.ViewModel.FilmProfileExportVersion);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(saved!, harness.Workspace.LastSavedDocument!);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+    }
+
+    [Fact]
+    public async Task FilmProfileSave_UnmappedSelectedRoleBlocksSaveWithoutDroppingTheFilmSelection()
+    {
+        // The compatibility fixture selects IR, which the default device does not map.
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var draft = harness.Workspace.Snapshot.CurrentDraft;
+        var missing = Assert.Single(harness.ViewModel.AcquisitionChannels, channel => channel.Role == "IR");
+        Assert.True(missing.IsSelected);
+        Assert.True(missing.LedIndex >= 5);
+        Assert.False(harness.ViewModel.CanSaveFilmProfileFile);
+        harness.FilmProfileFiles.ExportSucceeds = true;
+
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+
+        Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues,
+            issue => issue.FieldPath == "AcquisitionSettings.ChannelAssignment"
+                && issue.Severity == ScanFilmProfileValidationSeverity.Error);
+        Assert.Same(draft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.True(missing.IsSelected);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Null(harness.Workspace.LastSavedDocument);
+        Assert.Equal(0, harness.ViewModel.FilmProfileExportVersion);
+    }
+
+    [Fact]
+    public async Task FilmProfileSave_InvalidInputBlocksSaveAndNotifiesVisibleReason()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        Assert.True(harness.ViewModel.CanSaveFilmProfileFile);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        harness.ViewModel.SelectedRows = "invalid";
+
+        Assert.False(harness.ViewModel.CanSaveFilmProfileFile);
+        Assert.False(harness.ViewModel.SaveFilmProfileJsonCommand.CanExecute(null));
+        Assert.False(string.IsNullOrWhiteSpace(harness.ViewModel.FilmProfileSaveHintText));
+        Assert.Contains(nameof(ScanDebugViewModel.CanSaveFilmProfileFile), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.FilmProfileSaveHintText), notifications);
+        Assert.Equal(0, harness.ViewModel.FilmProfileExportVersion);
+    }
+
     private static readonly IReadOnlyDictionary<string, ScanChannelCalibrationProfile> EmptyProfiles =
         new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase);
 
@@ -258,15 +344,18 @@ public sealed class ScanDebugCalibrationStatusTests
             .Fail(new ScanCalibrationCandidateFailure("device-apply.failed", "candidate rejected"));
 
         Assert.Equal(2, harness.ViewModel.OperationNotices.Count);
+        Assert.Equal("ScanDebug_OperationFeedbackWithCount".GetLocalizedFormatOrFallback("Feedback · {0}", 2), harness.ViewModel.OperationFeedbackActionText);
         var second = harness.ViewModel.OperationNotices[1];
         Assert.NotEqual(first.Id, second.Id);
         Assert.Equal(second.Message, harness.ViewModel.RunPresentationText);
         harness.ViewModel.AcknowledgeOperationNoticeCommand.Execute(first.Id);
 
         Assert.Same(second, Assert.Single(harness.ViewModel.OperationNotices));
+        Assert.Equal("ScanDebug_OperationFeedbackWithCount".GetLocalizedFormatOrFallback("Feedback · {0}", 1), harness.ViewModel.OperationFeedbackActionText);
         Assert.Equal(second.Message, harness.ViewModel.RunPresentationText);
         harness.ViewModel.AcknowledgeOperationNoticeCommand.Execute(second.Id);
         Assert.Empty(harness.ViewModel.OperationNotices);
+        Assert.Equal("ScanDebug_OperationFeedbackCompact".GetLocalized(), harness.ViewModel.OperationFeedbackActionText);
     }
 
     [Fact]
@@ -410,9 +499,11 @@ public sealed class ScanDebugCalibrationStatusTests
 
         harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, request) => request.CompletionSource.TrySetResult(false);
         await harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
-        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.Equal(InfoBarSeverity.Error, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.Equal(notice.Message, harness.ViewModel.FilmProfileOperationMessage);
         Assert.Same(notice, Assert.Single(harness.ViewModel.OperationNotices));
-        Assert.Equal(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.NotEqual(notice.Message, harness.ViewModel.RunPresentationText);
+        Assert.Empty(harness.ViewModel.RunContextText);
     }
 
     [Fact]
@@ -1227,6 +1318,93 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task Observation_EmptyAndIdleSamplesDoNotClaimLiveAcquisition()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var vm = harness.ViewModel;
+        Assert.False(vm.HasObservationSample);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationSummaryVisibility);
+        Assert.Equal(Visibility.Visible, vm.ObservationEmptyVisibility);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationRawSourceVisibility);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationWarningVisibility);
+        Assert.Empty(vm.ObservationComparisonText);
+        Assert.Empty(vm.ObservationSourceSummaryText);
+        Assert.Empty(vm.ObservationBaselineSummaryText);
+        Assert.Empty(vm.ObservationEvidenceStatusText);
+        Assert.Empty(vm.ObservationEvidenceHintText);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationEvidenceSourceVisibility);
+
+        vm.IsPreviewEnabled = true;
+        vm.PreviewFrame = new([1, 2, 3, 255], 1, 1, 4, ScanPreviewPixelFormat.Bgra8, 1);
+        Assert.Equal("ScanDebug_ObservationLatest".GetLocalized(), vm.ObservationModeText);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationEmptyVisibility);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationRawSourceVisibility);
+        Assert.Equal(Visibility.Visible, vm.ObservationWarningVisibility);
+        Assert.Equal("ScanDebug_ObservationEvidenceUnconfirmed".GetLocalized(), vm.ObservationEvidenceStatusText);
+        Assert.Equal("ScanDebug_ObservationEvidenceConnectNext".GetLocalized(), vm.ObservationEvidenceHintText);
+        Assert.Equal(Visibility.Collapsed, vm.ObservationEvidenceSourceVisibility);
+        vm.IsRunning = true;
+        Assert.Equal("ScanDebug_ObservationUpdating".GetLocalized(), vm.ObservationModeText);
+        vm.ToggleObservationFreezeCommand.Execute(null);
+        Assert.True(vm.IsRunning);
+        Assert.Equal("ScanDebug_ObservationFrozen".GetLocalized(), vm.ObservationModeText);
+        vm.ToggleObservationFreezeCommand.Execute(null);
+        vm.IsRunning = false;
+        Assert.Equal("ScanDebug_ObservationLatest".GetLocalized(), vm.ObservationModeText);
+        await harness.ViewModel.DeactivateAsync();
+        Assert.Equal(Visibility.Collapsed, vm.ObservationSummaryVisibility);
+        Assert.Equal(Visibility.Visible, vm.ObservationEmptyVisibility);
+        Assert.Empty(vm.ObservationEvidenceStatusText);
+        Assert.Empty(vm.ObservationEvidenceHintText);
+    }
+
+    [Fact]
+    public async Task ObservationEvidence_KeepsRecordedSourceWhenDeviceDisconnectsWithoutClaimingVerification()
+    {
+        var captureId = Guid.NewGuid();
+        var capturedAt = new DateTimeOffset(2026, 10, 13, 4, 20, 30, TimeSpan.Zero);
+        var result = CreateStreamingPreviewFinalResult();
+        result = result with
+        {
+            Passes = [result.Passes[0] with
+            {
+                Provenance = new ScanPassCaptureProvenance(captureId, "Blue", 0, 1,
+                    CreateProfile(1000).Parameters, 1, 1, capturedAt, capturedAt, 1)
+            }],
+            CaptureId = captureId
+        };
+        var session = new StatusSession(isConnected: true);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            workflow: new StatusWorkflow((_, _, _) => Task.FromResult(result)),
+            previewPresenter: new StatusPreviewPresenter(succeed: true),
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+        var vm = harness.ViewModel;
+        await harness.SelectChannelAsync("Blue");
+        vm.IsPreviewEnabled = true;
+
+        await InvokeRunWorkflowScanAsync(vm, CreateStreamingPreviewRequest());
+        await harness.FlushAsync();
+
+        Assert.True(vm.HasObservationSample);
+        Assert.Equal(Visibility.Visible, vm.ObservationEvidenceSourceVisibility);
+        Assert.Equal("ScanDebug_ObservationEvidenceRecorded".GetLocalized(), vm.ObservationEvidenceStatusText);
+        Assert.Equal("ScanDebug_ObservationEvidenceComparisonPending".GetLocalized(), vm.ObservationEvidenceHintText);
+        // The test host has no application resource loader. The full source has a fallback
+        // and exposes the same captured evidence without relying on a localized summary.
+        var source = vm.ObservationFullSourceText;
+        Assert.Contains(captureId.ToString(), source);
+        Assert.Contains(capturedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture), source);
+
+        vm.ToggleObservationFreezeCommand.Execute(null);
+        vm.IsConnected = false;
+
+        Assert.Equal(source, vm.ObservationFullSourceText);
+        Assert.Equal("ScanDebug_ObservationEvidenceHistorical".GetLocalized(), vm.ObservationEvidenceStatusText);
+        Assert.Equal("ScanDebug_ObservationEvidenceConnectNext".GetLocalized(), vm.ObservationEvidenceHintText);
+        await vm.DeactivateAsync();
+    }
+
+    [Fact]
     public async Task Observation_FreezeAndBaselineKeepCopiesWhileLiveFramesAdvance()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
@@ -1309,6 +1487,99 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.False(harness.ViewModel.HasObservationBaseline);
         Assert.False(harness.ViewModel.IsObservationSnapshotVisible);
         Assert.Null(harness.ViewModel.ObservationFrame);
+    }
+
+    [Fact]
+    public async Task RawSignalSelection_WhenNoSampleExists_DisablesTheRowTools()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        Assert.False(harness.ViewModel.CanSelectRawSignalRow);
+        Assert.False(harness.ViewModel.CanSelectRawSignalRowFromPreview);
+        Assert.False(harness.ViewModel.SelectRawSignalPreviewRow(0));
+        Assert.False(harness.ViewModel.MoveRawSignalRow(1));
+        harness.ViewModel.RawSignalDisplayRowInput = "1";
+        Assert.Empty(harness.ViewModel.RawSignalRowInput);
+        Assert.Equal(harness.ViewModel.RawSignalSelectionHintText, harness.ViewModel.RawSignalPresentationText);
+    }
+
+    [Fact]
+    public async Task RawSignalSelection_UsesOneBasedPrecisionAndSwitchesBetweenFixedAndLatestRows()
+    {
+        var session = new StatusSession(isConnected: true,
+            startScan: (rows, _, _) => Task.FromResult(new ScanStartResult(true, "sampled", new byte[rows * ScanDebugConstants.BytesPerLine])));
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 42,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+        await InvokeRunSingleScanAsync(harness.ViewModel, 3, CancellationToken.None);
+        harness.ViewModel.PreviewFrame = new(new byte[12], 1, 3, 4, ScanPreviewPixelFormat.Bgra8, 50);
+
+        Assert.True(harness.ViewModel.CanSelectRawSignalRow);
+        Assert.True(harness.ViewModel.IsRawSignalFollowingLatest);
+        Assert.Equal("3", harness.ViewModel.RawSignalDisplayRowInput);
+        harness.ViewModel.RawSignalDisplayRowInput = harness.ViewModel.RawSignalDisplayRowInput;
+        Assert.True(harness.ViewModel.IsRawSignalFollowingLatest);
+        Assert.True(harness.ViewModel.SelectRawSignalPreviewRow(0));
+        Assert.False(harness.ViewModel.IsRawSignalFollowingLatest);
+        Assert.Equal("1", harness.ViewModel.RawSignalDisplayRowInput);
+        harness.ViewModel.RawSignalDisplayRowInput = "2";
+        Assert.Equal("1", harness.ViewModel.RawSignalRowInput);
+        harness.ViewModel.RawSignalDisplayRowInput = "4";
+        Assert.Equal("ScanDebug_RawSignalInvalidRow".GetLocalized(), harness.ViewModel.RawSignalPresentationText);
+        harness.ViewModel.RawSignalDisplayRowInput = "2";
+        Assert.True(harness.ViewModel.MoveRawSignalRow(-1));
+        Assert.True(harness.ViewModel.MoveRawSignalRow(-1));
+        Assert.Equal("0", harness.ViewModel.RawSignalRowInput);
+        harness.ViewModel.IsRawSignalFollowingLatest = true;
+        Assert.Equal("2", harness.ViewModel.RawSignalRowInput);
+        Assert.True(harness.ViewModel.TryGetRawSignalPreviewRow(out var selected));
+        Assert.Equal(2, selected);
+
+        harness.ViewModel.ToggleObservationFreezeCommand.Execute(null);
+        Assert.False(harness.ViewModel.CanSelectRawSignalRow);
+        Assert.False(harness.ViewModel.SelectRawSignalPreviewRow(0));
+        Assert.False(harness.ViewModel.MoveRawSignalRow(-1));
+        Assert.Equal(harness.ViewModel.RawSignalSelectionHintText, harness.ViewModel.RawSignalPresentationText);
+        await harness.ViewModel.DeactivateAsync();
+    }
+
+    [Fact]
+    public async Task RawSignalSelection_CanInspectAnEarlierCompletedStreamingRowWithoutAnotherFrame()
+    {
+        var release = new TaskCompletionSource<ScanStartResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScanRowsAvailableHandler? callback = null;
+        var session = new StatusSession(true, (_, _, available) =>
+        {
+            callback = available;
+            return release.Task;
+        });
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: true,
+            connected: true, scanSession: session, previewSample: 47,
+            previewPresenter: new StatusPreviewPresenter(succeed: true));
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = string.Equals(channel.Role, "Red", StringComparison.OrdinalIgnoreCase);
+        harness.ViewModel.SelectedCalibrationChannel = "Red";
+        harness.ViewModel.IsPreviewEnabled = true;
+        var scan = InvokeRunSingleScanAsync(harness.ViewModel, 3, CancellationToken.None);
+        Assert.NotNull(callback);
+        callback!(new byte[3 * ScanDebugConstants.BytesPerLine], 2);
+        harness.Dispatcher.DrainAll();
+        harness.ViewModel.PreviewFrame = new(new byte[8], 1, 2, 4, ScanPreviewPixelFormat.Bgra8, 50);
+        Assert.True(harness.ViewModel.SelectRawSignalPreviewRow(0));
+        for (var attempt = 0; attempt < 100 && harness.ViewModel.RawSignalResult?.ProfileRow != 0; attempt++)
+        {
+            await Task.Delay(10);
+            await harness.FlushAsync();
+        }
+        Assert.Equal(0, Assert.IsType<ScanRawSignalResult>(harness.ViewModel.RawSignalResult).ProfileRow);
+        Assert.False(harness.ViewModel.IsRawSignalFollowingLatest);
+        Assert.Equal(harness.ViewModel.RawSignalSelectionHintText, harness.ViewModel.RawSignalPresentationText);
+        release.SetResult(new ScanStartResult(false, "Stopped", null));
+        await scan;
     }
 
     [Fact]
@@ -1918,7 +2189,7 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
-    public async Task BwIdentity_WhenSelectedRoleMappingChanges_NotifiesLedWithoutChangingRole()
+    public async Task BwIdentity_WhenDeviceMappingChanges_UpdatesBoundLedAndPreservesSelectedRole()
     {
         var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateDraft(
             new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = CreateProfile(1000) }, "Red"));
@@ -1928,19 +2199,17 @@ public sealed class ScanDebugCalibrationStatusTests
         var redItem = Assert.Single(harness.ViewModel.CalibrationChannelItems, item => item.Role == "Red");
         Assert.True(redItem.IsSelected);
         var notifications = new List<string?>();
-        var itemNotifications = new List<string?>();
         harness.ViewModel.PropertyChanged += (_, eventArgs) => notifications.Add(eventArgs.PropertyName);
-        redItem.PropertyChanged += (_, eventArgs) => itemNotifications.Add(eventArgs.PropertyName);
 
         await ConfigureDeviceChannelRolesAsync(harness, "Green", "Blue", "Red", "IR");
 
         Assert.Equal("Red", harness.ViewModel.SelectedCalibrationChannel);
         Assert.Equal("LED3", harness.ViewModel.CurrentCalibrationLedName);
         Assert.True(redItem.IsSelected);
-        Assert.Contains(nameof(ScanDebugViewModel.CurrentCalibrationLedName), notifications);
-        Assert.Contains(nameof(ScanDebugViewModel.ManualReferenceChannelText), notifications);
-        Assert.Contains(nameof(ScanDebugCalibrationChannelItemViewModel.LedMappingText), itemNotifications);
         Assert.DoesNotContain(nameof(ScanDebugViewModel.SelectedCalibrationChannel), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.CurrentCalibrationLedName), notifications);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
     }
 
     [Fact]
@@ -2839,22 +3108,18 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
-    public async Task Todo8_FilmProfileNameChangesNotifyCurrentProfileNameTextWithDisplayFallback()
+    public async Task FileNameChangesNotifyDisplay_LegacyMetadataDoesNotOverrideIt()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
         var changed = new List<string?>();
         harness.ViewModel.PropertyChanged += (_, eventArgs) => changed.Add(eventArgs.PropertyName);
-
-        harness.ViewModel.FilmProfileName = "5207";
+        harness.ViewModel.FilmProfileFileName = "5207.json";
+        harness.ViewModel.FilmProfileName = "Unrelated legacy name";
         await harness.FlushAsync();
-        var namedDisplay = harness.ViewModel.CurrentProfileNameText;
-        harness.ViewModel.FilmProfileName = string.Empty;
+        Assert.Equal("5207.json", harness.ViewModel.CurrentProfileNameText);
+        harness.ViewModel.FilmProfileFileName = null;
         await harness.FlushAsync();
-
-        Assert.Equal("5207", namedDisplay);
         Assert.Equal("ScanDebug_Runtime_FilmProfileUntitled".GetLocalized(), harness.ViewModel.CurrentProfileNameText);
-        Assert.Equal(string.Empty, harness.ViewModel.FilmProfileName);
-        Assert.Contains(nameof(ScanDebugViewModel.CurrentProfileNameText), changed);
         Assert.True(changed.Count(name => name == nameof(ScanDebugViewModel.CurrentProfileNameText)) >= 2);
     }
 
@@ -2887,7 +3152,7 @@ public sealed class ScanDebugCalibrationStatusTests
             Assert.Equal(string.Empty, harness.ViewModel.FilmProfileName);
             Assert.Equal(string.Empty, harness.Workspace.Snapshot.CurrentDraft.ProfileName);
             Assert.Equal("ScanDebug_Runtime_FilmProfileUntitled".GetLocalized(), harness.ViewModel.CurrentProfileNameText);
-            Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues, issue =>
+            Assert.DoesNotContain(harness.ViewModel.CurrentFilmProfileValidationIssues, issue =>
                 issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
                 && issue.FieldPath == "profileName");
             Assert.True(harness.ViewModel.SaveFilmProfileJsonCommand.CanExecute(null));
@@ -2896,7 +3161,9 @@ public sealed class ScanDebugCalibrationStatusTests
             await harness.FlushAsync();
 
             var exported = Assert.IsType<ScanFilmParameterProfileSet>(harness.FilmProfileFiles.ExportedProfile);
-            Assert.Equal(string.Empty, exported.ProfileName);
+            Assert.Equal("film_profile", exported.ProfileName);
+            Assert.Equal("film_profile.json", harness.ViewModel.CurrentProfileNameText);
+            Assert.Equal("film_profile", harness.Workspace.Snapshot.CurrentDraft.ProfileName);
             Assert.DoesNotContain("Untitled Film Profile", exported.ProfileName, StringComparison.Ordinal);
             Assert.DoesNotContain("未命名胶片配置", exported.ProfileName, StringComparison.Ordinal);
 
@@ -3475,16 +3742,30 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
-    public async Task FilmProfileConfirmation_TerminalCleanupDuringStagedImportReplacement_CancelsWaitAndIgnoresLateYes()
+    public async Task FilmProfileImport_TerminalCleanupDuringPendingReviewReplacement_IgnoresLatePickerResult()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
         Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
-        harness.FilmProfileFiles.ImportedProfile = CreateFilmProfileDocument("Replacement profile");
+        var imported = new TaskCompletionSource<ScanFilmProfileFileImportResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.FilmProfileFiles.PendingImport = imported.Task;
         await harness.FlushAsync();
         Assert.True(harness.ViewModel.HasPendingFilmProfileImportResult);
+        var before = harness.Workspace.Snapshot;
+        var confirmations = 0;
+        harness.ViewModel.FilmProfileDiscardConfirmationRequested += (_, _) => confirmations++;
 
-        await AssertTerminalFilmProfileConfirmationAsync(
-            harness, () => harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null));
+        var operation = harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null);
+        Assert.False(operation.IsCompleted);
+        await harness.ViewModel.CleanupAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        imported.SetResult(new ScanFilmProfileFileImportResult(false, CreateFilmProfileDocument("Replacement profile"), null));
+        await operation.WaitAsync(TimeSpan.FromSeconds(3));
+        await harness.FlushAsync();
+
+        Assert.Equal(0, confirmations);
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Same(before.ImportResult, harness.Workspace.Snapshot.ImportResult);
+        Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
+        Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
     }
 
     [Theory]
@@ -3561,15 +3842,17 @@ public sealed class ScanDebugCalibrationStatusTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task FilmProfileConfirmation_YesAfterPageReentryCannotReplaceWorkspace(bool load, bool yesBeforeReentry)
+    public async Task FilmProfileLifecycle_PageReentryCannotApplyLatePickerOrConfirmation(bool load, bool yesBeforeReentry)
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
         var oldOwner = harness.ViewModel.ReservePageActivation();
         Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(oldOwner));
+        TaskCompletionSource<ScanFilmProfileFileImportResult>? picker = null;
         if (load)
         {
             Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
-            harness.FilmProfileFiles.ImportedProfile = CreateFilmProfileDocument("Replacement profile");
+            picker = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            harness.FilmProfileFiles.PendingImport = picker.Task;
         }
         else
         {
@@ -3583,13 +3866,27 @@ public sealed class ScanDebugCalibrationStatusTests
         var operation = load
             ? harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null)
             : harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
-        var confirmation = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        ScanFilmProfileDiscardConfirmationRequest? confirmation = null;
+        if (load)
+            Assert.False(requested.Task.IsCompleted);
+        else
+            confirmation = await requested.Task.WaitAsync(TimeSpan.FromSeconds(3));
         if (yesBeforeReentry)
-            confirmation.CompletionSource.TrySetResult(true);
+        {
+            if (load)
+                picker!.SetResult(new ScanFilmProfileFileImportResult(false, CreateFilmProfileDocument("Replacement profile"), null));
+            else
+                confirmation!.CompletionSource.TrySetResult(true);
+        }
         var newOwner = harness.ViewModel.ReservePageActivation();
         Assert.True(harness.ViewModel.AttachRuntimeBindingsForPage(newOwner));
         if (!yesBeforeReentry)
-            confirmation.CompletionSource.TrySetResult(true);
+        {
+            if (load)
+                picker!.SetResult(new ScanFilmProfileFileImportResult(false, CreateFilmProfileDocument("Replacement profile"), null));
+            else
+                confirmation!.CompletionSource.TrySetResult(true);
+        }
         await operation.WaitAsync(TimeSpan.FromSeconds(3));
 
         Assert.Same(before, harness.Workspace.Snapshot);
@@ -3656,7 +3953,7 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
-    public async Task FilmProfileConfirmation_WithoutSubscriberDeclinesStagedImportReplacement()
+    public async Task FilmProfileImport_WithoutConfirmationSubscriberReplacesOnlyPendingReview()
     {
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, attachRuntimeBindings: false);
         Assert.True(harness.Workspace.StageImport(CreateFilmProfileDocument("Staged profile")).Staged);
@@ -3666,10 +3963,14 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(3));
         await harness.FlushAsync();
 
-        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.NotSame(before.ImportResult, harness.Workspace.Snapshot.ImportResult);
+        Assert.Same(before.CurrentDraft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Same(before.BaselineDraft, harness.Workspace.Snapshot.BaselineDraft);
+        Assert.Equal("Replacement profile", harness.Workspace.Snapshot.StagedImport!.Draft.ProfileName);
         Assert.False(harness.ViewModel.IsFilmProfileOperationRunning);
         Assert.DoesNotContain(ScanDebugRuntimeOperation.ProfileLifecycle, harness.ViewModel.RuntimeOperationSnapshot.ActiveOperations);
-        Assert.NotEqual(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.FilmProfileOperationSeverity);
+        Assert.False(harness.ViewModel.FilmProfileOperationIsOpen);
     }
 
     private static ScanFilmParameterProfileSet CreateFilmProfileDocument(string name)
@@ -4412,7 +4713,6 @@ public sealed class ScanDebugCalibrationStatusTests
     public static TheoryData<string> Todo10AcquisitionUiFieldCases => new()
     {
          { nameof(ScanFilmAcquisitionSettings.Rows) },
-         { nameof(ScanFilmAcquisitionSettings.ScanMotorId) },
          { nameof(ScanFilmAcquisitionSettings.TargetLinePitchMicrometers) },
          { nameof(ScanFilmAcquisitionSettings.StartingDirectionPositive) },
         { nameof(ScanFilmAcquisitionSettings.WarmUpEnabled) },
@@ -4424,16 +4724,17 @@ public sealed class ScanDebugCalibrationStatusTests
     [MemberData(nameof(Todo10AcquisitionUiFieldCases))]
     public async Task Todo10ProfileOwnedAcquisitionUiMutations_SynchronizeDraftWithoutStaleExistingValues(string fieldName)
     {
-        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
-        var ledRoles = harness.ViewModel.AcquisitionChannels.Select(channel => channel.Role).ToArray();
+        var device = ScanDeviceSettings.CreateDefault() with
+        {
+            Channel1Role = "Blue", Channel2Role = "IR", Channel3Role = "Red", Channel4Role = "Green"
+        };
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            attachRuntimeBindings: true, deviceSettings: new StatusDeviceSettings(device));
 
         switch (fieldName)
         {
             case nameof(ScanFilmAcquisitionSettings.Rows):
                 harness.ViewModel.SelectedRows = "333";
-                break;
-            case nameof(ScanFilmAcquisitionSettings.ScanMotorId):
-                harness.ViewModel.SelectedScanMotor = "Motor1";
                 break;
             case nameof(ScanFilmAcquisitionSettings.TargetLinePitchMicrometers):
                 harness.ViewModel.MotorDistancePerLineUnit = ScanMotorDistanceText.MicrometersUnit;
@@ -4450,9 +4751,7 @@ public sealed class ScanDebugCalibrationStatusTests
                 break;
             case nameof(ScanFilmAcquisitionSettings.AcquisitionChannelAssignment):
                 foreach (var channel in harness.ViewModel.AcquisitionChannels)
-                    channel.IsSelected = false;
-                harness.ViewModel.AcquisitionChannels[0].IsSelected = true;
-                harness.ViewModel.AcquisitionChannels[2].IsSelected = true;
+                    channel.IsSelected = channel.Role is "IR" or "Red";
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, null);
@@ -4465,9 +4764,6 @@ public sealed class ScanDebugCalibrationStatusTests
         {
             case nameof(ScanFilmAcquisitionSettings.Rows):
                 Assert.Equal(333, acquisition.Rows);
-                break;
-            case nameof(ScanFilmAcquisitionSettings.ScanMotorId):
-                Assert.Equal((byte)0, acquisition.ScanMotorId);
                 break;
             case nameof(ScanFilmAcquisitionSettings.TargetLinePitchMicrometers):
                 Assert.Equal(12.6, acquisition.TargetLinePitchMicrometers);
@@ -4490,8 +4786,10 @@ public sealed class ScanDebugCalibrationStatusTests
                 Assert.Equal(ScanFilmTransportStrategy.AlternateDirection, acquisition.TransportStrategy);
                 break;
             case nameof(ScanFilmAcquisitionSettings.AcquisitionChannelAssignment):
-                Assert.Equal(new[] { ledRoles[0], "Unused", ledRoles[2], "Unused" }, acquisition.AcquisitionChannelAssignment?.Roles);
+                Assert.Equal(new[] { "Unused", "IR", "Red", "Unused" }, acquisition.AcquisitionChannelAssignment?.Roles);
                 Assert.Equal(new[] { false, false, false, false }, acquisition.AcquisitionChannelAssignment?.ReversedFlags);
+                Assert.Equal(device.ChannelRoles, new[] { acquisition.Led1ChannelColor, acquisition.Led2ChannelColor,
+                    acquisition.Led3ChannelColor, acquisition.Led4ChannelColor });
                 break;
         }
 
@@ -4500,7 +4798,8 @@ public sealed class ScanDebugCalibrationStatusTests
     [Fact]
     public async Task Todo10ProfileOwnedAcquisitionTargetLinePitch_DerivedIntervalChangesDoNotAuthorTargetPitchAndExplicitEditsPersist()
     {
-        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
         var currentDraft = harness.Workspace.Snapshot.CurrentDraft;
         var nullTargetDraft = new ScanFilmProfileDraft(
             currentDraft.ProfileName,
@@ -4575,18 +4874,18 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
-    public async Task Todo10ProfileOwnedAcquisitionApply_PreservesDuplicateRoleSlotsAndPerSlotReversal()
+    public async Task Todo10ProfileOwnedAcquisitionApply_UsesDeviceSlotsAndProjectsSelectionAndReversalByRole()
     {
         var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
-        await ConfigureDeviceChannelRolesAsync(harness, "Red", "Red", "Green", "Unused");
+        await ConfigureDeviceChannelRolesAsync(harness, "Red", "Green", "Blue", "White");
 
         var currentDraft = harness.Workspace.Snapshot.CurrentDraft;
         var acquisition = currentDraft.AcquisitionSettings! with
         {
-            AcquisitionChannelAssignment = new ScanChannelAssignment("Red", "Unused", "Green", "Unused", false, false, false, false)
+            AcquisitionChannelAssignment = new ScanChannelAssignment("Blue", "Unused", "Red", "Unused", false, false, false, false)
         };
         var recipe = new ScanFilmScanRecipeSettings(
-            new ScanChannelAssignment("Blue", "Green", "Green", "Unused", true, false, true, false));
+            new ScanChannelAssignment("Blue", "White", "Red", "Green", true, false, false, true));
         var updatedDraft = new ScanFilmProfileDraft(
             currentDraft.ProfileName,
             currentDraft.SavedAtUtc,
@@ -4597,13 +4896,14 @@ public sealed class ScanDebugCalibrationStatusTests
         harness.Workspace.SetCurrentDraft(updatedDraft);
         await harness.FlushAsync();
 
-        Assert.Equal(new[] { 0, 1, 2 }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.LedIndex));
-        Assert.Equal(new[] { "Red", "Red", "Green" }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.Role));
-        Assert.Equal(new[] { true, false, true }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.IsSelected));
-        Assert.True(harness.ViewModel.IsChannel1Reversed);
-        Assert.False(harness.ViewModel.IsChannel2Reversed);
+        Assert.Equal(new[] { 0, 1, 2, 3 }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.LedIndex));
+        Assert.Equal(new[] { "Red", "Green", "Blue", "White" }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.Role));
+        Assert.Equal(new[] { true, false, true, false }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.IsSelected));
+        Assert.False(harness.ViewModel.IsChannel1Reversed);
+        Assert.True(harness.ViewModel.IsChannel2Reversed);
         Assert.True(harness.ViewModel.IsChannel3Reversed);
         Assert.False(harness.ViewModel.IsChannel4Reversed);
+        Assert.Same(updatedDraft, harness.Workspace.Snapshot.CurrentDraft);
     }
 
     [Fact]
@@ -4776,14 +5076,24 @@ public sealed class ScanDebugCalibrationStatusTests
         ScanFilmProfileDraft? currentDraft,
         StatusAutoCalibration? autoCalibration = null,
         ushort? previewSample = null,
-        bool connected = false)
+        bool connected = false,
+        IScanDeviceSettingsService? deviceSettings = null)
         => StatusHarness.CreateAsync(
             persistedProfiles,
             currentDraft,
             attachRuntimeBindings: true,
             autoCalibration: autoCalibration,
             previewSample: previewSample,
-            connected: connected);
+            connected: connected,
+            deviceSettings: deviceSettings);
+
+    private static StatusDeviceSettings CreateFullV6DeviceSettings()
+        // Save/check/handoff tests need a device that can acquire the fixture's IR role.
+        // The original fixture and default device remain available for missing-role tests.
+        => new(ScanDeviceSettings.CreateDefault() with
+        {
+            Channel1Role = "IR", Channel2Role = "Blue", Channel3Role = "White", Channel4Role = "Red"
+        });
 
     private static async Task PrepareTodo15CandidateAsync(StatusHarness harness, StatusSessionCoordinator coordinator)
     {
@@ -5665,6 +5975,257 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.FlushAsync();
     }
 
+    [Fact]
+    public async Task ClockPresentation_EmptyInputIsNeutralWhileCompleteSaveAndDeviceApplyRemainBlocked()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true,
+            deviceSettings: CreateFullV6DeviceSettings());
+        var vm = harness.ViewModel;
+        Assert.True(vm.CanSaveFilmProfileFile);
+        Assert.True(vm.ApplyDeviceClockCommand.CanExecute(null));
+
+        vm.SysClockMhz = string.Empty;
+        await harness.FlushAsync();
+
+        Assert.Empty(vm.ClockInputErrorText);
+        Assert.NotEmpty(vm.ChannelClockValidationMessage);
+        Assert.DoesNotContain(vm.ChannelClockValidationMessage, vm.ChannelInputFeedbackText, StringComparison.Ordinal);
+        Assert.Equal("ScanDebug_ClockNotSet".GetLocalizedOrFallback("Clock not entered"), vm.CompactClockStateText);
+        Assert.Equal(Microsoft.UI.Xaml.Visibility.Visible, vm.ClockRangeHintVisibility);
+        Assert.False(vm.CanSaveFilmProfileFile);
+        Assert.False(vm.SaveFilmProfileJsonCommand.CanExecute(null));
+        Assert.False(vm.ApplyDeviceClockCommand.CanExecute(null));
+        Assert.False(vm.ApplyParametersCommand.CanExecute(null));
+        Assert.True(vm.CanUseEditingDraftFiles);
+    }
+
+    [Fact]
+    public async Task ClockPresentation_InvalidInputShowsErrorAndCanStillBePreservedInADraft()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true);
+        var vm = harness.ViewModel;
+        var role = vm.SelectedCalibrationChannel;
+        vm.SysClockMhz = "29";
+        await harness.FlushAsync();
+
+        Assert.NotEmpty(vm.ClockInputErrorText);
+        Assert.NotEqual(vm.ChannelClockValidationMessage, vm.ClockInputErrorText);
+        Assert.DoesNotContain("→", vm.ClockInputErrorText);
+        Assert.Equal("ScanDebug_ClockInputInvalidState".GetLocalizedOrFallback("Clock input is invalid"), vm.CompactClockStateText);
+        Assert.Equal(Microsoft.UI.Xaml.Visibility.Collapsed, vm.ClockRangeHintVisibility);
+        Assert.Contains("30–200 MHz", vm.ClockInputErrorText, StringComparison.Ordinal);
+        Assert.False(vm.SaveFilmProfileJsonCommand.CanExecute(null));
+        Assert.False(vm.ApplyDeviceClockCommand.CanExecute(null));
+        Assert.True(vm.CanUseEditingDraftFiles);
+
+        var gateway = new EditingDraftMemoryGateway();
+        await vm.SaveEditingDraftAsync(gateway);
+        await harness.FlushAsync();
+
+        var saved = Assert.IsType<ScanFilmProfileDraftFile>(new ScanFilmProfileDraftFileService().Parse(gateway.SavedText).DraftFile);
+        Assert.Equal("29", saved.ChannelRawFields[role][nameof(ScanDebugViewModel.SysClockMhz)]);
+        Assert.Equal(gateway.FileName, vm.EditingDraftFileName);
+        Assert.Equal(0, vm.FilmProfileExportVersion);
+        Assert.False(vm.CanSaveFilmProfileFile);
+    }
+
+    [Fact]
+    public async Task ClockPresentation_ValidOfflineInputShowsConfiguredValueWithoutRepeatedDeviceConfirmation()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            attachRuntimeBindings: true, parameters: new ScanParameterService(new ScanProtocolService()));
+        var vm = harness.ViewModel;
+        vm.SysClockMhz = "125.125";
+        await harness.FlushAsync();
+
+        Assert.False(vm.IsConnected);
+        Assert.Empty(vm.ClockInputErrorText);
+        Assert.Equal("ScanDebug_ClockPendingOffline".GetLocalizedFormatOrFallback("{0} MHz · Not applied (device offline)", "125.125"), vm.CompactClockStateText);
+        Assert.Single(Regex.Matches(vm.CompactClockStateText, Regex.Escape("125.125")).Cast<Match>());
+        Assert.DoesNotContain(vm.DeviceClockDisplay, vm.CompactClockStateText, StringComparison.Ordinal);
+        Assert.DoesNotContain(vm.ClockDraftStatusText, vm.CompactClockStateText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeviceClockDisplay_WhenClockIsEditedOffline_DistinguishesConfiguredValueFromDeviceState()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null,
+            parameters: new ScanParameterService(new ScanProtocolService()));
+
+        harness.ViewModel.SysClockMhz = "100";
+
+        Assert.Equal("ScanDebug_Runtime_ClockDraftFormat".GetLocalizedFormatOrFallback("Configured clock: {0}", "100 MHz"), harness.ViewModel.SysClockMhzDisplay);
+        Assert.Equal("ScanDebug_Runtime_DeviceClockDisconnected".GetLocalizedOrFallback("Device clock: disconnected"), harness.ViewModel.DeviceClockDisplay);
+        Assert.Equal("ScanDebug_Runtime_ClockDraftNotApplied".GetLocalizedOrFallback("Configured value has not been applied to the device"), harness.ViewModel.ClockDraftStatusText);
+        Assert.False(harness.ViewModel.ApplyDeviceClockCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task DeviceClockDisplay_WhenReadClockIsEdited_KeepsConfirmedDeviceValueUntilAnotherDeviceConfirmation()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            parameters: new ScanParameterService(new ScanProtocolService()));
+        typeof(ScanDebugViewModel).GetMethod("ApplySnapshotToInputs", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, [new ScanParameterSnapshot(1_000, 0, 1, 0, 1, 100_000)]);
+        var confirmedDisplay = harness.ViewModel.DeviceClockDisplay;
+        Assert.Equal("ScanDebug_Runtime_DeviceClockFormat".GetLocalizedFormatOrFallback("Device clock: {0} MHz", "100"), confirmedDisplay);
+        Assert.Equal("ScanDebug_Runtime_ClockDraftApplied".GetLocalizedOrFallback("Configured value confirmed by device"), harness.ViewModel.ClockDraftStatusText);
+        Assert.Equal("ScanDebug_ClockApplied".GetLocalizedFormatOrFallback("{0} MHz · Applied", "100"), harness.ViewModel.CompactClockStateText);
+
+        harness.ViewModel.ExposureMicroseconds = "100";
+        harness.ViewModel.SysClockMhz = "125";
+
+        Assert.Equal(confirmedDisplay, harness.ViewModel.DeviceClockDisplay);
+        Assert.Equal("125000", harness.ViewModel.SysClockKhz);
+        Assert.Equal(ScanDeviceClockStateKind.Edited, harness.ViewModel.DeviceTimingState.StateKind);
+        Assert.Equal("ScanDebug_Runtime_ClockDraftNotApplied".GetLocalizedOrFallback("Configured value has not been applied to the device"), harness.ViewModel.ClockDraftStatusText);
+        Assert.Equal("ScanDebug_ClockPendingApply".GetLocalizedFormatOrFallback("{0} MHz · Not applied", "125"), harness.ViewModel.CompactClockStateText);
+        Assert.Empty(harness.ViewModel.ExposureTicks);
+    }
+
+    [Fact]
+    public async Task DeviceClockDisplay_WhenClockWriteCompletesAfterAnotherEdit_ShowsAcknowledgedClockAndUnappliedDraft()
+    {
+        var applied = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var session = new StatusSession(isConnected: true);
+        var parameters = new StatusParameters(globalClockApplied: applied, releaseGlobalClockApply: release);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true), parameters: parameters);
+        await SetValidParameterInputsAsync(harness, "100");
+
+        var apply = harness.ViewModel.ApplyDeviceClockCommand.ExecuteAsync(null);
+        await applied.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        harness.ViewModel.SysClockMhz = "125";
+        release.TrySetResult(null);
+        await apply;
+
+        Assert.Equal("ScanDebug_Runtime_DeviceClockFormat".GetLocalizedFormatOrFallback("Device clock: {0} MHz", "100"), harness.ViewModel.DeviceClockDisplay);
+        Assert.Equal("125", harness.ViewModel.SysClockMhz);
+        Assert.Equal(ScanDeviceClockStateKind.Edited, harness.ViewModel.DeviceTimingState.StateKind);
+        Assert.Equal("ScanDebug_Runtime_ClockDraftNotApplied".GetLocalizedOrFallback("Configured value has not been applied to the device"), harness.ViewModel.ClockDraftStatusText);
+    }
+
+    [Fact]
+    public async Task DeviceClockDisplay_WhenWriteFailsOrDeviceDisconnects_StopsPresentingAnEarlierClockAsConfirmed()
+    {
+        var session = new StatusSession(isConnected: true);
+        var parameters = new StatusParameters(globalClockApplyFailure: new IOException("clock write rejected"));
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true), parameters: parameters);
+        typeof(ScanDebugViewModel).GetMethod("ApplySnapshotToInputs", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(harness.ViewModel, [new ScanParameterSnapshot(1_000, 0, 1, 0, 1, 100_000)]);
+
+        harness.ViewModel.SysClockMhz = "125";
+        await harness.ViewModel.ApplyDeviceClockCommand.ExecuteAsync(null);
+        Assert.Equal("ScanDebug_Runtime_DeviceClockReadRequired".GetLocalizedOrFallback("Device clock: read again to confirm"), harness.ViewModel.DeviceClockDisplay);
+        harness.ViewModel.IsConnected = false;
+        Assert.Equal("ScanDebug_Runtime_DeviceClockDisconnected".GetLocalizedOrFallback("Device clock: disconnected"), harness.ViewModel.DeviceClockDisplay);
+        harness.ViewModel.IsConnected = true;
+        InvokeSetDeviceTimingState(harness.ViewModel, ScanDeviceTimingState.Unknown);
+        Assert.Equal("ScanDebug_Runtime_DeviceClockUnknown".GetLocalizedOrFallback("Device clock: not read"), harness.ViewModel.DeviceClockDisplay);
+    }
+
+    [Fact]
+    public async Task ExposureInput_WhenBelowFirmwareMinimum_ShowsClockDependentRangeAndClearsIssueImmediatelyAfterCorrection()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null,
+            parameters: new ScanParameterService(new ScanProtocolService()));
+        await SetValidParameterInputsAsync(harness, "100");
+
+        harness.ViewModel.ExposureMicroseconds = "100";
+
+        Assert.Equal("ScanDebug_Runtime_ExposureInputRange".GetLocalizedFormatOrFallback("Exposure at this clock: {0}–{1} μs", "458.27", "4390.37"), harness.ViewModel.ExposureInputRangeText);
+        Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues, issue => issue.MessageKey == "FilmProfile.Validation.ExposureInputInvalid");
+        Assert.Empty(harness.ViewModel.ExposureTicks);
+
+        harness.ViewModel.ExposureMicroseconds = "500";
+
+        Assert.DoesNotContain(harness.ViewModel.CurrentFilmProfileValidationIssues, issue => issue.MessageKey == "FilmProfile.Validation.ExposureInputInvalid");
+        Assert.Equal("696", harness.ViewModel.ExposureTicks);
+    }
+
+    [Fact]
+    public async Task ExposureInput_WhenClockChangesOrBecomesInvalid_RefreshesRangeWithoutKeepingStaleClockProjection()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        harness.ViewModel.ExposureMicroseconds = "100";
+        harness.ViewModel.SysClockMhz = "100";
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        harness.ViewModel.SysClockMhz = "30";
+
+        Assert.Equal("ScanDebug_Runtime_ExposureInputRange".GetLocalizedFormatOrFallback("Exposure at this clock: {0}–{1} μs", "1527.567", "14634.566"), harness.ViewModel.ExposureInputRangeText);
+        Assert.Equal("30000", harness.ViewModel.SysClockKhz);
+        Assert.Contains(nameof(ScanDebugViewModel.ExposureInputRangeText), notifications);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ExposureInputRangeVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ExposureClockEntryVisibility);
+        harness.ViewModel.SysClockMhz = "invalid";
+        Assert.Equal("ScanDebug_Runtime_ExposureInputClockRequired".GetLocalizedOrFallback("Enter a valid clock to see the exposure range"), harness.ViewModel.ExposureInputRangeText);
+        Assert.Empty(harness.ViewModel.SysClockKhz);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ExposureInputRangeVisibility);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.ExposureTimeDisplayVisibility);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.ExposureClockEntryVisibility);
+        Assert.Contains(nameof(ScanDebugViewModel.ExposureInputRangeVisibility), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.ExposureClockEntryVisibility), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.ExposureTimeDisplayVisibility), notifications);
+    }
+
+    [Fact]
+    public async Task AcquisitionCalibrationSummary_WhenChannelParametersCreateDraftProfile_RefreshesSummaryAndRows()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        foreach (var channel in harness.ViewModel.AcquisitionChannels)
+            channel.IsSelected = channel.Role is "Red" or "Green";
+        var redChannel = harness.ViewModel.AcquisitionChannels.Single(channel => channel.Role == "Red");
+        var notifications = new List<string?>();
+        var rowNotifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        redChannel.PropertyChanged += (_, args) => rowNotifications.Add(args.PropertyName);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.AcquisitionCalibrationSummaryVisibility);
+
+        await SetValidParameterInputsAsync(harness, "125");
+
+        Assert.True(harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles.ContainsKey("Red"));
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.AcquisitionCalibrationSummaryVisibility);
+        Assert.Equal(Visibility.Visible, redChannel.CalibrationStatusVisibility);
+        Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCalibrationSummaryVisibility), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCalibrationSummaryText), notifications);
+        Assert.Contains(nameof(ScanDebugAcquisitionChannelViewModel.CalibrationStatusVisibility), rowNotifications);
+    }
+
+    [Fact]
+    public async Task AcquisitionChannels_WhenDisplayOrderFollowsChannelRoles_PreservesPhysicalLedMappingAndSelectionInstances()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var presentationChanges = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => presentationChanges.Add(args.PropertyName);
+        await ConfigureDeviceChannelRolesAsync(harness, "Blue", "White", "Red", "Green");
+        var originalChannels = harness.ViewModel.AcquisitionChannels.ToArray();
+        var rowChanges = new List<string?>();
+        foreach (var channel in originalChannels)
+            channel.PropertyChanged += (_, args) => rowChanges.Add(args.PropertyName);
+        originalChannels.Single(channel => channel.Role == "Blue").IsSelected = false;
+
+        var displayChannels = harness.ViewModel.AcquisitionChannelsInDisplayOrder;
+
+        Assert.Equal(new[] { "Red", "Green", "Blue", "White" }, displayChannels.Select(channel => channel.Role));
+        Assert.Equal(new[] { 2, 3, 0, 1 }, displayChannels.Select(channel => channel.LedIndex));
+        Assert.All(displayChannels, channel => Assert.Same(originalChannels.Single(original => original.LedIndex == channel.LedIndex), channel));
+        Assert.False(displayChannels.Single(channel => channel.Role == "Blue").IsSelected);
+        Assert.Equal(new[] { 0, 1, 2, 3 }, harness.ViewModel.AcquisitionChannels.Select(channel => channel.LedIndex));
+        Assert.Equal(Visibility.Visible, harness.ViewModel.AcquisitionCalibrationSummaryVisibility);
+        Assert.All(displayChannels, channel => Assert.Equal(
+            channel.IsSelected ? Visibility.Collapsed : Visibility.Visible, channel.CalibrationStatusVisibility));
+        Assert.Equal("ScanDebug_AcquisitionCalibrationSummaryFormat".GetLocalizedFormatOrFallback(
+            "{0} selected channels: {1}", displayChannels.Count(channel => channel.IsSelected), displayChannels[0].CalibrationStatusText),
+            harness.ViewModel.AcquisitionCalibrationSummaryText);
+        Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCalibrationSummaryText), presentationChanges);
+        Assert.Contains(nameof(ScanDebugViewModel.AcquisitionCalibrationSummaryVisibility), presentationChanges);
+        Assert.Contains(nameof(ScanDebugAcquisitionChannelViewModel.CalibrationStatusVisibility), rowChanges);
+    }
+
     private static IReadOnlyDictionary<string, ScanChannelCalibrationProfile> CreateKnownRoleProfiles()
         => new Dictionary<string, ScanChannelCalibrationProfile>(StringComparer.OrdinalIgnoreCase)
         {
@@ -6524,6 +7085,41 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task AutofocusInitialization_PendingDeviceSettingsDisableRequestUntilLoadedMechanicsAreAvailable()
+    {
+        var releaseInitialization = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deviceSettings = new StatusDeviceSettings(ScanDeviceSettings.CreateDefault() with
+        {
+            Motor1 = new ScanMotorMechanicalSettings(200, 16, 8.0),
+            Motor3 = new ScanMotorMechanicalSettings(200, 8, 8.0),
+            FocusMotorMapping = new ScanFocusMotorMapping(0, 2, ZPositiveDirection: true, TiltPositiveDirection: false)
+        }, releaseInitialize: releaseInitialization);
+        var session = new StatusSession(isConnected: true, motionStates: CreateIdleMotionStates());
+        var autoFocus = new StatusAutoFocus();
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, connected: true,
+            scanSession: session, autoFocus: autoFocus, deviceSettings: deviceSettings,
+            sessionCoordinator: new StatusSessionCoordinator(session, useConnectedSession: true));
+        try
+        {
+            Assert.False(InvokeTryBuildAutofocusRequest(harness.ViewModel, out var pendingError));
+            Assert.False(string.IsNullOrWhiteSpace(pendingError));
+            Assert.False(harness.ViewModel.AutoFocusCommand.CanExecute(null));
+        }
+        finally
+        {
+            releaseInitialization.TrySetResult(null);
+            await (Task)typeof(ScanDebugViewModel).GetMethod("EnsureDeviceSettingsInitializedAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(harness.ViewModel, null)!;
+            await harness.FlushAsync();
+        }
+
+        Assert.False(InvokeTryBuildAutofocusRequest(harness.ViewModel, out var initializedError));
+        Assert.Contains("mechanics", initializedError, StringComparison.OrdinalIgnoreCase);
+        Assert.False(harness.ViewModel.AutoFocusCommand.CanExecute(null));
+        Assert.Equal(0, autoFocus.CallCount);
+        Assert.Empty(session.MoveAndWaitRequests);
+    }
+
+    [Fact]
     public async Task Todo17Autofocus_GivenUnequalMappedMechanics_WhenRunRequested_ThenRejectsBeforeSessionOrAutofocusIo()
     {
         var autoFocus = new StatusAutoFocus();
@@ -6671,6 +7267,14 @@ public sealed class ScanDebugCalibrationStatusTests
     }
 
     [Fact]
+    public async Task StopAllFocus_WhenIdleOffline_IsUnavailable()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+
+        Assert.False(harness.ViewModel.StopAllFocusCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Todo17StopAllFocus_GivenOnlineAutofocusCancellationSynchronouslyClearsState_ThenCapturedMappedMotorsStillStop()
     {
         var autoFocusEntered = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -6697,9 +7301,11 @@ public sealed class ScanDebugCalibrationStatusTests
         var autofocusTask = harness.ViewModel.AutoFocusCommand.ExecuteAsync(null);
         await autoFocusEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+        Assert.True(harness.ViewModel.StopAllFocusCommand.CanExecute(null));
         harness.ViewModel.FocusMappingLeftMotor = "Motor1";
         await harness.ViewModel.StopAllFocusCommand.ExecuteAsync(null);
         await autofocusTask;
+        Assert.False(harness.ViewModel.StopAllFocusCommand.CanExecute(null));
         await harness.ViewModel.StopAllFocusCommand.ExecuteAsync(null);
         await harness.FlushAsync();
 
@@ -7206,7 +7812,7 @@ public sealed class ScanDebugCalibrationStatusTests
 
         Assert.Same(currentDraft, harness.Workspace.Snapshot.CurrentDraft);
         Assert.Equal(currentIssues, harness.ViewModel.CurrentFilmProfileValidationIssues);
-        Assert.Contains(harness.ViewModel.CurrentFilmProfileValidationIssues, issue =>
+        Assert.DoesNotContain(harness.ViewModel.CurrentFilmProfileValidationIssues, issue =>
             issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
             && issue.FieldPath == "profileName");
         var stagedIssue = Assert.Single(harness.ViewModel.StagedFilmProfileImportValidationIssues);
@@ -7244,7 +7850,7 @@ public sealed class ScanDebugCalibrationStatusTests
                 MessageArguments = issue.MessageArguments.ToArray()
             })
             .ToArray();
-        Assert.NotEmpty(currentIssueSnapshot);
+        Assert.Empty(currentIssueSnapshot);
 
         void AssertCurrentValidationIsPreserved()
         {
@@ -7304,6 +7910,389 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Equal(importedProfile, harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles["Red"]);
         Assert.False(harness.ViewModel.HasPendingFilmProfileImportResult);
         Assert.Empty(harness.ViewModel.StagedFilmProfileImportValidationIssues);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_OfflineReadsOnlyStateAndDoesNotAuthorDraftOrSendDeviceCommands()
+    {
+        var parameters = new StatusParameters();
+        var calibration = new StatusAutoCalibration(CreateProfile(1200).Parameters);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null, parameters: parameters, autoCalibration: calibration);
+        var before = harness.Workspace.Snapshot;
+        var wasDirty = harness.ViewModel.HasUnsavedProfileChanges;
+
+        Assert.Equal(ScanDebugCalibrationGuideStep.ConnectDevice, harness.ViewModel.CalibrationGuideStep);
+        Assert.True(harness.ViewModel.CalibrationGuideActionEnabled);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.CalibrationGuideActionVisibility);
+        Assert.All(ReadCalibrationGuideText(harness.ViewModel), text => Assert.False(string.IsNullOrWhiteSpace(text)));
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal(wasDirty, harness.ViewModel.HasUnsavedProfileChanges);
+        Assert.Equal(0, parameters.LoadCount);
+        Assert.Equal(0, parameters.ChannelApplyCount);
+        Assert.Equal(0, parameters.GlobalClockApplyCount);
+        Assert.Null(calibration.LastAutoBlackInput);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+        Assert.Equal("Configuration file not saved yet", harness.ViewModel.CalibrationGuideSaveStatus);
+    }
+
+    [Fact]
+    public async Task FilmProfileNavigation_EmptyDraftChannelRoiProjectionAndMotionMirrorsRemainClean()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var before = harness.Workspace.Snapshot;
+        Assert.False(viewModel.HasUnsavedProfileChanges);
+        Assert.False(ReadPrivateField<bool>(viewModel, "_hasInvalidFilmProfileInput"));
+
+        _ = ReadCalibrationGuideText(viewModel);
+        Assert.True(await viewModel.TrySelectCalibrationChannelAsync(viewModel.SelectedCalibrationChannel));
+        viewModel.SelectedAdcRoiSelection = "BW Shield";
+        viewModel.SelectedAdcRoiSelection = "BW Active";
+        typeof(ScanDebugViewModel).GetMethod("RefreshRoiStatus", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(viewModel, null);
+        viewModel.Motor1SpeedValue = viewModel.Motor1SpeedValue;
+        viewModel.Motor2SpeedValue = viewModel.Motor2SpeedValue;
+        viewModel.Motor3SpeedValue = viewModel.Motor3SpeedValue;
+        viewModel.Motor1SpeedUnit = viewModel.Motor1SpeedUnit;
+        viewModel.Motor2SpeedUnit = viewModel.Motor2SpeedUnit;
+        viewModel.Motor3SpeedUnit = viewModel.Motor3SpeedUnit;
+        await harness.FlushAsync();
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.False(ReadPrivateField<bool>(viewModel, "_hasInvalidFilmProfileInput"));
+        Assert.False(viewModel.HasUnsavedProfileChanges);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Fact]
+    public async Task MotionBindingInitialization_NullSelectionRoundTripDoesNotDirtyEmptyDraftOrLoseDerivedInterval()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var before = harness.Workspace.Snapshot;
+        var validation = viewModel.CurrentFilmProfileValidationIssues;
+        var unit = viewModel.Motor2SpeedUnit;
+        Assert.True(ReadPrivateField<bool>(viewModel, "_isMotor2SpeedDerivedFromInterval"));
+
+        using (viewModel.BeginMotionInputBindingInitialization())
+        {
+            // Native deferred ItemsSource realization briefly publishes null SelectedItem.
+            viewModel.Motor2SpeedUnit = null!;
+            viewModel.Motor2SpeedUnit = unit;
+        }
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Same(validation, viewModel.CurrentFilmProfileValidationIssues);
+        Assert.False(ReadPrivateField<bool>(viewModel, "_hasInvalidFilmProfileInput"));
+        Assert.True(ReadPrivateField<bool>(viewModel, "_isMotor2SpeedDerivedFromInterval"));
+        Assert.False(viewModel.HasUnsavedProfileChanges);
+    }
+
+    [Fact]
+    public async Task MotionBindingInitialization_NestedScopesAndExceptionRestoreRealEditTracking()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        var unit = viewModel.Motor2SpeedUnit;
+
+        Assert.Throws<InvalidOperationException>((Action)(() =>
+        {
+            using var outer = viewModel.BeginMotionInputBindingInitialization();
+            using (viewModel.BeginMotionInputBindingInitialization())
+            {
+                viewModel.Motor2SpeedUnit = null!;
+                viewModel.Motor2SpeedUnit = unit;
+            }
+            Assert.Equal(1, ReadPrivateField<int>(viewModel, "_motionInputBindingInitializationDepth"));
+            viewModel.Motor2SpeedUnit = null!;
+            viewModel.Motor2SpeedUnit = unit;
+            Assert.False(viewModel.HasUnsavedProfileChanges);
+            throw new InvalidOperationException("initialization failed");
+        }));
+
+        Assert.Equal(0, ReadPrivateField<int>(viewModel, "_motionInputBindingInitializationDepth"));
+        viewModel.Motor2SpeedValue = "bad";
+        Assert.True(ReadPrivateField<bool>(viewModel, "_hasInvalidFilmProfileInput"));
+        Assert.True(viewModel.HasUnsavedProfileChanges);
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+    }
+
+    [Fact]
+    public async Task MotionBindingInitialization_PreservesExistingUnsavedInvalidEdits()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var viewModel = harness.ViewModel;
+        viewModel.ExposureMicroseconds = "bad";
+        var before = harness.Workspace.Snapshot;
+        var validation = viewModel.CurrentFilmProfileValidationIssues;
+        var unit = viewModel.Motor2SpeedUnit;
+        Assert.True(viewModel.HasUnsavedProfileChanges);
+
+        using (viewModel.BeginMotionInputBindingInitialization())
+        {
+            viewModel.Motor2SpeedUnit = null!;
+            viewModel.Motor2SpeedUnit = unit;
+        }
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Same(validation, viewModel.CurrentFilmProfileValidationIssues);
+        Assert.True(ReadPrivateField<bool>(viewModel, "_hasInvalidFilmProfileInput"));
+        Assert.True(viewModel.HasUnsavedProfileChanges);
+        Assert.Equal("bad", viewModel.ExposureMicroseconds);
+    }
+
+    [Fact]
+    public async Task MotionBindingInitialization_PreservesSavedMotorIntervalAndSubsequentValidUserEditAuthorsDraft()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        var viewModel = harness.ViewModel;
+        viewModel.SelectedScanMotor = "Motor2";
+        viewModel.MotorDistancePerLineValue = string.Empty;
+        harness.Workspace.MarkExported(Assert.IsType<ScanFilmParameterProfileSet>(harness.Workspace.BuildExportDocument().Document.Document));
+        await harness.FlushAsync();
+        var before = harness.Workspace.Snapshot;
+        var initialInterval = before.CurrentDraft.AcquisitionSettings!.MotorIntervalNs;
+        var unit = viewModel.Motor2SpeedUnit;
+        var speed = viewModel.Motor2SpeedValue;
+        Assert.False(viewModel.HasUnsavedProfileChanges);
+
+        using (viewModel.BeginMotionInputBindingInitialization())
+        {
+            viewModel.Motor2SpeedUnit = null!;
+            viewModel.Motor2SpeedUnit = unit;
+        }
+
+        Assert.Same(before, harness.Workspace.Snapshot);
+        Assert.Equal(initialInterval, harness.Workspace.Snapshot.CurrentDraft.AcquisitionSettings!.MotorIntervalNs);
+        Assert.False(viewModel.HasUnsavedProfileChanges);
+
+        viewModel.Motor2SpeedValue = (decimal.Parse(speed, CultureInfo.InvariantCulture) * 2).ToString(CultureInfo.InvariantCulture);
+        Assert.True(viewModel.HasUnsavedProfileChanges);
+        Assert.True(harness.Workspace.Snapshot.IsDirty);
+        Assert.NotEqual(initialInterval, harness.Workspace.Snapshot.CurrentDraft.AcquisitionSettings!.MotorIntervalNs);
+    }
+
+    [Theory]
+    [InlineData(true, ScanDebugCalibrationGuideStep.PrepareDeviceClock)]
+    [InlineData(false, ScanDebugCalibrationGuideStep.PrepareChannelParameters)]
+    public async Task CalibrationGuide_InvalidParametersNamesTheActualEditor(bool invalidClock, ScanDebugCalibrationGuideStep expectedStep)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true);
+        if (invalidClock)
+            harness.ViewModel.SysClockMhz = "bad";
+        else
+            harness.ViewModel.ExposureMicroseconds = "bad";
+        var before = harness.Workspace.Snapshot;
+
+        Assert.Equal(expectedStep, harness.ViewModel.CalibrationGuideStep);
+        Assert.Equal("Preparation needed", harness.ViewModel.CalibrationGuideParametersStatus);
+        Assert.Same(before, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_ReusableLibraryProfileDoesNotClaimCurrentCalibrationOrApplication()
+    {
+        var profile = CreateProfile(1000);
+        var profiles = new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = profile };
+        var harness = await CreateAttachedHarnessAsync(profiles, CreateDraft(profiles, "Red"), connected: true);
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+
+        Assert.Equal(ScanDebugCalibrationGuideStep.ShowCalibrationActions, harness.ViewModel.CalibrationGuideStep);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.CalibrationGuideActionVisibility);
+        Assert.Equal("Available", harness.ViewModel.CalibrationGuideParametersStatus);
+        Assert.Equal("Current calibration unconfirmed", harness.ViewModel.CalibrationGuideCalibrationStatus);
+        Assert.Equal("No candidate yet", harness.ViewModel.CalibrationGuideReviewStatus);
+        Assert.Contains("reads the device parameters", harness.ViewModel.CalibrationGuideDetail, StringComparison.Ordinal);
+        Assert.Equal(Visibility.Collapsed, harness.ViewModel.AcquisitionCalibrationSummaryVisibility);
+        Assert.Empty(harness.ViewModel.AcquisitionCalibrationSummaryText);
+        Assert.All(harness.ViewModel.AcquisitionChannels, channel => Assert.Equal(Visibility.Visible, channel.CalibrationStatusVisibility));
+        Assert.True(harness.ViewModel.AcquisitionChannels.Select(channel => channel.CalibrationStatusText).Distinct().Count() > 1);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("150")]
+    public async Task CalibrationGuide_InvalidOrUnappliedAdcRoiStaysOnRoiPreparation(string start)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true);
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+        harness.ViewModel.SelectedAdcRoiSelection = "BW Active";
+        var applied = ReadPrivateField<ScanCalibrationRoiSettings>(harness.ViewModel, "_roiSettings")!;
+        harness.ViewModel.AdcRoiStartInput = start;
+        var before = harness.Workspace.Snapshot;
+
+        Assert.Equal(ScanDebugCalibrationGuideStep.ReviewAdcRoi, harness.ViewModel.CalibrationGuideStep);
+        Assert.NotEqual("Available", harness.ViewModel.CalibrationGuideRoiStatus);
+        Assert.Contains("applied ranges", harness.ViewModel.CalibrationGuideDetail, StringComparison.Ordinal);
+        Assert.Equal(applied, ReadPrivateField<ScanCalibrationRoiSettings>(harness.ViewModel, "_roiSettings"));
+        Assert.Same(before, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_PendingCandidateTakesPriorityEvenOffline()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var snapshot = CreateProfile(1000).Parameters;
+        harness.ViewModel.PendingCalibrationResult = PendingCalibrationResult.Create(snapshot, snapshot,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0),
+            new CalibrationCandidateContext(harness.ViewModel.SelectedCalibrationChannel, "workspace", "device"));
+        var before = harness.Workspace.Snapshot;
+
+        Assert.Equal(ScanDebugCalibrationGuideStep.ReviewCandidate, harness.ViewModel.CalibrationGuideStep);
+        Assert.Equal("Review pending", harness.ViewModel.CalibrationGuideReviewStatus);
+        Assert.True(harness.ViewModel.CalibrationGuideActionEnabled);
+        Assert.Equal(Visibility.Visible, harness.ViewModel.CalibrationGuideActionVisibility);
+        Assert.Same(before, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_RunningOperationDisablesNextNavigationAndNotifiesAllSteps()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true);
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        harness.ViewModel.IsAutoCalibrating = true;
+
+        Assert.Equal(ScanDebugCalibrationGuideStep.None, harness.ViewModel.CalibrationGuideStep);
+        Assert.False(harness.ViewModel.CalibrationGuideActionEnabled);
+        Assert.Equal("In progress", harness.ViewModel.CalibrationGuideCalibrationStatus);
+        Assert.Contains(nameof(ScanDebugViewModel.CalibrationGuideTitle), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.CalibrationGuideActionVisibility), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.CalibrationGuideCalibrationStatus), notifications);
+        Assert.Contains(nameof(ScanDebugViewModel.CalibrationGuideSaveStatus), notifications);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_AutoResultRequiresReviewAndLibrarySaveStillRequiresConfigurationFileSave()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            autoCalibration: new StatusAutoCalibration(CreateProfile(1200).Parameters), connected: true,
+            deviceSettings: CreateFullV6DeviceSettings());
+        harness.ViewModel.SysClockMhz = "48";
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+
+        await harness.ViewModel.AutoBlackAdjustCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal(ScanDebugCalibrationGuideStep.ReviewCandidate, harness.ViewModel.CalibrationGuideStep);
+        Assert.Equal("Review pending", harness.ViewModel.CalibrationGuideCalibrationStatus);
+
+        await harness.ViewModel.AcceptAndSavePendingCalibrationCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal(PendingCalibrationResultState.AcceptAndSave, harness.ViewModel.PendingCalibrationResult!.State);
+        Assert.NotEmpty(harness.Repository.SavedProfileRoles);
+        Assert.Equal(ScanDebugCalibrationGuideStep.SaveConfiguration, harness.ViewModel.CalibrationGuideStep);
+        Assert.Equal("Current candidate accepted", harness.ViewModel.CalibrationGuideReviewStatus);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+
+        harness.FilmProfileFiles.ExportSucceeds = true;
+        harness.FilmProfileFiles.ExportFileName = "Verified.json";
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("Configuration file saved", harness.ViewModel.CalibrationGuideSaveStatus);
+        Assert.Equal("Configuration file saved", harness.ViewModel.CalibrationGuideTitle);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_AcceptedCandidateWithOtherConfigurationErrorsLeadsToReviewInsteadOfDisabledSave()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"), connected: true);
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+        PublishAcceptedCalibrationGuideCandidate(harness.ViewModel);
+        harness.ViewModel.CurrentFilmProfileValidationIssues =
+        [CreateFilmProfileIssue(ScanFilmProfileValidationCode.InvalidAcquisitionInput, "acquisitionSettings.rows", "FilmProfile.Validation.AcquisitionInputInvalid")];
+
+        Assert.False(harness.ViewModel.SaveFilmProfileJsonCommand.CanExecute(null));
+        Assert.Equal(ScanDebugCalibrationGuideStep.ReviewConfiguration, harness.ViewModel.CalibrationGuideStep);
+        Assert.True(harness.ViewModel.CalibrationGuideActionEnabled);
+    }
+
+    [Fact]
+    public async Task CalibrationGuide_AcceptEnumDuringDeviceApplyDoesNotClaimCandidateAcceptedYet()
+    {
+        var entered = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var parameters = new StatusParameters(applyEntered: entered, releaseApply: release);
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            attachRuntimeBindings: true, connected: true, parameters: parameters);
+        var context = GetCalibrationGuideCandidateContext(harness.ViewModel);
+        var profile = harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles[harness.ViewModel.SelectedCalibrationChannel];
+        harness.ViewModel.PendingCalibrationResult = PendingCalibrationResult.Create(profile.Parameters, profile.Parameters,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0), context,
+            roiSettings: profile.RoiSettings);
+
+        var acceptance = harness.ViewModel.AcceptPendingCalibrationCommand.ExecuteAsync(null);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        try
+        {
+            Assert.Equal(PendingCalibrationResultState.Accept, harness.ViewModel.PendingCalibrationResult!.State);
+            Assert.Equal(ScanDebugCalibrationGuideStep.None, harness.ViewModel.CalibrationGuideStep);
+            Assert.NotEqual("Current candidate accepted", harness.ViewModel.CalibrationGuideReviewStatus);
+            Assert.Equal(1, parameters.ChannelApplyCount);
+        }
+        finally
+        {
+            release.TrySetResult(null);
+            await acceptance;
+        }
+    }
+
+    private static string[] ReadCalibrationGuideText(ScanDebugViewModel viewModel) =>
+    [viewModel.CalibrationGuideTitle, viewModel.CalibrationGuideDetail, viewModel.CalibrationGuideActionText,
+     viewModel.CalibrationGuideConnectionStatus, viewModel.CalibrationGuideParametersStatus,
+     viewModel.CalibrationGuideRoiStatus, viewModel.CalibrationGuideCalibrationStatus,
+     viewModel.CalibrationGuideReviewStatus, viewModel.CalibrationGuideSaveStatus];
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CalibrationGuide_AcceptValidParametersRechecksInvalidInputWithoutMaskingOtherConfigurationErrors(bool invalidColor)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            autoCalibration: new StatusAutoCalibration(CreateProfile(1200).Parameters), connected: true,
+            deviceSettings: CreateFullV6DeviceSettings());
+        harness.ViewModel.SysClockMhz = "48";
+        harness.ViewModel.Adc1Offset = "bad";
+        if (invalidColor)
+            harness.ViewModel.ScanRecipeOutputGamma = "bad";
+        InvokeSetDeviceTimingState(harness.ViewModel, new ScanDeviceTimingState(ScanDeviceClockStateKind.DeviceKnown));
+        Assert.True(ReadPrivateField<bool>(harness.ViewModel, "_hasInvalidFilmProfileInput"));
+
+        await harness.ViewModel.AutoBlackAdjustCommand.ExecuteAsync(null);
+        await harness.ViewModel.AcceptPendingCalibrationCommand.ExecuteAsync(null);
+        harness.ViewModel.ValidateFilmProfileCommand.Execute(null);
+        await harness.FlushAsync();
+
+        Assert.Equal(PendingCalibrationResultState.Accept, harness.ViewModel.PendingCalibrationResult!.State);
+        Assert.Equal(invalidColor, ReadPrivateField<bool>(harness.ViewModel, "_hasInvalidFilmProfileInput"));
+        Assert.Equal(!invalidColor, harness.ViewModel.SaveFilmProfileJsonCommand.CanExecute(null));
+        Assert.True(harness.ViewModel.HasUnsavedProfileChanges);
+        if (invalidColor)
+        {
+            Assert.NotEmpty(harness.ViewModel.CurrentFilmProfileValidationIssues);
+            Assert.Equal(ScanDebugCalibrationGuideStep.ReviewConfiguration, harness.ViewModel.CalibrationGuideStep);
+        }
+        else
+        {
+            Assert.Empty(harness.ViewModel.CurrentFilmProfileValidationIssues);
+            Assert.Equal(ScanDebugCalibrationGuideStep.SaveConfiguration, harness.ViewModel.CalibrationGuideStep);
+        }
+    }
+
+    private static CalibrationCandidateContext GetCalibrationGuideCandidateContext(ScanDebugViewModel viewModel)
+        => Assert.IsType<CalibrationCandidateContext>(typeof(ScanDebugViewModel)
+            .GetMethod("CreateCalibrationCandidateContext", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(viewModel, null));
+
+    private static void PublishAcceptedCalibrationGuideCandidate(ScanDebugViewModel viewModel)
+    {
+        var parameters = ReadPrivateField<IScanParameterService>(viewModel, "_parameters")!;
+        Assert.True(parameters.TryParseInput(viewModel.ExposureMicroseconds, viewModel.Adc1Offset, viewModel.Adc1Gain,
+            viewModel.Adc2Offset, viewModel.Adc2Gain, viewModel.SysClockMhz, out var snapshot, out _));
+        var context = GetCalibrationGuideCandidateContext(viewModel);
+        viewModel.PendingCalibrationResult = PendingCalibrationResult.Create(snapshot, snapshot,
+            new ScanCalibrationMetrics(0, 0, 0, 0), new ScanCalibrationMetrics(0, 0, 0, 0), context,
+            roiSettings: ReadPrivateField<ScanCalibrationRoiSettings>(viewModel, "_roiSettings")).Accept(context);
     }
 
     [Fact]
@@ -7370,6 +8359,299 @@ public sealed class ScanDebugCalibrationStatusTests
         var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
 
         Assert.Equal("Not validated", harness.ViewModel.BwValidationSummaryText);
+        Assert.Equal("Not validated", harness.ViewModel.BasicCurrentFilmProfileValidationHeadline);
+        Assert.Equal("Not validated", harness.ViewModel.AcquisitionCurrentFilmProfileValidationHeadline);
+        Assert.Equal("Not validated", harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationHeadline);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+    }
+
+    [Fact]
+    public async Task FilmProfileCheck_UntouchedInvalidInputsReportIssuesWithoutChangingCleanDraft()
+    {
+        var harness = await StatusHarness.CreateAsync(EmptyProfiles, null);
+        var initialSnapshot = harness.Workspace.Snapshot;
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+        Assert.False(initialSnapshot.IsDirty);
+
+        harness.ViewModel.ValidateFilmProfileCommand.Execute(null);
+        await harness.FlushAsync();
+
+        Assert.NotEmpty(harness.ViewModel.CurrentFilmProfileValidationIssues);
+        Assert.Same(initialSnapshot.CurrentDraft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Fact]
+    public async Task FilmProfileCheck_ValidCleanDraftDoesNotReauthorOrExportConfiguration()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        var export = Assert.IsType<ScanFilmParameterProfileSet>(harness.Workspace.BuildExportDocument().Document.Document);
+        harness.Workspace.MarkExported(export);
+        await harness.FlushAsync();
+        var initialDraft = harness.Workspace.Snapshot.CurrentDraft;
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+
+        harness.ViewModel.ValidateFilmProfileCommand.Execute(null);
+        await harness.FlushAsync();
+
+        Assert.Empty(harness.ViewModel.CurrentFilmProfileValidationIssues);
+        Assert.Same(initialDraft, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Fact]
+    public async Task FilmProfileCheck_UserEditedInvalidInputKeepsDirtyStateAndShowsNearbyReason()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var export = Assert.IsType<ScanFilmParameterProfileSet>(harness.Workspace.BuildExportDocument().Document.Document);
+        harness.Workspace.MarkExported(export);
+        await harness.FlushAsync();
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        harness.ViewModel.ExposureMicroseconds = "bad";
+        Assert.True(harness.ViewModel.HasUnsavedProfileChanges);
+        var draftBeforeCheck = harness.Workspace.Snapshot.CurrentDraft;
+
+        harness.ViewModel.ValidateFilmProfileCommand.Execute(null);
+        await harness.FlushAsync();
+
+        Assert.True(harness.ViewModel.HasUnsavedProfileChanges);
+        Assert.Same(draftBeforeCheck, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Contains("exposure", harness.ViewModel.ChannelParameterValidationMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("μs", harness.ViewModel.ChannelParameterValidationMessage, StringComparison.Ordinal);
+        Assert.Contains(harness.ViewModel.ExposureInputRangeText, harness.ViewModel.ChannelParameterValidationMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("tick", harness.ViewModel.ChannelInputFeedbackText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("channel details", harness.ViewModel.ChannelInputFeedbackText, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(harness.ViewModel.ChannelClockValidationMessage);
+        Assert.Contains(nameof(ScanDebugViewModel.ChannelParameterValidationMessage), notifications);
+    }
+
+    [Theory]
+    [InlineData("333")]
+    [InlineData("invalid")]
+    public async Task FilmProfileDirty_InitialIncompleteInputReturnsToCleanWhenRowsAreReverted(string editedRows)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var vm = harness.ViewModel;
+        var original = harness.Workspace.Snapshot;
+        var rows = vm.SelectedRows;
+
+        vm.SelectedRows = editedRows;
+        Assert.True(vm.HasUnsavedProfileChanges);
+        vm.SelectedRows = rows;
+
+        Assert.False(vm.HasUnsavedProfileChanges);
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+        Assert.Same(original.CurrentDraft, harness.Workspace.Snapshot.CurrentDraft);
+        vm.ValidateFilmProfileCommand.Execute(null);
+        Assert.NotEmpty(vm.CurrentFilmProfileValidationIssues);
+        Assert.False(vm.HasUnsavedProfileChanges);
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("1000")]
+    public async Task FilmProfileDirty_LoadedParameterReturnsToCleanAfterInvalidTextIsReverted(string editedExposure)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        harness.Workspace.MarkExported(harness.Workspace.BuildExportDocument().Document.Document!);
+        await harness.FlushAsync();
+        var vm = harness.ViewModel;
+        var exposure = vm.ExposureMicroseconds;
+
+        vm.ExposureMicroseconds = editedExposure;
+        Assert.True(vm.HasUnsavedProfileChanges);
+        vm.ExposureMicroseconds = exposure;
+
+        var snapshot = harness.Workspace.Snapshot;
+        var inputs = Assert.IsType<ScanFilmProfileEditorInputs>(typeof(ScanDebugViewModel).GetMethod("CaptureFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(vm, null));
+        var baselineInputs = Assert.IsType<ScanFilmProfileEditorInputs>(ReadPrivateField<ScanFilmProfileEditorInputs>(vm, "_filmProfileEditorInputBaseline"));
+        var rawDifferences = inputs.GlobalInputs.Where(pair => baselineInputs.GlobalInputs.GetValueOrDefault(pair.Key) != pair.Value)
+            .Select(pair => $"{pair.Key}: {baselineInputs.GlobalInputs.GetValueOrDefault(pair.Key)} => {pair.Value}")
+            .Concat(inputs.ChannelInputs.SelectMany(channel => channel.Value.Where(pair => baselineInputs.ChannelInputs.GetValueOrDefault(channel.Key)?.GetValueOrDefault(pair.Key) != pair.Value)
+                .Select(pair => $"{channel.Key}.{pair.Key}: {baselineInputs.ChannelInputs.GetValueOrDefault(channel.Key)?.GetValueOrDefault(pair.Key)} => {pair.Value}")));
+        Assert.False(vm.HasUnsavedProfileChanges, $"Workspace dirty: {snapshot.IsDirty}; raw differences: {string.Join("; ", rawDifferences)}; current: {System.Text.Json.JsonSerializer.Serialize(snapshot.CurrentDraft)}; baseline: {System.Text.Json.JsonSerializer.Serialize(snapshot.BaselineDraft)}");
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+        Assert.DoesNotContain(vm.CurrentFilmProfileValidationIssues, issue => issue.MessageKey == "FilmProfile.Validation.ExposureInputInvalid");
+    }
+
+    [Fact]
+    public async Task FilmProfileDirty_InvalidChannelTextSurvivesChannelRoundTrip()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        harness.Workspace.MarkExported(harness.Workspace.BuildExportDocument().Document.Document!);
+        await harness.FlushAsync();
+        var vm = harness.ViewModel;
+        var role = vm.SelectedCalibrationChannel;
+        var nextRole = vm.CalibrationChannelOptions.First(candidate => !string.Equals(candidate, role, StringComparison.OrdinalIgnoreCase)
+            && harness.Workspace.Snapshot.CurrentDraft.ChannelProfiles.ContainsKey(candidate));
+        vm.ExposureMicroseconds = "unfinished exposure";
+
+        await harness.SelectChannelAsync(nextRole);
+        Assert.True(vm.HasUnsavedProfileChanges);
+        Assert.NotEqual("unfinished exposure", vm.ExposureMicroseconds);
+        await harness.SelectChannelAsync(role);
+
+        Assert.Equal("unfinished exposure", vm.ExposureMicroseconds);
+        Assert.True(vm.HasUnsavedProfileChanges);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+        Assert.Null(harness.FilmProfileFiles.ExportedProfile);
+    }
+
+    [Fact]
+    public async Task FilmProfileDirty_ExplicitNewProfileRemainsUnsavedWhenEditIsReverted()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        await harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        var vm = harness.ViewModel;
+        var rows = vm.SelectedRows;
+        vm.SelectedRows = "333";
+        vm.SelectedRows = rows;
+
+        Assert.True(vm.HasUnsavedProfileChanges);
+        Assert.False(harness.Workspace.Snapshot.IsDirty);
+    }
+
+    [Fact]
+    public async Task FilmProfileDirty_CanceledImportRetainsInvalidInputAndItsOriginalBaseline()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, null);
+        var vm = harness.ViewModel;
+        var rows = vm.SelectedRows;
+        vm.SelectedRows = "invalid";
+        harness.FilmProfileFiles.ImportResult = new ScanFilmProfileFileImportResult(true, null, null);
+
+        await vm.LoadFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("invalid", vm.SelectedRows);
+        Assert.True(vm.HasUnsavedProfileChanges);
+        vm.SelectedRows = rows;
+
+        Assert.False(vm.HasUnsavedProfileChanges);
+    }
+
+    [Theory]
+    [InlineData("IsWarmUpEnabled", "not a boolean", false)]
+    [InlineData("SelectedProfileAlignmentMode", "123456", false)]
+    [InlineData("SelectedCaptureMode", "missing mode", false)]
+    [InlineData("Roi.BW Active.Start", "not an integer", true)]
+    public async Task FilmProfileDraft_RestoreRejectsInvalidTypedInputsBeforeChangingEditor(string key, string value, bool channelField)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var vm = harness.ViewModel;
+        var capture = typeof(ScanDebugViewModel).GetMethod("CaptureFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var restore = typeof(ScanDebugViewModel).GetMethod("RestoreFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var validate = typeof(ScanDebugViewModel).GetMethod("TryValidateFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var input = Assert.IsType<ScanFilmProfileEditorInputs>(capture.Invoke(vm, null));
+        var global = input.GlobalInputs.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var channels = input.ChannelInputs.ToDictionary(pair => pair.Key, pair => pair.Value);
+        if (channelField)
+        {
+            var selected = input.ChannelInputs[vm.SelectedCalibrationChannel].ToDictionary(pair => pair.Key, pair => pair.Value);
+            selected[key] = value;
+            channels[vm.SelectedCalibrationChannel] = selected;
+        }
+        else
+            global[key] = value;
+        global[nameof(ScanDebugViewModel.SelectedRows)] = "changed before rejection";
+        var invalid = input with { GlobalInputs = global, ChannelInputs = channels };
+        var snapshot = harness.Workspace.Snapshot;
+        var originalRows = vm.SelectedRows;
+        object?[] validationArguments = [invalid, null];
+
+        Assert.False(Assert.IsType<bool>(validate.Invoke(vm, validationArguments)));
+        Assert.False(string.IsNullOrWhiteSpace(Assert.IsType<string>(validationArguments[1])));
+        var failure = Assert.Throws<TargetInvocationException>(() => restore.Invoke(vm, [invalid]));
+
+        Assert.IsType<InvalidDataException>(failure.InnerException);
+        Assert.Equal(originalRows, vm.SelectedRows);
+        Assert.Same(snapshot, harness.Workspace.Snapshot);
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Fact]
+    public async Task FilmProfileDraft_RestoresCaptureModeAndUnfinishedManualReferenceText()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var vm = harness.ViewModel;
+        var capture = typeof(ScanDebugViewModel).GetMethod("CaptureFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var restore = typeof(ScanDebugViewModel).GetMethod("RestoreFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        vm.SelectedCaptureMode = ScanDebugCaptureMode.Single;
+        vm.ManualBlackLevelInput = "unfinished black";
+        vm.ManualWhiteLevelInput = "65536";
+        var input = Assert.IsType<ScanFilmProfileEditorInputs>(capture.Invoke(vm, null));
+        vm.SelectedCaptureMode = ScanDebugCaptureMode.Transport;
+        vm.ManualBlackLevelInput = "123";
+        vm.ManualWhiteLevelInput = "456";
+
+        restore.Invoke(vm, [input]);
+
+        Assert.Equal(ScanDebugCaptureMode.Single, vm.SelectedCaptureMode);
+        Assert.Equal("unfinished black", vm.ManualBlackLevelInput);
+        Assert.Equal("65536", vm.ManualWhiteLevelInput);
+        Assert.True(ReadPrivateField<bool>(vm, "_manualReferenceHasLocalEdit"));
+        Assert.Empty(harness.Repository.SavedProfileRoles);
+    }
+
+    [Theory]
+    [InlineData(nameof(ScanDebugViewModel.SelectedRows), false)]
+    [InlineData(nameof(ScanDebugViewModel.Adc1Offset), true)]
+    [InlineData("AcquisitionLed0", false)]
+    [InlineData("$MotorDistanceDerived", false)]
+    [InlineData("$ManualBlackLevelInput", false)]
+    public async Task FilmProfileDraft_MissingRequiredRawFieldIsRejectedWithoutPartialRestore(string missingKey, bool channelField)
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var vm = harness.ViewModel;
+        var capture = typeof(ScanDebugViewModel).GetMethod("CaptureFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var restore = typeof(ScanDebugViewModel).GetMethod("RestoreFilmProfileEditorInputs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var input = Assert.IsType<ScanFilmProfileEditorInputs>(capture.Invoke(vm, null));
+        var global = input.GlobalInputs.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var channels = input.ChannelInputs.ToDictionary(pair => pair.Key, pair => pair.Value);
+        if (channelField)
+        {
+            var selected = channels[vm.SelectedCalibrationChannel].ToDictionary(pair => pair.Key, pair => pair.Value);
+            selected.Remove(missingKey);
+            channels[vm.SelectedCalibrationChannel] = selected;
+        }
+        else
+            global.Remove(missingKey);
+        var incomplete = input with { GlobalInputs = global, ChannelInputs = channels };
+        var originalRows = vm.SelectedRows;
+        var originalExposure = vm.ExposureMicroseconds;
+        var originalSnapshot = harness.Workspace.Snapshot;
+
+        var failure = Assert.Throws<TargetInvocationException>(() => restore.Invoke(vm, [incomplete]));
+
+        Assert.IsType<InvalidDataException>(failure.InnerException);
+        Assert.Equal(originalRows, vm.SelectedRows);
+        Assert.Equal(originalExposure, vm.ExposureMicroseconds);
+        Assert.Same(originalSnapshot, harness.Workspace.Snapshot);
+    }
+
+    [Fact]
+    public async Task FilmProfileClockValidation_ShowsClockReasonBesideDeviceSettingAndClearsWhenFixed()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"));
+        var notifications = new List<string?>();
+        harness.ViewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        harness.ViewModel.SysClockMhz = "29";
+
+        Assert.Contains("30–200 MHz", harness.ViewModel.ChannelClockValidationMessage, StringComparison.Ordinal);
+        Assert.Contains(nameof(ScanDebugViewModel.ChannelClockValidationMessage), notifications);
+
+        harness.ViewModel.SysClockMhz = "48";
+        await harness.FlushAsync();
+
+        Assert.Empty(harness.ViewModel.ChannelClockValidationMessage);
     }
 
     [Fact]
@@ -7456,10 +8738,10 @@ public sealed class ScanDebugCalibrationStatusTests
         harness.ViewModel.StagedFilmProfileImportValidationIssues = [stagedError];
         await harness.FlushAsync();
 
-        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.CurrentFilmProfileValidationSeverity);
-        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
-        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
-        Assert.Equal(InfoBarSeverity.Success, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.CurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.BasicCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.AcquisitionCurrentFilmProfileValidationSeverity);
+        Assert.Equal(InfoBarSeverity.Informational, harness.ViewModel.ChannelCalibrationCurrentFilmProfileValidationSeverity);
 
         harness.ViewModel.CurrentFilmProfileValidationIssues = [unknownCurrentError];
         await harness.FlushAsync();
@@ -7655,23 +8937,19 @@ public sealed class ScanDebugCalibrationStatusTests
 
         void AssertSelectionProjectionValidation()
         {
-            Assert.Collection(harness.ViewModel.CurrentFilmProfileValidationIssues,
-                parametersIssue =>
-                {
-                    Assert.Equal(ScanFilmProfileValidationCode.InvalidChannelParameters, parametersIssue.Code);
-                    Assert.Equal("ChannelProfiles.Selected.Parameters", parametersIssue.FieldPath);
-                    Assert.Equal(ScanFilmProfileValidationSeverity.Error, parametersIssue.Severity);
-                    Assert.Equal("FilmProfile.Validation.ChannelParametersInvalid", parametersIssue.MessageKey);
-                    Assert.Empty(parametersIssue.MessageArguments);
-                },
-                profileNameIssue =>
-                {
-                    Assert.Equal(ScanFilmProfileValidationCode.InvalidProfileName, profileNameIssue.Code);
-                    Assert.Equal("profileName", profileNameIssue.FieldPath);
-                    Assert.Equal(ScanFilmProfileValidationSeverity.Warning, profileNameIssue.Severity);
-                    Assert.Equal("FilmProfile.Validation.ProfileNameInvalid", profileNameIssue.MessageKey);
-                    Assert.Empty(profileNameIssue.MessageArguments);
-                });
+            // A blocked selection has not projected its six inputs yet. All remain
+            // business errors, but none may revive the removed Green issue's navigation.
+            var currentIssues = harness.ViewModel.CurrentFilmProfileValidationIssues;
+            Assert.Equal(new[] { "Adc1Gain", "Adc1Offset", "Adc2Gain", "Adc2Offset", "ExposureMicroseconds", "SysClockMhz" },
+                currentIssues.Select(current => current.FieldPath.Split('.').Last()).OrderBy(field => field));
+            Assert.All(currentIssues, parametersIssue =>
+            {
+                Assert.Equal(ScanFilmProfileValidationCode.InvalidChannelParameters, parametersIssue.Code);
+                Assert.Equal(ScanFilmProfileValidationSeverity.Error, parametersIssue.Severity);
+                Assert.True(FilmProfileValidationTextPresenter.IsPendingInput(parametersIssue));
+            });
+            var clock = Assert.Single(currentIssues, FilmProfileValidationTextPresenter.IsSystemClockInputIssue);
+            Assert.Empty(clock.MessageArguments);
         }
 
         var navigation = harness.ViewModel.TryRequestCurrentFilmProfileIssueNavigationAsync(display);
@@ -7779,7 +9057,10 @@ public sealed class ScanDebugCalibrationStatusTests
         await harness.SelectChannelAsync("Green");
         await ClearCurrentEditorAsync(harness);
         var issue = Assert.Single(harness.ViewModel.CurrentFilmProfileValidationIssues, candidate =>
-            candidate.Code == ScanFilmProfileValidationCode.InvalidChannelParameters);
+            candidate.Code == ScanFilmProfileValidationCode.InvalidChannelParameters
+                && candidate.FieldPath == "ChannelProfiles.Selected.Parameters");
+        Assert.Equal(4, harness.ViewModel.CurrentFilmProfileValidationIssues.Count(candidate =>
+            candidate.MessageKey is "FilmProfile.Validation.AdcOffsetInputMissing" or "FilmProfile.Validation.AdcGainInputMissing"));
         Assert.Equal("ChannelProfiles.Selected.Parameters", issue.FieldPath);
         Assert.Equal(ScanFilmProfileValidationSeverity.Error, issue.Severity);
         Assert.Equal("FilmProfile.Validation.ChannelParametersInvalid", issue.MessageKey);
@@ -8056,6 +9337,7 @@ public sealed class ScanDebugCalibrationStatusTests
 
         harness.ViewModel.Motor1MoveValue = "not-a-number";
         Assert.Contains("Requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
+        Assert.Contains("Requested move is invalid", harness.ViewModel.Motor1MovePreviewText, StringComparison.Ordinal);
         harness.ViewModel.Motor1MoveValue = "200";
         Assert.DoesNotContain("Requested move is invalid", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         Assert.Contains("no configured semantic role", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
@@ -8065,6 +9347,11 @@ public sealed class ScanDebugCalibrationStatusTests
         Assert.Contains("physical direction unknown", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         Assert.DoesNotContain("Motor1:", harness.ViewModel.Motor1MoveSummaryText, StringComparison.Ordinal);
         Assert.Contains(nameof(harness.ViewModel.Motor1MoveSummaryText), notifications);
+        Assert.Matches(@"0\.5(?: |\u00a0)mm", harness.ViewModel.Motor1MovePreviewText);
+        Assert.Matches(@"0\.1(?: |\u00a0)s", harness.ViewModel.Motor1MovePreviewText);
+        Assert.Contains("unmapped", harness.ViewModel.Motor1MovePreviewText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Raw direction", harness.ViewModel.Motor1MovePreviewText, StringComparison.Ordinal);
+        Assert.Contains(nameof(harness.ViewModel.Motor1MovePreviewText), notifications);
         await harness.ViewModel.StopAllMotorsCommand.ExecuteAsync(null);
         Assert.Equal(1, coordinator.StopAllMotionCallCount);
         Assert.Equal("All motor stop commands were dispatched for Motor1, Motor2, and Motor3. Hardware motion state was not verified; read motion state before resuming motion.", harness.ViewModel.StatusText);
@@ -8443,6 +9730,11 @@ public sealed class ScanDebugCalibrationStatusTests
                 viewModel.AttachRuntimeBindings();
             }
             var harness = new StatusHarness(viewModel, repository, workspace, filmProfileFiles, dispatcher);
+            // A single scheduler yield is not an initialization barrier. Ordinary
+            // fixtures need the actual settings and their UI projection ready.
+            // The one fixture with an explicit release gate deliberately stays pending.
+            if (deviceSettings is not StatusDeviceSettings { HasDeferredInitialization: true })
+                await (Task)typeof(ScanDebugViewModel).GetMethod("EnsureDeviceSettingsInitializedAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(viewModel, null)!;
             await harness.FlushAsync();
             return harness;
         }
@@ -9009,6 +10301,8 @@ public sealed class ScanDebugCalibrationStatusTests
 
         public ScanDeviceSettings DefaultSettings => ScanDeviceSettings.CreateDefault();
 
+        public bool HasDeferredInitialization => _releaseInitialize is not null;
+
         public ScanDeviceSettings Settings { get; private set; } = ScanDeviceSettings.CreateDefault();
 
         public async Task InitializeAsync()
@@ -9032,18 +10326,67 @@ public sealed class ScanDebugCalibrationStatusTests
         }
     }
 
+    [Fact]
+    public async Task FileIdentity_StagesWithoutRenamingCurrentThenTracksApplySaveAsCancelAndNew()
+    {
+        var harness = await CreateAttachedHarnessAsync(EmptyProfiles, CreateFixtureDraft("full-v6.json"),
+            deviceSettings: CreateFullV6DeviceSettings());
+        harness.ViewModel.FilmProfileFileName = "Current.json";
+        var original = harness.Workspace.Snapshot.CurrentDraft;
+        var imported = new ScanFilmProfileDocumentService().Build(CreateFixtureDraft("full-v6.json")).Document! with { ProfileName = "Opened" };
+        harness.FilmProfileFiles.ImportResult = new(false, imported, null, "Opened.json");
+        await harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Same(original, harness.Workspace.Snapshot.CurrentDraft);
+        Assert.Equal("Current.json", harness.ViewModel.CurrentProfileNameText);
+        Assert.Equal("Opened.json", harness.ViewModel.StagedFilmProfileImportDisplayNameText);
+        await harness.ViewModel.ApplyStagedFilmProfileImportCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("Opened.json", harness.ViewModel.CurrentProfileNameText);
+        Assert.Equal("Opened", harness.Workspace.Snapshot.CurrentDraft.ProfileName);
+
+        harness.FilmProfileFiles.ExportSucceeds = true;
+        harness.FilmProfileFiles.ExportFileName = "另存 5207.json";
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("另存 5207.json", harness.ViewModel.CurrentProfileNameText);
+        Assert.Equal("另存 5207", harness.Workspace.Snapshot.CurrentDraft.ProfileName);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+        var saved = harness.Workspace.Snapshot.CurrentDraft;
+
+        harness.FilmProfileFiles.ExportSucceeds = false;
+        harness.FilmProfileFiles.ExportFileName = "Canceled save.json";
+        await harness.ViewModel.SaveFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("另存 5207.json", harness.ViewModel.CurrentProfileNameText);
+        Assert.Equal(saved.ProfileName, harness.Workspace.Snapshot.CurrentDraft.ProfileName);
+        Assert.False(harness.ViewModel.HasUnsavedProfileChanges);
+
+        harness.FilmProfileFiles.ImportResult = new(true, null, null);
+        await harness.ViewModel.LoadFilmProfileJsonCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Equal("另存 5207.json", harness.ViewModel.CurrentProfileNameText);
+        Assert.False(harness.ViewModel.HasPendingFilmProfileImportResult);
+        await harness.ViewModel.NewFilmProfileCommand.ExecuteAsync(null);
+        await harness.FlushAsync();
+        Assert.Null(harness.ViewModel.FilmProfileFileName);
+        Assert.Equal("ScanDebug_Runtime_FilmProfileUntitled".GetLocalized(), harness.ViewModel.CurrentProfileNameText);
+    }
+
     private sealed class StatusFilmProfileFiles : IScanFilmProfileFileCoordinator
     {
         public bool ExportSucceeds { get; set; }
+        public string? ExportFileName { get; set; }
         public ScanFilmParameterProfileSet? ExportedProfile { get; private set; }
         public ScanFilmParameterProfileSet? ImportedProfile { get; set; }
         public ScanFilmProfileFileImportResult? ImportResult { get; set; }
         public Task<ScanFilmProfileFileImportResult>? PendingImport { get; set; }
 
-        public Task<bool> ExportAsync(ScanFilmParameterProfileSet profileSet, CancellationToken ct)
+        public Task<ScanFilmProfileFileExportResult> ExportAsync(ScanFilmParameterProfileSet profileSet, CancellationToken ct)
         {
-            ExportedProfile = profileSet;
-            return Task.FromResult(ExportSucceeds);
+            var fileName = ExportFileName ?? ScanFilmProfileFileName.CreateSuggestedName(profileSet.ProfileName) + ".json";
+            ExportedProfile = profileSet with { ProfileName = ScanFilmProfileFileName.FromFileName(fileName)! };
+            return Task.FromResult(new ScanFilmProfileFileExportResult(!ExportSucceeds, ExportSucceeds ? ExportedProfile : null, ExportSucceeds ? fileName : null));
         }
 
         public Task<ScanFilmProfileFileImportResult> ImportAsync(CancellationToken ct)

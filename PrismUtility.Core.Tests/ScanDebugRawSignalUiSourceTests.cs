@@ -33,32 +33,33 @@ public sealed class ScanDebugRawSignalUiSourceTests
     }
 
     [Fact]
-    public void Stage01V_ModeSelector_sharesOnePreviewToolbarRowWithNativeAuxiliaryFlyout()
+    public void PreviewToolbar_ExposesZoomControlsAndKeepsSecondaryToolsInTheFlyout()
     {
         var page = XDocument.Parse(ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml"));
         var preview = Named(page, "WorkbenchPreviewColumnContent");
-        var content = Assert.Single(preview.Elements(), element => element.Name.LocalName == "Grid");
+        var interactionHost = Named(page, "WorkbenchPreviewInteractionHost");
+        Assert.Same(preview, interactionHost.Parent);
+        var content = Assert.Single(interactionHost.Elements(), element => element.Name.LocalName == "Grid");
         var header = Assert.Single(content.Elements(), element => element.Name.LocalName == "Grid" && (string?)element.Attribute("Grid.Row") == "0");
-        var toolbar = Assert.Single(header.Elements(), element => element.Name.LocalName == "WrapPanel" && (string?)element.Attribute("Grid.Column") == "2");
+        var toolbar = Named(page, "PreviewToolbar");
         var selector = Named(page, "RawSignalModeSelector");
         var auxiliary = Named(page, "PreviewAuxiliaryToolsButton");
 
-        Assert.Null(header.Element(header.Name.Namespace + "Grid.RowDefinitions"));
-        Assert.Equal(new[] { "Auto", "*", "Auto" }, header.Element(header.Name.Namespace + "Grid.ColumnDefinitions")!
-            .Elements().Select(column => (string?)column.Attribute("Width")));
-        Assert.Equal("{StaticResource ScanDebugInlineSpacing}", (string?)header.Attribute("ColumnSpacing"));
         Assert.Same(header, selector.Parent);
-        Assert.Equal("0", (string?)selector.Attribute("Grid.Column"));
-        Assert.DoesNotContain(header.Descendants(), element => (string?)element.Attribute(XamlNamespace + "Uid") == "ScanDebug_Preview");
-        Assert.Same(toolbar, Named(page, "BackToEditorButton").Parent);
-        Assert.Same(toolbar, Named(page, "ZoomScaleComboBox").Parent);
-        foreach (var id in new[] { "ZoomOutButton", "ZoomInButton", "PreviewAuxiliaryToolsButton" })
+        foreach (var name in new[] { "FitPreviewButton", "ActualSizePreviewButton", "ZoomOutButton", "ZoomInButton", "ZoomScaleComboBox" })
+        {
+            var tool = Named(page, name);
+            Assert.Contains(tool, toolbar.Descendants());
+            Assert.DoesNotContain(tool, auxiliary.Descendants());
+            Assert.NotEqual("Collapsed", (string?)tool.Attribute("Visibility"));
+        }
+        foreach (var id in new[] { "PreviewAuxiliaryToolsButton" })
         {
             var tool = Identified(toolbar, id);
             Assert.Same(toolbar, tool.Parent);
             Assert.Null(tool.Attribute("Visibility"));
         }
-        foreach (var id in new[] { "PreviewDisplayToolsButton", "OverlayToolsButton", "WorkbenchDataExportButton" })
+        foreach (var id in new[] { "PreviewDisplayToolsButton", "OverlayToolsButton", "WorkbenchDataExportButton", "ObservationSelectionButton" })
         {
             var tool = Identified(auxiliary, id);
             Assert.Contains(tool, auxiliary.Descendants());
@@ -68,7 +69,7 @@ public sealed class ScanDebugRawSignalUiSourceTests
     }
 
     [Fact]
-    public void Stage03A_ProfileBinding_publishesLiveStatusAndHidesStaleResultDetails()
+    public void ProfileMode_KeepsImageVisibleWhileShowingTheSamplingChart()
     {
         var page = XDocument.Parse(ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml"));
         var code = ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
@@ -77,36 +78,57 @@ public sealed class ScanDebugRawSignalUiSourceTests
         var rowInput = Named(page, "RawSignalRowTextBox");
         var details = Named(page, "RawSignalResultDetails");
 
-        Assert.Equal("{x:Bind ViewModel.ObservationRawStatusText, Mode=OneWay}",
+        Assert.Equal("{x:Bind ViewModel.RawSignalPresentationText, Mode=OneWay}",
             (string?)Named(page, "RawSignalStatusTextBlock").Attribute("Text"));
+        Assert.Equal("{x:Bind ViewModel.RawSignalSelectionHintText, Mode=OneWay}",
+            (string?)Named(page, "RawSignalStatusTextBlock").Attribute("ToolTipService.ToolTip"));
         Assert.Equal("Polite", (string?)Named(page, "RawSignalStatusTextBlock").Attribute("AutomationProperties.LiveSetting"));
-        Assert.Equal("{x:Bind ViewModel.ObservationRawRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}",
+        Assert.Equal("{x:Bind ViewModel.RawSignalDisplayRowInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}",
             (string?)rowInput.Attribute("Text"));
         Assert.Equal("{x:Bind ViewModel.ObservationRawSignalResult, Mode=OneWay}", (string?)chart.Attribute("Tag"));
         Assert.Equal("Collapsed", (string?)details.Attribute("Visibility"));
         Assert.Contains(details, profile.Descendants());
         Assert.Equal("{x:Bind ViewModel.ObservationRawSourceText, Mode=OneWay}",
-            (string?)Identified(details, "RawSignalSourceText").Attribute("Text"));
+            (string?)Identified(Named(page, "WorkbenchInspectionRail"), "RawSignalSourceText").Attribute("Text"));
         Assert.Equal("{x:Bind ViewModel.ObservationRawStatisticsText, Mode=OneWay}",
             (string?)Identified(details, "RawSignalStatisticsText").Attribute("Text"));
         Assert.Equal("Raw", (string?)chart.Attribute("AutomationProperties.AccessibilityView"));
 
         var mode = Between(code, "private void UpdateRawSignalMode()", "private void UpdateWorkbenchReviewEntry()");
-        Assert.Contains("PreviewScrollViewer.Visibility = ToVisibility(!isProfile);", mode, StringComparison.Ordinal);
+        var image = Named(page, "PreviewScrollViewer");
+        Assert.Same(image.Parent, profile.Parent);
+        Assert.NotEqual((string?)image.Attribute("Grid.Row"), (string?)profile.Attribute("Grid.Row"));
+        Assert.DoesNotContain("PreviewScrollViewer.Visibility = ToVisibility(!isProfile);", mode, StringComparison.Ordinal);
         Assert.Contains("RawSignalProfileScrollViewer.Visibility = ToVisibility(isProfile);", mode, StringComparison.Ordinal);
         Assert.Contains("CancelPreviewVisualInteraction();", mode, StringComparison.Ordinal);
         Assert.Contains("RawSignalResultDetails.Visibility = ToVisibility(hasResult);", mode, StringComparison.Ordinal);
-        Assert.Contains("RawSignalInspectionDetails.Visibility = ToVisibility(hasResult", mode, StringComparison.Ordinal);
         Assert.Contains("RawSignalCanvasControl.Invalidate();", mode, StringComparison.Ordinal);
-        Assert.Contains("result.Mean.ToString", mode, StringComparison.Ordinal);
-        Assert.Contains("result.SaturationRatio.ToString", mode, StringComparison.Ordinal);
         Assert.DoesNotContain("Command.Execute", mode, StringComparison.Ordinal);
         Assert.DoesNotContain("StartScanCommand", mode, StringComparison.Ordinal);
         Assert.Contains("nameof(ScanDebugViewModel.ObservationRawSignalResult)", code, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Stage01V_RawChartUsesRemainingViewportAndInspectionReadsStructuredResultOnly()
+    public void LineSelection_ExposesPositionAndFollowModeAndDisablesUnsampledPrecisionInput()
+    {
+        var page = XDocument.Parse(ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml"));
+        var profile = Named(page, "RawSignalProfileScrollViewer");
+        var precision = Named(page, "RawSignalRowTextBox");
+        var follow = Named(page, "RawSignalFollowLatestToggleSwitch");
+        var image = Named(page, "PreviewScrollViewer");
+
+        Assert.Contains(profile.Descendants(), element =>
+            (string?)element.Attribute("Text") == "{x:Bind ViewModel.RawSignalPositionText, Mode=OneWay}");
+        Assert.Equal("{x:Bind ViewModel.IsRawSignalFollowingLatest, Mode=TwoWay}", (string?)follow.Attribute("IsOn"));
+        foreach (var control in new[] { follow, precision })
+            Assert.Equal("{x:Bind ViewModel.CanSelectRawSignalRow, Mode=OneWay}", (string?)control.Attribute("IsEnabled"));
+        Assert.Contains(precision.Ancestors(), element => element.Name.LocalName == "Flyout");
+        Assert.Equal("True", (string?)image.Attribute("IsTabStop"));
+        Assert.Equal("LineProfilePreview_KeyDown", (string?)image.Attribute("PreviewKeyDown"));
+    }
+
+    [Fact]
+    public void RawChartKeepsStatisticsInItsDetailsWithoutInspectionDuplicates()
     {
         var page = XDocument.Parse(ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml"));
         var code = ReadSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
@@ -118,22 +140,19 @@ public sealed class ScanDebugRawSignalUiSourceTests
         var update = Between(code, "private void UpdateRawSignalResultSurface()", "private void RawSignalProfileScrollViewer_SizeChanged(");
 
         Assert.Null(chart.Attribute("Height"));
-        Assert.Equal("*", (string?)chartRows.Elements().First().Attribute("Height"));
-        Assert.Equal("Disabled", (string?)raw.Attribute("VerticalScrollMode"));
+        Assert.Equal(new[] { "Auto", "*", "Auto" }, chartRows.Elements().Select(row => (string?)row.Attribute("Height")));
+        Assert.Equal("Auto", (string?)raw.Attribute("VerticalScrollMode"));
         Assert.Contains(Named(page, "RawSignalProfileGrid"), raw.Descendants());
         Assert.Contains(Identified(details, "RawSignalStatisticsText"), Identified(details, "RawSignalDetailsExpander").Descendants());
         Assert.Single(page.Descendants(), element => (string?)element.Attribute("AutomationProperties.AutomationId") == "RawSignalStatisticsText");
-        Assert.Contains(Named(page, "RawSignalInspectionMeanText"), inspection.Descendants());
-        Assert.Contains(Named(page, "RawSignalInspectionRangeText"), inspection.Descendants());
-        Assert.Contains(Named(page, "RawSignalInspectionSamplesText"), inspection.Descendants());
+
+
+
         Assert.Contains("var result = ViewModel.ObservationRawSignalResult;", update, StringComparison.Ordinal);
-        Assert.Contains("result.Mean.ToString", update, StringComparison.Ordinal);
-        Assert.Contains("result.Minimum, result.Maximum", update, StringComparison.Ordinal);
-        Assert.Contains("result.SampleCount.ToString", update, StringComparison.Ordinal);
-        Assert.Contains("result.SaturationRatio.ToString", update, StringComparison.Ordinal);
+        Assert.DoesNotContain(inspection.Descendants(), element => ((string?)element.Attribute(XamlNamespace + "Name"))?.StartsWith("RawSignalInspection") == true);
+        Assert.Equal("{x:Bind ViewModel.ObservationRawStatisticsText, Mode=OneWay}", (string?)Identified(details, "RawSignalStatisticsText").Attribute("Text"));
         Assert.DoesNotContain("RawSignalStatisticsText.Split", update, StringComparison.Ordinal);
         Assert.DoesNotContain("RawSignalSourceText.Split", update, StringComparison.Ordinal);
-        Assert.Contains("RawSignalInspectionDetails.Visibility = ToVisibility(hasResult", update, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -173,7 +192,11 @@ public sealed class ScanDebugRawSignalUiSourceTests
             "ScanDebug_RawSignalUnavailableComposite",
             "ScanDebug_RawSignalUnavailablePreview", "ScanDebug_RawSignalUnavailableData",
             "ScanDebug_RawSignalSource", "ScanDebug_RawSignalCompositeCoordinates",
-            "ScanDebug_RawSignalStatistics"
+            "ScanDebug_RawSignalStatistics", "ScanDebug_RawSignalPosition",
+            "ScanDebug_RawSignalSelectEmpty", "ScanDebug_RawSignalSelectSnapshot",
+            "ScanDebug_RawSignalSelectAveragedWaterfall", "ScanDebug_RawSignalSelectComposite",
+            "ScanDebug_RawSignalSelectWaterfall", "ScanDebug_RawSignalSelectImage",
+            "ScanDebug_RawSignalSamplingLine"
         };
 
         foreach (var name in resourceNames)

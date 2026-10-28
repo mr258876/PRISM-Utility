@@ -111,14 +111,6 @@ public partial class ShellViewModel : ObservableRecipient
             return;
         }
 
-        if (e.SourcePageType == typeof(DeviceConfigurationPage))
-        {
-            Selected = null;
-            HeaderText = "DeviceConfiguration_Header".GetLocalizedOrFallback("Device configuration");
-            NotifyScannerConnectionCommandStates();
-            return;
-        }
-
         var selectedItem = NavigationViewService.GetSelectedItem(e.SourcePageType);
         if (selectedItem != null)
         {
@@ -247,7 +239,7 @@ public partial class ShellViewModel : ObservableRecipient
 
     [RelayCommand]
     private void NavigateToDeviceConfiguration()
-        => NavigationService.NavigateTo(AppRoute.DeviceConfiguration);
+        => NavigationService.NavigateTo(AppRoute.Settings, SettingsViewModel.DeviceChannelsNavigationParameter);
 
     private static string GetNavigationViewItemHeader(object? item)
         => item is ContentControl contentControl

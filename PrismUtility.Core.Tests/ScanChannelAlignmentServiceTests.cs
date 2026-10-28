@@ -11,6 +11,43 @@ public sealed class ScanChannelAlignmentServiceTests
     private const int Width = 96;
     private const int Rows = 48;
 
+    [Fact]
+    public void BuildAlignedNormalizedPassBuffers_WhiteOnlyUsesVirtualSlotRoleAndReverseFlag()
+    {
+        var processor = new PassthroughCompositeImageProcessor();
+        var service = new ScanChannelAlignmentService(processor, new TestScanImageDecoder(Width, 0, Width - 1));
+        var buffer = EncodeSamples(BuildReferenceSamples());
+        var result = new ScanWorkflowResult(Rows, [new ScanPassCapture(1, 4, true, Rows, 0, buffer)], 0, 0, 0, 0);
+        var assignment = new ScanChannelAssignment("Blue", "IR", "Red", "Green", false, false, false, false, "White", true);
+
+        var aligned = service.BuildAlignedNormalizedPassBuffers(result, assignment, ScanChannelAlignmentMode.Ecc, CancellationToken.None);
+
+        Assert.Equal(ScanChannelAlignmentStatus.Disabled, aligned.Status);
+        Assert.Equal("White", Assert.Single(aligned.ChannelOutcomes).ChannelRole);
+        Assert.Equal(buffer, Assert.Single(aligned.AlignedPassBuffers));
+        Assert.Equal([true], processor.ReverseFlags);
+    }
+
+    [Fact]
+    public void BuildAlignedNormalizedPassBuffers_SparseWhiteAndGreenRetainsCaptureOrder()
+    {
+        var reference = BuildReferenceSamples();
+        var shifted = ApplyTranslation(reference, Width, Rows, -4, 3);
+        var service = CreateService();
+        var result = new ScanWorkflowResult(Rows,
+            [new ScanPassCapture(1, 4, true, Rows, 0, EncodeSamples(shifted)), new ScanPassCapture(2, 3, true, Rows, 0, EncodeSamples(reference))],
+            0, 0, 0, 0);
+        var assignment = new ScanChannelAssignment("Blue", "IR", "Red", "Green", false, false, false, false, "White");
+
+        var aligned = service.BuildAlignedNormalizedPassBuffers(result, assignment, ScanChannelAlignmentMode.Ecc, CancellationToken.None);
+
+        Assert.Equal(ScanChannelAlignmentStatus.Aligned, aligned.Status);
+        Assert.Equal(["White", "Green"], aligned.ChannelOutcomes.Select(outcome => outcome.ChannelRole));
+        Assert.True(ComputeMeanAbsoluteDifference(DecodeSamples(aligned.AlignedPassBuffers[0]), reference)
+            < ComputeMeanAbsoluteDifference(shifted, reference) * 0.5);
+        Assert.Equal(result.Passes[1].ImageBytes, aligned.AlignedPassBuffers[1]);
+    }
+
     [Theory]
     [InlineData(ScanChannelAlignmentMode.Ecc)]
     [InlineData(ScanChannelAlignmentMode.MutualInformation)]
@@ -173,8 +210,12 @@ public sealed class ScanChannelAlignmentServiceTests
 
     private sealed class PassthroughCompositeImageProcessor : IScanCompositeImageProcessor
     {
+        public List<bool> ReverseFlags { get; } = [];
         public byte[] NormalizePassBuffer(ScanPassCapture capture, bool manuallyReverse, CancellationToken cancellationToken)
-            => (byte[])capture.ImageBytes.Clone();
+        {
+            ReverseFlags.Add(manuallyReverse);
+            return (byte[])capture.ImageBytes.Clone();
+        }
 
         public bool TryBuildRgbComposite(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, CancellationToken cancellationToken, out ScanCompositePixelBuffer? frame, out string error)
             => throw new NotSupportedException();

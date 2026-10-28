@@ -40,9 +40,4 @@ namespace PRISM_Utility.ViewModels
 {
     public sealed class MainViewModel;
 
-    public sealed class LogViewModel;
-
-    public sealed class ScanViewModel;
-
-    public sealed class DeviceConfigurationViewModel;
 }

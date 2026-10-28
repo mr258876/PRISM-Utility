@@ -139,11 +139,11 @@ sequenceDiagram
 
 单个 pass 的扫描结果如果 `Success` 为 false 或 `ImageBytes` 为 null，工作流抛出 `IOException`，消息包含 pass 序号和底层扫描失败消息。电机等待先读 motion complete event。如果每 500 ms 片段内没有事件，会查询 motion state，看到目标 motor `Running = false` 且 `RemainingSteps = 0` 时也视为完成。最终超时消息包含 steps、interval、预估 travel time、timeout 和最后一次观测状态。
 
-cleanup 先处理 workflow 拥有的 warm-up：如果 disable 返回失败或抛异常，只通过 guarded diagnostic 报告，不把成功扫描转换为失败。之后 cleanup 处理三段设备恢复。第一段在 `activeMotion` 非 null 时尝试 `StopMotorAsync` 并等待 idle。第二段恢复原始照明。第三段如果本次工作流临时启用了电机，就尝试禁用。设备恢复 catch 后通过 `onDiagnostic` 记录，不覆盖原始异常。
+cleanup 先处理 workflow 拥有的 warm-up：disable 返回失败或抛异常时将错误加入 `cleanupFailures`，并通过 `ReportCleanupDiagnostic` 安全报告。之后即使前一步失败，仍依次尝试停止活跃电机并等待 idle、恢复原始照明、恢复临时启用电机的禁用状态。所有清理错误都会收集；清理完成后如有失败，则以 `AggregateException` 向调用方报告，并保留 `primaryFailure`（若有）。因此扫描采集本身成功也可能因设备清理失败而报告工作流失败。
 
 ## Test coverage
 
-`Host Software/PrismUtility.Core.Tests/ScanWorkflowServiceTests.cs` 覆盖工作流请求校验、active pass、参数和照明调用、分段扫描选择、电机方向、warm-up ownership 和 cleanup，以及 delta byte volume、producer buffer ownership、FIFO delivery、消费者异常隔离和 late producer 拒绝。`Host Software/PrismUtility.Core.Tests/ScanDebugCalibrationStatusTests.cs` 覆盖 ViewModel 的连续 delta merge、stale/gap/malformed 原子拒绝、legacy prefix 兼容和 preview generation lifecycle。SCAN-006 focused tests 与 independent harness 覆盖 false inert、enable before first capture、success/cancel/capture-failure cleanup、enable failure abort、diagnostic-only cleanup failure、throwing diagnostic observer isolation 和 resume。`Host Software/PrismUtility.Core.Tests/ScanTimingMathTests.cs` 覆盖曝光和电机换算。`Host Software/PrismUtility.Core.Tests/ScanSessionServiceUsbRefreshTests.cs` 覆盖 session 在 USB 刷新下的连接边界。
+`Host Software/PrismUtility.Core.Tests/ScanWorkflowServiceTests.cs` 覆盖工作流请求校验、active pass、参数和照明调用、分段扫描选择、电机方向、warm-up ownership 和 cleanup，以及 delta byte volume、producer buffer ownership、FIFO delivery、消费者异常隔离和 late producer 拒绝。`Host Software/PrismUtility.Core.Tests/ScanDebugCalibrationStatusTests.cs` 覆盖 ViewModel 的连续 delta merge、stale/gap/malformed 原子拒绝、legacy prefix 兼容和 preview generation lifecycle。SCAN-006 focused tests 与 independent harness 覆盖 false inert、enable before first capture、success/cancel/capture-failure cleanup、enable failure abort、cleanup failure 聚合报告、throwing diagnostic observer isolation 和 resume。`Host Software/PrismUtility.Core.Tests/ScanTimingMathTests.cs` 覆盖曝光和电机换算。`Host Software/PrismUtility.Core.Tests/ScanSessionServiceUsbRefreshTests.cs` 覆盖 session 在 USB 刷新下的连接边界。
 
 本文档的可执行检查由 `Host Software/docs/architecture/validate-docs.ps1` 的 Partial 模式负责。它验证标准章节、Mermaid、本地链接和源码路径。`-SelfTest MissingProtocolStep` 用于确认协议文档缺少 `SET_SCAN_LINES -> START_SCAN -> done ACK` 时会失败。
 
@@ -151,7 +151,7 @@ cleanup 先处理 workflow 拥有的 warm-up：如果 disable 返回失败或抛
 
 Issue-ID: SCAN-WORKFLOW-001
 
-已关闭事实：`ScanWorkflowRequest.WarmUpEnabled` 现在由 `ScanWorkflowService.ExecuteAsync` 读取。true 请求在第一帧 capture 前调用 `SetWarmUpEnabledAsync(true, ct)`，成功后在 `finally` 用 `CancellationToken.None` 调用 disable。disable 失败只进入 diagnostic，不把成功 workflow 转成失败。false 请求不发 warm-up 命令。
+已关闭事实：`ScanWorkflowRequest.WarmUpEnabled` 现在由 `ScanWorkflowService.ExecuteAsync` 读取。true 请求在第一帧 capture 前调用 `SetWarmUpEnabledAsync(true, ct)`，成功后在 `finally` 用 `CancellationToken.None` 调用 disable。disable 失败既记录 guarded diagnostic，也加入最终聚合错误；不能把设备清理失败的 workflow 报为成功。false 请求不发 warm-up 命令。
 
 Issue-ID: SCAN-WORKFLOW-002
 
@@ -159,7 +159,7 @@ Issue-ID: SCAN-WORKFLOW-002
 
 Issue-ID: SCAN-WORKFLOW-003
 
-已验证事实：warm-up cleanup diagnostics 使用 guarded reporting，诊断消费者抛异常不会把成功 workflow 转成失败。其它 cleanup diagnostic paths 仍按 SCAN-005 跟踪，诊断消费者应保持无异常，或后续提供通用安全通知包装。
+已验证事实：warm-up、motor stop/idle、illumination 和 motor restore 的 cleanup diagnostics 均使用 `ReportCleanupDiagnostic`，其 try/catch 隔离诊断消费者异常，避免它掩盖真实清理错误。设备清理失败本身仍按上文聚合报告。SCAN-005 的该实现缺口已关闭；普通扫描状态/进度回调的隔离仍由 SCAN-003 单独跟踪。
 
 Registry links: SCAN-WORKFLOW-001 -> [SCAN-006](issues-and-remediation.md#scan-006); SCAN-WORKFLOW-002 -> [SCAN-007](issues-and-remediation.md#scan-007); SCAN-WORKFLOW-003 -> [SCAN-005](issues-and-remediation.md#scan-005); cleanup motor wait sizing risk -> [SCAN-008](issues-and-remediation.md#scan-008).
 

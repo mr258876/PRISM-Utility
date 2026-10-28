@@ -167,7 +167,7 @@ public sealed class ScannerLifecycleIntegrationRegressionTests
         Assert.DoesNotContain("ScanDebug_ScanMotorTransportToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_ScanLedAutoControlToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_MultiChannelToggleSwitch", scanDebugPageXaml, StringComparison.Ordinal);
-        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AcquisitionChannels}\"", scanDebugPageXaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AcquisitionChannelsInDisplayOrder, Mode=OneWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding IsSelected, Mode=TwoWay}\"", scanDebugPageXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("EnsureAtLeastOneAcquisitionChannelSelected", scanDebugViewModel, StringComparison.Ordinal);
         Assert.DoesNotContain("ScanDebug_Runtime_StatusAtLeastOneAcquisitionChannelRequired", scanDebugViewModel, StringComparison.Ordinal);

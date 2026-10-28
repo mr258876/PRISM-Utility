@@ -714,7 +714,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_DeviceGlobalWriteRequiresAnActiveConnection()
+    public void DeviceGlobalWriteRequiresAnActiveConnection()
     {
         var result = ScanDebugRuntimeOperationGate.Evaluate(
             new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false),
@@ -725,7 +725,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_ProfileExportClaimsAndSerializesAgainstProfileMutations()
+    public void ProfileExportClaimsAndSerializesAgainstProfileMutations()
     {
         var claims = new ScanDebugRuntimeOperationClaims();
         var connected = new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: true);
@@ -745,7 +745,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public async Task OracleRed_ConcurrentConnectionBoundariesAdmitExactlyOneClaim()
+    public async Task ConcurrentConnectionBoundariesAdmitExactlyOneClaim()
     {
         var claims = new ScanDebugRuntimeOperationClaims();
         var connected = new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: false);
@@ -775,7 +775,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_DisconnectIsRejectedWhileScanIsRunning()
+    public void DisconnectIsRejectedWhileScanIsRunning()
     {
         var result = ScanDebugRuntimeOperationGate.Evaluate(
             new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: true, [ScanDebugRuntimeOperation.Scan]),
@@ -786,7 +786,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_StartScanClaimsBeforeAnyPreparationOrInputNormalization()
+    public void StartScanClaimsBeforeAnyPreparationOrInputNormalization()
     {
         var source = File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), "PRISM Utility", "ViewModels", "ScanDebugViewModel.cs"));
         var declarationIndex = source.IndexOf("private async Task StartScan()", StringComparison.Ordinal);
@@ -803,7 +803,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_DiscardStagedImportIsNotBlockedByAnUnrelatedScan()
+    public void DiscardStagedImportIsNotBlockedByAnUnrelatedScan()
     {
         var result = ScanDebugRuntimeOperationGate.Evaluate(
             new ScanDebugRuntimeOperationSnapshot(isDeviceConnected: true, [ScanDebugRuntimeOperation.Scan]),
@@ -813,7 +813,7 @@ public sealed class ScanDebugRuntimeOperationGateTests
     }
 
     [Fact]
-    public void OracleRed_DisconnectDoesNotProjectLocalDisconnectionAfterCoordinatorRejection()
+    public void DisconnectDoesNotProjectLocalDisconnectionAfterCoordinatorRejection()
     {
         var source = File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), "PRISM Utility", "ViewModels", "ScanDebugViewModel.cs"));
         var declarationIndex = source.IndexOf("private async Task DisconnectDevices()", StringComparison.Ordinal);

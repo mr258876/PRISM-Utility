@@ -22,7 +22,7 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var defaults = ScanFilmAcquisitionSettings.CreateDefault();
         var expected = source with
         {
-            SchemaVersion = 6,
+            SchemaVersion = 7,
             AcquisitionSettings = source.AcquisitionSettings! with
             {
                 Rows = defaults.Rows,
@@ -48,7 +48,7 @@ public sealed class ScanFilmProfileSchemaV6Tests
 
         var document = Assert.IsType<ScanFilmParameterProfileSet>(result.Document);
         Assert.True(result.CanApply);
-        Assert.Equal(6, document.SchemaVersion);
+        Assert.Equal(7, document.SchemaVersion);
         Assert.Equal(selectedChannel, document.SelectedCalibrationChannel);
         Assert.Equal(ScanFilmAcquisitionSettings.CreateDefault(), document.AcquisitionSettings);
         Assert.Null(document.ScanRecipeSettings);
@@ -124,7 +124,7 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var acquisition = Assert.IsType<ScanFilmAcquisitionSettings>(document.AcquisitionSettings);
 
         Assert.True(result.CanApply);
-        Assert.Equal(6, document.SchemaVersion);
+        Assert.Equal(7, document.SchemaVersion);
         Assert.Equal(256, acquisition.Rows);
         Assert.Equal((byte)2, acquisition.ScanMotorId);
         Assert.Equal(12.5, acquisition.TargetLinePitchMicrometers);
@@ -166,8 +166,8 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var reparsed = Assert.IsType<ScanFilmParameterProfileSet>(Service.Parse(json).Document);
 
         Assert.True(built.CanApply);
-        Assert.Equal(6, document.SchemaVersion);
-        Assert.Equal(6, reparsed.SchemaVersion);
+        Assert.Equal(7, document.SchemaVersion);
+        Assert.Equal(7, reparsed.SchemaVersion);
         FilmProfileRoundTripAssertions.EqualCompleteDocument(document, reparsed);
         using var parsedJson = JsonDocument.Parse(json);
         Assert.Equal(
@@ -180,7 +180,7 @@ public sealed class ScanFilmProfileSchemaV6Tests
                 "Led1PulseClock", "Led2PulseClock", "Led3PulseClock", "Led4PulseClock", "MotorIntervalNs",
                 "Led1ChannelColor", "Led2ChannelColor", "Led3ChannelColor", "Led4ChannelColor", "Rows",
                 "ScanMotorId", "TargetLinePitchMicrometers", "StartingDirectionPositive", "WarmUpEnabled",
-                "TransportStrategy", "AcquisitionChannelAssignment"
+                "TransportStrategy", "AcquisitionChannelAssignment", "WhiteChannelSettings"
             },
             parsedJson.RootElement.GetProperty("AcquisitionSettings").EnumerateObject().Select(property => property.Name));
     }
@@ -196,10 +196,10 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var recipeAssignment = parsedJson.RootElement.GetProperty("ScanRecipeSettings").GetProperty("ChannelAssignment");
 
         Assert.Equal(
-            new[] { "Channel1Role", "Channel2Role", "Channel3Role", "Channel4Role", "Channel1Reversed", "Channel2Reversed", "Channel3Reversed", "Channel4Reversed" },
+            new[] { "Channel1Role", "Channel2Role", "Channel3Role", "Channel4Role", "Channel1Reversed", "Channel2Reversed", "Channel3Reversed", "Channel4Reversed", "Channel5Role", "Channel5Reversed" },
             acquisitionAssignment.EnumerateObject().Select(property => property.Name));
         Assert.Equal(
-            new[] { "Channel1Role", "Channel2Role", "Channel3Role", "Channel4Role", "Channel1Reversed", "Channel2Reversed", "Channel3Reversed", "Channel4Reversed" },
+            new[] { "Channel1Role", "Channel2Role", "Channel3Role", "Channel4Role", "Channel1Reversed", "Channel2Reversed", "Channel3Reversed", "Channel4Reversed", "Channel5Role", "Channel5Reversed" },
             recipeAssignment.EnumerateObject().Select(property => property.Name));
         Assert.DoesNotContain("Roles", json, StringComparison.Ordinal);
         Assert.DoesNotContain("ReversedFlags", json, StringComparison.Ordinal);
@@ -213,12 +213,12 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var json = Service.Serialize(Assert.IsType<ScanFilmParameterProfileSet>(source));
         var reparsed = Assert.IsType<ScanFilmParameterProfileSet>(Service.Parse(json).Document);
 
-        Assert.Equal(6, reparsed.SchemaVersion);
+        Assert.Equal(7, reparsed.SchemaVersion);
         Assert.Equal(ScanFilmAcquisitionSettings.CreateDefault().Rows, reparsed.AcquisitionSettings?.Rows);
     }
 
     [Theory]
-    [InlineData("future-v7.json", "7")]
+    [InlineData("future-v8.json", "8")]
     [InlineData(null, "4")]
     public void Parse_UnsupportedSchema_PreservesActualAndSupportedVersionDetail(string? fixtureName, string actual)
     {
@@ -232,7 +232,7 @@ public sealed class ScanFilmProfileSchemaV6Tests
         var issue = Assert.Single(result.Validation.Issues);
         Assert.Equal(ScanFilmProfileValidationCode.UnsupportedSchemaVersion, issue.Code);
         Assert.Equal("schemaVersion", issue.FieldPath);
-        Assert.Equal(new[] { actual, "5", "6" }, issue.MessageArguments);
+        Assert.Equal(new[] { actual, "5", "7" }, issue.MessageArguments);
     }
 
     [Theory]

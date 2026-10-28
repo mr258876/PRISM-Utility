@@ -18,7 +18,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
     {
         var result = Service.Parse(ReadFixture("full-v5.json"));
 
-        Assert.Equal(6, result.Document?.SchemaVersion);
+        Assert.Equal(7, result.Document?.SchemaVersion);
         Assert.True(result.Validation.IsValid);
     }
 
@@ -125,12 +125,12 @@ public sealed class ScanFilmProfileDocumentServiceTests
     [Fact]
     public void DocumentService_ExposesTheSoleCurrentSchemaVersion()
     {
-        Assert.Equal(6, Service.CurrentSchemaVersion);
+        Assert.Equal(7, Service.CurrentSchemaVersion);
         Assert.Null(typeof(ScanFilmProfileCompatibility).GetField("SchemaVersion"));
     }
 
     [Theory]
-    [InlineData("future-v7.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion)]
+    [InlineData("future-v8.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion)]
     [InlineData("malformed-v5.json", ScanFilmProfileValidationCode.MalformedJson)]
     [InlineData("missing-required-v5.json", ScanFilmProfileValidationCode.InvalidSavedAtUtc)]
     public void Parse_RejectsMalformedAndFutureDocumentsWithStructuredIssues(string fixtureName, ScanFilmProfileValidationCode expectedCode)
@@ -164,7 +164,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
 
         Assert.True(built.Validation.IsValid);
         Assert.Equal(firstJson, secondJson);
-        Assert.Equal(6, roundTrip.Document?.SchemaVersion);
+        Assert.Equal(7, roundTrip.Document?.SchemaVersion);
         Assert.True(roundTrip.Validation.IsValid);
         using var jsonDocument = JsonDocument.Parse(firstJson);
         Assert.Equal(
@@ -185,7 +185,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
             Assert.Equal(english.Json, chinese.Json);
             Assert.Equal(string.Empty, english.Document.ProfileName);
             Assert.Equal(string.Empty, chinese.Document.ProfileName);
-            Assert.Contains(english.Validation.Issues, issue =>
+            Assert.DoesNotContain(english.Validation.Issues, issue =>
                 issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
                 && issue.FieldPath == "profileName"
                 && issue.Severity == ScanFilmProfileValidationSeverity.Warning);
@@ -206,7 +206,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Todo8_Parse_EmptyOrWhitespaceProfileNameStaysEmptyAndReportsFieldPath(string profileName)
+    public void Parse_EmptyOrWhitespaceProfileNameIsOptionalMetadata(string profileName)
     {
         var source = ParseFullDocument() with { ProfileName = profileName };
 
@@ -215,7 +215,7 @@ public sealed class ScanFilmProfileDocumentServiceTests
 
         Assert.True(parsed.CanApply);
         Assert.Equal(string.Empty, document.ProfileName);
-        Assert.Contains(parsed.Validation.Issues, issue =>
+        Assert.DoesNotContain(parsed.Validation.Issues, issue =>
             issue.Code == ScanFilmProfileValidationCode.InvalidProfileName
             && issue.FieldPath == "profileName"
             && issue.Severity == ScanFilmProfileValidationSeverity.Warning);

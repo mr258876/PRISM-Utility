@@ -2,7 +2,8 @@ namespace PRISM_Utility.Core.Models;
 
 public sealed record ScanCalibrationProfileRepositorySnapshot(
     IReadOnlyDictionary<string, ScanChannelCalibrationProfile> Profiles,
-    string? SelectedChannel);
+    string? SelectedChannel,
+    WhiteChannelSettings? WhiteChannelSettings = null);
 
 public sealed record ScanFilmProfileStagedImport(
     ScanFilmProfileDraft Draft,
@@ -119,9 +120,11 @@ public sealed record ScanFilmProfileLibrarySyncPlan(
     IReadOnlyDictionary<string, ScanChannelCalibrationProfile> Additions,
     IReadOnlyDictionary<string, ScanChannelCalibrationProfile> Updates,
     IReadOnlyDictionary<string, ScanChannelCalibrationProfile> Removals,
-    bool SelectedChannelWillChange)
+    bool SelectedChannelWillChange,
+    WhiteChannelSettings? WhiteChannelSettings = null,
+    bool WhiteChannelSettingsWillChange = false)
 {
-    public bool HasAdditionsOrUpdates => Additions.Count != 0 || Updates.Count != 0;
+    public bool HasAdditionsOrUpdates => Additions.Count != 0 || Updates.Count != 0 || WhiteChannelSettingsWillChange;
     public bool HasFullReplacementChanges => HasAdditionsOrUpdates || Removals.Count != 0 || SelectedChannelWillChange;
 }
 

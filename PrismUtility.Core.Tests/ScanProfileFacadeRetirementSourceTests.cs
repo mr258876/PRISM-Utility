@@ -6,18 +6,6 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanProfileFacadeRetirementSourceTests
 {
     [Fact]
-    public void Todo13Baseline_FacadeDefinitionsExistOnlyAsRetirementCandidates()
-    {
-        var baseline = File.ReadAllText(Path.Combine(RepositoryRoot(), ".omo", "evidence", "task-13-scan-profile-editor-architecture-baseline.txt"));
-
-        Assert.Contains("FacadeDefinitions=2", baseline, StringComparison.Ordinal);
-        Assert.Contains("FacadeFiles=2", baseline, StringComparison.Ordinal);
-        Assert.Contains("FacadeDi=1", baseline, StringComparison.Ordinal);
-        Assert.Contains("FacadeCallers=0", baseline, StringComparison.Ordinal);
-        Assert.Contains("RuntimeFacadeRefs=0", baseline, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Todo13DesiredContract_FacadeSourceFilesAndReferencesAreGone()
     {
         var appRoot = Path.Combine(HostSoftwareRoot(), "PRISM Utility");
@@ -42,6 +30,7 @@ public sealed class ScanProfileFacadeRetirementSourceTests
     {
         var scan = File.ReadAllText(Path.Combine(HostSoftwareRoot(), "PRISM Utility", "ViewModels", "ScanViewModel.cs"));
         var scanDebug = File.ReadAllText(Path.Combine(HostSoftwareRoot(), "PRISM Utility", "ViewModels", "ScanDebugViewModel.cs"));
+        var whiteChannel = File.ReadAllText(Path.Combine(HostSoftwareRoot(), "PRISM Utility", "ViewModels", "ScanDebugViewModel.WhiteChannel.cs"));
 
         Assert.Contains("IScanCalibrationProfileRepository", scan, StringComparison.Ordinal);
         Assert.Contains("IScanFilmProfileFileCoordinator", scan, StringComparison.Ordinal);
@@ -49,7 +38,11 @@ public sealed class ScanProfileFacadeRetirementSourceTests
         Assert.Contains("IScanCalibrationProfileRepository", scanDebug, StringComparison.Ordinal);
         Assert.Contains("_calibrationProfiles.Snapshot.Profiles", scanDebug, StringComparison.Ordinal);
         Assert.Contains("_filmProfileWorkspace.ApplyStagedImportAsync", scanDebug, StringComparison.Ordinal);
-        Assert.Contains("if (!_calibrationProfiles.TryGetProfile", scanDebug, StringComparison.Ordinal);
+        Assert.Contains("if (!TryGetSavedCalibrationProfile(channelRole, out var profile))", scanDebug, StringComparison.Ordinal);
+        var savedProfile = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(whiteChannel, "TryGetSavedCalibrationProfile");
+        Assert.Contains("_calibrationProfiles.TryGetProfile(role, out profile!)", savedProfile, StringComparison.Ordinal);
+        Assert.Contains("saved?.GetSourceSettings(SelectedWhiteLightSource)?.Profile", savedProfile, StringComparison.Ordinal);
+        Assert.Contains("saved is null && SelectedWhiteLightSource == WhiteLightSource.DedicatedLed", savedProfile, StringComparison.Ordinal);
     }
 
     private static string HostSoftwareRoot()
@@ -63,6 +56,4 @@ public sealed class ScanProfileFacadeRetirementSourceTests
         throw new DirectoryNotFoundException("Could not locate the Host Software source root.");
     }
 
-    private static string RepositoryRoot()
-        => Directory.GetParent(HostSoftwareRoot())!.FullName;
 }

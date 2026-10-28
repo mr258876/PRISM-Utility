@@ -11,6 +11,36 @@ public sealed class ScanCompositeImageProcessorTests
     private const int Rows = 1;
 
     [Fact]
+    public void TryBuildRgbComposite_UsesCaptureSlotsWhenIrIsOmittedAndWhiteIsPresent()
+    {
+        var processor = new ScanCompositeImageProcessor(new TestScanImageDecoder());
+        var result = new ScanWorkflowResult(Rows,
+            [BuildPass(2, ushort.MaxValue), BuildPass(3, 0), BuildPass(0, 0), BuildPass(4, ushort.MaxValue)], 0, 0, 0, 0);
+        var assignment = new ScanChannelAssignment("Blue", "IR", "Red", "Green", false, false, false, false, "White");
+
+        var success = processor.TryBuildRgbComposite(result, assignment,
+            new ScanColorManagementOptions(false, 680, 525, 450, 1), CancellationToken.None, out var frame, out var error);
+
+        Assert.True(success, error);
+        Assert.Equal(new byte[] { 0, 0, 255, 255 }, frame!.Pixels);
+    }
+
+    [Fact]
+    public void TryBuildRgbComposite_WhiteOnlyCaptureDoesNotPretendToBeRgb()
+    {
+        var processor = new ScanCompositeImageProcessor(new TestScanImageDecoder());
+        var result = new ScanWorkflowResult(Rows, [BuildPass(4, ushort.MaxValue)], 0, 0, 0, 0);
+        var assignment = new ScanChannelAssignment("Blue", "IR", "Red", "Green", false, false, false, false, "White");
+
+        var success = processor.TryBuildRgbComposite(result, assignment,
+            ScanColorManagementOptions.CreateDefault(), CancellationToken.None, out var frame, out var error);
+
+        Assert.False(success);
+        Assert.Null(frame);
+        Assert.Contains("captured Red, Green, and Blue", error);
+    }
+
+    [Fact]
     public void TryBuildRgbComposite_AppliesD65WhitePointGainForEqualChannels()
     {
         var processor = new ScanCompositeImageProcessor(new TestScanImageDecoder());

@@ -84,7 +84,9 @@ public sealed record ScanFilmProfileDraft
         SavedAtUtc = savedAtUtc;
         ChannelProfiles = CopyChannelProfiles(channelProfiles);
         SelectedCalibrationChannel = selectedCalibrationChannel;
-        AcquisitionSettings = acquisitionSettings;
+        AcquisitionSettings = acquisitionSettings?.WhiteChannelSettings is { } white && Enum.IsDefined(white.Source)
+            ? acquisitionSettings with { WhiteChannelSettings = white.WithActiveProfile(ChannelProfiles.GetValueOrDefault("White")) }
+            : acquisitionSettings;
         ScanRecipeSettings = scanRecipeSettings;
     }
 
@@ -94,6 +96,25 @@ public sealed record ScanFilmProfileDraft
     public string? SelectedCalibrationChannel { get; }
     public ScanFilmAcquisitionSettings? AcquisitionSettings { get; }
     public ScanFilmScanRecipeSettings? ScanRecipeSettings { get; }
+
+    [Newtonsoft.Json.JsonIgnore]
+    public WhiteChannelSettings WhiteChannelSettings => AcquisitionSettings?.WhiteChannelSettings
+        ?? Models.WhiteChannelSettings.FromLegacy(ChannelProfiles.GetValueOrDefault("White"), AcquisitionSettings);
+
+    /// <summary>Switches the working source without copying calibration results between illumination spectra.</summary>
+    public ScanFilmProfileDraft SwitchWhiteLightSource(WhiteLightSource source)
+    {
+        if (!Enum.IsDefined(source))
+            throw new ArgumentOutOfRangeException(nameof(source));
+        var settings = WhiteChannelSettings.WithActiveProfile(ChannelProfiles.GetValueOrDefault("White")) with { Source = source };
+        var profiles = ChannelProfiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        if (settings.ActiveSettings?.Profile is { } profile)
+            profiles["White"] = profile;
+        else
+            profiles.Remove("White");
+        return new(ProfileName, SavedAtUtc, profiles, SelectedCalibrationChannel,
+            (AcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()) with { WhiteChannelSettings = settings }, ScanRecipeSettings);
+    }
 
     public static ScanFilmProfileDraft CreateDefault()
         => new(

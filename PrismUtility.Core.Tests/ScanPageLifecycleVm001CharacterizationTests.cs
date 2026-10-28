@@ -124,7 +124,7 @@ public sealed class ScanPageLifecycleVm001CharacterizationTests
         var deactivate = ExtractMemberBodyAtDeclaration(scanViewModel, "public void Deactivate()");
 
         Assert.Contains("_isDisposed = true;", cleanup, StringComparison.Ordinal);
-        Assert.Matches(@"\A\{\s*var request = await ValidateStartScanAsync\(\);\s*if \(_isDisposed \|\| request is null\)\s*return;\s*ClearStartValidationState\(\);[\s\S]*?_scanCts = new CancellationTokenSource\(\);", startScan);
+        Assert.Matches(@"\A\{\s*var preparedRequest = await ValidateStartScanAsync\(\);\s*if \(_isDisposed \|\| preparedRequest is null\)\s*return;\s*var request = preparedRequest.Request;\s*ClearStartValidationState\(\);[\s\S]*?_scanCts = new CancellationTokenSource\(\);", startScan);
         Assert.DoesNotContain("_isDisposed = true;", deactivate, StringComparison.Ordinal);
         Assert.DoesNotContain("_scanCts", deactivate, StringComparison.Ordinal);
     }

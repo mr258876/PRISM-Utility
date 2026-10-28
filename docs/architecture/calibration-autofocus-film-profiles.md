@@ -1,5 +1,7 @@
 # 校准, 自动对焦, 胶片配置文件
 
+> 当前校准设置写 schema 2、读取 1/2；胶片文件写 schema 7、读取 5/6/7。验证结果与剩余工作见[项目待办](../TODO.md)。
+
 ## Scope and non-responsibilities
 
 本文覆盖扫描调试页背后的黑场校准、白场校准、自动对焦、通道校准配置仓库、胶片配置文档服务和胶片配置工作区。它解释运行环路、通道映射、统计量、增益和偏移量如何相互配合，也说明配置文件如何被暂存、应用、导出和标记为干净状态。
@@ -16,7 +18,7 @@
 
 自动对焦入口是 `Host Software/PRISM Utility.Core/Services/ScanAutoFocusService.cs`。`AutoFocusAsync` 同时启用 1 号和 3 号焦点电机，先采集基线探针，再执行 Z 轴优化、倾斜平衡、第二次 Z 轴优化。Z 轴优化使用单向扫描，先移动到预加载位置，再按粗步长和细步长扫过窗口。每个探针都用 ROI 内的平均线剖面计算 Brenner 能量，输出 overall、left、right 和 tilt imbalance。倾斜平衡通过两个电机反向运动改变左右侧焦平面，选择绝对不平衡更小的方向继续。
 
-胶片配置文件部分由 `Host Software/PRISM Utility.Core/Services/ScanCalibrationProfileRepository.cs`、`Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentService.cs` 和 `Host Software/PRISM Utility.Core/Services/ScanFilmProfileWorkspace.cs` 组成。仓库初始化时会优先读取 schema 1 current document, 缺失时迁移旧的 `ScanParameterSnapshot` 字典和 selected channel；future、malformed 或 payload 无效 document 不回退到 legacy。文档服务当前导出 schema 6，继续读取并确定性迁移 schema 5，拒绝 schema 7 及更高版本；解析 JSON 时先检查 `SchemaVersion`、`ProfileName`、`SavedAtUtc` 和 `ChannelProfiles`，再规范化已知 acquisition 字段并交给归一化逻辑。工作区维护当前草稿、基线草稿、脏标记和暂存导入；`ApplyStagedImportAsync` is draft-only，只更新内存 current/baseline、清除 staged state，并执行 zero calibration-repository writes。`SyncCalibrationLibraryAsync` 的新增/更新同步与经确认的 `ReplaceCalibrationLibraryAsync` 完整替换是独立显式操作。
+胶片配置文件部分由 `Host Software/PRISM Utility.Core/Services/ScanCalibrationProfileRepository.cs`、`Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentService.cs` 和 `Host Software/PRISM Utility.Core/Services/ScanFilmProfileWorkspace.cs` 组成。仓库初始化时优先读取 schema 1/2 current document，当前保存写 schema 2；缺失时迁移旧的 `ScanParameterSnapshot` 字典和 selected channel；future、malformed 或 payload 无效 document 不回退到 legacy。文档服务当前导出 schema 7，读取 schema 5/6/7并规范化到当前版本，拒绝 schema 8 及更高版本；解析 JSON 时先检查 `SchemaVersion`、`ProfileName`、`SavedAtUtc` 和 `ChannelProfiles`，再规范化已知 acquisition 字段并交给归一化逻辑。工作区维护当前草稿、基线草稿、脏标记和暂存导入；`ApplyStagedImportAsync` is draft-only，只更新内存 current/baseline、清除 staged state，并执行 zero calibration-repository writes。`SyncCalibrationLibraryAsync` 的新增/更新同步与经确认的 `ReplaceCalibrationLibraryAsync` 完整替换是独立显式操作。
 
 ## Key entry points
 
@@ -24,7 +26,7 @@
 2. `Host Software/PRISM Utility.Core/Services/ScanAutoCalibrationService.cs` 实现校准环路、通道映射、统计采集、偏移量和增益决策。
 3. `Host Software/PRISM Utility.Core/Services/ScanAutoFocusService.cs` 实现焦点探针、Z 轴扫描、倾斜平衡和异常时停止焦点电机。
 4. `Host Software/PRISM Utility.Core/Services/ScanCalibrationProfileRepository.cs` 负责本地通道配置的初始化、迁移、保存、清除、替换和选中通道持久化。
-5. `Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentService.cs` 负责 schema 5/6 JSON 的解析、v5→v6 迁移、构建、验证和 schema 6 序列化。
+5. `Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentService.cs` 负责 schema 5/6/7 JSON 的解析、旧版本兼容迁移、构建、验证和 schema 7 序列化。
 6. `Host Software/PRISM Utility.Core/Services/ScanFilmProfileWorkspace.cs` 负责导入暂存、应用、导出补丁、导出后标记和草稿脏状态。
 
 ## Implementation mechanism
@@ -33,7 +35,7 @@
 
 自动对焦服务把动作和观测分开。`MoveTiltAsync` 让两个焦点电机反向走相同步数，`MoveZAsync` 让两个电机同向走相同步数，`WaitForFocusMotorMotionCompleteEventsAsync` 优先等运动完成事件，遇到 `IOException` 时改为轮询 `GetMotionStateAsync`。每次采样失败都会抛出 `IOException`，外层 `catch` 会尝试停止两个焦点电机再继续抛出异常。
 
-胶片配置工作区通过不可变快照发布状态。初始化使用 `SemaphoreSlim` 串行化，并只在工作区仍是默认干净状态时才用仓库内容水合。`UpdateIfUnchanged` 使用 `Interlocked.CompareExchange`，可以避免初始化读取期间覆盖用户已经捕获或暂存的草稿。导出时 `BuildExportDocument` 可以把当前选中通道的最新校准补丁临时写入导出文档，但不会在文件真正写成功前改变工作区状态。仓库自身也按 SET-003 使用 schema 1 current document 保存 profile 字典和 selected channel, document save 成功后才通过一个 `Volatile` snapshot 发布完整 generation。
+胶片配置工作区通过不可变快照发布状态。初始化使用 `SemaphoreSlim` 串行化，并只在工作区仍是默认干净状态时才用仓库内容水合。`UpdateIfUnchanged` 使用 `Interlocked.CompareExchange`，可以避免初始化读取期间覆盖用户已经捕获或暂存的草稿。导出时 `BuildExportDocument` 可以把当前选中通道的最新校准补丁临时写入导出文档，但不会在文件真正写成功前改变工作区状态。仓库自身按 SET-003 使用 schema 2 current document 保存 profile 字典、selected channel 和白光设置，同时接受 schema 1 兼容输入, document save 成功后才通过一个 `Volatile` snapshot 发布完整 generation。
 
 ## Control and data flow
 
@@ -68,7 +70,7 @@ ServiceCoverage: ScanFilmProfileWorkspace
 2. 校准和自动对焦都依赖 `IScanImageDecoder` 从行缓冲区提取 16 位样本。
 3. 校准依赖 `IScanParameterService` 把快照写回设备参数。
 4. 配置仓库依赖 `IScanCalibrationProfileStorage` 读写当前和旧版本地配置。
-5. 文档服务依赖 Newtonsoft JSON 解析 schema 5/6 文档并序列化当前 schema 6 文档。
+5. 文档服务依赖 Newtonsoft JSON 解析 schema 5/6/7 文档并序列化当前 schema 7 文档。
 6. 工作区依赖仓库和文档服务，使用 `TimeProvider` 在导出时写入新的 `SavedAtUtc`。
 
 ## State and concurrency
@@ -94,24 +96,24 @@ ServiceCoverage: ScanFilmProfileWorkspace
 | 区域 | 代表性测试文件 | 覆盖点 |
 | --- | --- | --- |
 | 胶片配置仓库 | `Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryTests.cs` | 初始化归一化、旧配置迁移、快照不可变、保存失败不污染状态、取消不写入。 |
-| SET-003 校准仓库 | `Host Software/PrismUtility.Core.Tests/Set003CalibrationProfileRepositoryTests.cs` | schema 1 current document、legacy-only migration、future/malformed 无 stale fallback、save-before-publish 和完整 generation snapshot。 |
-| 胶片配置字符化 | `Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryCharacterizationTests.cs` | 角色名 trim 和大小写、黑位小于白位、旧格式迁移后的 ROI 默认值。 |
-| 文档服务 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileSchemaV6Tests.cs` | schema 5→6 迁移、schema 6 大小写和重复字段契约、无效通道、确定性序列化、稳定验证顺序。 |
+| SET-003 校准仓库 | `Host Software/PrismUtility.Core.Tests/Set003CalibrationProfileRepositoryTests.cs` | schema 1/2 兼容输入、schema 2 保存、legacy-only migration、future/malformed 无 stale fallback、save-before-publish 和完整 generation snapshot；白光兼容另见 `WhiteChannelPersistenceTests.cs`。 |
+| 胶片配置兼容行为 | `Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryCharacterizationTests.cs` | 角色名 trim 和大小写、黑位小于白位、旧格式迁移后的 ROI 默认值。 |
+| 文档服务 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileSchemaV6Tests.cs` | schema 5/6 兼容输入与当前 schema 7 归一化、大小写和重复字段契约、无效通道、确定性序列化、稳定验证顺序；schema 7 白光兼容另见 `WhiteChannelPersistenceTests.cs`。 |
 | 工作区 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` | 暂存和丢弃零写入、draft-only Apply 成功/预取消/无暂存、独立校准库同步与确认替换、初始化并发、读取期间突变保护、导出补丁和时间戳。 |
 | ScanDebug 胶片档案 workspace | `Host Software/PrismUtility.Core.Tests/FilmProfileSourceContractTests.cs`, `Host Software/PrismUtility.Core.Tests/FilmProfileLocalizationAccessibilityContractTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanDebugFilmProfileOrchestrationSourceTests.cs` | ScanDebug 的 JSON New/Open/Validate/Save、staged review Apply/Discard、current/staged validation、dirty-state 投影和本地化/accessibility source contracts。 |
-| Todo 15 校准状态 | `Host Software/PrismUtility.Core.Tests/ScanDebugCalibrationStatusTests.cs`, `Host Software/PrismUtility.Core.Tests/Cal001AutoCalibrationAndFocusTests.cs` | 当前 software-gate snapshot 覆盖 pending candidate review、Accept / Accept and Save / Restore / Cancel 状态语义、prompt-before-baseline、warm-up-settled before/after metrics、restoration source contracts，以及 CAL-001 fake service algorithm coverage。 |
+| 校准状态与候选审查 | `Host Software/PrismUtility.Core.Tests/ScanDebugCalibrationStatusTests.cs`, `Host Software/PrismUtility.Core.Tests/Cal001AutoCalibrationAndFocusTests.cs` | 覆盖 pending candidate review、Accept / Accept and Save / Restore / Cancel、prompt-before-baseline、warm-up-settled before/after metrics、restoration source contracts 和 CAL-001 fake service 算法边界。 |
 
-Todo 15 的 latest available software-gate snapshot 是 calibration status 104/104、parent focused gate 183/183、full managed suite 1034/1034、Core build clean, x64 app build clean except the pre-existing WindowsAppSDK SingleFile warning。该 snapshot 不代表新增硬件验证，也不改变 CAL-002。
+校准测试通过可控服务验证算法与候选状态；真实照明、设备恢复、物理焦点运动和校准质量需要设备验证。当前测试结果见[项目待办](../TODO.md)，CAL-002 的未归一化 Brenner 语义独立跟踪。
 
-剩余缺口只在环境面。真实 scanner、真实照明、真实焦点运动、物理 warm-up、restoration quality、calibration quality 和硬件 smoke 仍为 `ENVIRONMENT_BLOCKED` 或 `NEEDS_DEVICE_VALIDATION`，不能写成通过。CAL-002 仍保持独立：自动对焦 sharpness 当前按未归一化 Brenner 能量记录，managed tests 只是锁定这个当前行为，不关闭或改变 CAL-002。
+托管回归结果及失败分类见[项目待办](../TODO.md)。真实 scanner、真实照明、真实焦点运动、物理 warm-up、restoration quality、calibration quality 和硬件 smoke 仍需设备验证，不能写成通过。CAL-002 仍保持独立：自动对焦 sharpness 当前按未归一化 Brenner 能量记录，managed tests 只是锁定这个当前行为，不关闭或改变 CAL-002。
 
-VM-002 的 task 21 结果与胶片档案相关，但只作为回归保护使用。它确认 `ScanDebugViewModel` 仍拥有 film profile workspace subscription、external snapshot projection、`NewFilmProfile`、`ValidateFilmProfile`、`SaveFilmProfileJson`、`LoadFilmProfileJson`、`ApplyStagedFilmProfileImport`、`DiscardStagedFilmProfileImport`、`SynchronizeFilmProfileDraftFromInputs`、`RefreshFilmProfileWorkspaceProjection`、`ApplyDraftToFields`、current/staged validation issue projection 和 dirty-state projection。FilmProfile regression 204/204 通过，说明 characterization 没有破坏现有 profile workspace contract；这不是 production split，也不关闭 VM-002。CAL-001 managed tests 已可在不假定 ScanDebugViewModel 拆分的情况下关闭 managed gap；DNG-001 仍可继续补 DNG 托管和原生错误路径测试。
+`ScanDebugViewModel` 仍拥有 film profile workspace subscription、external snapshot projection、`NewFilmProfile`、`ValidateFilmProfile`、`SaveFilmProfileJson`、`LoadFilmProfileJson`、`ApplyStagedFilmProfileImport`、`DiscardStagedFilmProfileImport`、`SynchronizeFilmProfileDraftFromInputs`、`RefreshFilmProfileWorkspaceProjection`、`ApplyDraftToFields`、current/staged validation issue projection 和 dirty-state projection。胶片档案与 VM-002 测试保护这些现有契约；测试覆盖不代表职责已拆分。CAL-001 的托管算法覆盖与 DNG-001 的原生验证均不依赖先完成 ViewModel 拆分。
 
 ## Known issues and solutions
 
 Issue-ID: CAL-AF-PROFILE-001
 
-CAL-001 managed branch 已关闭，且 Todo 15 snapshot 将 calibration status 记录为 104/104。可控 `IScanSessionService` 和 `IScanImageDecoder` fake 覆盖黑场和白场收敛、黑白振荡最佳采样回退、ROI/宽度边界、扫描失败、取消、焦点 motion timeout、warm-up cleanup、0/2 号焦点电机 stop all paths, 以及未归一化 Brenner 指标锁定。pending candidate review 覆盖 Accept、Accept and Save、Restore、Cancel 的 managed/source contract 行为。物理 hardware smoke、illumination/restoration 实测和 calibration quality 仍为 `ENVIRONMENT_BLOCKED` 或 `NEEDS_DEVICE_VALIDATION`。
+CAL-001 的托管算法测试缺口已关闭。可控 `IScanSessionService` 和 `IScanImageDecoder` fake 覆盖黑场和白场收敛、黑白振荡最佳采样回退、ROI/宽度边界、扫描失败、取消、焦点 motion timeout、warm-up cleanup、0/2 号焦点电机各路径停止，以及未归一化 Brenner 指标。候选审查测试覆盖 Accept、Accept and Save、Restore、Cancel 的 managed/source contract 行为；当前结果见[项目待办](../TODO.md)。物理 scanner smoke、照明/恢复实测和校准质量仍待设备验证。
 
 Issue-ID: CAL-AF-PROFILE-002
 

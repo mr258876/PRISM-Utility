@@ -12,13 +12,30 @@ internal static class ScanFilmProfileDocumentNormalization
         => NormalizeParsedDocument(source, schemaVersion, migrateV5: false, repairLegacyProfiles: true);
 
     public static ScanFilmParameterProfileSet NormalizeForSerialization(ScanFilmParameterProfileSet source, int schemaVersion)
-        => source with
+    {
+        var acquisition = source.SchemaVersion == 5
+            ? MigrateV5Acquisition(source.AcquisitionSettings)
+            : (source.AcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize();
+        var recipe = source.ScanRecipeSettings;
+        if (source.SchemaVersion < 7)
+        {
+            acquisition = acquisition with
+            {
+                WhiteChannelSettings = null,
+                AcquisitionChannelAssignment = acquisition.AcquisitionChannelAssignment is { } assignment
+                    ? assignment with { Channel5Role = "Unused", Channel5Reversed = false } : null
+            };
+            if (recipe?.ChannelAssignment is { } recipeAssignment)
+                recipe = recipe with { ChannelAssignment = recipeAssignment with { Channel5Role = "Unused", Channel5Reversed = false } };
+        }
+        acquisition = AddWhiteSettings(acquisition, source.ChannelProfiles, []);
+        return source with
         {
             SchemaVersion = schemaVersion,
-            AcquisitionSettings = source.SchemaVersion == 5
-                ? MigrateV5Acquisition(source.AcquisitionSettings)
-                : (source.AcquisitionSettings ?? ScanFilmAcquisitionSettings.CreateDefault()).Normalize()
+            AcquisitionSettings = acquisition,
+            ScanRecipeSettings = recipe
         };
+    }
 
     private static ScanFilmProfileDocumentParseResult NormalizeParsedDocument(
         ScanFilmParameterProfileSet source,
@@ -27,15 +44,14 @@ internal static class ScanFilmProfileDocumentNormalization
         bool repairLegacyProfiles)
     {
         var issues = new List<ScanFilmProfileValidationIssue>();
-        var profileName = source.ProfileName.Trim();
-        if (profileName.Length == 0)
-            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidProfileName, "profileName", "FilmProfile.Validation.ProfileNameInvalid", ScanFilmProfileValidationSeverity.Warning));
+        var profileName = source.ProfileName?.Trim() ?? string.Empty;
 
         var profiles = NormalizeProfiles(source.ChannelProfiles, issues, repairLegacyProfiles);
         var recipe = NormalizeRecipe(source.ScanRecipeSettings, issues);
         var acquisition = migrateV5
             ? MigrateV5Acquisition(source.AcquisitionSettings)
             : NormalizeV6Acquisition(source.AcquisitionSettings, issues);
+        acquisition = AddWhiteSettings(acquisition, profiles, issues);
         AddNoProfilesIssue(profiles, issues);
         var validation = new ScanFilmProfileValidationResult(issues);
         if (profiles.Count == 0)
@@ -46,7 +62,7 @@ internal static class ScanFilmProfileDocumentNormalization
             profileName,
             source.SavedAtUtc,
             profiles,
-            NormalizeSelectedChannel(source.SelectedCalibrationChannel, profiles),
+            NormalizeSelectedChannel(source.SelectedCalibrationChannel, profiles, acquisition.WhiteChannelSettings),
             acquisition,
             recipe);
         return new ScanFilmProfileDocumentParseResult(document, validation);
@@ -58,13 +74,12 @@ internal static class ScanFilmProfileDocumentNormalization
             return new ScanFilmProfileDocumentBuildResult(null, Validation(ScanFilmProfileValidationCode.MissingDocument, "document", "FilmProfile.Validation.DocumentMissing"));
 
         var issues = new List<ScanFilmProfileValidationIssue>();
-        if (string.IsNullOrWhiteSpace(draft.ProfileName))
-            issues.Add(Issue(ScanFilmProfileValidationCode.InvalidProfileName, "profileName", "FilmProfile.Validation.ProfileNameInvalid", ScanFilmProfileValidationSeverity.Warning));
 
         var profiles = NormalizeProfiles(draft.ChannelProfiles, issues, repairLegacyProfiles: false);
         AddNoProfilesIssue(profiles, issues);
         var recipe = NormalizeRecipe(draft.ScanRecipeSettings, issues);
         var acquisition = NormalizeV6Acquisition(draft.AcquisitionSettings, issues);
+        acquisition = AddWhiteSettings(acquisition, profiles, issues);
         var validation = new ScanFilmProfileValidationResult(issues);
         if (!validation.IsValid)
             return new ScanFilmProfileDocumentBuildResult(null, validation);
@@ -75,7 +90,7 @@ internal static class ScanFilmProfileDocumentNormalization
                 draft.ProfileName.Trim(),
                 draft.SavedAtUtc,
                 profiles,
-                NormalizeSelectedChannel(draft.SelectedCalibrationChannel, profiles),
+                NormalizeSelectedChannel(draft.SelectedCalibrationChannel, profiles, acquisition.WhiteChannelSettings),
                 acquisition,
                 recipe),
             validation);
@@ -184,7 +199,9 @@ internal static class ScanFilmProfileDocumentNormalization
                 assignment.Channel1Reversed,
                 assignment.Channel2Reversed,
                 assignment.Channel3Reversed,
-                assignment.Channel4Reversed),
+                assignment.Channel4Reversed,
+                NormalizeRecipeRole(assignment.Channel5Role, "Unused"),
+                assignment.Channel5Reversed),
             settings.ColorManagement,
             settings.AlignmentMode,
             settings.DngExportMode);
@@ -226,6 +243,9 @@ internal static class ScanFilmProfileDocumentNormalization
         if (!Enum.IsDefined(normalized.TransportStrategy))
             issues.Add(AcquisitionIssue("acquisitionSettings.transportStrategy"));
 
+        if (!WhiteChannelSettingsValidation.TryValidate(normalized.WhiteChannelSettings, out var whiteField))
+            issues.Add(AcquisitionIssue(whiteField));
+
         if (normalized.AcquisitionChannelAssignment is { } assignment
             && ScanChannelRoleHelper.CountActiveRoles(assignment.Roles) == 0)
         {
@@ -233,6 +253,23 @@ internal static class ScanFilmProfileDocumentNormalization
         }
 
         return normalized;
+    }
+
+    private static ScanFilmAcquisitionSettings AddWhiteSettings(
+        ScanFilmAcquisitionSettings acquisition,
+        IReadOnlyDictionary<string, ScanChannelCalibrationProfile> profiles,
+        List<ScanFilmProfileValidationIssue> issues)
+    {
+        var profile = profiles.GetValueOrDefault("White");
+        var settings = acquisition.WhiteChannelSettings;
+        if (settings is null)
+            return profile is null ? acquisition
+                : acquisition with { WhiteChannelSettings = WhiteChannelSettings.FromLegacy(profile, acquisition) };
+        if (!Enum.IsDefined(settings.Source))
+            return acquisition;
+        if (settings.ActiveSettings?.Profile != profile)
+            issues.Add(AcquisitionIssue("acquisitionSettings.whiteChannelSettings.profile"));
+        return acquisition;
     }
 
     private static ScanFilmProfileValidationIssue AcquisitionIssue(string fieldPath)
@@ -247,9 +284,11 @@ internal static class ScanFilmProfileDocumentNormalization
             issues.Add(Issue(ScanFilmProfileValidationCode.NoValidChannelProfiles, "channelProfiles", "FilmProfile.Validation.NoValidChannelProfiles"));
     }
 
-    private static string? NormalizeSelectedChannel(string? selectedChannel, Dictionary<string, ScanChannelCalibrationProfile> profiles)
+    private static string? NormalizeSelectedChannel(string? selectedChannel, Dictionary<string, ScanChannelCalibrationProfile> profiles, WhiteChannelSettings? whiteSettings)
     {
         var normalized = NormalizeRole(selectedChannel);
+        if (whiteSettings is not null && string.Equals(normalized, "White", StringComparison.OrdinalIgnoreCase))
+            return "White";
         return profiles.ContainsKey(normalized) ? normalized : profiles.Keys.FirstOrDefault();
     }
 

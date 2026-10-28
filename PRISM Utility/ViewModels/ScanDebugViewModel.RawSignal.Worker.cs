@@ -38,10 +38,10 @@ public partial class ScanDebugViewModel
                                 "N={0}; min={1}; max={2}; mean={3:F2} ADU; saturation={4}/{0} (65535)",
                                 task.Result.SampleCount, task.Result.Minimum, task.Result.Maximum,
                                 task.Result.Mean, task.Result.FullScaleCount);
-                            RawSignalStatusText = "ScanDebug_RawSignalReady".GetLocalized();
+                            SetRawSignalStatus("ScanDebug_RawSignalReady");
                         }
                         else
-                            RawSignalStatusText = "ScanDebug_RawSignalUnavailableData".GetLocalized();
+                            SetRawSignalStatus("ScanDebug_RawSignalUnavailableData");
                     }
                     StartRawWorker();
                 }))

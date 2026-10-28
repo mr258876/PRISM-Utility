@@ -11,6 +11,10 @@ temp_docs/
 
 TestResults/
 artifacts/
+.artifacts/
+
+# Legacy visual QA output is local-only.
+/docs/scan-debug-workbench/implementation-notes/01V-evidence/
 
 *.appxupload
 *.msix
@@ -23,5 +27,8 @@ publish/
 AppPackages/
 
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
 .sisyphus/

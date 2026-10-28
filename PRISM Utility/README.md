@@ -21,8 +21,8 @@ This project contains the WinUI 3 desktop application for PRISM Utility.
 
 Build the full solution from the repository root:
 
-```bash
-dotnet build "PRISM Utility.sln"
+```powershell
+.\tools\build.ps1
 ```
 
 If you use Visual Studio, open `PRISM Utility.sln` and run one of the launch profiles defined in `Properties/launchsettings.json`.

@@ -6,7 +6,7 @@ namespace PRISM_Utility.Core.Services;
 
 public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRepository
 {
-    private const int SchemaVersion = 1;
+    private const int SchemaVersion = 2;
 
     private readonly IScanCalibrationProfileStorage _storage;
     private readonly SemaphoreSlim _settingsGate = new(1, 1);
@@ -69,7 +69,7 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
             var current = Volatile.Read(ref _current);
             var nextProfiles = ScanCalibrationProfileSettingsNormalizer.CopyProfiles(current.Profiles);
             nextProfiles[role] = normalized;
-            var candidate = CreateSnapshot(nextProfiles, current.SelectedChannel);
+            var candidate = CreateSnapshot(nextProfiles, current.SelectedChannel, current.WhiteChannelSettings);
             await SaveDocumentAsync(candidate, ct);
             Volatile.Write(ref _current, candidate);
         }
@@ -92,7 +92,7 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
 
             var nextProfiles = ScanCalibrationProfileSettingsNormalizer.CopyProfiles(current.Profiles);
             nextProfiles.Remove(role);
-            var candidate = CreateSnapshot(nextProfiles, current.SelectedChannel);
+            var candidate = CreateSnapshot(nextProfiles, current.SelectedChannel, current.WhiteChannelSettings);
             await SaveDocumentAsync(candidate, ct);
             Volatile.Write(ref _current, candidate);
             return true;
@@ -108,7 +108,9 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
         ArgumentNullException.ThrowIfNull(snapshot);
         var nextProfiles = ScanCalibrationProfileSettingsNormalizer.NormalizeReplacementProfiles(snapshot.Profiles);
         var selectedChannel = ScanCalibrationProfileSettingsNormalizer.NormalizeSelectedChannel(snapshot.SelectedChannel);
-        var candidate = CreateSnapshot(nextProfiles, selectedChannel);
+        if (!WhiteChannelSettingsValidation.TryValidate(snapshot.WhiteChannelSettings, out var field))
+            throw new ArgumentOutOfRangeException(nameof(snapshot), $"Invalid White channel settings at {field}.");
+        var candidate = CreateSnapshot(nextProfiles, selectedChannel, snapshot.WhiteChannelSettings);
 
         await _settingsGate.WaitAsync(ct);
         try
@@ -140,7 +142,32 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
             if (string.Equals(current.SelectedChannel, role, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            var candidate = CreateSnapshot(current.Profiles, role);
+            var candidate = CreateSnapshot(current.Profiles, role, current.WhiteChannelSettings);
+            await SaveDocumentAsync(candidate, ct);
+            Volatile.Write(ref _current, candidate);
+        }
+        finally
+        {
+            _settingsGate.Release();
+        }
+    }
+
+    public async Task SetWhiteChannelSettingsAsync(WhiteChannelSettings settings, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!WhiteChannelSettingsValidation.TryValidate(settings, out var field))
+            throw new ArgumentOutOfRangeException(nameof(settings), $"Invalid White channel settings at {field}.");
+        await _settingsGate.WaitAsync(ct);
+        try
+        {
+            await InitializeUnderGateAsync(ct);
+            var current = Volatile.Read(ref _current);
+            var profiles = ScanCalibrationProfileSettingsNormalizer.CopyProfiles(current.Profiles);
+            if (settings.ActiveSettings?.Profile is { } profile)
+                profiles["White"] = profile;
+            else
+                profiles.Remove("White");
+            var candidate = CreateSnapshot(profiles, current.SelectedChannel, settings);
             await SaveDocumentAsync(candidate, ct);
             Volatile.Write(ref _current, candidate);
         }
@@ -173,15 +200,23 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
 
         if (document is not null)
         {
-            if (document.SchemaVersion != SchemaVersion
-                || !ScanCalibrationProfileSettingsNormalizer.TryNormalizeDocumentPayload(document.Payload, out var documentProfiles, out var documentSelectedChannel))
+            if (document.SchemaVersion is not (1 or SchemaVersion)
+                || !ScanCalibrationProfileSettingsNormalizer.TryNormalizeDocumentPayload(document.Payload, out var documentProfiles, out var documentSelectedChannel)
+                || (document.SchemaVersion == SchemaVersion && !WhiteChannelSettingsValidation.TryValidate(document.Payload?.WhiteChannelSettings, out _)))
             {
                 WriteDiagnostic($"Ignoring calibration settings document schema {document.SchemaVersion}.");
                 Volatile.Write(ref _isInitialized, true);
                 return;
             }
 
-            Volatile.Write(ref _current, CreateSnapshot(documentProfiles, documentSelectedChannel));
+            var whiteSettings = document.SchemaVersion == SchemaVersion ? document.Payload?.WhiteChannelSettings : null;
+            if (whiteSettings is not null && whiteSettings.ActiveSettings?.Profile != documentProfiles.GetValueOrDefault("White"))
+            {
+                WriteDiagnostic("Ignoring calibration settings with mismatched White source profile.");
+                Volatile.Write(ref _isInitialized, true);
+                return;
+            }
+            Volatile.Write(ref _current, CreateSnapshot(documentProfiles, documentSelectedChannel, whiteSettings));
             Volatile.Write(ref _isInitialized, true);
             return;
         }
@@ -225,16 +260,21 @@ public sealed class ScanCalibrationProfileRepository : IScanCalibrationProfileRe
                 SchemaVersion,
                 new ScanCalibrationProfileSettingsPayload(
                     ScanCalibrationProfileSettingsNormalizer.CopyProfiles(candidate.Profiles),
-                    candidate.SelectedChannel)),
+                    candidate.SelectedChannel,
+                    candidate.WhiteChannelSettings)),
             ct);
 
     private static ScanCalibrationProfileRepositorySnapshot CreateSnapshot(
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile> profiles,
-        string? selectedChannel)
-        => new(ScanCalibrationProfileSettingsNormalizer.CopyProfiles(profiles), selectedChannel);
+        string? selectedChannel,
+        WhiteChannelSettings? whiteChannelSettings = null)
+        => new(ScanCalibrationProfileSettingsNormalizer.CopyProfiles(profiles), selectedChannel,
+            whiteChannelSettings is null && !profiles.ContainsKey("White") ? null
+                : (whiteChannelSettings ?? WhiteChannelSettings.FromLegacy(profiles.GetValueOrDefault("White")))
+                    .WithActiveProfile(profiles.GetValueOrDefault("White")));
 
     private static ScanCalibrationProfileRepositorySnapshot CloneSnapshot(ScanCalibrationProfileRepositorySnapshot snapshot)
-        => CreateSnapshot(snapshot.Profiles, snapshot.SelectedChannel);
+        => CreateSnapshot(snapshot.Profiles, snapshot.SelectedChannel, snapshot.WhiteChannelSettings);
 
     private static void WriteDiagnostic(string message)
     {

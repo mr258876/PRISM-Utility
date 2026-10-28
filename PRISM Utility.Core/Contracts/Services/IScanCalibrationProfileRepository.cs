@@ -13,4 +13,16 @@ public interface IScanCalibrationProfileRepository
     Task ReplaceAsync(ScanCalibrationProfileRepositorySnapshot snapshot, CancellationToken ct);
     Task<string?> GetSelectedChannelAsync(CancellationToken ct);
     Task SetSelectedChannelAsync(string? channelRole, CancellationToken ct);
+
+    async Task SetWhiteChannelSettingsAsync(WhiteChannelSettings settings, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var current = await ReadAsync(ct);
+        var profiles = current.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        if (settings.ActiveSettings?.Profile is { } profile)
+            profiles["White"] = profile;
+        else
+            profiles.Remove("White");
+        await ReplaceAsync(new(profiles, current.SelectedChannel, settings), ct);
+    }
 }

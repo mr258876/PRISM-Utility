@@ -1,5 +1,7 @@
 # 设置持久化架构
 
+> 当前验证结果与未完成工作见[项目待办](../TODO.md)。设置文件系统测试的版本断言应按当前校准 schema 2 和 schema 1 兼容契约维护。
+
 ## Scope and non-responsibilities
 
 本文覆盖 PRISM Utility 的本地设置、JSON 持久化门面、扫描设置门面、校准 profile repository、film profile 文档 schema 和 workspace 状态边界。来源限于当前源码，重点路径包括 `Host Software/PRISM Utility/Services/LocalSettingsService.cs`、`Host Software/PRISM Utility/Models/LocalSettingsOptions.cs`、`Host Software/PRISM Utility/appsettings.json`、`Host Software/PRISM Utility.Core/Services/FileService.cs`、`Host Software/PRISM Utility.Core/Helpers/Json.cs`、`Host Software/PRISM Utility.Core/Services/ScanCalibrationProfileRepository.cs`、`Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentService.cs` 和 `Host Software/PRISM Utility.Core/Services/ScanFilmProfileWorkspace.cs`。
@@ -10,13 +12,13 @@
 
 `LocalSettingsService` 是应用层持久化入口。它实现 `ILocalSettingsService.ReadSettingAsync<T>` 和 `SaveSettingAsync<T>`，以 `RuntimeHelper.IsMSIX` 选择两条路径。打包运行时，它把每个值序列化成字符串，写入 `ApplicationData.Current.LocalSettings.Values[key]`。非打包运行时，它把所有 key/value 字符串放入 `_settings` 字典，在 `_settingsGate` 下读取和保存，再通过 `IAtomicFileWriter` 写到本地 JSON 文件。
 
-默认文件位置来自 shared compiled resolver。`appsettings.json` 的 `LocalSettingsOptions.ApplicationDataFolder` 为 `PRISM_Utility/ApplicationData`，`LocalSettingsFile` 为 `LocalSettings.json`。`LocalSettingsService` 和 `DebugOutputMirrorService` 都调用 `ApplicationDataPathResolver.Resolve(...)`；配置为 null、empty 或 whitespace 时回退到同一个 application-data root，custom nonblank root 也被两者共同保留。历史上的 underscore 和 space fallback divergence 已由 SET-002 关闭。
+默认文件位置来自 shared compiled resolver。`appsettings.json` 的 `LocalSettingsOptions.ApplicationDataFolder` 为 `PRISM_Utility/ApplicationData`，`LocalSettingsFile` 为 `LocalSettings.json`。`LocalSettingsService` 和 `DebugOutputMirrorService` 都调用 `ApplicationDataPathResolver.Resolve(...)`；配置为 null、empty 或 whitespace 时回退到同一个 application-data root，custom nonblank root 也被两者共同保留。SET-002 跟踪此共享路径契约。
 
 上层设置门面把业务状态拆成固定 key。`DebugOutputSettingsService` 使用 `DebugConsoleMirrorEnabled` 和 `DebugFileLogEnabled`。`ThemeSelectorService` 使用 `AppBackgroundRequestedTheme`。`LanguageSelectorService` 使用 `AppRequestedLanguage`。Core 设置服务还包括 `ScanTransferSettingsService`、`ScanDeviceSettingsService`、`ScanColorManagementSettingsService` 和 `ScanDngGeometrySettingsService`。SET-003 已把传输设置和色彩管理设置收敛为 schema 1 versioned single documents, key 分别是 `ScanTransferSettingsDocument` 和 `ScanColorManagementSettingsDocument`。SET-005 已把 Settings 页面的 language、theme、debug、transfer 和 color 五个 family 保存接入 owner-scoped `SettingsSaveCoordinator`, 包括 restore/default 命令。
 
 校准 profile 由 `LocalSettingsScanCalibrationProfileStorage` 适配到同一个本地设置接口。SET-003 后 current document key 是 `ScanCalibrationProfileSettingsDocument`, payload 同时包含 profile 字典和 selected channel。`ProfilesKey` `ScanChannelParameterProfiles` 与 `SelectedChannelKey` `ScanCalibrationSelectedChannel` 只作为 legacy 读取来源保留。`ScanCalibrationProfileRepository` 在 current document 之上提供初始化、快照、保存、清除、替换和选中通道操作。
 
-Film profile 的导入导出由 `ScanFilmProfileDocumentService` 和 `ScanFilmProfileWorkspace` 处理。源码证实当前 schema 版本是 `ScanFilmProfileDocumentService.CurrentSchemaVersionValue = 6`；服务继续读取 schema 5 并确定性迁移到 schema 6，导出只写 schema 6。文档模型是 `ScanFilmParameterProfileSet`，包含 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`、`SelectedCalibrationChannel`、可选 `AcquisitionSettings` 和可选 `ScanRecipeSettings`。
+Film profile 的导入导出由 `ScanFilmProfileDocumentService` 和 `ScanFilmProfileWorkspace` 处理。当前 `CurrentSchemaVersionValue = 7`；服务接受 schema 5、6、7并规范化到当前模型，导出写 schema 7。`ScanFilmParameterProfileSet` 保留配置名称、时间、通道、采集与扫描计划，并包含白光来源设置；旧版本缺失的白光字段按兼容策略处理。
 
 ## Key entry points
 
@@ -45,9 +47,9 @@ ServiceCoverage: ScanFilmProfileWorkspace
 
 设置门面通常有一个 `_initializeGate` 或 `_settingsGate`，读入本地设置后把 `_isInitialized` 置为 true。SET-003 覆盖的传输和色彩门面按 group gate 串行初始化和保存。保存时先 normalize, 再把完整 payload 写入 schema 1 document key；只有 `SaveSettingAsync` 成功后才发布内存 `Settings` generation。`ScanTransferSettingsService.SetSettingsAsync` 不再顺序保存 `ScanBulkInReadMode`、`ScanBulkInRequestBytes`、`ScanBulkInOutstandingReads`、`ScanBulkInTimeoutMs` 和 `ScanBulkInRawIoEnabled` 五个独立 key。
 
-`ScanCalibrationProfileRepository` 有两个 gate。`_initializeGate` 保护初始化，`_writeGate` 保护保存、清除、替换和选中通道写入。初始化优先读 schema 1 current document。只有 current document 缺失时才读 legacy profile 字典和 legacy selected channel，并经 `MigrateLegacyProfiles` 把 `ScanParameterSnapshot` 转成 `ScanChannelCalibrationProfile`，ROI 使用 `ScanCalibrationRoiSettings.CreateDefault().Normalize()`。如果 current document 是 future schema、malformed 或 payload 无效，repository 保持空 state, 不回读 legacy, 不发布 stale fallback。保存、清除、替换和 selected channel 变更都写回一个 current document, 保存成功后才通过 `Volatile` snapshot 发布新 generation。源码没有证据显示旧 schema 文件的多版本迁移链。
+`ScanCalibrationProfileRepository` 有两个 gate：`_initializeGate` 保护初始化，`_writeGate` 保护保存、清除、替换和选中通道写入。当前写 schema 2 并接受 schema 1；schema 2 还校验 `WhiteChannelSettings`。只有 current document 缺失时才读取 legacy profile 字典和 legacy selected channel，并迁移为当前 document；future、malformed 或 payload 无效时保持空 state，不回读 legacy。保存成功后才通过 `Volatile` snapshot 发布新 generation。
 
-`ScanFilmProfileDocumentService.Parse` 先用 `JObject.Load` 检查 JSON，再验证 `SchemaVersion`、`ProfileName`、`SavedAtUtc`、`ChannelProfiles`。`SchemaVersion` 必须是受支持的 5 或 6；schema 5 在反序列化前移除 v6-only acquisition 字段并迁移到 v6，schema 6 在默认值注入和反序列化前规范化已知 acquisition 字段并拒绝大小写冲突。`Build` 只从 draft 构建当前 schema 6 文档。
+`ScanFilmProfileDocumentService.Parse` 先检查 JSON 与必需字段，再接受 schema 5、6、7。旧版 acquisition 字段按各自兼容策略规范化；schema 7 校验白光设置。schema 5 走既有迁移入口，schema 6/7 走当前 document normalization，统一输出 schema 7；schema 8+ 拒绝。`Build` 只从 draft 构建当前版本文档。
 
 `ScanFilmProfileWorkspace` 以 `ScanFilmProfileWorkspaceSnapshot` 持有 `CurrentDraft`、`BaselineDraft`、`IsDirty` 和 `StagedImport`。它用 `Volatile.Read` 读 `_snapshot`，用 `Interlocked.Exchange` 或 `Interlocked.CompareExchange` 替换快照，并通过 `SnapshotChanged` 发布变更。
 
@@ -69,7 +71,7 @@ flowchart TD
     Repository[ScanCalibrationProfileRepository] --> Profiles
     Workspace[ScanFilmProfileWorkspace] --> Repository
     Workspace --> Documents[ScanFilmProfileDocumentService]
-    Documents --> Schema[ScanFilmParameterProfileSet schema v6]
+    Documents --> Schema[ScanFilmParameterProfileSet schema v7]
 ```
 
 典型读取路径是 ViewModel 调用门面 `InitializeAsync`，门面调用 `ReadSettingAsync<T>`，本地设置服务按运行形态选择 MSIX local settings 或非打包 JSON 文件，JSON helper 反序列化字符串。典型写入路径是 Settings ViewModel 属性变化或 restore/default 命令把 operation 放入 owner-scoped coordinator。coordinator 按 owner 和 scope 产生 result, 门面更新内存状态后调用 `SaveSettingAsync<T>`，非打包路径在 `_settingsGate` 下更新内存字典并通过 atomic writer 发布文件。失败 result 先 mirror diagnostic, 再通过 UI dispatcher rollback visible state 并更新既有 Settings persistence InfoBar；成功 result 清除同 scope error。
@@ -86,7 +88,7 @@ flowchart TD
 - `Host Software/PRISM Utility.Core/Services/AtomicFileWriter.cs` 负责非打包 JSON 文件原子写入。
 - `Host Software/PRISM Utility.Core/Helpers/Json.cs` 负责序列化。
 - `Host Software/PRISM Utility/Services/LocalSettingsScanCalibrationProfileStorage.cs` 把 profile repository 接到 settings key。
-- `Host Software/PRISM Utility.Core/Models/ScanFilmParameterProfileSet.cs` 定义当前 schema v6 文档字段和受支持的 v5 迁移输入形状。
+- `Host Software/PRISM Utility.Core/Models/ScanFilmParameterProfileSet.cs` 定义当前 schema v7 文档字段；服务同时接受 v5/v6 兼容输入。
 - `Host Software/PRISM Utility.Core/Services/ScanFilmProfileDocumentNormalization.cs` 定义 profile、recipe、selected channel 的 normalize 规则。
 
 ## State and concurrency
@@ -107,13 +109,13 @@ flowchart TD
 
 `ScanFilmProfileDocumentService.Parse` 捕获 malformed JSON 和 Newtonsoft.Json 反序列化异常，返回 `ScanFilmProfileValidationResult`。它对 schema 版本不匹配返回 `UnsupportedSchemaVersion`。`ScanFilmProfileWorkspace.ApplyStagedImportAsync` 在没有 staged import 时返回 `NoStagedImport`；pre-cancelled token 在任何更新前返回 `Canceled` 并保留 staged state；否则它同步更新内存 current/baseline、清除 staged state 并返回 `Applied`。该方法不捕获普通异常，`Update` 或同步 `SnapshotChanged` 订阅者抛出的异常会沿调用栈传播；它不访问 repository 或设置文件。
 
-`ScanCalibrationProfileRepository.InitializeAsync` 若 schema 1 current document 存在且有效，会 normalize 后作为当前 state。若 current document 缺失且 legacy profiles 存在，会迁移到 current document 形状并保存。future、malformed 或 payload 无效 document 会被拒绝, 不回退到 legacy, 也不发布旧 state。这个行为是已知 legacy key 到 schema 1 document 的迁移，不是通用损坏恢复。
+`ScanCalibrationProfileRepository.InitializeAsync` 接受有效 schema 1/2 document，当前保存写 schema 2。current document 缺失时才迁移 legacy keys；future、malformed 或无效 payload 被拒绝且不回退 legacy。schema 1 缺失白光来源的兼容处理与 schema 2 白光字段验证由专门测试覆盖；这不是通用损坏恢复。
 
 Settings UI 保存失败由 coordinator result 表达。失败先进入 Debug mirror diagnostic, 再派发到 UI thread 执行 rollback 和 InfoBar 更新；dispatcher 不可用或页面 teardown 时走 bounded wait, 不挂住 unload 或 app close。per-scope error 恢复后只清除该 scope, 不清除其它 setting family 的错误。
 
 ## Test coverage
 
-当前仓库包含和 settings/profile 持久化直接相关的测试文件，包括 `Host Software/PrismUtility.Core.Tests/Set001LocalSettingsAtomicPersistenceTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003TransferSettingsTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003ColorManagementSettingsTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003CalibrationProfileRepositoryTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003LocalSettingsMigrationHarnessTests.cs`、`Host Software/PrismUtility.Core.Tests/Set005SettingsSaveCoordinatorTests.cs`、`Host Software/PrismUtility.Core.Tests/Set005SettingsViewModelBehaviorTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryCharacterizationTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` 和 `Host Software/PrismUtility.Core.Tests/ScanFilmProfileCompatibilityTests.cs`。SET-003 focused 18 个 tests 两次通过, SET-005 focused 29 个 tests 两次通过, combined managed suite 为 487/487。SET-005 visual evidence 只证明 normal/recovery en/zh captures clean；rendered failure InfoBar/accessibility evidence 为 `HARNESS_BLOCKED`, 不是 visual pass。
+当前仓库包含和 settings/profile 持久化直接相关的测试文件，包括 `Host Software/PrismUtility.Core.Tests/Set001LocalSettingsAtomicPersistenceTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003TransferSettingsTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003ColorManagementSettingsTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003CalibrationProfileRepositoryTests.cs`、`Host Software/PrismUtility.Core.Tests/Set003LocalSettingsMigrationHarnessTests.cs`、`Host Software/PrismUtility.Core.Tests/Set005SettingsSaveCoordinatorTests.cs`、`Host Software/PrismUtility.Core.Tests/Set005SettingsViewModelBehaviorTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanCalibrationProfileRepositoryCharacterizationTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`、`Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` 和 `Host Software/PrismUtility.Core.Tests/ScanFilmProfileCompatibilityTests.cs`。这些测试覆盖原子写入、分组设置、迁移与拒绝策略、保存队列、UI rollback 和胶片 workspace。当前结果见[项目待办](../TODO.md)；Settings 错误 InfoBar 的真实渲染与可访问性仍待验证。
 
 文档验证流程覆盖本文件的结构、Mermaid、本地链接和源码路径。建议的实现级验证方式是运行上述 profile 持久化单元测试，并保留 `MissingServiceCoverage` self-test 作为文档覆盖守卫。
 
@@ -129,15 +131,15 @@ Issue-ID: SETTINGS-PERSISTENCE-002
 
 Issue-ID: SETTINGS-PERSISTENCE-006
 
-事实: SET-003 已关闭。`ScanTransferSettingsService`、`ScanColorManagementSettingsService` 和 `ScanCalibrationProfileRepository` 分别使用 schema 1 versioned single documents 保存完整分组。读取时 current document 优先；legacy 只在 document 缺失时迁移；future、malformed 或 payload 无效 document 不回读 legacy, 也不发布 stale fallback。保存时先写 document, 成功后才发布内存 generation。当前生产 `LocalSettingsService` 没有 delete API, 因此旧 legacy keys 是惰性 retained 状态, 不再参与 current document 存在后的读取。
+事实: SET-003 已关闭。`ScanTransferSettingsService`、`ScanColorManagementSettingsService` 和 `ScanCalibrationProfileRepository` 使用 versioned single documents 保存完整分组：传输/色彩写 schema 1，校准写 schema 2 并接受 schema 1。读取时 current document 优先；legacy 只在 document 缺失时迁移；future、malformed 或 payload 无效 document 不回读 legacy, 也不发布 stale fallback。保存时先写 document, 成功后才发布内存 generation。当前生产 `LocalSettingsService` 没有 delete API, 因此旧 legacy keys 是惰性 retained 状态, 不再参与 current document 存在后的读取。
 
 Issue-ID: SETTINGS-PERSISTENCE-003
 
-事实: `Json` helper 和 settings service 没有通用 schema/version envelope。film profile 的 current/emitted schema 6；服务仍 reads schema 5 并确定性迁移到 6，同时 rejects schema 7+。这个版本包络只属于 film profile，不能推广为所有 settings 的 schema。建议: 文档和测试都应避免把 film profile schema 说成所有 settings 的 schema。
+事实: `Json` helper 和通用 settings service 没有统一 schema/version envelope。film profile 当前写 schema 7，读取 schema 5/6/7并规范化到7，拒绝 schema 8+；校准设置另外使用 schema 2 并接受1。建议: 分别记录各文档版本，不把 profile schema 推广为所有 settings schema。
 
 Issue-ID: SETTINGS-PERSISTENCE-004
 
-事实: `ScanCalibrationProfileRepository` 只证实从 legacy `ScanParameterSnapshot` 字典迁移到 `ScanChannelCalibrationProfile` 字典。建议: 未来新增 schema 时，把版本号、迁移前后字段和失败策略写入源码和文档，不要把 current normalize 误当作多版本迁移。
+事实: `ScanCalibrationProfileRepository` 已支持 legacy keys 迁移、schema1/2读取以及future/malformed拒绝；`Set003CalibrationProfileRepositoryTests` 和 `WhiteChannelPersistenceTests` 有对应覆盖。2026-10-20 文件系统 harness 仍期望输出schema1、实际schema2，需按当前白光兼容契约核对并更新fixture。建议: 后续版本升级同时对齐迁移字段、输出版本和失败策略测试。
 
 Issue-ID: SETTINGS-PERSISTENCE-005
 

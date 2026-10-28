@@ -10,6 +10,7 @@ public sealed class ScanDeviceSettingsService : IScanDeviceSettingsService
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
     private bool _isInitialized;
 
     public ScanDeviceSettings DefaultSettings => ScanDeviceSettings.CreateDefault();
@@ -61,11 +62,23 @@ public sealed class ScanDeviceSettingsService : IScanDeviceSettingsService
         if (!mappingValidation.IsValid)
             throw new ArgumentException(mappingValidation.Message, nameof(settings));
 
-        if (Settings == normalized)
-            return;
+        var validation = normalized.ValidateMappings();
+        if (!validation.IsValid)
+            throw new ArgumentException($"Invalid device channel mapping: {validation.Error}.", nameof(settings));
 
-        Settings = normalized;
-        await _localSettingsService.SaveSettingAsync(SettingsKey, normalized);
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (Settings == normalized)
+                return;
+
+            await _localSettingsService.SaveSettingAsync(SettingsKey, normalized);
+            Settings = normalized;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
     }
 
     private ScanDeviceSettings NormalizeOrDefault(ScanDeviceSettings? settings)

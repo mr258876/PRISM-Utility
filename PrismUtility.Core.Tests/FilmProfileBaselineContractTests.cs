@@ -39,7 +39,11 @@ public sealed class FilmProfileBaselineContractTests
     {
         public Task<ScanFilmProfileFileReadResult> ReadJsonAsync() => Task.FromResult(read);
 
-        public Task<ScanFilmProfileFileWriteResult> WriteJsonAsync(string suggestedFileName, string text)
-            => Task.FromResult(new ScanFilmProfileFileWriteResult(false));
+        public Task<ScanFilmProfileFileWriteResult> WriteJsonAsync(string suggestedFileName, Func<string, string> createText)
+        {
+            var fileName = suggestedFileName + ".json";
+            _ = createText(fileName);
+            return Task.FromResult(new ScanFilmProfileFileWriteResult(false, fileName));
+        }
     }
 }

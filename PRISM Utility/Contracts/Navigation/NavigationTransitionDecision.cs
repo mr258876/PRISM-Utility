@@ -17,3 +17,18 @@ public static class NavigationTransitionDecider
     public static bool ShouldClearBackStack(object? frameTag)
         => frameTag is true;
 }
+
+public sealed class NavigationCompletionTracker
+{
+    private long _sequence;
+
+    public void NotifyNavigated() => _sequence++;
+
+    public bool TryNavigate(Func<bool> requestNavigation)
+    {
+        var previousSequence = _sequence;
+        // WinUI can accept a request while OnNavigatingFrom cancels it.
+        // Only a Navigated event confirms that the current page changed.
+        return requestNavigation() && _sequence != previousSequence;
+    }
+}

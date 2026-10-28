@@ -115,6 +115,138 @@ public sealed class ScanIlluminationServiceTests
     }
 
     [Fact]
+    public void BuildChannelState_RgbWhiteUsesOwnRecipeOnMappedRgbOutputs()
+    {
+        var settings = CreateRgbWhiteAcquisition();
+
+        var white = ScanIlluminationService.BuildChannelState(settings, "White", 4);
+        var red = ScanIlluminationService.BuildChannelState(settings, "Red", 2);
+
+        Assert.Equal(new ScanIlluminationState(300, 0, 100, 200, 0b0100, 0b1001, 0, 30, 2, 10, 20), white);
+        Assert.Equal(33, red.Led3Level);
+        Assert.Equal(0b0100, red.SteadyMask);
+        Assert.Equal(0, red.Led1Level);
+        Assert.Equal(33, settings.Led3Level);
+        Assert.Equal("IR", settings.Led2ChannelColor);
+    }
+
+    [Fact]
+    public void BuildChannelState_DedicatedWhiteUsesOnlyItsMappedOutputAndOwnSettings()
+    {
+        var settings = CreateRgbWhiteAcquisition() with
+        {
+            Led2ChannelColor = "White",
+            WhiteChannelSettings = new WhiteChannelSettings(
+                WhiteLightSource.DedicatedLed,
+                DedicatedLed: new(Lighting: new(DedicatedLed: new(456, 99, WhiteLightDriveMode.Synchronized))))
+        };
+
+        var state = ScanIlluminationService.BuildChannelState(settings, "White", 1);
+
+        Assert.Equal(new ScanIlluminationState(0, 456, 0, 0, 0, 2, 0, 2, 99, 2, 2), state);
+    }
+
+    [Fact]
+    public void BuildChannelState_UnavailableDedicatedWhiteNeverFallsBackToRgb()
+    {
+        var settings = CreateRgbWhiteAcquisition();
+        settings = settings with { WhiteChannelSettings = settings.WhiteChannelSettings! with { Source = WhiteLightSource.DedicatedLed } };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => ScanIlluminationService.BuildChannelState(settings, "White", 4));
+
+        Assert.Contains("mapped White LED", exception.Message);
+    }
+
+    [Fact]
+    public void BuildChannelState_LegacyWhiteRejectsIrOutputInsteadOfUsingOldSlot()
+    {
+        var settings = ScanFilmAcquisitionSettings.CreateDefault() with { Led2ChannelColor = "IR" };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => ScanIlluminationService.BuildChannelState(settings, "White", 1));
+
+        Assert.Contains("mapped White LED", exception.Message);
+    }
+
+    [Fact]
+    public void BuildChannelState_LegacyWhiteFollowsActualPhysicalMapping()
+    {
+        var settings = ScanFilmAcquisitionSettings.CreateDefault() with { Led2ChannelColor = "IR", Led4ChannelColor = "White", Led4Level = 432 };
+
+        var state = ScanIlluminationService.BuildChannelState(settings, "White", 1);
+
+        Assert.Equal((ushort)432, state.Led4Level);
+        Assert.Equal((ushort)0, state.Led2Level);
+        Assert.Equal((byte)8, state.SteadyMask);
+    }
+
+    [Fact]
+    public void BuildChannelState_UnavailableRgbWhiteNeverFallsBackToDedicatedWhite()
+    {
+        var settings = CreateRgbWhiteAcquisition() with { Led4ChannelColor = "White" };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => ScanIlluminationService.BuildChannelState(settings, "White", 3));
+
+        Assert.Contains("mapped Green LED", exception.Message);
+    }
+
+    [Fact]
+    public void BuildChannelState_DuplicateRgbMappingRejectsAmbiguousSource()
+    {
+        var settings = CreateRgbWhiteAcquisition() with { Led2ChannelColor = "Red" };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => ScanIlluminationService.BuildChannelState(settings, "White", 4));
+
+        Assert.Contains("exactly one mapped Red LED", exception.Message);
+    }
+
+    [Fact]
+    public void BuildChannelState_WhiteOffModeDoesNotAcquireLegacySteadyFallback()
+    {
+        var settings = CreateRgbWhiteAcquisition() with
+        {
+            Led2ChannelColor = "White",
+            WhiteChannelSettings = new WhiteChannelSettings(
+                DedicatedLed: new(Lighting: new(DedicatedLed: new(456, 99, WhiteLightDriveMode.Off))))
+        };
+
+        var state = ScanIlluminationService.BuildChannelState(settings, "White", 1);
+
+        Assert.Equal(0, state.SteadyMask);
+        Assert.Equal(0, state.SyncMask);
+    }
+
+    [Fact]
+    public void BuildChannelState_InvalidCompositeSyncPulseIsRejected()
+    {
+        var settings = CreateRgbWhiteAcquisition();
+        var source = settings.WhiteChannelSettings!;
+        settings = settings with
+        {
+            WhiteChannelSettings = source.WithActiveLighting(source.ActiveSettings!.Lighting! with
+            {
+                Green = new(200, 1, WhiteLightDriveMode.Synchronized)
+            })
+        };
+
+        Assert.Throws<ScanIlluminationValidationException>(() => ScanIlluminationService.BuildChannelState(settings, "White", 4));
+    }
+
+    private static ScanFilmAcquisitionSettings CreateRgbWhiteAcquisition()
+        => ScanFilmAcquisitionSettings.CreateDefault() with
+        {
+            Led1Level = 11,
+            Led2Level = 22,
+            Led3Level = 33,
+            Led4Level = 44,
+            Led2ChannelColor = "IR",
+            WhiteChannelSettings = new WhiteChannelSettings(WhiteLightSource.RgbComposite,
+                RgbComposite: new(Lighting: new(
+                    Red: new(100, 10, WhiteLightDriveMode.Steady),
+                    Green: new(200, 20, WhiteLightDriveMode.Synchronized),
+                    Blue: new(300, 30, WhiteLightDriveMode.Synchronized))))
+        };
+
+    [Fact]
     public async Task RestoreStateAsync_UsesSafeRestoreOrder()
     {
         var state = CreateValidState(steadyMask: 0b0001, syncMask: 0b0010);

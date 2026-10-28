@@ -115,7 +115,8 @@ internal sealed class RecordingCalibrationProfileRepository : IScanCalibrationPr
             {
                 var profiles = _snapshot.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
                 profiles[role] = profile;
-                _snapshot = new ScanCalibrationProfileRepositorySnapshot(profiles, _snapshot.SelectedChannel);
+                _snapshot = new ScanCalibrationProfileRepositorySnapshot(profiles, _snapshot.SelectedChannel,
+                    _snapshot.WhiteChannelSettings?.WithActiveProfile(profiles.GetValueOrDefault("White")));
                 PersistedSnapshot = CopySnapshot(_snapshot);
                 SaveProfileCount++;
                 _savedProfileRoles.Add(role);
@@ -145,7 +146,8 @@ internal sealed class RecordingCalibrationProfileRepository : IScanCalibrationPr
                 var removed = profiles.Remove(role);
                 if (removed)
                 {
-                    _snapshot = new ScanCalibrationProfileRepositorySnapshot(profiles, _snapshot.SelectedChannel);
+                    _snapshot = new ScanCalibrationProfileRepositorySnapshot(profiles, _snapshot.SelectedChannel,
+                        _snapshot.WhiteChannelSettings?.WithActiveProfile(profiles.GetValueOrDefault("White")));
                     PersistedSnapshot = CopySnapshot(_snapshot);
                 }
 
@@ -169,7 +171,8 @@ internal sealed class RecordingCalibrationProfileRepository : IScanCalibrationPr
 
         LastReplacement = new ScanCalibrationProfileRepositorySnapshot(
             snapshot.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-            snapshot.SelectedChannel);
+            snapshot.SelectedChannel,
+            snapshot.WhiteChannelSettings);
         _snapshot = CopySnapshot(LastReplacement);
         PersistedSnapshot = CopySnapshot(LastReplacement);
     }
@@ -193,7 +196,7 @@ internal sealed class RecordingCalibrationProfileRepository : IScanCalibrationPr
             {
                 _snapshot = new ScanCalibrationProfileRepositorySnapshot(
                     _snapshot.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-                    channelRole?.Trim());
+                    channelRole?.Trim(), _snapshot.WhiteChannelSettings);
                 PersistedSnapshot = CopySnapshot(_snapshot);
                 _selectedChannelWriteRoles.Add(role);
             }
@@ -299,5 +302,6 @@ internal sealed class RecordingCalibrationProfileRepository : IScanCalibrationPr
     private static ScanCalibrationProfileRepositorySnapshot CopySnapshot(ScanCalibrationProfileRepositorySnapshot snapshot)
         => new(
             snapshot.Profiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-            snapshot.SelectedChannel);
+            snapshot.SelectedChannel,
+            snapshot.WhiteChannelSettings);
 }

@@ -29,6 +29,7 @@ public partial class ScanDebugViewModel
     private string _rawRowInput = string.Empty;
     private bool _rawRowIsAutomatic = true;
     private ScanRawSignalResult? _rawSignalResult;
+    private RawSignalPresentationState _rawSignalPresentationState;
     private string _rawSignalStatusText = "ScanDebug_RawSignalUnavailable".GetLocalized();
     private string _rawSignalSourceText = string.Empty;
     private string _rawSignalStatisticsText = string.Empty;
@@ -42,6 +43,7 @@ public partial class ScanDebugViewModel
             {
                 OnPropertyChanged(nameof(ObservationRawSignalResult));
                 OnPropertyChanged(nameof(ObservationRawContextText));
+                OnPropertyChanged(nameof(RawSignalPresentationText));
             }
         }
     }
@@ -52,7 +54,10 @@ public partial class ScanDebugViewModel
         private set
         {
             if (SetProperty(ref _rawSignalStatusText, value))
+            {
                 OnPropertyChanged(nameof(ObservationRawStatusText));
+                OnPropertyChanged(nameof(RawSignalPresentationText));
+            }
         }
     }
 
@@ -62,7 +67,10 @@ public partial class ScanDebugViewModel
         private set
         {
             if (SetProperty(ref _rawSignalSourceText, value))
+            {
                 OnPropertyChanged(nameof(ObservationRawSourceText));
+                OnPropertyChanged(nameof(ObservationRawSourceVisibility));
+            }
         }
     }
 
@@ -85,8 +93,142 @@ public partial class ScanDebugViewModel
                 return;
             _rawRowIsAutomatic = false;
             OnPropertyChanged(nameof(ObservationRawRowInput));
+            NotifyRawSignalSelectionChanged();
             RefreshRawSignal();
         }
+    }
+
+    // Row indices remain zero based in capture evidence and analysis. The precision control
+    // is one based, matching the position shown to the person inspecting the image.
+    public string RawSignalDisplayRowInput
+    {
+        get => int.TryParse(ObservationRawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var row)
+            ? ((long)row + 1).ToString(CultureInfo.InvariantCulture) : ObservationRawRowInput;
+        set
+        {
+            // Two-way binding may echo a freshly published position. That is not
+            // a request to stop following the latest completed row.
+            if (!CanSelectRawSignalRow || string.Equals(value, RawSignalDisplayRowInput, StringComparison.Ordinal))
+                return;
+            if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var displayedRow) && displayedRow > 0)
+                SelectRawSignalRow(displayedRow - 1);
+            else
+                RawSignalRowInput = string.Empty;
+        }
+    }
+
+    public bool CanSelectRawSignalRow => IsObservationLive && _rawCaptureId != Guid.Empty
+        && _rawRole is not null && _rawCompletedRows > 0;
+
+    public bool CanSelectRawSignalRowFromPreview => CanSelectRawSignalRow && ObservationFrame is not null
+        && !(IsWaterfallEnabled && IsWaterfallCompressedEnabled)
+        && (_lastWorkflowResult is null || GetSingleActiveRoleIndex(_lastWorkflowChannelAssignment
+            ?? BuildCapturedWorkflowChannelAssignment(_lastWorkflowResult)) >= 0);
+
+    public bool IsRawSignalFollowingLatest
+    {
+        get => _rawRowIsAutomatic;
+        set
+        {
+            if (!CanSelectRawSignalRow || _rawRowIsAutomatic == value)
+                return;
+            _rawRowIsAutomatic = value;
+            if (value)
+                SetRawRowInput(_rawCompletedRows - 1);
+            NotifyRawSignalSelectionChanged();
+            RefreshRawSignal();
+        }
+    }
+
+    public string RawSignalPositionText
+    {
+        get
+        {
+            var completed = IsObservationLive ? _rawCompletedRows : VisibleObservationEvidence?.CompletedRows ?? 0;
+            return int.TryParse(ObservationRawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var row)
+                && completed > 0 && row >= 0 && row < completed
+                ? "ScanDebug_RawSignalPosition".GetLocalizedFormatOrFallback("Row {0} of {1}", row + 1, completed)
+                : string.Empty;
+        }
+    }
+
+    public string RawSignalSelectionHintText => !CanSelectRawSignalRow
+        ? (IsObservationLive ? "ScanDebug_RawSignalSelectEmpty" : "ScanDebug_RawSignalSelectSnapshot").GetLocalized()
+        : IsWaterfallEnabled && IsWaterfallCompressedEnabled
+        ? "ScanDebug_RawSignalSelectAveragedWaterfall".GetLocalized()
+        : !CanSelectRawSignalRowFromPreview ? "ScanDebug_RawSignalSelectComposite".GetLocalized()
+        : IsWaterfallEnabled ? "ScanDebug_RawSignalSelectWaterfall".GetLocalized()
+        : "ScanDebug_RawSignalSelectImage".GetLocalized();
+
+    public string RawSignalPresentationText => !IsObservationLive
+        || _rawSignalPresentationState is RawSignalPresentationState.Empty or RawSignalPresentationState.Ready
+        ? RawSignalSelectionHintText : ObservationRawStatusText;
+
+    private enum RawSignalPresentationState { Empty, Calculating, Ready, Error }
+
+    private void SetRawSignalStatus(string resourceKey)
+    {
+        _rawSignalPresentationState = resourceKey switch
+        {
+            "ScanDebug_RawSignalUnavailable" or "ScanDebug_RawSignalUnavailableSource" => RawSignalPresentationState.Empty,
+            "ScanDebug_RawSignalCalculating" => RawSignalPresentationState.Calculating,
+            "ScanDebug_RawSignalReady" => RawSignalPresentationState.Ready,
+            _ => RawSignalPresentationState.Error
+        };
+        RawSignalStatusText = resourceKey.GetLocalized();
+        OnPropertyChanged(nameof(RawSignalPresentationText));
+    }
+
+    internal Guid RawSignalCaptureIdentity => _rawCaptureId;
+
+    public void NotifyRawSignalSelectionChanged()
+    {
+        OnPropertyChanged(nameof(CanSelectRawSignalRow));
+        OnPropertyChanged(nameof(CanSelectRawSignalRowFromPreview));
+        OnPropertyChanged(nameof(IsRawSignalFollowingLatest));
+        OnPropertyChanged(nameof(RawSignalDisplayRowInput));
+        OnPropertyChanged(nameof(RawSignalPositionText));
+        OnPropertyChanged(nameof(RawSignalSelectionHintText));
+        OnPropertyChanged(nameof(RawSignalPresentationText));
+    }
+
+    public bool SelectRawSignalPreviewRow(int previewRow)
+    {
+        if (!CanSelectRawSignalRowFromPreview || ObservationFrame is not { } frame
+            || !ScanRawPreviewRowMapping.TryMapPreviewToRaw(previewRow, frame.Height, _rawCompletedRows,
+                IsWaterfallEnabled, IsWaterfallCompressedEnabled, out var rawRow))
+            return false;
+        SelectRawSignalRow(rawRow);
+        return true;
+    }
+
+    public bool MoveRawSignalRow(int delta)
+    {
+        if (!CanSelectRawSignalRow)
+            return false;
+        var current = int.TryParse(_rawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed : _rawCompletedRows - 1;
+        SelectRawSignalRow((int)Math.Clamp((long)current + delta, 0, _rawCompletedRows - 1L));
+        return true;
+    }
+
+    public bool TryGetRawSignalPreviewRow(out int previewRow)
+    {
+        previewRow = -1;
+        return CanSelectRawSignalRowFromPreview && ObservationFrame is { } frame
+            && int.TryParse(_rawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var row)
+            && ScanRawPreviewRowMapping.TryMapRawToPreview(row, frame.Height, _rawCompletedRows,
+                IsWaterfallEnabled, IsWaterfallCompressedEnabled, out previewRow);
+    }
+
+    private void SelectRawSignalRow(int row)
+    {
+        if (!_rawRowIsAutomatic && int.TryParse(_rawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var current)
+            && current == row)
+            return;
+        _rawRowIsAutomatic = false;
+        SetRawRowInput(row);
+        RefreshRawSignal();
     }
 
     private sealed record RawSignalWork(
@@ -126,7 +268,8 @@ public partial class ScanDebugViewModel
         RawSignalResult = null;
         RawSignalStatisticsText = string.Empty;
         RawSignalSourceText = string.Empty;
-        RawSignalStatusText = reason.GetLocalized();
+        SetRawSignalStatus(reason);
+        NotifyRawSignalSelectionChanged();
     }
 
     private void BeginRawCapture()
@@ -135,6 +278,7 @@ public partial class ScanDebugViewModel
         _rawRenderedCaptureId = null;
         _rawCapturePageEpoch = _rawPageActive ? _rawPageEpoch : -1;
         _rawRowIsAutomatic = true;
+        NotifyRawSignalSelectionChanged();
     }
 
     private void PublishRawFinal(byte[] imageBytes, int rows, Guid? captureId)
@@ -157,7 +301,7 @@ public partial class ScanDebugViewModel
                 && string.Equals(provenance.ChannelRole, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase)).ToArray();
             if (matches.Length != 1)
             {
-                RawSignalStatusText = "ScanDebug_RawSignalUnavailableComposite".GetLocalized();
+                SetRawSignalStatus("ScanDebug_RawSignalUnavailableComposite");
                 return;
             }
             var pass = matches[0];
@@ -181,6 +325,7 @@ public partial class ScanDebugViewModel
         _rawResultGeneration = resultGeneration;
         if (_rawRowIsAutomatic)
             SetRawRowInput(rows - 1);
+        NotifyRawSignalSelectionChanged();
         RefreshRawSignal();
     }
 
@@ -192,7 +337,7 @@ public partial class ScanDebugViewModel
         var requestedRow = _rawRowIsAutomatic ? completedRows - 1 :
             int.TryParse(_rawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var selected) ? selected : -1;
         if (requestedRow < 0 || requestedRow >= completedRows)
-            return;
+            requestedRow = completedRows - 1;
         var row = new byte[ScanDebugConstants.BytesPerLine];
         Buffer.BlockCopy(imageBytes, requestedRow * row.Length, row, 0, row.Length);
         lock (_rawStreamingPublicationLock)
@@ -226,6 +371,7 @@ public partial class ScanDebugViewModel
         _rawResultGeneration = 0;
         if (_rawRowIsAutomatic)
             SetRawRowInput(snapshot.Row);
+        NotifyRawSignalSelectionChanged();
         RefreshRawSignal();
     }
 
@@ -234,6 +380,7 @@ public partial class ScanDebugViewModel
         var text = row.ToString(CultureInfo.InvariantCulture);
         SetProperty(ref _rawRowInput, text, nameof(RawSignalRowInput));
         OnPropertyChanged(nameof(ObservationRawRowInput));
+        NotifyRawSignalSelectionChanged();
     }
 
     private void RefreshRawRoiIfChanged()
@@ -257,24 +404,24 @@ public partial class ScanDebugViewModel
         RawSignalSourceText = string.Empty;
         if (_rawCaptureId == Guid.Empty || _rawRole is null || _rawCompletedRows == 0)
         {
-            RawSignalStatusText = "ScanDebug_RawSignalUnavailableSource".GetLocalized();
+            SetRawSignalStatus("ScanDebug_RawSignalUnavailableSource");
             return;
         }
         if (!int.TryParse(_rawRowInput, NumberStyles.None, CultureInfo.InvariantCulture, out var row)
             || row < 0 || row >= _rawCompletedRows)
         {
-            RawSignalStatusText = "ScanDebug_RawSignalInvalidRow".GetLocalized();
+            SetRawSignalStatus("ScanDebug_RawSignalInvalidRow");
             return;
         }
         if (!TryGetObservationRange(_imageDecoder.GetDecodedPixelsPerLine(), out var selectedRange))
         {
-            RawSignalStatusText = "ScanDebug_RawSignalInvalidRoi".GetLocalized();
+            SetRawSignalStatus("ScanDebug_RawSignalInvalidRoi");
             return;
         }
         var columns = selectedRange.Clamp(_imageDecoder.GetDecodedPixelsPerLine());
         if (columns.Width == 0)
         {
-            RawSignalStatusText = "ScanDebug_RawSignalInvalidRoi".GetLocalized();
+            SetRawSignalStatus("ScanDebug_RawSignalInvalidRoi");
             return;
         }
 
@@ -286,16 +433,35 @@ public partial class ScanDebugViewModel
         }
         else if (_rawStreamingRowIndex == row && _rawStreamingRow is not null)
             packedRow = _rawStreamingRow;
+        else if (TryCopyCompletedStreamingRawRow(row, out var streamingRow))
+            packedRow = streamingRow;
         else
         {
-            RawSignalStatusText = "ScanDebug_RawSignalCalculating".GetLocalized();
+            SetRawSignalStatus("ScanDebug_RawSignalCalculating");
             return;
         }
 
-        RawSignalStatusText = "ScanDebug_RawSignalCalculating".GetLocalized();
+        SetRawSignalStatus("ScanDebug_RawSignalCalculating");
         _rawPending = new RawSignalWork(_rawRevision, _rawPageEpoch, _rawCaptureId, _rawPassIndex, _rawRole,
             _rawResultGeneration, row, _rawRoiRevision, columns, packedRow);
         StartRawWorker();
+    }
+
+    private bool TryCopyCompletedStreamingRawRow(int row, out byte[] packedRow)
+    {
+        packedRow = Array.Empty<byte>();
+        lock (_streamingPreviewLock)
+        {
+            if (!_isStreamingPreviewActive || _pendingCaptureEvidence?.Id != _rawCaptureId
+                || _streamingWorkflowPreviewResult is not null || row < 0 || row >= _rawCompletedRows
+                || _lineBuffer.Length < (long)_rawCompletedRows * ScanDebugConstants.BytesPerLine)
+                return false;
+            // The acquisition appends rows. Only bytes already admitted by a successfully
+            // rendered preview are copied, so changing a fixed row does not wait for another frame.
+            packedRow = new byte[ScanDebugConstants.BytesPerLine];
+            Buffer.BlockCopy(_lineBuffer, row * packedRow.Length, packedRow, 0, packedRow.Length);
+            return true;
+        }
     }
 
 }

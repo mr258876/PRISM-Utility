@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Xml.Linq;
 using Microsoft.UI.Xaml;
 using PRISM_Utility.Services;
 using PRISM_Utility.Core.Configuration;
@@ -374,7 +375,11 @@ public sealed class Set005SettingsSaveCoordinatorTests
         Assert.Contains("Settings_PersistenceErrorInfoBar", source, StringComparison.Ordinal);
         Assert.Contains("Severity=\"Error\"", source, StringComparison.Ordinal);
         Assert.Contains("ViewModel.SettingsPersistenceErrorMessage", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("#", source, StringComparison.Ordinal);
+        // XML parsing decodes numeric glyph entities before checking literal colors.
+        var page = XDocument.Parse(source);
+        var values = page.Descendants().Attributes().Select(attribute => attribute.Value)
+            .Concat(page.Descendants().Where(element => !element.HasElements).Select(element => element.Value));
+        Assert.All(values, value => Assert.DoesNotMatch(@"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$", value.Trim()));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using PRISM_Utility.Core.Models;
 using Xunit;
 
@@ -12,7 +13,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
     public void Ui007_ScanDebugGeometry_SourceOnly_CanvasDisplayStateStaysInCodeBehind()
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
-        var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
+        var codeBehind = FilmProfileContractSource.ReadScanDebugPageCodeBehindSource();
         var refreshLayout = ExtractMemberBodyAtDeclaration(codeBehind, "private void RefreshPreviewLayout()");
         var initialFit = ExtractMemberBodyAtDeclaration(codeBehind, "private void ApplyInitialFitZoom()");
 
@@ -23,6 +24,12 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("MinZoomFactor=\"0.1\"", xaml, StringComparison.Ordinal);
         Assert.Contains("MaxZoomFactor=\"20\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PreviewCanvas\"", xaml, StringComparison.Ordinal);
+        var page = XDocument.Parse(xaml);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var canvas = Assert.Single(page.Descendants(), element => (string?)element.Attribute(x + "Name") == "PreviewCanvas");
+        Assert.Equal("Viewbox", canvas.Parent!.Name.LocalName);
+        Assert.Equal("PreviewZoomContainer", (string?)canvas.Parent.Attribute(x + "Name"));
+        Assert.Equal("Fill", (string?)canvas.Parent.Attribute("Stretch"));
         Assert.Contains("x:Name=\"PreviewCanvasControl\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ClearColor=\"Transparent\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"RoiCanvas\"", xaml, StringComparison.Ordinal);
@@ -53,8 +60,21 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("RoiCanvas.Height = PreviewCanvas.Height;", refreshLayout, StringComparison.Ordinal);
         Assert.Contains("if (viewportWidth <= 1 || viewportHeight <= 1 || contentWidth <= 0 || contentHeight <= 0)", initialFit, StringComparison.Ordinal);
         Assert.Contains("Math.Min(viewportWidth / contentWidth, viewportHeight / contentHeight)", initialFit, StringComparison.Ordinal);
-        Assert.Contains("Math.Clamp((float)fitZoom, PreviewScrollViewer.MinZoomFactor, PreviewScrollViewer.MaxZoomFactor)", initialFit, StringComparison.Ordinal);
-        Assert.Contains("PreviewScrollViewer.ChangeView(offsetX, offsetY, targetZoom, true)", initialFit, StringComparison.Ordinal);
+        Assert.Contains("Math.Clamp((float)fitZoom, MinimumPreviewZoom, MaximumPreviewZoom)", initialFit, StringComparison.Ordinal);
+        Assert.Contains("SetPreviewContentScale(targetZoom);", initialFit, StringComparison.Ordinal);
+        Assert.Contains("PreviewScrollViewer.ChangeView(offsetX, offsetY, targetZoom / _previewContentScale, true)", initialFit, StringComparison.Ordinal);
+        Assert.Contains("RefreshPreviewContentScaleDimensions();", refreshLayout, StringComparison.Ordinal);
+        Assert.Contains("private const float MinimumPreviewZoom = 0.001f;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("private const float MaximumPreviewZoom = 20f;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("ActualPreviewZoom => PreviewScrollViewer.ZoomFactor * _previewContentScale;", codeBehind, StringComparison.Ordinal);
+        var scale = ExtractMemberBodyAtDeclaration(codeBehind, "private void SetPreviewContentScale(float actualZoom)");
+        Assert.Contains("targetZoom / PreviewScrollViewer.MinZoomFactor", scale, StringComparison.Ordinal);
+        Assert.Contains("PreviewScrollViewer.MaxZoomFactor = MaximumPreviewZoom / _previewContentScale;", scale, StringComparison.Ordinal);
+        var dimensions = ExtractMemberBodyAtDeclaration(codeBehind, "private void RefreshPreviewContentScaleDimensions()");
+        Assert.Contains("PreviewZoomContainer.Width = width * _previewContentScale;", dimensions, StringComparison.Ordinal);
+        Assert.Contains("PreviewZoomContainer.Height = height * _previewContentScale;", dimensions, StringComparison.Ordinal);
+        Assert.DoesNotContain("PreviewCanvas.Width =", dimensions, StringComparison.Ordinal);
+        Assert.DoesNotContain("PreviewCanvas.Height =", dimensions, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -100,7 +120,9 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("foreach (var overlay in ViewModel.GetPreviewRoiOverlays(bitmap.Width))", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Width = overlay.Range.Width", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Height = bitmap.Height", drawOverlays, StringComparison.Ordinal);
-        Assert.Contains("StrokeThickness = overlay.IsSelected ? 2.5 : 1.5", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("StrokeThickness = overlay.IsSelected ? 2.5 : 1", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("if (!overlay.IsSelected && !ViewModel.IsAllRoiLabelsVisible)", drawOverlays, StringComparison.Ordinal);
+        Assert.Contains("if (ViewModel.IsColumnSampleEditModeEnabled || ViewModel.IsAllRoiLabelsVisible)", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Canvas.SetLeft(rectangle, AxisMarginLeft + overlay.Range.Start);", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("Canvas.SetTop(rectangle, AxisMarginTop);", drawOverlays, StringComparison.Ordinal);
         Assert.Contains("var labels = new List<(TextBlock Element, double AnchorX, bool IsSelected, bool IsBottomAnchored)>();", drawOverlays, StringComparison.Ordinal);
@@ -270,7 +292,7 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         var codeBehind = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml.cs");
         var owner = ExtractMemberBodyAtDeclaration(codeBehind, "private void UpdateWorkbenchPreviewLayout(double availableWidth)");
 
-        Assert.Contains("if (!layout.IsPreviewVisible)", owner, StringComparison.Ordinal);
+        Assert.Contains("if (!layout.IsPreviewVisible || layout.IsInspectionOverlay)", owner, StringComparison.Ordinal);
         Assert.Contains("CancelPreviewVisualInteraction();", owner, StringComparison.Ordinal);
         Assert.True(
             owner.IndexOf("CancelPreviewVisualInteraction();", StringComparison.Ordinal)
@@ -396,10 +418,12 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
     public void Ui007_SourceOnly_RoiEditorsBindOwnerDraftsWithoutUsingPreviewNumericInputs()
     {
         var xaml = ReadHostSource("PRISM Utility", "Views", "ScanDebugPage.xaml");
-        var adc = ExtractNamedRegion(xaml, "AdcRoiEditorCard", "ColumnSampleGroupTitle");
-        var focus = ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander");
         var english = ReadHostSource("PRISM Utility", "Strings", "en-us", "Resources.resw");
         var chinese = ReadHostSource("PRISM Utility", "Strings", "zh-CN", "Resources.resw");
+        var document = XDocument.Parse(xaml);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var adc = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "AdcRoiEditorCard").ToString();
+        var focus = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "FocusRoiEditorCard").ToString();
 
         foreach (var (editor, owner) in new[] { (adc, "Adc"), (focus, "Focus") })
         {
@@ -412,8 +436,6 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
             Assert.Contains($"Command=\"{{x:Bind ViewModel.Reset{owner}RoiCommand}}\"", editor, StringComparison.Ordinal);
             Assert.Contains($"Command=\"{{x:Bind ViewModel.Reload{owner}RoiInputsCommand}}\"", editor, StringComparison.Ordinal);
             Assert.Contains("x:Uid=\"ScanDebug_RoiDraftSourceText\"", editor, StringComparison.Ordinal);
-            Assert.Contains("x:Uid=\"ScanDebug_PreviewSelectionLabel\"", editor, StringComparison.Ordinal);
-            Assert.Contains("Text=\"{x:Bind ViewModel.RoiStatusText, Mode=OneWay}\"", editor, StringComparison.Ordinal);
             Assert.Contains("IsOn=\"{x:Bind ViewModel.IsRoiEditModeEnabled, Mode=TwoWay}\"", editor, StringComparison.Ordinal);
             Assert.Contains("Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"", editor, StringComparison.Ordinal);
             Assert.DoesNotContain("ViewModel.RoiStartInput,", editor, StringComparison.Ordinal);
@@ -423,9 +445,22 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
             Assert.DoesNotContain("ViewModel.ResetSelectedRoiCommand", editor, StringComparison.Ordinal);
             Assert.DoesNotContain("SelectedItem=\"{x:Bind ViewModel.SelectedRoiSelection", editor, StringComparison.Ordinal);
 
-            var resetAllIndex = editor.IndexOf("Command=\"{x:Bind ViewModel.ResetAllRoisCommand}\"", StringComparison.Ordinal);
-            var statusIndex = editor.IndexOf($"ViewModel.{owner}RoiInputStatusText", StringComparison.Ordinal);
-            Assert.True(resetAllIndex > statusIndex, "Reset all must stay separate from the selected ROI action row.");
+            var card = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == $"{owner}RoiEditorCard");
+            var apply = Assert.Single(card.Descendants(), element =>
+                (string?)element.Attribute("Command") == $"{{x:Bind ViewModel.Apply{owner}RoiInputsCommand}}");
+            var resetAll = Assert.Single(card.Descendants(), element =>
+                (string?)element.Attribute("Command") == "{x:Bind ViewModel.ResetAllRoisCommand}");
+            var recoveryFlyout = Assert.Single(resetAll.Ancestors(), element => element.Name.LocalName == "Flyout");
+            var recoveryButton = Assert.Single(recoveryFlyout.Ancestors(), element =>
+                (string?)element.Attribute("AutomationProperties.AutomationId") == $"{owner}RoiRecoveryButton");
+            Assert.Equal("Button", recoveryButton.Name.LocalName);
+            Assert.DoesNotContain(apply.Ancestors(), element => element.Name.LocalName == "Flyout");
+            Assert.DoesNotContain(apply, recoveryFlyout.Descendants());
+            Assert.Same(apply.Parent, recoveryButton.Parent);
+            foreach (var command in new[] { $"Reset{owner}RoiCommand", $"Reload{owner}RoiInputsCommand" })
+                Assert.Single(recoveryFlyout.Descendants(), element => (string?)element.Attribute("Command") == $"{{x:Bind ViewModel.{command}}}");
+            Assert.Contains(recoveryFlyout.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_RoiDraftSourceText");
+            Assert.DoesNotContain(recoveryFlyout.Descendants(), element => element.Name.LocalName == "TextBox");
 
             foreach (var resource in new[] { english, chinese })
             {
@@ -437,10 +472,22 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
 
         Assert.Contains("ItemsSource=\"{x:Bind ViewModel.AdcRoiSelectionOptions, Mode=OneWay}\"", adc, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{x:Bind ViewModel.FocusRoiSelectionOptions, Mode=OneWay}\"", focus, StringComparison.Ordinal);
+        Assert.Contains("x:Uid=\"ScanDebug_PreviewSelectionLabel\"", adc, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Bind ViewModel.RoiStatusText, Mode=OneWay}\"", adc, StringComparison.Ordinal);
+        Assert.Contains("ViewModel.FocusRoiSummaryText", focus, StringComparison.Ordinal);
+        Assert.Contains("x:Uid=\"ScanDebug_FocusEvaluationScope\"", focus, StringComparison.Ordinal);
         Assert.DoesNotContain("ViewModel.FocusRoiStartInput", adc, StringComparison.Ordinal);
         Assert.DoesNotContain("ViewModel.AdcRoiStartInput", focus, StringComparison.Ordinal);
-        Assert.Contains("current-channel draft", english, StringComparison.Ordinal);
-        Assert.Contains("当前通道草稿", chinese, StringComparison.Ordinal);
+        foreach (var (resource, expectedGuidance) in new[]
+        {
+            (english, "Edit this channel's range, then choose Apply selected range to update the configuration."),
+            (chinese, "编辑当前通道的范围，点击“应用所选范围”更新配置。")
+        })
+        {
+            var guidance = Assert.Single(XDocument.Parse(resource).Descendants("data"), element =>
+                (string?)element.Attribute("name") == "ScanDebug_RoiDraftSourceText.Text");
+            Assert.Equal(expectedGuidance, guidance.Element("value")!.Value);
+        }
     }
 
     [Fact]
@@ -686,26 +733,6 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         Assert.Contains("services.AddTransient<ScanDebugPage>()", app, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Ui007_SourceOnly_BlockerRegistryAndTask21ContractStayExplicitlyBlocked()
-    {
-        var task18 = ReadRootSource(".omo", "evidence", "task-18-design-correction-repairs.txt");
-        var task19 = ReadRootSource(".omo", "evidence", "task-19-design-correction-repairs.txt");
-        var plan = ReadRootSource(".omo", "plans", "design-correction-repairs.md");
-        var issues = ReadHostSource("docs", "architecture", "issues-and-remediation.md");
-        var priorities = ReadHostSource("docs", "architecture", "design-correction-priorities.md");
-
-        Assert.Contains("Status: EXTRACTION_BLOCKED", task18, StringComparison.Ordinal);
-        Assert.Contains("Status: EXTRACTION_BLOCKED", task19, StringComparison.Ordinal);
-        Assert.Contains("Todo 20 UI-007 remains blocked by todo 19", task19, StringComparison.Ordinal);
-        Assert.Contains("If the hard gate is blocked, add characterization only and mark extraction blocked", plan, StringComparison.Ordinal);
-        Assert.Contains("Evidence `.omo/evidence/task-20-design-correction-repairs.txt`", plan, StringComparison.Ordinal);
-        Assert.Contains("在 gate 解除前，UI-007 只能补 Canvas/ROI/display/pointer/overlay/dialog/text sync characterization，不能执行 production geometry/display extraction", issues, StringComparison.Ordinal);
-        Assert.Contains("gate 解除前只补 Canvas/ROI/display/pointer/overlay/dialog/text sync characterization；不迁出 Page 逻辑", priorities, StringComparison.Ordinal);
-        Assert.Contains("21. `VM-002` split ScanDebug responsibilities after UI extraction", plan, StringComparison.Ordinal);
-        Assert.Contains("If the hard gate or todo 20 blocks extraction, add characterization only and mark split blocked", plan, StringComparison.Ordinal);
-    }
-
     private static IEnumerable<(string Path, string Content)> EnumerateProductionSources()
     {
         foreach (var root in new[] { "PRISM Utility", "PRISM Utility.Core" })
@@ -718,9 +745,6 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
 
     private static string ReadHostSource(params string[] path)
         => File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), Path.Combine(path)));
-
-    private static string ReadRootSource(params string[] path)
-        => File.ReadAllText(Path.Combine(FindRepositoryRoot(), Path.Combine(path)));
 
     private static string ExtractMemberBodyAtDeclaration(string source, string declaration)
     {
@@ -779,14 +803,4 @@ public sealed class ScanDebugGeometryUi007CharacterizationTests
         throw new DirectoryNotFoundException("Could not locate Host Software source root.");
     }
 
-    private static string FindRepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, ".omo")) && Directory.Exists(Path.Combine(directory.FullName, "Host Software")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate repository root.");
-    }
 }

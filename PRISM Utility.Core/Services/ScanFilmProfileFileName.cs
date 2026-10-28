@@ -2,6 +2,9 @@ namespace PRISM_Utility.Core.Services;
 
 public static class ScanFilmProfileFileName
 {
+    public static string? FromFileName(string? fileName)
+        => string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileNameWithoutExtension(fileName);
+
     public static string CreateSuggestedName(string? profileName)
     {
         var name = string.IsNullOrWhiteSpace(profileName)

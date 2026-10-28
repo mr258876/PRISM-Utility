@@ -10,6 +10,7 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private ScanFilmProfileWorkspaceSnapshot _snapshot;
+    private ScanFilmProfileDraft? _lastSavedDraft;
     private int _isInitialized;
 
     public ScanFilmProfileWorkspace(
@@ -25,6 +26,11 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     }
 
     public ScanFilmProfileWorkspaceSnapshot Snapshot => Volatile.Read(ref _snapshot);
+
+    // A clean baseline can come from the local channel library. Only a file that was
+    // successfully saved or opened is eligible for the scan-page handoff.
+    public ScanFilmParameterProfileSet? LastSavedDocument
+        => Volatile.Read(ref _lastSavedDraft) is { } saved ? _documents.Build(saved).Document : null;
 
     public event Action<ScanFilmProfileWorkspaceSnapshot>? SnapshotChanged;
 
@@ -50,7 +56,7 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
                     defaultDraft.SavedAtUtc,
                     persisted.Profiles,
                     persisted.SelectedChannel,
-                    defaultDraft.AcquisitionSettings,
+                    defaultDraft.AcquisitionSettings! with { WhiteChannelSettings = persisted.WhiteChannelSettings },
                     defaultDraft.ScanRecipeSettings);
                 if (!hydrated.HasSameContentAs(snapshotBeforeRead.CurrentDraft))
                     UpdateIfUnchanged(snapshotBeforeRead, hydrated, hydrated, ScanFilmProfileImportResult.None);
@@ -140,6 +146,7 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
                 ScanFilmProfileApplyStatus.Canceled,
                 new OperationCanceledException(ct)));
 
+        Volatile.Write(ref _lastSavedDraft, staged.Draft);
         Update(staged.Draft, staged.Draft, ScanFilmProfileImportResult.None);
         return Task.FromResult(new ScanFilmProfileApplyResult(ScanFilmProfileApplyStatus.Applied));
     }
@@ -222,12 +229,32 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     {
         ArgumentNullException.ThrowIfNull(exportedDocument);
         var exportedDraft = ScanFilmProfileDraft.FromDocument(exportedDocument).Draft;
+        Volatile.Write(ref _lastSavedDraft, exportedDraft);
         Update(exportedDraft, exportedDraft, Snapshot.ImportResult);
+    }
+
+    public void MarkEditingDraftSaved(ScanFilmProfileDraft savedDraft)
+    {
+        ArgumentNullException.ThrowIfNull(savedDraft);
+        var snapshot = Snapshot;
+        // The file contains the values captured before writing. Edits made while
+        // the picker or write was pending must remain visible and remain dirty.
+        Update(snapshot.CurrentDraft, savedDraft, snapshot.ImportResult);
+    }
+
+    public void RestoreEditingDraft(ScanFilmProfileDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        // Opening an editing file must not carry a previous runnable file into
+        // the scan-page handoff, even when the editing file has usable values.
+        Volatile.Write(ref _lastSavedDraft, null);
+        Update(draft, draft, ScanFilmProfileImportResult.None);
     }
 
     public void ResetToDefaultDraft()
     {
         var initial = ScanFilmProfileDraft.CreateDefault();
+        Volatile.Write(ref _lastSavedDraft, null);
         Update(initial, initial, ScanFilmProfileImportResult.None);
     }
 
@@ -316,7 +343,8 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
     private static ScanCalibrationProfileRepositorySnapshot ToRepositorySnapshot(ScanFilmProfileDraft draft)
         => new(
             draft.ChannelProfiles.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
-            draft.SelectedCalibrationChannel);
+            draft.SelectedCalibrationChannel,
+            GetPersistedWhiteSettings(draft));
 
     private static ScanFilmProfileLibrarySyncPlan CreateLibrarySyncPlan(
         ScanFilmProfileDraft draft,
@@ -340,12 +368,19 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
                 removals.Add(profile.Key, profile.Value);
         }
 
+        var whiteSettings = GetPersistedWhiteSettings(draft);
         return new ScanFilmProfileLibrarySyncPlan(
             additions,
             updates,
             removals,
-            !string.Equals(draft.SelectedCalibrationChannel, repository.SelectedChannel, StringComparison.OrdinalIgnoreCase));
+            !string.Equals(draft.SelectedCalibrationChannel, repository.SelectedChannel, StringComparison.OrdinalIgnoreCase),
+            whiteSettings,
+            whiteSettings is not null && whiteSettings != (repository.WhiteChannelSettings ?? WhiteChannelSettings.FromLegacy(repository.Profiles.GetValueOrDefault("White"))));
     }
+
+    private static WhiteChannelSettings? GetPersistedWhiteSettings(ScanFilmProfileDraft draft)
+        => draft.AcquisitionSettings?.WhiteChannelSettings is not null || draft.ChannelProfiles.ContainsKey("White")
+            ? draft.WhiteChannelSettings : null;
 
     private static ScanCalibrationProfileRepositorySnapshot ApplyAdditionsAndUpdates(
         ScanCalibrationProfileRepositorySnapshot repository,
@@ -357,6 +392,22 @@ public sealed class ScanFilmProfileWorkspace : IScanFilmProfileWorkspace
         foreach (var profile in plan.Updates)
             profiles[profile.Key] = profile.Value;
 
-        return new ScanCalibrationProfileRepositorySnapshot(profiles, repository.SelectedChannel);
+        var white = repository.WhiteChannelSettings;
+        if (plan.WhiteChannelSettingsWillChange && plan.WhiteChannelSettings is { } incoming)
+        {
+            white = incoming with
+            {
+                DedicatedLed = MergeSource(incoming.DedicatedLed, white?.DedicatedLed),
+                RgbComposite = MergeSource(incoming.RgbComposite, white?.RgbComposite)
+            };
+            if (white.ActiveSettings?.Profile is { } activeProfile)
+                profiles["White"] = activeProfile;
+            else
+                profiles.Remove("White");
+        }
+        return new ScanCalibrationProfileRepositorySnapshot(profiles, repository.SelectedChannel, white);
     }
+
+    private static WhiteChannelSourceSettings? MergeSource(WhiteChannelSourceSettings? incoming, WhiteChannelSourceSettings? existing)
+        => incoming?.Profile is not null ? incoming : existing ?? incoming;
 }

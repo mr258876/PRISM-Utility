@@ -9,6 +9,7 @@ public sealed class ScanDngGeometrySettingsService : IScanDngGeometrySettingsSer
 
     private readonly ILocalSettingsService _localSettingsService;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
     private bool _isInitialized;
 
     public ScanDngGeometrySettings DefaultSettings => ScanDngGeometrySettings.CreateDefault();
@@ -54,11 +55,20 @@ public sealed class ScanDngGeometrySettingsService : IScanDngGeometrySettingsSer
     {
         await InitializeAsync();
         var normalized = NormalizeOrDefault(settings);
-        if (Settings == normalized)
-            return;
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (Settings.ActiveRange == normalized.ActiveRange
+                && Settings.MaskedBlackRanges.SequenceEqual(normalized.MaskedBlackRanges))
+                return;
 
-        Settings = normalized;
-        await _localSettingsService.SaveSettingAsync(SettingsKey, normalized);
+            await _localSettingsService.SaveSettingAsync(SettingsKey, normalized);
+            Settings = normalized;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
     }
 
     private ScanDngGeometrySettings NormalizeOrDefault(ScanDngGeometrySettings? settings)

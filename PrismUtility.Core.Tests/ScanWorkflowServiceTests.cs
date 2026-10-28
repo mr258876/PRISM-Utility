@@ -9,6 +9,124 @@ namespace PrismUtility.Core.Tests;
 public sealed class ScanWorkflowServiceTests
 {
     [Fact]
+    public async Task ExecuteAsync_RgbWhiteIsOneFifthCaptureWithSeparateIlluminationAndProvenance()
+    {
+        var log = new List<string>();
+        var illumination = new RecordingIlluminationService(log);
+        var service = new ScanWorkflowService(new RecordingParameterService(log), illumination, new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var request = BuildRequest(false, enableMotorTransport: false);
+        request = request with
+        {
+            PassChannelRoles = ["Blue", "IR", "Red", "Green", "White"],
+            PassParameterProfiles = [.. request.PassParameterProfiles, request.PassParameterProfiles[0] with { ExposureTicks = 123 }],
+            AcquisitionSettings = CreateRgbWhiteAcquisition()
+        };
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None);
+
+        Assert.Equal(5, result.Passes.Count);
+        Assert.Equal(5, log.Count(entry => entry.StartsWith("Scan:", StringComparison.Ordinal)));
+        var white = result.Passes[4];
+        Assert.Equal(4, white.LedChannelIndex);
+        Assert.Equal("White", white.Provenance!.ChannelRole);
+        Assert.Equal(123, white.Provenance.SubmittedParameters.ExposureTicks);
+        Assert.Equal(WhiteLightSource.RgbComposite, white.Provenance.WhiteLightSource);
+        Assert.Null(white.Provenance.SubmittedLedChannelIndex);
+        Assert.Null(white.Provenance.SubmittedLedLevel);
+        Assert.Equal(new ScanIlluminationState(300, 0, 100, 200, 0b1101, 0, 0, 30, 2, 10, 20), white.Provenance.SubmittedIllumination);
+        Assert.Equal(white.Provenance.SubmittedIllumination, Assert.Single(illumination.AppliedStates));
+        Assert.Equal(4, log.Count(entry => entry.StartsWith("IlluminationOn:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UnavailableWhiteSourceRejectsBeforeDeviceIo()
+    {
+        var log = new List<string>();
+        var service = new ScanWorkflowService(new RecordingParameterService(log), new RecordingIlluminationService(log), new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var acquisition = CreateRgbWhiteAcquisition();
+        var request = BuildRequest(false, enableMotorTransport: false);
+        request = request with
+        {
+            PassChannelRoles = ["Unused", "Unused", "Unused", "Unused", "White"],
+            PassParameterProfiles = [.. request.PassParameterProfiles, request.PassParameterProfiles[0]],
+            AcquisitionSettings = acquisition with { WhiteChannelSettings = acquisition.WhiteChannelSettings! with { Source = WhiteLightSource.DedicatedLed } }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ExecuteAsync(session, request, CancellationToken.None));
+
+        Assert.Empty(log);
+        Assert.Empty(session.ControlCommands);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhiteAndIrBothParticipateInTransportAndProgress()
+    {
+        var log = new List<string>();
+        var illumination = new RecordingIlluminationService(log);
+        var service = new ScanWorkflowService(new RecordingParameterService(log), illumination, new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var request = BuildRequest(false);
+        var roles = new[] { "Blue", "IR", "Red", "Green", "White" };
+        var profiles = request.PassParameterProfiles.Append(request.PassParameterProfiles[0]).ToArray();
+        request = request with
+        {
+            PassChannelRoles = roles,
+            PassParameterProfiles = profiles,
+            LinePitchInput = BuildLinePitchInput(roles, profiles),
+            AcquisitionSettings = CreateRgbWhiteAcquisition()
+        };
+        var progress = new List<ScanWorkflowProgress>();
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None, onProgress: progress.Add);
+
+        Assert.Equal(roles, result.Passes.Select(pass => pass.Provenance!.ChannelRole));
+        Assert.All(result.Passes, pass => Assert.True(pass.MotorSteps > 0));
+        Assert.Equal(5, log.Count(entry => entry.StartsWith("Prepare:", StringComparison.Ordinal)));
+        Assert.Equal(5, log.Count(entry => entry.StartsWith("Return:", StringComparison.Ordinal)));
+        var whiteProgress = progress.Where(item => item.ChannelRole == "White").ToArray();
+        Assert.NotEmpty(whiteProgress);
+        Assert.All(whiteProgress, item => Assert.Equal(WhiteLightSource.RgbComposite, item.WhiteLightSource));
+        Assert.All(whiteProgress, item => Assert.Equal(5, item.TotalPasses));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_DedicatedWhiteKeepsActualPhysicalOutputInProvenance()
+    {
+        var log = new List<string>();
+        var illumination = new RecordingIlluminationService(log);
+        var service = new ScanWorkflowService(new RecordingParameterService(log), illumination, new StubTransferSettingsService());
+        var session = new RecordingScanSession(log);
+        var request = BuildRequest(false, enableMotorTransport: false) with
+        {
+            PassChannelRoles = ["Unused", "White", "Unused", "Unused"],
+            AcquisitionSettings = ScanFilmAcquisitionSettings.CreateDefault() with
+            {
+                WhiteChannelSettings = new(DedicatedLed: new(Lighting: new(DedicatedLed: new(789, 42))))
+            }
+        };
+
+        var result = await service.ExecuteAsync(session, request, CancellationToken.None);
+
+        var white = Assert.Single(result.Passes);
+        Assert.Equal(1, white.LedChannelIndex);
+        Assert.Equal((byte)1, white.Provenance!.SubmittedLedChannelIndex);
+        Assert.Equal((ushort)789, white.Provenance.SubmittedLedLevel);
+        Assert.Equal(WhiteLightSource.DedicatedLed, white.Provenance.WhiteLightSource);
+        Assert.Equal(new ScanIlluminationState(0, 789, 0, 0, 2, 0, 0, 2, 42, 2, 2), Assert.Single(illumination.AppliedStates));
+    }
+
+    private static ScanFilmAcquisitionSettings CreateRgbWhiteAcquisition()
+        => ScanFilmAcquisitionSettings.CreateDefault() with
+        {
+            Led1Level = 11, Led2Level = 22, Led3Level = 33, Led4Level = 44,
+            Led2ChannelColor = "IR",
+            WhiteChannelSettings = new(WhiteLightSource.RgbComposite,
+                RgbComposite: new(Lighting: new(Red: new(100, 10), Green: new(200, 20), Blue: new(300, 30))))
+        };
+
+    [Fact]
     public async Task ExecuteAsync_WarmUpDisabled_PreservesExistingPassOrderWithoutWarmUpCalls()
     {
         var log = new List<string>();
@@ -913,6 +1031,7 @@ public sealed class ScanWorkflowServiceTests
 
     private sealed class RecordingIlluminationService(List<string> log) : IScanIlluminationService
     {
+        public List<ScanIlluminationState> AppliedStates { get; } = [];
         public Exception? RestoreFailure { get; init; }
         public Task<ScanIlluminationState> GetStateAsync(IScanSessionService session, CancellationToken ct)
         {
@@ -924,7 +1043,10 @@ public sealed class ScanWorkflowServiceTests
             => Task.CompletedTask;
 
         public Task ApplyStateWithSafeTransitionAsync(IScanSessionService session, ScanIlluminationState state, CancellationToken ct)
-            => Task.CompletedTask;
+        {
+            AppliedStates.Add(state);
+            return Task.CompletedTask;
+        }
 
         public Task ApplySingleChannelAsync(IScanSessionService session, ScanFilmAcquisitionSettings settings, byte ledIndex, CancellationToken ct)
         {

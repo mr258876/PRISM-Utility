@@ -22,7 +22,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
         foreach (var binding in new[]
         {
-            "Text=\"{x:Bind ViewModel.RunPresentationText, Mode=OneWay}\"",
+            "Text=\"{x:Bind ViewModel.WorkbenchDeviceStatusText, Mode=OneWay}\"",
             "Text=\"{x:Bind ViewModel.RunContextText, Mode=OneWay}\"",
             "ItemsSource=\"{x:Bind ViewModel.OperationNotices, Mode=OneWay}\"",
             "Command=\"{Binding DataContext.AcknowledgeOperationNoticeCommand, ElementName=ScanDebugRootGrid}\"",
@@ -33,7 +33,14 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             "Command=\"{x:Bind ViewModel.StopScanCommand}\"",
             "Command=\"{x:Bind ViewModel.ExportDngCommand}\"",
             "ItemsSource=\"{x:Bind ViewModel.RowOptions, Mode=OneWay}\"",
-            "Text=\"{x:Bind ViewModel.SelectedRows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"",
+            "Text=\"{x:Bind ViewModel.SelectedRows, Mode=OneWay}\"",
+            "SelectedItem=\"{x:Bind ViewModel.SelectedRows, Mode=OneWay}\"",
+            "SelectionChangedTrigger=\"Committed\"",
+            "SelectionChanged=\"AcquisitionRowsComboBox_SelectionChanged\"",
+            "DropDownClosed=\"AcquisitionRowsComboBox_DropDownClosed\"",
+            "PreviewKeyDown=\"AcquisitionRowsComboBox_PreviewKeyDown\"",
+            "Loaded=\"AcquisitionRowsComboBox_Loaded\"",
+            "TextSubmitted=\"AcquisitionRowsComboBox_TextSubmitted\"",
             "IsOn=\"{x:Bind ViewModel.IsPreviewEnabled, Mode=TwoWay}\"",
             "IsOn=\"{x:Bind ViewModel.IsWaterfallEnabled, Mode=TwoWay}\"",
             "ItemsSource=\"{x:Bind ViewModel.DngExportModeOptions, Mode=OneWay}\"",
@@ -90,7 +97,7 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         }
         foreach (var editor in new[]
         {
-            ExtractNamedRegion(xaml, "AdcRoiEditorCard", "PendingCalibrationCandidateReviewCard"),
+            System.Xml.Linq.XDocument.Parse(xaml).Descendants().Single(element => (string?)element.Attribute(System.Xml.Linq.XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == "AdcRoiEditorCard").ToString(),
             ExtractNamedRegion(xaml, "FocusRoiEditorCard", "ScanDebug_AdvancedAutofocusExpander")
         })
         {
@@ -103,11 +110,21 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
             Assert.DoesNotContain("ViewModel.ResetSelectedRoiCommand", editor, StringComparison.Ordinal);
         }
         Assert.DoesNotContain("Text=\"{x:Bind ViewModel.StatusText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.SelectedRows, Mode=TwoWay", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedItem=\"{x:Bind ViewModel.SelectedRows, Mode=TwoWay", xaml, StringComparison.Ordinal);
+        var rowSelection = ExtractMemberBodyAtDeclaration(codeBehind, "private void AcquisitionRowsComboBox_SelectionChanged(");
+        var rowSubmission = ExtractMemberBodyAtDeclaration(codeBehind, "private void AcquisitionRowsComboBox_TextSubmitted(");
+        var rowCancel = ExtractMemberBodyAtDeclaration(codeBehind, "private void AcquisitionRowsComboBox_PreviewKeyDown(");
+        Assert.Contains("e.AddedItems.FirstOrDefault() is string rows", rowSelection, StringComparison.Ordinal);
+        Assert.Contains("args.Handled = true;", rowSubmission, StringComparison.Ordinal);
+        Assert.Contains("!_isCancelingAcquisitionRowsEdit", rowSubmission, StringComparison.Ordinal);
+        Assert.Contains("SynchronizeAcquisitionRowsEditor();", rowCancel, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.SelectedRows =", rowCancel, StringComparison.Ordinal);
 
-        var channelSelectionHandler = ExtractMemberBodyAtDeclaration(codeBehind, "private async void CalibrationChannelFallbackComboBox_SelectionChanged(");
+        var channelSelectionHandler = ExtractMemberBodyAtDeclaration(codeBehind, "private async Task SelectCalibrationChannelAsync(");
         var channelSelectionPreflight = ExtractMemberBodyAtDeclaration(viewModel, "public async Task<bool> TrySelectCalibrationChannelAsync(");
         Assert.DoesNotContain("SelectedItem=\"{x:Bind ViewModel.SelectedCalibrationChannel, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("CalibrationChannelFallbackComboBox.SelectedItem = ViewModel.SelectedCalibrationChannel;", channelSelectionHandler, StringComparison.Ordinal);
+        Assert.Contains("SynchronizeCalibrationChannelSelectors();", channelSelectionHandler, StringComparison.Ordinal);
         Assert.Contains("await ViewModel.TrySelectCalibrationChannelAsync(nextChannel);", channelSelectionHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("ViewModel.SelectedCalibrationChannel = nextChannel", channelSelectionHandler, StringComparison.Ordinal);
         Assert.Contains("if (_manualReferenceHasLocalEdit)", channelSelectionPreflight, StringComparison.Ordinal);
@@ -161,7 +178,10 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         var run = source[source.IndexOf("public string RunPresentationText =>", StringComparison.Ordinal)
             ..source.IndexOf("public string ObservationFooterText =>", StringComparison.Ordinal)];
 
-        Assert.Contains("_operationNotices[^1].Message", run, StringComparison.Ordinal);
+        Assert.Contains("LatestRuntimeOperationNotice is { } notice", run, StringComparison.Ordinal);
+        Assert.Contains("? notice.Message", run, StringComparison.Ordinal);
+        Assert.Contains("notice => !string.Equals(notice.Target, \"FilmProfile\", StringComparison.Ordinal)", source, StringComparison.Ordinal);
+        Assert.Contains("var hasNotice = LatestRuntimeOperationNotice is not null;", run, StringComparison.Ordinal);
         Assert.Contains("RunActivityText", run, StringComparison.Ordinal);
         Assert.Contains("CanStartScan()", run, StringComparison.Ordinal);
         Assert.Contains("BuildStartDisabledReason()", run, StringComparison.Ordinal);
@@ -294,7 +314,10 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.Contains("ReferenceEquals(snapshot.ImportResult, _lastProjectedFilmProfileImportResult)", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("HasStagedFilmProfileImport = snapshot.StagedImport is not null;", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("ApplyDraftToFields(snapshot.CurrentDraft);", externalSnapshot, StringComparison.Ordinal);
-        Assert.Contains("SetCurrentFilmProfileValidation(_filmProfileWorkspace.BuildExportDocument().Document.Validation);", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("var validation = _filmProfileWorkspace.BuildExportDocument().Document.Validation;", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("snapshot.CurrentDraft.ChannelProfiles.Count == 0 && string.IsNullOrWhiteSpace(SysClockMhz)", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("TryBuildCurrentFilmProfileDraft(out _, out validation);", externalSnapshot, StringComparison.Ordinal);
+        Assert.Contains("SetCurrentFilmProfileValidation(validation);", externalSnapshot, StringComparison.Ordinal);
         Assert.Contains("SetStagedFilmProfileImportValidation(snapshot.ImportResult.Validation);", externalSnapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFilmProfileValidation(", source, StringComparison.Ordinal);
         Assert.Contains("CurrentFilmProfileValidationIssues", source, StringComparison.Ordinal);
@@ -463,16 +486,10 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
     }
 
     [Fact]
-    public void Vm002_SourceOnly_NoScanDebugResponsibilityPresenterOrWorkspaceSplitExistsWhileBlocked()
+    public void ScanDebugOwnership_DoesNotIntroduceDuplicatePresentersOrWorkspaces()
     {
         var productionSources = EnumerateProductionSources().ToArray();
         var app = ReadHostSource("PRISM Utility", "App.xaml.cs");
-        var issues = ReadHostSource("docs", "architecture", "issues-and-remediation.md");
-        var priorities = ReadHostSource("docs", "architecture", "design-correction-priorities.md");
-
-        Assert.Contains("VM-001 -> UI-006 -> UI-007 blocked chain 解除前，VM-002 只能补行为 characterization", issues, StringComparison.Ordinal);
-        Assert.Contains("gate 解除前只补行为 characterization", priorities, StringComparison.Ordinal);
-
         foreach (var forbidden in new[]
         {
             "IScanDebugPreviewPresenter",
@@ -507,29 +524,6 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         Assert.DoesNotContain("IScanDebugCalibrationWorkspace", app, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Vm002_SourceOnly_Task21EvidenceRecordsSplitBlockedAndP3CanProceed()
-    {
-        var task18 = ReadRootSource(".omo", "evidence", "task-18-design-correction-repairs.txt");
-        var task19 = ReadRootSource(".omo", "evidence", "task-19-design-correction-repairs.txt");
-        var task20 = ReadRootSource(".omo", "evidence", "task-20-design-correction-repairs.txt");
-        var task21 = ReadRootSource(".omo", "evidence", "task-21-design-correction-repairs.txt");
-        var plan = ReadRootSource(".omo", "plans", "design-correction-repairs.md");
-
-        Assert.Contains("Status: EXTRACTION_BLOCKED", task18, StringComparison.Ordinal);
-        Assert.Contains("Status: EXTRACTION_BLOCKED", task19, StringComparison.Ordinal);
-        Assert.Contains("Status: EXTRACTION_BLOCKED", task20, StringComparison.Ordinal);
-        Assert.Contains("Task 21 VM-002 must use its blocked branch", task20, StringComparison.Ordinal);
-        Assert.Contains("Status: SPLIT_BLOCKED", task21, StringComparison.Ordinal);
-        Assert.Contains("No ScanDebugViewModel responsibility split was performed", task21, StringComparison.Ordinal);
-        Assert.Contains("No production source, XAML, ViewModel, presenter, workspace, lifecycle, CAL, DNG, docs, plan, or ledger file was edited", task21, StringComparison.Ordinal);
-        Assert.Contains("Production UI was unchanged, so no fresh visual QA was run", task21, StringComparison.Ordinal);
-        Assert.Contains("No downstream P2 extraction task remains; P3 may proceed", task21, StringComparison.Ordinal);
-        Assert.Contains("21. `VM-002` split ScanDebug responsibilities after UI extraction", plan, StringComparison.Ordinal);
-        Assert.Contains("22. `CAL-001` add deterministic calibration and autofocus tests with fakes", plan, StringComparison.Ordinal);
-        Assert.Contains("Parallelization: Wave P3", plan, StringComparison.Ordinal);
-    }
-
     private static IEnumerable<(string Path, string Content)> EnumerateProductionSources()
     {
         foreach (var root in new[] { "PRISM Utility", "PRISM Utility.Core" })
@@ -542,9 +536,6 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
 
     private static string ReadHostSource(params string[] path)
         => File.ReadAllText(Path.Combine(FindHostSoftwareRoot(), Path.Combine(path)));
-
-    private static string ReadRootSource(params string[] path)
-        => File.ReadAllText(Path.Combine(FindRepositoryRoot(), Path.Combine(path)));
 
     private static string ExtractNamedRegion(string source, string startName, string endName)
     {
@@ -590,14 +581,4 @@ public sealed class ScanDebugViewModelVm002CharacterizationTests
         throw new DirectoryNotFoundException("Could not locate Host Software source root.");
     }
 
-    private static string FindRepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, ".omo")) && Directory.Exists(Path.Combine(directory.FullName, "Host Software")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate repository root.");
-    }
 }

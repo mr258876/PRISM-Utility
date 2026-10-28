@@ -5,6 +5,7 @@ namespace PRISM_Utility.Core.Contracts.Services;
 public interface IScanFilmProfileWorkspace
 {
     ScanFilmProfileWorkspaceSnapshot Snapshot { get; }
+    ScanFilmParameterProfileSet? LastSavedDocument { get; }
     event Action<ScanFilmProfileWorkspaceSnapshot>? SnapshotChanged;
 
     Task InitializeAsync(CancellationToken ct);
@@ -19,6 +20,8 @@ public interface IScanFilmProfileWorkspace
     Task<ScanFilmProfileLibrarySyncResult> ReplaceCalibrationLibraryAsync(ScanFilmProfileFullReplacementConfirmation? confirmation, CancellationToken ct);
     ScanFilmProfileWorkspaceExportResult BuildExportDocument(ScanChannelCalibrationProfile? selectedChannelPatch = null);
     void MarkExported(ScanFilmParameterProfileSet exportedDocument);
+    void MarkEditingDraftSaved(ScanFilmProfileDraft savedDraft);
+    void RestoreEditingDraft(ScanFilmProfileDraft draft);
     void ResetToDefaultDraft();
     void SetCurrentDraft(ScanFilmProfileDraft draft);
     ScanFilmProfileReferenceLevelPatchResult TryApplyReferenceLevels(

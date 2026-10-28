@@ -9,10 +9,6 @@
     xmlns:i="using:Microsoft.Xaml.Interactivity"
     Loaded="OnLoaded">
 
-    <Page.Resources>
-        <Thickness x:Key="ScanDebugShellContentMargin">12,24,12,0</Thickness>
-    </Page.Resources>
-
     <Grid>
         <Grid x:Name="AppTitleBar"
               Canvas.ZIndex="1"
@@ -36,6 +32,7 @@
             IsBackEnabled="{x:Bind ViewModel.IsBackEnabled, Mode=OneWay}"
             SelectedItem="{x:Bind ViewModel.Selected, Mode=OneWay}"
             IsSettingsVisible="True"
+            OpenPaneLength="240"
             ExpandedModeThresholdWidth="1280"
             DisplayModeChanged="NavigationViewControl_DisplayModeChanged"
             Header="{x:Bind ViewModel.HeaderText, Mode=OneWay}">
@@ -75,10 +72,6 @@
                                         Text="{x:Bind ViewModel.ScannerStatusText, Mode=OneWay}"
                                         TextWrapping="WrapWholeWords" />
                                     <TextBlock
-                                        Text="{x:Bind ViewModel.ScannerConnectionFlyoutDescription, Mode=OneWay}"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        TextWrapping="WrapWholeWords" />
-                                    <TextBlock
                                         Text="{x:Bind ViewModel.ScannerConnectionUnavailableText, Mode=OneWay}"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         TextWrapping="WrapWholeWords"
@@ -110,11 +103,6 @@
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Uid="Shell_Log" helpers:NavigationHelper.NavigateTo="Log">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF0E3;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Scan" helpers:NavigationHelper.NavigateTo="Scan">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FE;"/>
@@ -123,6 +111,11 @@
                 <NavigationViewItem x:Uid="Shell_ScanDebug" helpers:NavigationHelper.NavigateTo="ScanDebug">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEC7A;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Uid="Shell_Log" helpers:NavigationHelper.NavigateTo="Log">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF0E3;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

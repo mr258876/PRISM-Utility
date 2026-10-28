@@ -16,6 +16,21 @@ internal static class PrismVisualQaPendingCalibrationHook
 
     internal static void Activate(INavigationService navigationService)
     {
+        if (Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_LANGUAGE") is "en-US" or "zh-CN" &&
+            Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_LANGUAGE") is { } language)
+        {
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
+            var culture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+            System.Globalization.CultureInfo.CurrentUICulture = culture;
+            Helpers.ResourceExtensions.ResetResourceLoader();
+        }
+        if (string.Equals(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_PAGE"), "Scan", StringComparison.Ordinal))
+        {
+            navigationService.NavigateTo(AppRoute.Scan, clearNavigation: true);
+            return;
+        }
+
         navigationService.NavigateTo(AppRoute.ScanDebug, clearNavigation: true);
         if (!IsEmptyStateCapture())
             Seed(App.GetService<ScanDebugViewModel>());
@@ -55,7 +70,7 @@ internal static class PrismVisualQaPendingCalibrationHook
     internal static bool IsEmptyStateCapture()
         => string.Equals(Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_EMPTY_STATE"), "1", StringComparison.Ordinal);
 
-    private static void Seed(ScanDebugViewModel viewModel)
+    internal static void Seed(ScanDebugViewModel viewModel)
     {
         var previewWidth = GetPreviewDimension("PRISM_VISUAL_QA_PREVIEW_WIDTH", 320);
         var previewHeight = GetPreviewDimension("PRISM_VISUAL_QA_PREVIEW_HEIGHT", 120);
@@ -91,6 +106,31 @@ internal static class PrismVisualQaPendingCalibrationHook
             roiSettings,
             blackLevel: 512,
             whiteLevel: 60120);
+    }
+
+    internal static void SeedInteractiveRaw(ScanDebugViewModel viewModel)
+    {
+        viewModel.SelectedCaptureMode = ScanDebugCaptureMode.Single;
+        viewModel.SelectedCalibrationChannel = "Red";
+        viewModel.IsPreviewEnabled = true;
+        viewModel.IsWaterfallEnabled = false;
+        foreach (var channel in viewModel.AcquisitionChannels)
+            channel.IsSelected = channel.Role == "Red";
+        ApplySyntheticScanBuffer(viewModel, 128);
+    }
+
+    internal static void SeedRawDisplay(ScanDebugViewModel viewModel)
+    {
+        var profile = Enumerable.Range(0, 320).Select(x => new ScanRawProfileSample(x, (ushort)(4096 + x * 100))).ToArray();
+        long[] histogram = new long[256];
+        foreach (var sample in profile)
+            histogram[sample.Value / 256]++;
+        var result = new ScanRawSignalResult(0, 0, 0, new ScanColumnRange(0, 319), 320,
+            profile[0].Value, profile[^1].Value, profile.Average(x => x.Value), 0, histogram, profile);
+        typeof(ScanDebugViewModel).GetProperty(nameof(viewModel.RawSignalResult))!.SetValue(viewModel, result);
+        typeof(ScanDebugViewModel).GetProperty(nameof(viewModel.RawSignalStatisticsText))!.SetValue(viewModel,
+            "Synthetic RAW · N=320 · min=4096 · max=35996 · mean=20046 ADU · saturated=0");
+        typeof(ScanDebugViewModel).GetProperty(nameof(viewModel.RawSignalStatusText))!.SetValue(viewModel, "Synthetic RAW fixture");
     }
 
     private static void ApplyRoiSettings(ScanDebugViewModel viewModel, ScanCalibrationRoiSettings roiSettings)
@@ -141,7 +181,16 @@ internal static class PrismVisualQaPendingCalibrationHook
             "ApplyScanFrame",
             BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Missing ScanDebugViewModel.ApplyScanFrame for visual QA raw buffer seed.");
-        method.Invoke(viewModel, [CreateSyntheticScanBuffer(rows), rows, "Visual QA raw scan buffer seeded."]);
+        typeof(ScanDebugViewModel).GetMethod("BeginRawCapture", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(viewModel, null);
+        var evidence = typeof(ScanDebugViewModel).GetMethod("CreateCaptureEvidence", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(viewModel, [rows, "Offline fixture", "Red", "Synthetic RAW"] )!;
+        evidence.GetType().GetProperty("CompletedRows")!.SetValue(evidence, rows);
+        evidence.GetType().GetProperty("CompletedAtUtc")!.SetValue(evidence, DateTimeOffset.UtcNow);
+        typeof(ScanDebugViewModel).GetField("_displayedCaptureEvidence", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(viewModel, evidence);
+        var captureId = (Guid)evidence.GetType().GetProperty("Id")!.GetValue(evidence)!;
+        method.Invoke(viewModel, [CreateSyntheticScanBuffer(rows), rows, "Offline synthetic RAW fixture", captureId]);
     }
 
     private static byte[] CreateSyntheticScanBuffer(int rows)

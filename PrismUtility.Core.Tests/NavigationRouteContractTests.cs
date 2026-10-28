@@ -14,7 +14,7 @@ public sealed class NavigationRouteContractTests
         (AppRoute.Scan, "ScanPage", "ScanViewModel", "Shell_Scan"),
         (AppRoute.ScanDebug, "ScanDebugPage", "ScanDebugViewModel", "Shell_ScanDebug"),
         (AppRoute.Settings, "SettingsPage", "SettingsViewModel", null),
-        (AppRoute.DeviceConfiguration, "DeviceConfigurationPage", "DeviceConfigurationViewModel", null)
+        (AppRoute.DeviceConfiguration, "SettingsPage", "SettingsViewModel", null)
     ];
 
     [Fact]
@@ -37,8 +37,8 @@ public sealed class NavigationRouteContractTests
         var registrations = Regex.Matches(pageService, @"Configure<(?<page>\w+), (?<viewModel>\w+)>\(AppRoute\.(?<route>\w+)\)");
         Assert.Equal(ExpectedRoutes.Length, registrations.Count);
         Assert.Equal(ExpectedRoutes.Length, registrations.Select(match => match.Groups["route"].Value).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(ExpectedRoutes.Length, registrations.Select(match => match.Groups["page"].Value).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(ExpectedRoutes.Length, registrations.Select(match => match.Groups["viewModel"].Value).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(ExpectedRoutes.Select(route => route.Page).Distinct().Count(), registrations.Select(match => match.Groups["page"].Value).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(ExpectedRoutes.Select(route => route.ViewModel).Distinct().Count(), registrations.Select(match => match.Groups["viewModel"].Value).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]

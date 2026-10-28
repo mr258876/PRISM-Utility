@@ -28,7 +28,8 @@ public sealed record ScanFilmAcquisitionSettings(
     bool StartingDirectionPositive = true,
     bool WarmUpEnabled = false,
     ScanFilmTransportStrategy TransportStrategy = ScanFilmTransportStrategy.AlternateDirection,
-    ScanChannelAssignment? AcquisitionChannelAssignment = null)
+    ScanChannelAssignment? AcquisitionChannelAssignment = null,
+    WhiteChannelSettings? WhiteChannelSettings = null)
 {
     public static ScanFilmAcquisitionSettings CreateDefault()
         => new(
@@ -98,7 +99,10 @@ public sealed record ScanFilmAcquisitionSettings(
                     assignment.Channel1Reversed,
                     assignment.Channel2Reversed,
                     assignment.Channel3Reversed,
-                    assignment.Channel4Reversed));
+                    assignment.Channel4Reversed,
+                    NormalizeChannelColor(assignment.Channel5Role, "Unused"),
+                    assignment.Channel5Reversed),
+            WhiteChannelSettings);
     }
 
     private static string NormalizeChannelColor(string? channelColor, string fallback)

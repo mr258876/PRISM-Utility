@@ -139,7 +139,7 @@
     <value>Dark</value>
   </data>
   <data name="Settings_Theme_Default.Content" xml:space="preserve">
-    <value>Default</value>
+    <value>Follow system</value>
   </data>
   <data name="Settings_Language.Text" xml:space="preserve">
     <value>Language</value>
@@ -187,8 +187,18 @@
     <value>Device configuration</value>
   </data>
   <data name="DeviceConfiguration_DeviceSettings.Text" xml:space="preserve">
-    <value>Device settings</value>
+    <value>Motors and channels</value>
   </data>
+  <data name="DeviceConfiguration_AutoSaveDescription.Text" xml:space="preserve"><value>Valid changes are saved automatically on this computer.</value></data>
+  <data name="DeviceConfiguration_MotorStepsInvalid" xml:space="preserve"><value>Steps per revolution must be a positive integer. Changes have not been saved.</value></data>
+  <data name="DeviceConfiguration_MotorMicrostepsInvalid" xml:space="preserve"><value>Microsteps must be a positive integer. Changes have not been saved.</value></data>
+  <data name="DeviceConfiguration_MotorLeadInvalid" xml:space="preserve"><value>Lead length must be a number greater than 0. Changes have not been saved.</value></data>
+  <data name="DeviceConfiguration_DngStartInvalid" xml:space="preserve"><value>Active start column must be an integer from 0 to {0}.</value></data>
+  <data name="DeviceConfiguration_DngEndInvalid" xml:space="preserve"><value>Active end column must be an integer from 0 to {0}.</value></data>
+  <data name="DeviceConfiguration_DngActiveOrderInvalid" xml:space="preserve"><value>Active end column must be at least the start column.</value></data>
+  <data name="DeviceConfiguration_DngMaskedInvalid" xml:space="preserve"><value>Enter 1–4 comma-separated start-end ranges, within 0–{0}.</value></data>
+  <data name="DeviceConfiguration_DngMaskedOverlap" xml:space="preserve"><value>Masked black ranges must be outside the active columns.</value></data>
+  <data name="DeviceConfiguration_SaveFailed" xml:space="preserve"><value>Not saved: {0}</value></data>
   <data name="DeviceConfiguration_DeviceSettingsDescription.Text" xml:space="preserve">
     <value>Configure each motor's mechanical values so host-side move and speed inputs can be interpreted in engineering units.</value>
   </data>
@@ -306,56 +316,41 @@
   <data name="DeviceConfiguration_DngGeometryDescription.Text" xml:space="preserve">
     <value>Focus ROI and DNG export geometry are independent unless a scan workflow explicitly applies an ROI target.</value>
   </data>
-  <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
-    <value>Multi-buffer bulk IN</value>
-  </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve">
-    <value>Disabled</value>
-  </data>
-  <data name="Settings_RawIoToggleSwitch.Header" xml:space="preserve">
-    <value>Raw I/O</value>
+    <value>Off</value>
   </data>
   <data name="Settings_RawIoToggleSwitch.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="Settings_RawIoToggleSwitch.OffContent" xml:space="preserve">
-    <value>Disabled</value>
+    <value>Off</value>
   </data>
   <data name="Settings_RequestBytesTextBox.Header" xml:space="preserve">
-    <value>Request bytes</value>
+    <value>Read size (bytes)</value>
   </data>
   <data name="Settings_RequestBytesTextBox.PlaceholderText" xml:space="preserve">
     <value>Bytes per in-flight read</value>
   </data>
   <data name="Settings_OutstandingReadsTextBox.Header" xml:space="preserve">
-    <value>Outstanding reads</value>
+    <value>Concurrent reads</value>
   </data>
   <data name="Settings_OutstandingReadsTextBox.PlaceholderText" xml:space="preserve">
     <value>Concurrent read requests</value>
   </data>
   <data name="Settings_TimeoutMsTextBox.Header" xml:space="preserve">
-    <value>Transfer timeout (ms)</value>
+    <value>Timeout (ms)</value>
   </data>
   <data name="Settings_TimeoutMsTextBox.PlaceholderText" xml:space="preserve">
     <value>Timeout for each read request</value>
   </data>
   <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve">
-    <value>Queues multiple concurrent reads on the scan image endpoint to reduce host-side gaps between bulk IN completions and allow scans larger than the single-request 2 MiB limit.</value>
-  </data>
-  <data name="Settings_DebugConsoleMirrorToggleSwitch.Header" xml:space="preserve">
-    <value>Mirror program output to Debug console</value>
-  </data>
-  <data name="Settings_DebugFileLogToggleSwitch.Header" xml:space="preserve">
-    <value>Mirror program output to local log file</value>
+    <value>Concurrent reads reduce transfer gaps and support scans beyond the 2 MiB single-request limit.</value>
   </data>
   <data name="Settings_ColorManagement.Text" xml:space="preserve">
-    <value>Default color management</value>
-  </data>
-  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve">
-    <value>Use spectral wavelength mapping as the global default for RGB preview and PNG output</value>
+    <value>Input spectrum</value>
   </data>
   <data name="Settings_RedWavelengthTextBox.Header" xml:space="preserve">
     <value>Red wavelength (nm)</value>
@@ -385,7 +380,7 @@
     <value>Manual color temperature (K)</value>
   </data>
   <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve">
-    <value>Restore global color defaults</value>
+    <value>Restore color defaults</value>
   </data>
   <data name="Settings_ColorManagementDescription.Text" xml:space="preserve">
     <value>These are global defaults for new or reset scan configurations. A loaded scan configuration owns the values used by the current scan; current configuration values take priority over these defaults.</value>
@@ -535,7 +530,7 @@
     <value>Alignment mode</value>
   </data>
   <data name="Scan_AlternateDirectionToggleSwitch.Header" xml:space="preserve">
-    <value>Alternate motor direction each pass</value>
+    <value>Alternate direction</value>
   </data>
   <data name="Scan_AlternateDirectionToggleSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Alternate motor direction each pass</value>
@@ -676,7 +671,7 @@
     <value>Color management</value>
   </data>
   <data name="Scan_ColorManagementDescription.Text" xml:space="preserve">
-    <value>Edits here update the current scan configuration values for RGB preview and PNG output. They do not change global defaults. Raw channel export remains unchanged.</value>
+    <value>Applies to RGB preview and PNG output. Raw channel exports are unaffected.</value>
   </data>
   <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve">
     <value>Use spectral wavelength mapping</value>
@@ -730,7 +725,7 @@
     <value>Run Details</value>
   </data>
   <data name="ScanDebug_StartButton.Content" xml:space="preserve">
-    <value>Start</value>
+    <value>Start sampling</value>
   </data>
   <data name="ScanDebug_ConnectButton.Content" xml:space="preserve">
     <value>Connect Devices</value>
@@ -805,7 +800,7 @@
     <value>Capture mode</value>
   </data>
   <data name="ScanDebug_CaptureModeScopeText" xml:space="preserve">
-    <value>Session-only selection for the next capture; it is not written to the film profile. The profile transport strategy remains stored separately.</value>
+    <value>Used for the next capture. The film configuration stores its transport strategy separately.</value>
   </data>
   <data name="ScanDebug_Runtime_CaptureModeSingle" xml:space="preserve">
     <value>Single sample</value>
@@ -907,19 +902,19 @@
     <value>Channel status</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
-    <value>This list shows channel status only. Use the channel selector above to choose the calibration-library entry to edit.</value>
+    <value>Select a channel to edit its parameters.</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
-    <value>Selected channel calibration library</value>
+    <value>Channel presets</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryHelpText.Text" xml:space="preserve">
-    <value>Save and Remove affect only the selected channel in the calibration library. They do not save the top film-profile JSON or any other channel.</value>
+    <value>Save channel parameters here to reuse them in other configurations.</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationTitle" xml:space="preserve">
-    <value>Remove channel calibration?</value>
+    <value>Remove this channel preset?</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationMessage" xml:space="preserve">
-    <value>Remove the saved calibration-library entry for {0}? This does not change other channels or the film-profile JSON.</value>
+    <value>Remove the saved channel preset for {0}?</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationRemoveButton" xml:space="preserve">
     <value>Remove</value>
@@ -940,16 +935,16 @@
     <value>Calibration channel</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>Save current channel profile</value>
+    <value>Save channel preset</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
-    <value>Remove channel calibration from library</value>
+    <value>Remove this channel preset</value>
   </data>
   <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve">
-    <value>Save profile JSON</value>
+    <value>Save configuration file</value>
   </data>
   <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve">
-    <value>Open profile JSON</value>
+    <value>Open configuration file</value>
   </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>Exposure Ticks</value>
@@ -997,16 +992,16 @@
     <value>Device clock</value>
   </data>
   <data name="ScanDebug_DeviceClockHelpText.Text" xml:space="preserve">
-    <value>Apply the scanner-wide clock before channel calibration. Channel Apply does not write this value.</value>
+    <value>Scanner-wide setting. Apply the clock here before calibrating channels.</value>
   </data>
   <data name="ScanDebug_ApplyDeviceClockButton.Content" xml:space="preserve">
-    <value>Apply device clock</value>
+    <value>Apply clock to device</value>
   </data>
   <data name="ScanDebug_ApplyDeviceClockButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>Apply device clock</value>
+    <value>Apply the configured clock to device</value>
   </data>
   <data name="ScanDebug_ChannelClockLabel.Text" xml:space="preserve">
-    <value>Channel clock (read-only)</value>
+    <value>Exposure calculation and clock status</value>
   </data>
   <data name="ScanDebug_ExposureMicrosecondsTextBox.Header" xml:space="preserve">
     <value>Exposure (microseconds)</value>
@@ -1018,7 +1013,7 @@
     <value>Exposure ticks (advanced)</value>
   </data>
   <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve">
-    <value>Apply Parameters</value>
+    <value>Apply current channel to device</value>
   </data>
   <data name="ScanDebug_AutoBlackButton.Content" xml:space="preserve">
     <value>Black / offset</value>
@@ -1101,7 +1096,7 @@
     <value>Autofocus preset</value>
   </data>
   <data name="ScanDebug_AutofocusPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
-    <value>Quick, Standard, and Fine fill deterministic autofocus distances and iteration limits; Custom enables manual values.</value>
+    <value>Quick, Standard or Fine presets set search ranges and iteration limits. Choose Custom to adjust them manually.</value>
   </data>
   <data name="ScanDebug_AutofocusSampleRowsTextBox.Header" xml:space="preserve">
     <value>Sample rows</value>
@@ -1191,7 +1186,7 @@
     <value>Logical Tilt+ direction on Motor1</value>
   </data>
   <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve">
-    <value>Run Autofocus</value>
+    <value>Start autofocus</value>
   </data>
   <data name="ScanDebug_QuickFocusButton.Content" xml:space="preserve">
     <value>Quick focus</value>
@@ -1239,7 +1234,7 @@
     <value>Current channel illumination</value>
   </data>
   <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
-    <value>Current-channel illumination draft for the next capture. It is not device readback and does not turn on the LED.</value>
+    <value>Set illumination parameters for the next capture on this channel.</value>
   </data>
   <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
     <value>Reverse row direction</value>
@@ -1758,10 +1753,10 @@
     <value>ROI Target</value>
   </data>
   <data name="ScanDebug_ResetSelectedRoiButton.Content" xml:space="preserve">
-    <value>Reset Selected ROI</value>
+    <value>Restore default range</value>
   </data>
   <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve">
-    <value>Reset all ROIs in current-channel draft</value>
+    <value>Restore all channel ranges to defaults</value>
   </data>
   <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve">
     <value>Cursor: (-, -) px</value>
@@ -1800,52 +1795,52 @@
     <value>Apply ROI</value>
   </data>
   <data name="ScanDebug_ApplyAdcRoiButton.Content" xml:space="preserve">
-    <value>Apply selected ADC ROI</value>
+    <value>Apply selected range</value>
   </data>
   <data name="ScanDebug_ResetAdcRoiButton.Content" xml:space="preserve">
-    <value>Reset selected ADC ROI</value>
+    <value>Restore default range</value>
   </data>
   <data name="ScanDebug_ReloadAdcRoiInputsButton.Content" xml:space="preserve">
-    <value>Reload current ADC range</value>
+    <value>Discard unapplied edits</value>
   </data>
   <data name="ScanDebug_ApplyFocusRoiButton.Content" xml:space="preserve">
-    <value>Apply selected focus ROI</value>
+    <value>Apply selected range</value>
   </data>
   <data name="ScanDebug_ResetFocusRoiButton.Content" xml:space="preserve">
-    <value>Reset selected focus ROI</value>
+    <value>Restore default range</value>
   </data>
   <data name="ScanDebug_ReloadFocusRoiInputsButton.Content" xml:space="preserve">
-    <value>Reload current focus range</value>
+    <value>Discard unapplied edits</value>
   </data>
   <data name="ScanDebug_RoiDraftSourceText.Text" xml:space="preserve">
-    <value>Source: this channel's ROI draft. Reload discards unapplied input; Apply changes only the selected ROI, not device or JSON.</value>
+    <value>Edit this channel&apos;s range, then choose Apply selected range to update the configuration.</value>
   </data>
   <data name="ScanDebug_AdcRoiEditorTitle.Text" xml:space="preserve">
-    <value>ADC calibration ROI</value>
+    <value>Black/white calibration range</value>
   </data>
   <data name="ScanDebug_AdcRoiEditorHelpText.Text" xml:space="preserve">
-    <value>Select the effective or shield column range used only by black, white, and combined ADC calibration. Invalid edits stay editable and gate only ADC calibration commands.</value>
+    <value>Set the active and shield ranges used for black/white calibration.</value>
   </data>
   <data name="ScanDebug_AdcRoiTargetComboBox.Header" xml:space="preserve">
-    <value>ADC ROI range</value>
+    <value>Calibration range</value>
   </data>
   <data name="ScanDebug_FocusRoiEditorTitle.Text" xml:space="preserve">
-    <value>Live autofocus ROI</value>
+    <value>Focus range</value>
   </data>
   <data name="ScanDebug_FocusRoiEditorHelpText.Text" xml:space="preserve">
-    <value>Select the overall, left, or right autofocus range used only by live autofocus actions. Invalid edits stay editable and do not block ADC calibration.</value>
+    <value>Set the overall, left and right ranges used for autofocus.</value>
   </data>
   <data name="ScanDebug_FocusRoiTargetComboBox.Header" xml:space="preserve">
-    <value>Focus ROI range</value>
+    <value>Focus range</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorTitle.Text" xml:space="preserve">
     <value>Image reference column range</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorHelpText.Text" xml:space="preserve">
-    <value>Choose the column range used to compute the current channel mean sample for Save as black or Save as white. This range does not change ADC ROIs or registration adjustment.</value>
+    <value>Choose the column range used to measure this channel&apos;s black and white reference levels.</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>Both actions use this preview's selected-channel column sample. Fill black/white changes local input only; Save black/white writes the selected channel's local calibration library, not device parameters or JSON.</value>
+    <value>Fill copies the sample into the inputs. Save stores the reference level in this channel&apos;s preset.</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>Reference start column</value>
@@ -1857,7 +1852,7 @@
     <value>Channel black/white reference (RAW 16-bit ADU)</value>
   </data>
   <data name="ScanDebug_ManualReferenceLevelsHelpText.Text" xml:space="preserve">
-    <value>Enter raw integers: black 0-65535, white 1-65535, with black below white. Typing or using a sample changes only the inputs; Apply updates the selected channel draft, not the ADC device, local library or configuration file.</value>
+    <value>Black: 0–65535; white: 1–65535. Use integers with black below white. After editing or filling a sample, choose Update reference levels.</value>
   </data>
   <data name="ScanDebug_ManualReferenceTargetLabel.Text" xml:space="preserve">
     <value>Selected logical channel and LED mapping</value>
@@ -1881,7 +1876,7 @@
     <value>Draft status</value>
   </data>
   <data name="ScanDebug_ApplyManualReferenceLevelsButton.Content" xml:space="preserve">
-    <value>Apply to channel draft</value>
+    <value>Update reference levels</value>
   </data>
   <data name="ScanDebug_RevertManualReferenceLevelsButton.Content" xml:space="preserve">
     <value>Revert this edit</value>
@@ -1890,7 +1885,7 @@
     <value>Clear channel references...</value>
   </data>
   <data name="ScanDebug_ManualReferenceClearHelpText.Text" xml:space="preserve">
-    <value>Clearing both channel-draft reference values requires confirmation. Save configuration separately; the local library and device are unchanged.</value>
+    <value>Clear this channel&apos;s black and white reference levels to enter or sample new values.</value>
   </data>
   <data name="ScanDebug_OverlayVisibilityScopeDescription.Text" xml:space="preserve">
     <value>Preview overlay visibility only. Edit ADC, autofocus, and image-reference ranges in their owning feature panels.</value>
@@ -1980,7 +1975,7 @@
     <value>invalid range</value>
   </data>
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
-    <value>Restore defaults</value>
+    <value>Restore transfer defaults</value>
   </data>
   <data name="Settings_VersionDescriptionFormat" xml:space="preserve">
     <value>{0} - {1}</value>
@@ -1992,7 +1987,7 @@
     <value>Scan Motor</value>
   </data>
   <data name="Scan_MotorIntervalTextBox.Header" xml:space="preserve">
-    <value>Motor movement per line</value>
+    <value>Distance per line</value>
   </data>
   <data name="Scan_MotorIntervalTextBox.PlaceholderText" xml:space="preserve">
     <value>Enter value</value>
@@ -2004,10 +1999,10 @@
     <value>Select unit</value>
   </data>
   <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve">
-    <value>Config profile</value>
+    <value>Film configuration file</value>
   </data>
   <data name="Scan_LoadConfigButton.Content" xml:space="preserve">
-    <value>Load Config</value>
+    <value>Load from file</value>
   </data>
   <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve">
     <value>LED1 Level</value>
@@ -2430,7 +2425,7 @@
     <value>Preview is disabled.</value>
   </data>
   <data name="Scan_Runtime_PreviewDisabledPlaceholder" xml:space="preserve">
-    <value>Preview disabled.</value>
+    <value>Preview is off. Turn on Enable preview to view scan results.</value>
   </data>
   <data name="Scan_Runtime_PreviewModeDescription" xml:space="preserve">
     <value>Preview mode: {0}.</value>
@@ -2517,31 +2512,31 @@
     <value>Completed</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRgbComposite" xml:space="preserve">
-    <value>RGB Composite</value>
+    <value>RGB color composite</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve">
     <value>Raw Channel {0}</value>
   </data>
   <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve">
-    <value>Single file: 4-channel raw DNG</value>
+    <value>Raw channel DNG</value>
   </data>
   <data name="Scan_Runtime_ProfileDngExportModeLinearRaw4" xml:space="preserve">
-    <value>4-channel raw DNG</value>
+    <value>Raw channel DNG</value>
   </data>
   <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve">
-    <value>Two files: RGB plus IR/W DNG</value>
+    <value>RGB composite and auxiliary DNG</value>
   </data>
   <data name="Scan_Runtime_ProfileDngExportModeLinearRgbIrw" xml:space="preserve">
-    <value>RGB + IR/W DNG</value>
+    <value>RGB composite and auxiliary DNG</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve">
-    <value>ECC</value>
+    <value>Correlation (ECC)</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeMutualInformation" xml:space="preserve">
-    <value>MI</value>
+    <value>Mutual information (MI)</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEccThenMutualInformation" xml:space="preserve">
-    <value>ECC + MI</value>
+    <value>ECC → MI</value>
   </data>
   <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve">
     <value>Red</value>
@@ -2562,13 +2557,13 @@
     <value>Unused</value>
   </data>
   <data name="Scan_Runtime_MotorOption1" xml:space="preserve">
-    <value>Motor1</value>
+    <value>Motor 1 (M1)</value>
   </data>
   <data name="Scan_Runtime_MotorOption2" xml:space="preserve">
-    <value>Motor2</value>
+    <value>Motor 2 (M2)</value>
   </data>
   <data name="Scan_Runtime_MotorOption3" xml:space="preserve">
-    <value>Motor3</value>
+    <value>Motor 3 (M3)</value>
   </data>
   <data name="Scan_Runtime_DeviceStatusConnecting" xml:space="preserve">
     <value>Connecting scanner hardware...</value>
@@ -2580,13 +2575,13 @@
     <value>Scanner detected and ready to connect.</value>
   </data>
   <data name="Scan_Runtime_DeviceStatusMissing" xml:space="preserve">
-    <value>No PRISM scanner (VID 0x0483 / PID 0x619C or 0x619D) detected.</value>
+    <value>No scanner detected.</value>
   </data>
   <data name="Scan_Runtime_ConfigStatusLoaded" xml:space="preserve">
     <value>{0}</value>
   </data>
   <data name="Scan_Runtime_ConfigStatusMissing" xml:space="preserve">
-    <value>No scan configuration loaded.</value>
+    <value>No film configuration loaded.</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigUnavailable" xml:space="preserve">
     <value>Unavailable</value>
@@ -2595,7 +2590,7 @@
     <value>Rows: {0} | Motor: {1} | Line move: {2} | DNG: {3}</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigIntervalOnly" xml:space="preserve">
-    <value>Interval {0} us</value>
+    <value>Not set (step interval {0} μs)</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigLineMove" xml:space="preserve">
     <value>{0} {1} @ {2} us</value>
@@ -2628,7 +2623,7 @@
     <value>Connect the scanner before starting.</value>
   </data>
   <data name="Scan_Runtime_ReadinessConfigRequired" xml:space="preserve">
-    <value>Load a scan configuration before starting.</value>
+    <value>Load a film configuration before starting.</value>
   </data>
   <data name="Scan_Runtime_ReadinessParametersMissing" xml:space="preserve">
     <value>Scanner parameters are still missing. Reconnect before starting.</value>
@@ -2646,19 +2641,19 @@
     <value>Save or export the latest scan result.</value>
   </data>
   <data name="Scan_Runtime_OutputActionNoResult" xml:space="preserve">
-    <value>No scan result is available yet.</value>
+    <value>Complete a scan to export DNG files or save an RGB image.</value>
   </data>
   <data name="Scan_Runtime_PreviewPlaceholderScanning" xml:space="preserve">
-    <value>Preview updates will appear here while scanning.</value>
+    <value>Scanning. The preview will appear when the scan finishes.</value>
   </data>
   <data name="Scan_Runtime_PreviewPlaceholderPrepareFirst" xml:space="preserve">
-    <value>Connect devices and run a scan to populate the preview.</value>
+    <value>The preview will appear here after scanning.</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRawRole" xml:space="preserve">
     <value>Raw ({0})</value>
   </data>
   <data name="Scan_Runtime_ErrorConfigProfileRequired" xml:space="preserve">
-    <value>Load a scan configuration before starting.</value>
+    <value>Load a film configuration before starting.</value>
   </data>
   <data name="ScanDebug_Runtime_DeviceStateConnecting" xml:space="preserve">
     <value>Connecting</value>
@@ -2670,7 +2665,7 @@
     <value>Device detected</value>
   </data>
   <data name="ScanDebug_Runtime_DeviceStateWaiting" xml:space="preserve">
-    <value>Waiting for device</value>
+    <value>Offline</value>
   </data>
   <data name="ScanDebug_IlluminationWorkModeHeader" xml:space="preserve">
     <value>Work mode</value>
@@ -2685,13 +2680,13 @@
     <value>Sync</value>
   </data>
   <data name="ScanDebug_ProfileStateNoProfile" xml:space="preserve">
-    <value>No profile</value>
+    <value>Configuration not saved</value>
   </data>
   <data name="ScanDebug_ProfileStateUnsaved" xml:space="preserve">
-    <value>Unsaved draft changes</value>
+    <value>Full configuration has unsaved changes</value>
   </data>
   <data name="ScanDebug_ProfileStateSaved" xml:space="preserve">
-    <value>No unsaved draft changes</value>
+    <value>Full configuration saved</value>
   </data>
   <data name="ScanDebug_AcquisitionPlanNoActiveChannels" xml:space="preserve">
     <value>No active acquisition channels.</value>
@@ -2712,23 +2707,23 @@
     <value>Unassigned</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusSaved" xml:space="preserve">
-    <value>Saved</value>
+    <value>Calibration saved</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusModified" xml:space="preserve">
-    <value>Modified</value>
+    <value>Calibration has unsaved changes</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusUnconfigured" xml:space="preserve">
-    <value>Missing</value>
+    <value>Missing calibration</value>
     <comment>Obsolete alias retained for source-contract and migration compatibility; new UI uses ScanDebug_Runtime_ChannelStatusMissing.</comment>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusInvalid" xml:space="preserve">
-    <value>Invalid</value>
+    <value>Parameters need correction</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusMissing" xml:space="preserve">
-    <value>Missing</value>
+    <value>Missing calibration</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusCopiedUnverified" xml:space="preserve">
-    <value>Copied-Unverified</value>
+    <value>Copied; review needed</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusAccessibility" xml:space="preserve">
     <value>{0}, {1}, {2}, {3}</value>
@@ -2755,10 +2750,10 @@
     <value>Copy calibration to selected channel</value>
   </data>
   <data name="ScanDebug_CopyCalibrationProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
-    <value>Copying stages values only. Use Save channel calibration to persist them.</value>
+    <value>Copying stages channel parameters. Use Save channel preset to reuse them in other configurations.</value>
   </data>
   <data name="ScanDebug_CalibrationCopyHelperText.Text" xml:space="preserve">
-    <value>Copying stages values for the selected channel only. Use Save channel calibration to persist them.</value>
+    <value>Copying stages channel parameters. Use Save channel preset to reuse them in other configurations.</value>
   </data>
   <data name="ScanDebug_DisabledReasonReady" xml:space="preserve">
     <value>Ready.</value>
@@ -2803,10 +2798,13 @@
     <value>{0}: unused</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewCalibrationSaved" xml:space="preserve">
-    <value>calibration saved</value>
+    <value>Preset available in calibration library</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationConfigured" xml:space="preserve">
+    <value>Channel parameters configured</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewCalibrationMissing" xml:space="preserve">
-    <value>calibration missing</value>
+    <value>Channel parameters not configured</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewItem" xml:space="preserve">
     <value>{0}: {1} ({2})</value>
@@ -2833,10 +2831,10 @@
     <value>The image appears here when captured data arrives.</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionDeviceDetected" xml:space="preserve">
-    <value>An image and line profile appear after the first capture.</value>
+    <value>Edit and save configurations offline.&#10;Connect the scanner for sampling, calibration, and focus.</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionNoDevice" xml:space="preserve">
-    <value>Edit the configuration offline. Start sampling from the run row when the scanner is ready.</value>
+    <value>Edit and save configurations offline.&#10;Connect the scanner for sampling, calibration, and focus.</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionChannelUncalibrated" xml:space="preserve">
     <value>Configure {0} ({1}) in Black / white. No profile is created automatically.</value>
@@ -2887,25 +2885,28 @@
     <value>Manual focus distance</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve">
-    <value>Calibration profile channel: {0} (no saved profile loaded yet).</value>
+    <value>{0}: no channel preset loaded yet.</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfile" xml:space="preserve">
-    <value>Calibration profile channel: {0} (no saved profile).</value>
+    <value>{0}: no saved channel preset.</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded" xml:space="preserve">
-    <value>Calibration profile channel: {0} (saved profile loaded).</value>
+    <value>{0}: channel preset loaded.</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_DraftProfileLoaded" xml:space="preserve">
+    <value>{0}: Loaded channel parameters from the current configuration.</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_ProfileCleared" xml:space="preserve">
-    <value>Calibration profile channel: {0} (profile cleared).</value>
+    <value>Removed the channel preset for {0}.</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_LoadFailed" xml:space="preserve">
-    <value>Calibration profile channel: {0} (load failed: {1}).</value>
+    <value>{0}: could not load channel preset: {1}</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_SavedAt" xml:space="preserve">
-    <value>Calibration profile channel: {0} (saved at {1}).</value>
+    <value>{0}: channel preset saved at {1}.</value>
   </data>
   <data name="ScanDebug_Runtime_FilmProfileUntitled" xml:space="preserve">
-    <value>Untitled Film Profile</value>
+    <value>Untitled profile</value>
   </data>
   <data name="ScanDebug_Runtime_RoiInputsSynchronized" xml:space="preserve">
     <value>ROI range inputs are synchronized with the selected ROI.</value>
@@ -2956,10 +2957,10 @@
     <value>Focus Right</value>
   </data>
   <data name="ScanDebug_Runtime_MotorDirectionDir0" xml:space="preserve">
-    <value>Dir0</value>
+    <value>Direction 0 (Dir0)</value>
   </data>
   <data name="ScanDebug_Runtime_MotorDirectionDir1" xml:space="preserve">
-    <value>Dir1</value>
+    <value>Direction 1 (Dir1)</value>
   </data>
   <data name="ScanDebug_Runtime_StatusWaitingForDevicesShort" xml:space="preserve">
     <value>Waiting for scanner devices...</value>
@@ -3028,7 +3029,7 @@
     <value>Scanner sessions connected. Loading parameters...</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParametersLoaded" xml:space="preserve">
-    <value>Parameters loaded</value>
+    <value>Current device parameters read.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParameterLoadUnavailable" xml:space="preserve">
     <value>Parameter load unavailable: {0}</value>
@@ -3187,7 +3188,7 @@
     <value>Applying scan parameters...</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParametersUpdated" xml:space="preserve">
-    <value>Parameters updated successfully.</value>
+    <value>Channel parameters applied to the current device.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParameterUpdateCanceled" xml:space="preserve">
     <value>Parameter update canceled.</value>
@@ -3301,7 +3302,7 @@
     <value>Auto calibration completed.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileSaved" xml:space="preserve">
-    <value>Calibration channel '{0}' profile saved.</value>
+    <value>Channel preset saved for {0}.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusSaveChannelProfileFailed" xml:space="preserve">
     <value>Save channel profile failed: {0}</value>
@@ -3310,10 +3311,10 @@
     <value>Calibration channel is empty.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileCleared" xml:space="preserve">
-    <value>Calibration channel '{0}' profile cleared.</value>
+    <value>Removed the channel preset for {0}.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve">
-    <value>Calibration channel '{0}' has no saved profile.</value>
+    <value>No saved channel preset for {0}.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelRemoveCanceled" xml:space="preserve">
     <value>Remove canceled for {0}.</value>
@@ -3322,7 +3323,7 @@
     <value>Clear channel profile failed: {0}</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve">
-    <value>Film profile '{0}' exported.</value>
+    <value>Full configuration &apos;{0}&apos; saved and ready for scanning.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve">
     <value>Save film profile canceled.</value>
@@ -3343,10 +3344,10 @@
     <value>Film profile '{0}' loaded.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileStaged" xml:space="preserve">
-    <value>Film profile '{0}' read and staged for review. Current settings are unchanged.</value>
+    <value>Configuration &apos;{0}&apos; staged for import review.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileApplied" xml:space="preserve">
-    <value>Film profile '{0}' applied.</value>
+    <value>Configuration &apos;{0}&apos; loaded in the editor.</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileImportInvalid" xml:space="preserve">
     <value>The selected film profile could not be staged. Review the file and try again.</value>
@@ -3898,7 +3899,7 @@
     <value>Advanced recipe overrides</value>
   </data>
   <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve">
-    <value>Current configuration color management</value>
+    <value>Color management for this scan</value>
   </data>
   <data name="ScanDebug_ProfileRecipeTitle.Text" xml:space="preserve">
     <value>Scan recipe authored by this profile</value>
@@ -3916,7 +3917,7 @@
     <value>gamma-only sRGB (gamma {0})</value>
   </data>
   <data name="Settings_ColorManagementScopeText.Text" xml:space="preserve">
-    <value>Global defaults only. Change per-scan color behavior in the loaded scan configuration.</value>
+    <value>Used for new or reset configurations. Loaded configurations are unchanged.</value>
   </data>
   <data name="Scan_PageRoleDescription.Text" xml:space="preserve">
     <value>Formal scan workspace: load a configuration, review the effective recipe, run the scan, then save RGB or export DNG output.</value>
@@ -3925,7 +3926,7 @@
     <value>When this page is connected or scanning, it owns the USB device. Disconnect here before using USB Debug on the same hardware.</value>
   </data>
   <data name="Scan_ConfigCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>These controls define the formal scan run. The loaded configuration is the source of truth for recipe, color, and DNG mode; global settings only provide defaults for new or reset configurations.</value>
+    <value>This scan uses the recipe, color, and DNG settings in the loaded configuration.</value>
   </data>
   <data name="Scan_ColorSourceText.Text" xml:space="preserve">
     <value>Effective source: loaded scan configuration. If no configuration is loaded, the current values were initialized from global defaults.</value>
@@ -3940,13 +3941,13 @@
     <value>Selects the DNG mode for debug exports from the latest Scan Debug acquisition only. It does not change the authored scan configuration.</value>
   </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
-    <value>Film Profile and Calibration workbench: author profile JSON, calibrate channels, preview temporary acquisitions, and release the scanner before USB Debug or formal Scan uses the same hardware.</value>
+    <value>Edit film configurations, calibrate channels and preview captures.</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
-    <value>Film Profile and Calibration</value>
+    <value>Film calibration</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>Film Profile and Calibration workbench: author profile JSON, calibrate channels, preview temporary acquisitions, and release the scanner before USB Debug or formal Scan uses the same hardware.</value>
+    <value>Edit film configurations, calibrate channels and preview captures.</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>Status</value>
@@ -4006,10 +4007,10 @@
     <value>Off</value>
   </data>
   <data name="ScanDebug_SaveColumnBlackLevelButton.Content" xml:space="preserve">
-    <value>Save black level to calibration library</value>
+    <value>Save black level to channel preset</value>
   </data>
   <data name="ScanDebug_SaveColumnWhiteLevelButton.Content" xml:space="preserve">
-    <value>Save white level to calibration library</value>
+    <value>Save white level to channel preset</value>
   </data>
   <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.Header" xml:space="preserve">
     <value>Use saved white level in preview</value>
@@ -4024,10 +4025,10 @@
     <value>Preview display tools</value>
   </data>
   <data name="ScanDebug_PreviewDisplayToolsDescription.Text" xml:space="preserve">
-    <value>Changes only the displayed preview, not RAW samples or the configuration JSON.</value>
+    <value>Adjust the displayed preview.</value>
   </data>
   <data name="ScanDebug_PreviewDisplayToolsButton.Content" xml:space="preserve">
-    <value>Display settings</value>
+    <value>Display</value>
   </data>
   <data name="ScanDebug_OverlayToolsButton.Content" xml:space="preserve">
     <value>Show overlays</value>
@@ -4054,46 +4055,82 @@
     <value>Edit the configuration offline. Start sampling from the run row when the scanner is ready.</value>
   </data>
   <data name="ScanDebug_RoiScopeDescription.Text" xml:space="preserve">
-    <value>ROI targets are scoped selections: BW Active is the usable preview/calibration area, BW Shield is the masked reference area, and Focus ROIs guide autofocus checks. They do not change global DNG geometry defaults.</value>
+    <value>Black/white calibration uses active and shield reference ranges. Focus ranges are used for autofocus.</value>
   </data>
   <data name="ScanDebug_RoiActionScopeText.Text" xml:space="preserve">
-    <value>Apply and reset affect only the selected ROI target shown above. DNG active/masked defaults remain in Settings unless a profile workflow explicitly saves matching geometry.</value>
+    <value>Apply or restore defaults to update the selected range above.</value>
   </data>
   <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve">
     <value>USB Debug now targets only PRISM scanner devices 1D50:619C and 1D50:619D. It requires exclusive access to the selected PRISM device; if Scan or Scan Debug is connected, disconnect there first, then return here to claim endpoints.</value>
   </data>
   <data name="Main_PageTitle.Text" xml:space="preserve">
-    <value>PRISM Utility workspace</value>
+    <value>PRISM scanning workspace</value>
   </data>
   <data name="Main_PageDescription.Text" xml:space="preserve">
-    <value>Use this overview to choose the right page. Status cards are placeholders until a live session reports connection, configuration, and export details.</value>
+    <value>Scan with an existing film profile, or prepare a new one first.</value>
   </data>
-  <data name="Main_StatusConnectionTitle.Text" xml:space="preserve">
-    <value>Connection status</value>
+  <data name="Main_Runtime_DeviceMissingTitle" xml:space="preserve">
+    <value>No scanner detected</value>
   </data>
-  <data name="Main_StatusConnectionText.Text" xml:space="preserve">
-    <value>No shared connection state is shown here yet. Use Scan, Scan Debug, or USB Debug to connect and release hardware deliberately.</value>
+  <data name="Main_Runtime_DeviceMissingDescription" xml:space="preserve">
+    <value>Power on your scanner and connect it to your computer by USB.</value>
   </data>
-  <data name="Main_StatusConfigTitle.Text" xml:space="preserve">
-    <value>Configuration ownership</value>
+  <data name="Main_Runtime_DeviceDetectedTitle" xml:space="preserve">
+    <value>Scanner detected, not connected</value>
   </data>
-  <data name="Main_StatusConfigText.Text" xml:space="preserve">
-    <value>Settings stores global defaults. Loaded scan profiles own current color, channel, DNG mode, and ROI-related recipe values.</value>
+  <data name="Main_Runtime_DeviceDetectedDescription" xml:space="preserve">
+    <value>Open Scan to connect the device.</value>
   </data>
-  <data name="Main_StatusExportTitle.Text" xml:space="preserve">
-    <value>Export status</value>
+  <data name="Main_Runtime_DeviceConnectingTitle" xml:space="preserve">
+    <value>Connecting scanner</value>
   </data>
-  <data name="Main_StatusExportText.Text" xml:space="preserve">
-    <value>RGB and DNG outputs are produced from Scan or Scan Debug results; this page does not edit output settings.</value>
+  <data name="Main_Runtime_DeviceConnectingDescription" xml:space="preserve">
+    <value>Once connected, review the parameters and preparation status in the workspace.</value>
+  </data>
+  <data name="Main_Runtime_DeviceConnectedTitle" xml:space="preserve">
+    <value>Scanner connected</value>
+  </data>
+  <data name="Main_Runtime_DeviceConnectedDescription" xml:space="preserve">
+    <value>Open Scan to load a profile and check preparation.</value>
+  </data>
+  <data name="Main_Runtime_DeviceRunningTitle" xml:space="preserve">
+    <value>Scanner is running</value>
+  </data>
+  <data name="Main_Runtime_DeviceRunningDescription" xml:space="preserve">
+    <value>Return to the active workspace to view progress.</value>
+  </data>
+  <data name="Main_Runtime_DeviceFaultedTitle" xml:space="preserve">
+    <value>Scanner connection needs attention</value>
+  </data>
+  <data name="Main_Runtime_DeviceFaultedDescription" xml:space="preserve">
+    <value>Review the error in the workspace and reconnect the scanner. More details are available in Logs.</value>
+  </data>
+  <data name="Main_Runtime_DeviceReconnectTitle" xml:space="preserve">
+    <value>Scanner needs to reconnect</value>
+  </data>
+  <data name="Main_Runtime_DeviceReconnectDescription" xml:space="preserve">
+    <value>The connection was interrupted. Check power and USB, then reconnect in the workspace.</value>
+  </data>
+  <data name="Main_Runtime_DeviceDiagnosticsTitle" xml:space="preserve">
+    <value>Diagnostics is using the scanner</value>
+  </data>
+  <data name="Main_Runtime_DeviceDiagnosticsDescription" xml:space="preserve">
+    <value>End the active diagnostic connection before scanning or calibrating.</value>
+  </data>
+  <data name="Main_Runtime_OpenScanWorkspace" xml:space="preserve">
+    <value>Open Scan</value>
+  </data>
+  <data name="Main_Runtime_OpenCalibrationWorkspace" xml:space="preserve">
+    <value>Open calibration workspace</value>
   </data>
   <data name="Main_WorkflowsTitle.Text" xml:space="preserve">
-    <value>Choose a workflow</value>
+    <value>Workspaces</value>
   </data>
   <data name="Main_ScanCardTitle.Text" xml:space="preserve">
-    <value>Formal Scan</value>
+    <value>Scan and export</value>
   </data>
   <data name="Main_ScanCardText.Text" xml:space="preserve">
-    <value>Run production scans from a loaded configuration and export RGB or DNG output.</value>
+    <value>Load a profile, check preparation, then scan, preview, and export images.</value>
   </data>
   <data name="Main_OpenScanButton.Content" xml:space="preserve">
     <value>Open Scan</value>
@@ -4102,7 +4139,7 @@
     <value>Film Profile and Calibration</value>
   </data>
   <data name="Main_ScanDebugCardText.Text" xml:space="preserve">
-    <value>Author film profiles, calibrate channels, and run temporary acquisition checks before formal scans.</value>
+    <value>Prepare a new profile or recalibrate here, then use it for scanning. Profiles can also be edited offline.</value>
   </data>
   <data name="Main_OpenScanDebugButton.Content" xml:space="preserve">
     <value>Open Film Profile and Calibration</value>
@@ -4111,7 +4148,7 @@
     <value>Settings</value>
   </data>
   <data name="Main_SettingsCardText.Text" xml:space="preserve">
-    <value>Maintain global defaults for new configurations, DNG geometry defaults, device settings, and app preferences.</value>
+    <value>Appearance, language, device mappings, and defaults for new profiles.</value>
   </data>
   <data name="Main_OpenSettingsButton.Content" xml:space="preserve">
     <value>Open Settings</value>
@@ -4177,7 +4214,7 @@
     <value>Disconnect</value>
   </data>
   <data name="Shell_DeviceConfigurationButton.Content" xml:space="preserve">
-    <value>Device configuration</value>
+    <value>Device settings</value>
   </data>
   <data name="Scan_WorkflowTitle.Text" xml:space="preserve">
     <value>Scan</value>
@@ -4189,10 +4226,10 @@
     <value>1. Scanner session</value>
   </data>
   <data name="Scan_ConfigCardTitle.Text" xml:space="preserve">
-    <value>2. Loaded configuration</value>
+    <value>Film configuration</value>
   </data>
   <data name="Scan_ExecutionCardTitle.Text" xml:space="preserve">
-    <value>3. Motion and pass plan</value>
+    <value>Scan parameters</value>
   </data>
   <data name="Scan_DeviceBlockerInfoBar.Title" xml:space="preserve">
     <value>Device blocker</value>
@@ -4244,7 +4281,7 @@
   <data name="FilmProfile_Validation_MalformedJson" xml:space="preserve"><value>Select a readable film profile JSON file and try opening it again.</value></data>
   <data name="FilmProfile_Validation_SchemaVersionMissing" xml:space="preserve"><value>Export the file with schema version 5 before importing it here.</value></data>
   <data name="FilmProfile_Validation_SchemaVersionUnsupported" xml:space="preserve"><value>Convert the file to the current film profile schema before importing.</value></data>
-  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>Enter a profile name before saving.</value></data>
+  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>Configuration name metadata must be text.</value></data>
   <data name="FilmProfile_Validation_ProfileNameInvalid" xml:space="preserve"><value>Profile name is empty; the UI shows Untitled until you name it.</value></data>
   <data name="FilmProfile_Validation_SavedAtUtcInvalid" xml:space="preserve"><value>Use a valid saved-at timestamp in the imported profile file.</value></data>
   <data name="FilmProfile_Validation_ChannelRoleInvalid" xml:space="preserve"><value>Use a non-empty channel role for this channel profile.</value></data>
@@ -4266,14 +4303,14 @@
   <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>Validation</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content" xml:space="preserve"><value>New film profile</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>New film profile</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>Open profile JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open profile JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content" xml:space="preserve"><value>Check configuration</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>Open configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content" xml:space="preserve"><value>Validate</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Run configuration check</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>Export configuration JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Export configuration JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>Save to calibration library</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>Remove from calibration library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>Save configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>Save channel preset</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>Remove channel preset</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content" xml:space="preserve"><value>Apply staged profile</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Apply staged profile</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content" xml:space="preserve"><value>Discard staged profile</value></data>
@@ -4301,7 +4338,7 @@
   <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription.Text" xml:space="preserve"><value>Review current profile issues and jump to editable fields when a target is available.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>Staged import validation</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>Not validated</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>Valid</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>Parameter checks passed</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationIssues" xml:space="preserve"><value>{0} validation issue(s)</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchOperationStatusTitle.Text" xml:space="preserve"><value>Operation status</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchOperationInfoBar.Title" xml:space="preserve"><value>Operation status</value></data>
@@ -4314,7 +4351,7 @@
   <data name="ScanDebug_FilmProfileWorkbenchDeviceDisconnected" xml:space="preserve"><value>Scanner disconnected</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchDeviceConnected" xml:space="preserve"><value>Scanner connected</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportTitle.Text" xml:space="preserve"><value>Staged import review</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>Review the loaded JSON before applying it. Apply replaces the current workspace profile; Discard leaves current settings unchanged.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>Review the loaded configuration. Apply replaces the current configuration; Discard cancels this import.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportChooseOtherFileButton.Content" xml:space="preserve"><value>Choose other file</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportError" xml:space="preserve"><value>Import error</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportResultNoChannels" xml:space="preserve"><value>No staged profile</value></data>
@@ -4325,11 +4362,11 @@
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelCount" xml:space="preserve"><value>{0} channel profile(s)</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportNoChannels" xml:space="preserve"><value>No staged channels</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportDirtyWarning" xml:space="preserve"><value>Applying this import replaces the current unsaved profile changes.</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>Profile identity</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>Name and output options belong to the current draft; export JSON separately.</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>Color and scan recipe</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>Image output</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>Output options belong to this draft. The configuration name follows the file name.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>Color management</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text" xml:space="preserve"><value>Output settings do not replace the selected channel's black / white calibration.</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>Current configuration issues</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>Output &amp; color check</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text" xml:space="preserve"><value>Review field issues; choose a locatable item to jump to its editor.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header" xml:space="preserve"><value>Profile name</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText" xml:space="preserve"><value>e.g. 5207</value></data>
@@ -4349,23 +4386,23 @@
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupTitle.Text" xml:space="preserve"><value>Acquisition setup</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupDescription.Text" xml:space="preserve"><value>Plan and channel settings belong to the draft; transport settings apply only to that capture mode.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusTitle.Text" xml:space="preserve"><value>Save and validation state</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>Rows, distance, channel enablement, and order changes update summaries immediately and block Save when invalid.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>Edits update the capture summary. Validate to save the full configuration, or save a draft to continue later.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>Engineering tools</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>Illumination tests and raw-value application can act on the device immediately. Follow the hardware validation procedure.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>Export captured data</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>Export an existing capture as DNG. This does not save profile JSON or apply parameters to the device.</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>Export an existing capture as a DNG image file.</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>Progress appears here while a scan is running.</value></data>
   <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Film profile lifecycle header</value></data>
   <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Staged film profile import review</value></data>
-  <data name="ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Basic info section</value></data>
+  <data name="ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Output and color settings</value></data>
   <data name="ScanDebug_AcquisitionPlanSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Acquisition plan section</value></data>
   <data name="ScanDebug_ChannelCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Channel calibration section</value></data>
   <data name="ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Live calibration section</value></data>
   <data name="ScanDebug_DeviceSettingsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Device settings section</value></data>
   <data name="ScanDebug_EngineeringToolsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Engineering tools section</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeWorkspace" xml:space="preserve"><value>Current workspace</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>Profile JSON file</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>Calibration library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>Channel presets</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeUnsaved" xml:space="preserve"><value>Unsaved changes</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchChannelStatusReady" xml:space="preserve"><value>{0}: ready</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchChannelStatusMissingCalibration" xml:space="preserve"><value>{0}: calibration missing</value></data>
@@ -4389,30 +4426,30 @@
   <data name="ScanDebug_FilmProfileWorkbenchImportDiscardConfirmationMessage.Text" xml:space="preserve"><value>The current import result, including any staged profile or import errors, will be discarded before creating a new film profile. Current workspace settings are unchanged until you confirm.</value></data>
   <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationTitle" xml:space="preserve"><value>Replace pending import result</value></data>
   <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationMessage" xml:space="preserve"><value>Choosing another file will replace the current import result, including any staged profile or import errors. Canceling the file picker keeps the current import result.</value></data>
-  <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton" xml:space="preserve"><value>Open profile JSON</value></data>
+  <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton" xml:space="preserve"><value>Open configuration file</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationTitle.Text" xml:space="preserve"><value>Replace pending import result</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationMessage.Text" xml:space="preserve"><value>Choosing another file will replace the current import result, including any staged profile or import errors. Canceling the file picker keeps the current import result.</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>Export configuration JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>Save selected channel calibration to library</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>Remove selected channel calibration from library</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>Save configuration file</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>Save selected channel as a preset</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>Remove the selected channel preset</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategyTitle.Text" xml:space="preserve"><value>Transport strategy</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategyHelpText.Text" xml:space="preserve"><value>Return to start scans every selected channel in the same physical direction, then returns before the next channel. Alternate direction scans adjacent selected channels in opposite directions and relies on matching geometry.</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategySafetyText.Text" xml:space="preserve"><value>Changes the current profile draft transport strategy only. Geometry and timing checks still block unsafe motion.</value></data>
   <data name="ScanDebug_AdvancedAdcAdjustmentTitle.Text" xml:space="preserve"><value>Advanced ADC manual adjustment</value></data>
   <data name="ScanDebug_AdvancedAdcAdjustmentHelpText.Text" xml:space="preserve"><value>Manual ADC offset and gain overrides for the selected channel.</value></data>
-  <data name="ScanDebug_AdvancedAdcAdjustmentScopeText.Text" xml:space="preserve"><value>Edits stay in the current channel draft. Apply Parameters writes the selected channel values to the device only. Save channel calibration persists only the selected library profile.</value></data>
-  <data name="ScanDebug_DeviceClockUnitRangeText.Text" xml:space="preserve"><value>Legal range: 30-200 MHz. Apply sends the device-global clock command and does not save a channel profile. Device Flash persistence is unverified.</value></data>
+  <data name="ScanDebug_AdvancedAdcAdjustmentScopeText.Text" xml:space="preserve"><value>Apply current channel to device uses these parameters on the scanner. Save channel preset keeps them for reuse.</value></data>
+  <data name="ScanDebug_DeviceClockUnitRangeText.Text" xml:space="preserve"><value>30–200 MHz, up to three decimal places. Reapply channel parameters after changing the clock.</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadyReason" xml:space="preserve"><value>Ready to apply the device-global clock.</value></data>
   <data name="ScanDebug_Runtime_ChannelParametersReadyReason" xml:space="preserve"><value>Ready to apply the selected channel parameters to the device.</value></data>
   <data name="ScanDebug_Runtime_SessionIlluminationReadyReason" xml:space="preserve"><value>Ready to send a session-only illumination test to the connected device.</value></data>
   <data name="ScanDebug_Runtime_DeviceClockInvalidReason" xml:space="preserve"><value>Enter a device clock from 30 to 200 MHz, with at most three decimal places.</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadRequiredReason" xml:space="preserve"><value>Read or re-apply the device clock before this command can safely touch channel timing or hardware motion.</value></data>
-  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>Edit configuration</value></data>
-  <data name="ScanDebug_WorkbenchConfigurationOperationsButton.Content" xml:space="preserve"><value>Configuration file</value></data>
-  <data name="ScanDebug_WorkbenchAdvancedButton.Content" xml:space="preserve"><value>Engineering tools</value></data>
-  <data name="ScanDebug_WorkbenchReviewButton.Content" xml:space="preserve"><value>Configuration issues</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>Properties</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationOperationsButton.Content" xml:space="preserve"><value>Profile file</value></data>
+  <data name="ScanDebug_WorkbenchAdvancedButton.Content" xml:space="preserve"><value>Engineering</value></data>
+  <data name="ScanDebug_WorkbenchReviewButton.Content" xml:space="preserve"><value>Issues</value></data>
   <data name="ScanDebug_WorkbenchPendingReviewButton.Content" xml:space="preserve"><value>Review pending import</value></data>
-  <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>Configuration issues</value></data>
+  <data name="ScanDebug_WorkbenchReviewAction" xml:space="preserve"><value>Issues</value></data>
   <data name="ScanDebug_WorkbenchPendingReviewAction" xml:space="preserve"><value>Review pending import</value></data>
   <data name="ScanDebug_WorkbenchSamplingTaskButton.Text" xml:space="preserve"><value>Sampling</value></data>
   <data name="ScanDebug_WorkbenchBlackWhiteTaskButton.Text" xml:space="preserve"><value>Black / white</value></data>
@@ -4422,37 +4459,39 @@
   <data name="ScanDebug_WorkbenchBlackWhiteTaskComboBoxItem.Content" xml:space="preserve"><value>Black / white</value></data>
   <data name="ScanDebug_WorkbenchFocusTaskComboBoxItem.Content" xml:space="preserve"><value>Focus</value></data>
   <data name="ScanDebug_WorkbenchMotionTaskComboBoxItem.Content" xml:space="preserve"><value>Motion</value></data>
-  <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>Capture mode</value></data>
+  <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>Capture</value></data>
   <data name="ScanDebug_MotorAxisInlineLabel.Text" xml:space="preserve"><value>Selected motor</value></data>
   <data name="ScanDebug_MotorAxisComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Select current motor</value></data>
-  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 1</value></data>
-  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 2</value></data>
-  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 3</value></data>
-  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>Return to task</value></data>
+  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 1 (M1)</value></data>
+  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 2 (M2)</value></data>
+  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor 3 (M3)</value></data>
+  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>← Back to task</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>Move direction</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Motor move direction</value></data>
   <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>Execution order and constraints</value></data>
   <data name="ScanDebug_AcquisitionChannelOrderTitle.Text" xml:space="preserve"><value>Selected execution order</value></data>
   <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>Transport capture settings</value></data>
-  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>Channel library and parameters</value></data>
-  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>Column sample actions and clear options</value></data>
+  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>Channel presets and parameters</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>Column sampling</value></data>
+  <data name="ScanDebug_ReferenceHelpButton.Content" xml:space="preserve"><value>Reference guide and source</value></data>
+  <data name="ScanDebug_ReferenceHelpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View the reference guide and sample source</value></data>
   <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>Black / white (RAW ADU)</value></data>
   <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>Selected axis settings</value></data>
-  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>Edit black / white ROI</value></data>
+  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>Edit calibration range</value></data>
   <data name="ScanDebug_FocusRoiDetailsExpander.Header" xml:space="preserve"><value>Edit focus range</value></data>
-  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>Image tools</value></data>
+  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>Tools</value></data>
   <data name="ScanDebug_BlackWhitePanelTitle.Text" xml:space="preserve"><value>Black / white</value></data>
   <data name="ScanDebug_FocusPanelTitle.Text" xml:space="preserve"><value>Focus</value></data>
   <data name="ScanDebug_FocusRangeTitle.Text" xml:space="preserve"><value>Focus ROI being edited</value></data>
   <data name="ScanDebug_FocusEvaluationScope.Text" xml:space="preserve"><value>Autofocus evaluates this channel's overall, left and right focus ROIs; the summary shows only the selected editor range.</value></data>
   <data name="ScanDebug_PreviewSelectionLabel.Text" xml:space="preserve"><value>Preview selection (global)</value></data>
-  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>Source and full RAW statistics</value></data>
+  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>Reading guide</value></data>
   <data name="ScanDebug_WorkbenchInspectionRawReadoutsTitle.Text" xml:space="preserve"><value>RAW row readout</value></data>
-  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>Source and device details</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>Diagnostics</value></data>
   <data name="ScanDebug_InspectionMeanReadout" xml:space="preserve"><value>Mean: {0} RAW ADU</value></data>
   <data name="ScanDebug_InspectionRangeReadout" xml:space="preserve"><value>Range: {0}–{1} RAW ADU</value></data>
   <data name="ScanDebug_InspectionSamplesReadout" xml:space="preserve"><value>{0} samples · saturated {1}</value></data>
-  <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>Signal inspection</value></data>
+  <data name="ScanDebug_WorkbenchInspectionButton.Content" xml:space="preserve"><value>Inspect</value></data>
   <data name="ScanDebug_WorkbenchInspectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Show or hide existing ROI and sample status. Press again to close.</value></data>
   <data name="ScanDebug_WorkbenchInspectionTitle.Text" xml:space="preserve"><value>Signal inspection</value></data>
   <data name="ScanDebug_WorkbenchInspectionSource.Text" xml:space="preserve"><value>These are existing device, ROI and column-sample states. Unavailable means not measured, not zero.</value></data>
@@ -4463,10 +4502,10 @@
   <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>Column sample</value></data>
   <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>Edit black / white ROI</value></data>
   <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>Review status</value></data>
-  <data name="ScanDebug_OperationFeedbackButton.Content" xml:space="preserve"><value>Operation feedback</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.Content" xml:space="preserve"><value>Scanner connection</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Opens the existing scanner connection flyout with connection status, Connect/Disconnect actions, and a device configuration entry. This button does not connect automatically or write to hardware.</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Opens the existing scanner connection flyout with connection status, Connect/Disconnect actions, and a device configuration entry. This button does not connect automatically or write to hardware.</value></data>
+  <data name="ScanDebug_OperationFeedbackButton.Content" xml:space="preserve"><value>Operation history</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.Content" xml:space="preserve"><value>View connection</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>View scanner connection status, connect or disconnect, and open device settings.</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>View connection status and device settings</value></data>
   <data name="ScanDebug_OperationNoticeAcknowledgeButton.Content" xml:space="preserve"><value>Acknowledge</value></data>
   <data name="ScanDebug_OperationLatestMessageLabel.Text" xml:space="preserve"><value>Latest message</value></data>
   <data name="ScanDebug_WorkbenchDataExportButton.Content" xml:space="preserve"><value>Export captured DNG</value></data>
@@ -4498,7 +4537,7 @@
   <data name="ScanDebug_BwLocalInputStatus.Text" xml:space="preserve"><value>Local input not applied</value></data>
   <data name="ScanDebug_BwMissingProfileText.Text" xml:space="preserve"><value>Missing channel profile</value></data>
   <data name="ScanDebug_BwConfigureChannelButton.Content" xml:space="preserve"><value>Configure this channel</value></data>
-  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Open the selected channel's library and parameters. Does not create, apply, or save a profile.</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Open the current channel&apos;s preset and parameters.</value></data>
   <data name="ScanDebug_BwDiscardInputTitle" xml:space="preserve"><value>Discard local black / white input?</value></data>
   <data name="ScanDebug_BwDiscardInputMessage" xml:space="preserve"><value>Switching channels discards unapplied black / white input. Keep editing or discard this local input?</value></data>
   <data name="ScanDebug_BwDiscardInputConfirm" xml:space="preserve"><value>Discard local input</value></data>
@@ -4506,21 +4545,21 @@
   <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>0 channel issues</value></data>
   <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} blocking issue(s)</value></data>
   <data name="ScanDebug_BwValidationWarnings" xml:space="preserve"><value>{0} warning(s)</value></data>
-  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>Manually edited input; not yet applied to the channel draft.</value></data>
+  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>Manual input; ready to update configuration reference levels.</value></data>
   <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>Original source not recorded.</value></data>
   <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>Finish reviewing the pending calibration candidate before applying manual reference values.</value></data>
   <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>No editable channel draft. Configure this channel first.</value></data>
   <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>The channel or workspace draft changed during this edit. Review the latest values before applying again; nothing was overwritten.</value></data>
   <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>A conflicting operation temporarily blocks applying manual reference values to the channel draft. You can still edit the inputs; try applying again when it finishes.</value></data>
   <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>The current preview or capture data has no valid column sample attributable to the selected channel. Check the preview frame and sample column range before filling an input.</value></data>
-  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>Input changed locally; not yet applied to the channel draft.</value></data>
-  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>Reference values loaded from the current channel draft; no device change.</value></data>
+  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>Reference levels edited; ready to update.</value></data>
+  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>Current channel reference levels loaded.</value></data>
   <data name="ScanDebug_ManualReferenceInvalidValues" xml:space="preserve"><value>Enter blank or an integer from 0 to 65535 for black, blank or 1 to 65535 for white. If both are set, black must be lower than white. Nothing was applied.</value></data>
-  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>Black and white reference values updated in the selected channel draft only. Configuration file, local library and device were not updated.</value></data>
+  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>Channel reference levels updated in this configuration. Save the full configuration to keep them.</value></data>
   <data name="ScanDebug_ManualReferenceClearTitle" xml:space="preserve"><value>Clear channel reference values?</value></data>
-  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>Clear both black and white reference values in the selected channel draft? The configuration file, local calibration library and device will not be changed.</value></data>
+  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>Clear the black and white reference levels in this channel&apos;s draft?</value></data>
   <data name="ScanDebug_ManualReferenceClearConfirm" xml:space="preserve"><value>Clear both values</value></data>
-  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>Input filled from capture {0}, logical channel {1}, columns {2}-{3}, processing stage {4}; no save or device write.</value></data>
+  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>Capture {0} · Channel {1} · Columns {2}–{3} · Processing stage {4}</value></data>
   <data name="ScanDebug_CaptureSource" xml:space="preserve"><value>Capture {0}; logical channel {1}; mode {2}; completed/requested rows {3}/{4}; data stage {5}; parameter evidence: {6}.</value></data>
   <data name="ScanDebug_CaptureSourceDetails" xml:space="preserve"><value>&#10;Device ID: {0}; app session generation: {1}; submitted LED index: {2}; raw LED level: {3}.&#10;Request prepared (UTC): {4}; result recorded (UTC): {5}.&#10;Configuration ID: {6}; calibration ID: {7}; result version: {8}.</value></data>
   <data name="ScanDebug_CaptureUnknown" xml:space="preserve"><value>Unknown</value></data>
@@ -4538,8 +4577,8 @@
   <data name="ScanDebug_DeviceEvidenceUnknown" xml:space="preserve"><value>No connected control session. Current device parameters and peripheral reachability are unknown.</value></data>
   <data name="ScanDebug_ImagePreviewModeItem.Text" xml:space="preserve"><value>Image</value></data>
   <data name="ScanDebug_RawSignalProfileModeItem.Text" xml:space="preserve"><value>Line profile</value></data>
-  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>RAW row (0-based)</value></data>
-  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>Completed row index</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>Row position</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>Starts at row 1</value></data>
   <data name="ScanDebug_RawSignalProfileAxis.Text" xml:space="preserve"><value>Full decoded row | X: decoded column | Y: 0-65535 RAW ADU</value></data>
   <data name="ScanDebug_RawSignalHistogramAxis.Text" xml:space="preserve"><value>ROI histogram | 256 bins | X: 0-65535 RAW ADU | Y: relative sample count</value></data>
   <data name="ScanDebug_RawSignalSourceLabel.Text" xml:space="preserve"><value>RAW capture source</value></data>
@@ -4560,27 +4599,27 @@
   <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [RAW pass coordinates, not composite image pixels.]</value></data>
   <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>N={0}; minimum={1} ADU; maximum={2} ADU; mean={3:F2} ADU; saturation={4}/{0} samples at 65535 ADU.</value></data>
     <data name="ScanDebug_ObservationLive" xml:space="preserve"><value>Live observation</value></data>
-  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>Display frozen · acquisition unaffected</value></data>
-  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>Viewing baseline A · acquisition unaffected</value></data>
-  <data name="ScanDebug_FreezeObservation" xml:space="preserve"><value>Freeze display</value></data>
-  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>Resume live display</value></data>
+  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>Display frozen</value></data>
+  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>Viewing baseline A</value></data>
+  <data name="ScanDebug_FreezeObservation" xml:space="preserve"><value>Freeze</value></data>
+  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>Resume display</value></data>
   <data name="ScanDebug_ShowCurrentObservation" xml:space="preserve"><value>Show current sample</value></data>
   <data name="ScanDebug_ShowBaselineObservation" xml:space="preserve"><value>Show baseline A</value></data>
   <data name="ScanDebug_SetObservationBaselineButton.Content" xml:space="preserve"><value>Set baseline A</value></data>
   <data name="ScanDebug_SetObservationBaselineButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Copy the displayed sample and its source, replacing baseline A.</value></data>
   <data name="ScanDebug_ClearObservationBaselineButton.Content" xml:space="preserve"><value>Clear baseline</value></data>
-  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>Sample {0} · channel {1} · LED index {2} · {3} rows · {4}</value></data>
+  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>{1} / LED index {2} · #{0} · {4}</value></data>
   <data name="ScanDebug_ObservationSourceUnknown" xml:space="preserve"><value>No verified capture source; the image cannot validate current parameters.</value></data>
   <data name="ScanDebug_ObservationChannelMismatch" xml:space="preserve"><value>The display is from {0}; editing {1}. Resample to validate the selected channel.</value></data>
   <data name="ScanDebug_ObservationParametersChanged" xml:space="preserve"><value>Device parameter command history has changed. This image is from an earlier capture; resample to verify.</value></data>
   <data name="ScanDebug_ObservationBaselineEmpty" xml:space="preserve"><value>Baseline A is empty. Freeze and baseline affect display only.</value></data>
   <data name="ScanDebug_ObservationBaselineSummary" xml:space="preserve"><value>Baseline A: sample {0} · image source {1} · RAW {3} mean {2} ADU; compare each sample with its own source.</value></data>
   <data name="ScanDebug_ObservationCopyUnavailable" xml:space="preserve"><value>Cannot copy this display: no valid image or its buffer exceeds 64 MiB. Acquisition was not stopped.</value></data>
-  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Save current channel parameters, ROI and applied reference levels to the local calibration library.</value></data>
-  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>Manage profiles</value></data>
-  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>Saves to the local calibration library. Save configuration JSON separately using the file controls above.</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Save current channel parameters, ranges and applied reference levels for reuse in other configurations.</value></data>
+  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>Manage channel presets</value></data>
+  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>Save reusable channel parameters here. Use the Configuration file menu to save the entire film configuration.</value></data>
   <data name="ScanDebug_ReviewCalibrationCandidateButton.Content" xml:space="preserve"><value>Review calibration candidate</value></data>
-  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>Applies to the current film profile draft without writing ADC. Channel profile and JSON saves are separate actions.</value></data>
+  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>Update this channel&apos;s reference levels in the configuration. Save the full configuration when editing is complete.</value></data>
   <data name="ScanDebug_ObservationSelectionSummary" xml:space="preserve"><value>Observation selection: RAW columns {0}–{1}, inclusive. Independent of calibration and focus ranges.</value></data>
   <data name="ScanDebug_ObservationSelectionInvalid" xml:space="preserve"><value>Invalid observation selection: enter integer columns within the decoded width, start no greater than end.</value></data>
   <data name="ScanDebug_ObservationSelectionCopied" xml:space="preserve"><value>Filled the {0} inputs. Apply them in the corresponding editor; configuration and device parameters are unchanged.</value></data>
@@ -4590,7 +4629,7 @@
   <data name="ScanDebug_ObservationSelectionToggle.Header" xml:space="preserve"><value>Drag observation range on a single-channel image</value></data>
   <data name="ScanDebug_ObservationUseRangeButton.Content" xml:space="preserve"><value>Use for algorithm ROI…</value></data>
   <data name="ScanDebug_ObservationCopyTarget.Header" xml:space="preserve"><value>Target range</value></data>
-  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>Fills the selected algorithm range inputs only. Its Apply action commits the configuration draft. Does not write ADC or start focus.</value></data>
+  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>After filling the target range, choose Apply selected range in its editor.</value></data>
   <data name="ScanDebug_ObservationCopyRangeButton.Content" xml:space="preserve"><value>Fill target range inputs</value></data>
   <data name="ScanDebug_ObservationInvertToggle.Header" xml:space="preserve"><value>Invert display (RAW unchanged)</value></data>
   <data name="ScanDebug_ObservationRawContext" xml:space="preserve"><value>RAW measurement: {0} · row {1} · columns {2}–{3}; not display pixel values.</value></data>
@@ -4598,4 +4637,654 @@
   <data name="ScanDebug_ObservationDisplaySettingsScope.Text" xml:space="preserve"><value>Gamma and white-level settings apply to the live display. Frozen frames and baselines retain their original display pixels. Inversion can be toggled separately.</value></data>
   <data name="ScanDebug_ObservationCompositeRole" xml:space="preserve"><value>reference pass {0} (composite)</value></data>
   <data name="ScanDebug_ObservationCompositeComparison" xml:space="preserve"><value>This is a channel composite. RAW measurements use a separate channel and original pass coordinates; verify each source individually.</value></data>
+  <data name="ScanDebug_ObservationEmpty" xml:space="preserve"><value>No sample yet</value></data>
+  <data name="ScanDebug_ObservationLatest" xml:space="preserve"><value>Latest sample</value></data>
+  <data name="ScanDebug_ObservationUpdating" xml:space="preserve"><value>Updating sample</value></data>
+  <data name="ScanDebug_ObservationSourceUnconfirmed" xml:space="preserve"><value>Source unconfirmed</value></data>
+  <data name="ScanDebug_ObservationEvidenceUnconfirmed" xml:space="preserve"><value>Source unconfirmed · Parameters unverified</value></data>
+  <data name="ScanDebug_ObservationEvidenceParametersChanged" xml:space="preserve"><value>Previous parameters · New sample needed</value></data>
+  <data name="ScanDebug_ObservationEvidenceHistorical" xml:space="preserve"><value>Historical sample · Current device unverified</value></data>
+  <data name="ScanDebug_ObservationEvidenceOtherChannel" xml:space="preserve"><value>Other channel · Current channel unverified</value></data>
+  <data name="ScanDebug_ObservationEvidenceRecorded" xml:space="preserve"><value>Source recorded · Parameters need review</value></data>
+  <data name="ScanDebug_ObservationEvidenceConnectNext" xml:space="preserve"><value>Connect the scanner, then start a new sample from the top bar.</value></data>
+  <data name="ScanDebug_ObservationEvidenceResumeNext" xml:space="preserve"><value>Resume the current display to collect a new sample with updated source details.</value></data>
+  <data name="ScanDebug_ObservationEvidenceAcquiring" xml:space="preserve"><value>Sampling is in progress. Review the result when it finishes.</value></data>
+  <data name="ScanDebug_ObservationEvidenceSampleNext" xml:space="preserve"><value>Start a new sample from the top bar to record the current device, channel and parameters.</value></data>
+  <data name="ScanDebug_ObservationEvidenceComparisonPending" xml:space="preserve"><value>A match between the sample parameters and current draft has not been confirmed.</value></data>
+  <data name="ScanDebug_AllRoiLabelsCheckBox.Content" xml:space="preserve"><value>Show all region labels</value></data>
+  <data name="ScanDebug_ObservationCompareButton.Content" xml:space="preserve"><value>Compare</value></data>
+  <data name="ScanDebug_ObservationCompareScope.Text" xml:space="preserve"><value>Baseline A keeps a copy of the displayed sample. Freeze and baseline affect display only.</value></data>
+  <data name="ScanDebug_ObservationSelectionButton.Content" xml:space="preserve"><value>Measurement range</value></data>
+  <data name="ScanDebug_CalibrationChannelShortRed" xml:space="preserve"><value>R</value></data>
+  <data name="ScanDebug_CalibrationChannelShortGreen" xml:space="preserve"><value>G</value></data>
+  <data name="ScanDebug_CalibrationChannelShortBlue" xml:space="preserve"><value>B</value></data>
+  <data name="ScanDebug_CalibrationChannelShortWhite" xml:space="preserve"><value>W</value></data>
+  <data name="ScanDebug_CalibrationChannelShortIR" xml:space="preserve"><value>IR</value></data>
+  <data name="ScanDebug_CalibrationChannelSelectorBar.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Calibration channel</value></data>
+  <data name="ScanDebug_EngineeringWorkspaceTitle" xml:space="preserve"><value>Engineering tools</value></data>
+  <data name="ScanDebug_ConfigurationWorkspaceTitle" xml:space="preserve"><value>Properties</value></data>
+  <data name="ScanDebug_PropertiesGeneralTab.Text" xml:space="preserve"><value>Output &amp; color</value></data>
+  <data name="ScanDebug_BasicInformationValidationTitle.Title" xml:space="preserve"><value>Output &amp; color check</value></data>
+  <data name="ScanDebug_HidePreviewButton.Content" xml:space="preserve"><value>Hide preview</value></data>
+  <data name="ScanDebug_HidePreviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Hide preview and expand parameters</value></data>
+  <data name="ScanDebug_BwPreparationHint.Text" xml:space="preserve"><value>Select a channel, prepare references and ROI, then calibrate.</value></data>
+  <data name="ScanDebug_Runtime_MotorUnitSteps" xml:space="preserve"><value>steps</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ConnectDevice" xml:space="preserve"><value>Connect scanner</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewExpander.Header" xml:space="preserve"><value>All calibration steps</value></data>
+  <data name="ScanDebug_CalibrationGuideConnectionStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>1. Connect device</value></data>
+  <data name="ScanDebug_CalibrationGuideParametersStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>2. Prepare channel parameters</value></data>
+  <data name="ScanDebug_CalibrationGuideRoiStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>3. Check calibration regions</value></data>
+  <data name="ScanDebug_CalibrationGuideCalibrationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>4. Run calibration</value></data>
+  <data name="ScanDebug_CalibrationGuideReviewStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>5. Review calibration results</value></data>
+  <data name="ScanDebug_CalibrationGuideSaveStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>6. Save configuration file</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewExpander.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Jump directly to any step; confirm each operation in its own section.</value></data>
+  <data name="ScanDebug_CalibrationGuideConnectionStep.Text" xml:space="preserve"><value>1. Connect device</value></data>
+  <data name="ScanDebug_CalibrationGuideParametersStep.Text" xml:space="preserve"><value>2. Prepare channel parameters</value></data>
+  <data name="ScanDebug_CalibrationGuideRoiStep.Text" xml:space="preserve"><value>3. Check calibration regions</value></data>
+  <data name="ScanDebug_CalibrationGuideCalibrationStep.Text" xml:space="preserve"><value>4. Run calibration</value></data>
+  <data name="ScanDebug_CalibrationGuideReviewStep.Text" xml:space="preserve"><value>5. Review calibration results</value></data>
+  <data name="ScanDebug_CalibrationGuideSaveStep.Text" xml:space="preserve"><value>6. Save configuration file</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_PrepareDeviceClock" xml:space="preserve"><value>Prepare the device clock</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_PrepareDeviceClock" xml:space="preserve"><value>Enter the clock in Device settings, then choose Apply clock to device.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_PrepareDeviceClock" xml:space="preserve"><value>Open device clock</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewConfiguration" xml:space="preserve"><value>Check configuration issues</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewConfiguration" xml:space="preserve"><value>Candidate accepted. Resolve the remaining issues before saving the full configuration, or save a draft to continue later.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewConfiguration" xml:space="preserve"><value>View configuration issues</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ConnectDevice" xml:space="preserve"><value>{0} calibration requires a device connection. Open the connection panel and check its status.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ConnectDevice" xml:space="preserve"><value>Open connection panel</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_PrepareChannelParameters" xml:space="preserve"><value>{0}: Prepare channel parameters</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_PrepareChannelParameters" xml:space="preserve"><value>Set exposure, gain, offset and illumination, then apply the current channel to the device.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_PrepareChannelParameters" xml:space="preserve"><value>Edit channel parameters</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewAdcRoi" xml:space="preserve"><value>{0}: Check calibration regions</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewAdcRoi" xml:space="preserve"><value>Check the black/white calibration ranges and apply any pending edits.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewAdcRoi" xml:space="preserve"><value>Check calibration ranges</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ShowCalibrationActions" xml:space="preserve"><value>{0}: Run calibration</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ShowCalibrationActions" xml:space="preserve"><value>Automatic calibration uses the current device parameters. Review the candidate results when it finishes.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ShowCalibrationActions" xml:space="preserve"><value>Go to calibration actions</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewCandidate" xml:space="preserve"><value>{0}: Review calibration candidate</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewCandidate" xml:space="preserve"><value>Check the candidate report and device restoration status. Accept it to include the result in this configuration.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewCandidate" xml:space="preserve"><value>Review candidate</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_SaveConfiguration" xml:space="preserve"><value>{0}: Save configuration file</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_SaveConfiguration" xml:space="preserve"><value>Candidate accepted. Save the full configuration for use on the scan page.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_SaveConfiguration" xml:space="preserve"><value>Go to configuration save</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_Busy" xml:space="preserve"><value>Wait for the current operation</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_Busy" xml:space="preserve"><value>The recommended next step updates automatically when the operation finishes.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_Busy" xml:space="preserve"><value>Working…</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_Saved" xml:space="preserve"><value>Configuration file saved</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_Saved" xml:space="preserve"><value>This candidate has been accepted and the configuration file has no unsaved changes. You can calibrate again when needed.</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_Saved" xml:space="preserve"><value>View calibration actions</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Required" xml:space="preserve"><value>Preparation needed</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_InProgress" xml:space="preserve"><value>In progress</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_NeedsApply" xml:space="preserve"><value>Range edits awaiting Apply</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Pending" xml:space="preserve"><value>Review needed</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Accepted" xml:space="preserve"><value>Candidate accepted</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unverified" xml:space="preserve"><value>Calibration unconfirmed</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Blocked" xml:space="preserve"><value>Currently unavailable</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unavailable" xml:space="preserve"><value>No candidate yet</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unsaved" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Saved" xml:space="preserve"><value>Configuration file saved</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_NotSaved" xml:space="preserve"><value>Configuration file not saved</value></data>
+  <data name="ScanDebug_Runtime_MotorUnitStepsPerSecond" xml:space="preserve"><value>steps/s</value></data>
+  <data name="ScanDebug_ProfileAlignmentModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ECC aligns channels by image correlation; MI uses mutual information. ECC → MI runs ECC first, then MI.</value></data>
+  <data name="ScanDebug_ManualBlackLevelTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU is the unit of raw sample values. These are 16-bit integers (0–65535), not display brightness.</value></data>
+  <data name="ScanDebug_ManualWhiteLevelTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU is the unit of raw sample values. These are 16-bit integers (0–65535), not display brightness.</value></data>
+  <data name="ScanDebug_ManualReferenceCompactTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU is the unit of raw sample values. Black and white reference values calibrate the current channel.</value></data>
+  <data name="ScanDebug_ExposureTicksTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>A tick is a device exposure count, converted to microseconds (μs) using the device-global clock. This value is read-only; enter microseconds in Exposure.</value></data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Raw hardware clock count for the LED pulse. Enter a count here; no conversion to microseconds or other physical time is applied.</value></data>
+  <data name="ScanDebug_IlluminationRawPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Raw hardware clock count for the LED pulse. Enter a count here; no conversion to microseconds or other physical time is applied.</value></data>
+  <data name="ScanDebug_SessionTestPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Raw hardware clock count for the LED pulse. Enter a count here; no conversion to microseconds or other physical time is applied.</value></data>
+  <data name="ScanDebug_BwRoiSummaryTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI is the image region used for measurement or calibration. Black/white uses active and shield regions; focus has separate regions.</value></data>
+  <data name="ScanDebug_AdcRoiTargetComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI is the image region used for black/white measurement and calibration. Select the active or shield region, then edit its column boundaries.</value></data>
+  <data name="ScanDebug_FocusRoiTargetComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI is the image region used for focus evaluation. Overall, left and right regions are set separately and do not change the black/white ROI.</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.Content" xml:space="preserve"><value>Save full configuration…</value></data>
+  <data name="ScanDebug_PropertiesDeviceTab.Text" xml:space="preserve"><value>Device</value></data>
+  <data name="ScanDebug_PropertiesEngineeringTab.Text" xml:space="preserve"><value>Engineering tools</value></data>
+  <data name="ScanDebug_PreviewOpenAction" xml:space="preserve"><value>Open preview</value></data>
+  <data name="ScanDebug_PreviewHideAction" xml:space="preserve"><value>Hide preview</value></data>
+  <data name="ScanDebug_ChannelDetailsPanelTitle" xml:space="preserve"><value>Channel details</value></data>
+  <data name="ScanDebug_FocusMappingEngineeringTitle.Text" xml:space="preserve"><value>Focus mapping tests</value></data>
+  <data name="ScanDebug_FocusMappingEngineeringHelp.Text" xml:space="preserve"><value>Test the current mapping from device settings. Edit the mapping in Properties.</value></data>
+  <data name="ScanDebug_OpenDevicePropertiesButton.Content" xml:space="preserve"><value>Device settings</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save full film configuration…</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Choose a file location to save the full film configuration.</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.ToolTipService.ToolTip" xml:space="preserve"><value>Save the full film configuration (choose a file location)</value></data>
+  <data name="ScanDebug_WorkbenchValidationButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Check configuration and show fixes</value></data>
+  <data name="ScanDebug_WorkbenchValidationButton.ToolTipService.ToolTip" xml:space="preserve"><value>Check configuration and show issues; select an issue to fix it</value></data>
+  <data name="ScanDebug_WorkbenchValidationWithIssues" xml:space="preserve"><value>Validate · {0} issue(s)</value></data>
+  <data name="ScanDebug_OperationFeedbackCompact" xml:space="preserve"><value>Operation history</value></data>
+  <data name="ScanDebug_OperationFeedbackWithCount" xml:space="preserve"><value>Operation history · {0}</value></data>
+  <data name="ScanDebug_OperationFeedbackEntry.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Operation history</value></data>
+  <data name="ScanDebug_OperationFeedbackEntry.ToolTipService.ToolTip" xml:space="preserve"><value>View operation notices and the latest message</value></data>
+  <data name="ScanDebug_ValidationLocateAction.Text" xml:space="preserve"><value>Go to fix →</value></data>
+  <data name="ScanDebug_CloseValidationReviewButton.Content" xml:space="preserve"><value>Hide issues</value></data>
+  <data name="FilmProfile_Field_ProfileName" xml:space="preserve"><value>Profile name</value></data>
+  <data name="FilmProfile_Field_RedWavelength" xml:space="preserve"><value>Red wavelength</value></data>
+  <data name="FilmProfile_Field_GreenWavelength" xml:space="preserve"><value>Green wavelength</value></data>
+  <data name="FilmProfile_Field_BlueWavelength" xml:space="preserve"><value>Blue wavelength</value></data>
+  <data name="FilmProfile_Field_OutputGamma" xml:space="preserve"><value>Output gamma</value></data>
+  <data name="FilmProfile_Field_WhitePoint" xml:space="preserve"><value>Target white point</value></data>
+  <data name="FilmProfile_Field_Alignment" xml:space="preserve"><value>Channel alignment</value></data>
+  <data name="FilmProfile_Field_DngExport" xml:space="preserve"><value>DNG output</value></data>
+  <data name="FilmProfile_Field_Rows" xml:space="preserve"><value>Scan rows</value></data>
+  <data name="FilmProfile_Field_ScanMotor" xml:space="preserve"><value>Scan motor</value></data>
+  <data name="FilmProfile_Field_LinePitch" xml:space="preserve"><value>Motor distance per line</value></data>
+  <data name="FilmProfile_Field_Transport" xml:space="preserve"><value>Transport mode</value></data>
+  <data name="FilmProfile_Field_ChannelAssignment" xml:space="preserve"><value>Scan channels</value></data>
+  <data name="FilmProfile_Field_Illumination" xml:space="preserve"><value>Channel illumination</value></data>
+  <data name="FilmProfile_Field_Color" xml:space="preserve"><value>Color management</value></data>
+  <data name="FilmProfile_Field_Channels" xml:space="preserve"><value>Channel configuration</value></data>
+  <data name="FilmProfile_Field_Acquisition" xml:space="preserve"><value>Acquisition settings</value></data>
+  <data name="FilmProfile_Field_Configuration" xml:space="preserve"><value>Film configuration</value></data>
+  <data name="FilmProfile_Validation_ExposureInputInvalid" xml:space="preserve"><value>{0}: In channel details, enter an exposure in μs within the allowed range. {1}</value></data>
+  <data name="FilmProfile_Validation_SystemClockInputMissing" xml:space="preserve"><value>System clock is not set. In Configuration properties → Device settings, enter 30–200 MHz with at most three decimal places. You can save a draft now.</value></data>
+  <data name="FilmProfile_Validation_SystemClockInputInvalid" xml:space="preserve"><value>In Configuration properties → Device settings, enter a system clock from 30–200 MHz with at most three decimal places.</value></data>
+  <data name="FilmProfile_Validation_PendingCount" xml:space="preserve"><value>{0} to fill in</value></data>
+  <data name="FilmProfile_Validation_PendingLabel" xml:space="preserve"><value>To fill in</value></data>
+  <data name="FilmProfile_Validation_CheckPendingAction" xml:space="preserve"><value>Check · {0} to fill in</value></data>
+  <data name="FilmProfile_Validation_SaveHintPending" xml:space="preserve"><value>{0} fields remain. You can save a draft.</value></data>
+  <data name="FilmProfile_Validation_AdcOffsetInputInvalid" xml:space="preserve"><value>{0}: Enter an integer from −255 to +255 for {1} offset.</value></data>
+  <data name="FilmProfile_Validation_AdcGainInputInvalid" xml:space="preserve"><value>{0}: Enter an integer from 0–63 for {1} gain.</value></data>
+  <data name="Scan_PreparationConnectButton.Content" xml:space="preserve"><value>Connect scanner</value></data>
+  <data name="Scan_Runtime_PreparationRemaining" xml:space="preserve"><value>Preparation remaining: {0}</value></data>
+  <data name="Scan_Runtime_PreparationReady" xml:space="preserve"><value>Basic preparation complete</value></data>
+  <data name="Scan_Runtime_ConfigSourceNotLoaded" xml:space="preserve"><value>Choose a configuration file, or prepare one in Film Configuration.</value></data>
+  <data name="Scan_Runtime_ConfigSourceLoaded" xml:space="preserve"><value>Configuration for this scan</value></data>
+  <data name="Scan_Runtime_ColorSourceProfile" xml:space="preserve"><value>Using color settings from the configuration. Edits apply to this scan only.</value></data>
+  <data name="Scan_Runtime_ColorSourceDefaults" xml:space="preserve"><value>Starting with default color settings. Edits apply to this scan only.</value></data>
+  <data name="Scan_Runtime_ConfigChannelProfilesMissing" xml:space="preserve"><value>Some scan channels lack parameters. Load a configuration containing parameters for these channels.</value></data>
+  <data name="Scan_Runtime_ConfigLoadFailedTitle" xml:space="preserve"><value>Configuration could not be loaded</value></data>
+  <data name="Settings_General.Text" xml:space="preserve"><value>Appearance and language</value></data>
+  <data name="Settings_BreadcrumbRoot" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_DeviceEntryTitle.Text" xml:space="preserve"><value>Device settings</value></data>
+  <data name="Settings_DeviceEntryDescription.Text" xml:space="preserve"><value>Motors, illumination channels, and DNG geometry defaults.</value></data>
+  <data name="Settings_AdvancedEntryTitle.Text" xml:space="preserve"><value>Advanced and diagnostics</value></data>
+  <data name="Settings_AdvancedEntryDescription.Text" xml:space="preserve"><value>Log output and USB transfer settings.</value></data>
+  <data name="Settings_ScanDefaults.Text" xml:space="preserve"><value>Scan defaults</value></data>
+  <data name="Settings_ScanDefaultsEntryDescription.Text" xml:space="preserve"><value>Color management, spectral wavelengths, gamma, and white point.</value></data>
+  <data name="Settings_Advanced.Header" xml:space="preserve"><value>Advanced and diagnostics</value></data>
+  <data name="Settings_AdvancedHelp.Text" xml:space="preserve"><value>Changes are saved automatically.</value></data>
+  <data name="Settings_Diagnostics.Text" xml:space="preserve"><value>Log output</value></data>
+  <data name="Settings_DiagnosticsHelp.Text" xml:space="preserve"><value>The log page keeps the latest 500 entries. Enable the local log file to retain earlier entries for troubleshooting.</value></data>
+  <data name="Settings_Transfer.Text" xml:space="preserve"><value>USB transfer</value></data>
+  <data name="Settings_RawIoHelp.Text" xml:space="preserve"><value>Use raw USB reads to adjust transfer compatibility.</value></data>
+  <data name="Log_SearchTextBox.Header" xml:space="preserve"><value>Search logs</value></data>
+  <data name="Log_SearchTextBox.PlaceholderText" xml:space="preserve"><value>Message, source, or time</value></data>
+  <data name="Log_LevelFilter.Header" xml:space="preserve"><value>Level</value></data>
+  <data name="Log_FilterAll.Content" xml:space="preserve"><value>All</value></data>
+  <data name="Log_FilterError.Content" xml:space="preserve"><value>Error</value></data>
+  <data name="Log_FilterWarning.Content" xml:space="preserve"><value>Warning</value></data>
+  <data name="Log_FilterInformation.Content" xml:space="preserve"><value>Information</value></data>
+  <data name="Log_FilterUnknown.Content" xml:space="preserve"><value>Unclassified</value></data>
+  <data name="Log_LevelError" xml:space="preserve"><value>Error</value></data>
+  <data name="Log_LevelWarning" xml:space="preserve"><value>Warning</value></data>
+  <data name="Log_LevelInformation" xml:space="preserve"><value>Info</value></data>
+  <data name="Log_LevelUnknown" xml:space="preserve"><value>Unclassified</value></data>
+  <data name="Log_FollowToggle.Header" xml:space="preserve"><value>Auto-scroll</value></data>
+  <data name="Log_FollowToggle.OnContent" xml:space="preserve"><value>Following new entries</value></data>
+  <data name="Log_FollowToggle.OffContent" xml:space="preserve"><value>Following paused</value></data>
+  <data name="Log_FilterHelp.Text" xml:space="preserve"><value>Levels are inferred from log text; unrecognized entries stay unclassified. New entries still arrive while following is paused.</value></data>
+  <data name="Log_CopyVisibleErrorsButton.Content" xml:space="preserve"><value>Copy visible errors</value></data>
+  <data name="Log_CopySelectedButton.Content" xml:space="preserve"><value>Copy selected entry</value></data>
+  <data name="Log_CopySucceeded" xml:space="preserve"><value>Copied to clipboard.</value></data>
+  <data name="Log_CopyFailed" xml:space="preserve"><value>Could not copy. Try again.</value></data>
+  <data name="Log_FilteredStatus" xml:space="preserve"><value>Showing {0} of {1} entries · latest {2} retained</value></data>
+  <data name="Log_NoMatches" xml:space="preserve"><value>No entries match these filters.</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save the current channel as a preset</value></data>
+  <data name="ScanDebug_ApplyParamsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Apply current channel parameters to device</value></data>
+  <data name="ScanDebug_ExposureTimingDetailsExpander.Header" xml:space="preserve"><value>Advanced exposure timing (read only)</value></data>
+  <data name="ScanDebug_ExposureTimingDetailsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Advanced exposure timing (read only)</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.Content" xml:space="preserve"><value>Save and use for scanning</value></data>
+  <data name="ScanDebug_ReviewBeforeScanAction" xml:space="preserve"><value>Check configuration…</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Check and save the film configuration, then open scanning</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Save the full film configuration and load it on the scan page, ready to start scanning.</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.ToolTipService.ToolTip" xml:space="preserve"><value>Save the full film configuration and load it on the scan page, ready to start scanning.</value></data>
+  <data name="ScanDebug_SaveHintInvalid" xml:space="preserve"><value>{0} issues remain. You can save a draft.</value></data>
+  <data name="ScanDebug_SaveHintBusy" xml:space="preserve"><value>Save the full configuration after the current operation finishes.</value></data>
+  <data name="ScanDebug_SaveHintReady" xml:space="preserve"><value>Parameter checks passed. The full configuration can be saved; sampling still depends on device and channel readiness.</value></data>
+  <data name="ScanDebug_ReturnToTaskFormat" xml:space="preserve"><value>← Back to {0}</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftFormat" xml:space="preserve"><value>Configured clock: {0}</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftIdle" xml:space="preserve"><value>Configured clock: not entered</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockDisconnected" xml:space="preserve"><value>Device clock: disconnected</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockUnknown" xml:space="preserve"><value>Device clock: not read</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockReadRequired" xml:space="preserve"><value>Device clock: read again to confirm</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockFormat" xml:space="preserve"><value>Device clock: {0} MHz</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftNotApplied" xml:space="preserve"><value>Configured clock awaiting device confirmation</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftApplied" xml:space="preserve"><value>Clock confirmed by current device</value></data>
+  <data name="ScanDebug_Runtime_ExposureInputRange" xml:space="preserve"><value>Exposure at this clock: {0}–{1} μs</value></data>
+  <data name="ScanDebug_Runtime_ExposureInputClockRequired" xml:space="preserve"><value>Enter a valid clock to see the exposure range</value></data>
+  <data name="Scan_UseSavedFilmProfileButton.Content" xml:space="preserve"><value>Use saved configuration</value></data>
+  <data name="Scan_UseSavedFilmProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use the saved film configuration</value></data>
+  <data name="Scan_EditFilmProfileButton.Content" xml:space="preserve"><value>Edit configuration</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileAvailable" xml:space="preserve"><value>Saved in Film Configuration: {0}</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileUnavailable" xml:space="preserve"><value>No saved film configuration yet. Edit and save one, or load a file.</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileMissing" xml:space="preserve"><value>Save a configuration in the film configuration editor first.</value></data>
+  <data name="Scan_Runtime_StatusSavedFilmProfileLoaded" xml:space="preserve"><value>Using saved configuration “{0}”.</value></data>
+  <data name="ScanDebug_FilmProfileDraftMenuScopeText.Text" xml:space="preserve"><value>Drafts let you continue editing later. Validate and save a full configuration to use it for scanning.</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.Content" xml:space="preserve"><value>Save configuration…</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save configuration, or a draft if incomplete</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Keep current edits, including unfinished or invalid input.</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.Content" xml:space="preserve"><value>Open draft…</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open draft</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Restore a draft to continue editing. Validate and save a full configuration before scanning.</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowMenuTitle.Text" xml:space="preserve"><value>From film configuration to scanning</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowConfigurationStepButton.Content" xml:space="preserve"><value>1 · Configure acquisition and properties</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowConfigurationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Step one: configure acquisition and properties</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowCalibrationStepButton.Content" xml:space="preserve"><value>2 · Prepare channels and calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowCalibrationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Step two: prepare channels and calibration</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowReviewStepButton.Content" xml:space="preserve"><value>3 · Validate configuration</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowReviewStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Step three: validate configuration</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowScanStepButton.Content" xml:space="preserve"><value>4 · Save and use for scanning</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowScanStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Step four: save and use for scanning</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowNavigationScopeText.Text" xml:space="preserve"><value>Choose a step to go to its settings, validation or save action.</value></data>
+  <data name="ScanDebug_WorkflowSetupTitle" xml:space="preserve"><value>Suggested: prepare configuration</value></data>
+  <data name="ScanDebug_WorkflowCalibrationTitle" xml:space="preserve"><value>Suggested: review channel references</value></data>
+  <data name="ScanDebug_WorkflowReviewTitle" xml:space="preserve"><value>Suggested: check configuration</value></data>
+  <data name="ScanDebug_WorkflowSaveTitle" xml:space="preserve"><value>Suggested: save and use for scanning</value></data>
+  <data name="ScanDebug_WorkflowSetupDetail" xml:space="preserve"><value>Choose channels and acquisition settings. Save a draft at any stage.</value></data>
+  <data name="ScanDebug_WorkflowCalibrationDetail" xml:space="preserve"><value>Review selected-channel parameters and black/white references. Connect hardware to acquire calibration samples. You can still validate and save the full configuration.</value></data>
+  <data name="ScanDebug_WorkflowReviewDetail" xml:space="preserve"><value>There are {0} configuration issue(s). Locate them here, or save a draft.</value></data>
+  <data name="ScanDebug_WorkflowSaveDetail" xml:space="preserve"><value>Structural checks passed. Save the full configuration to use it on the scan page.</value></data>
+  <data name="ScanDebug_WorkflowSetupAction" xml:space="preserve"><value>Prepare configuration</value></data>
+  <data name="ScanDebug_WorkflowCalibrationAction" xml:space="preserve"><value>Review channels</value></data>
+  <data name="ScanDebug_WorkflowReviewAction" xml:space="preserve"><value>Validate and fix</value></data>
+  <data name="ScanDebug_WorkflowSaveAction" xml:space="preserve"><value>Go to save and scan</value></data>
+  <data name="ScanDebug_DraftSaved" xml:space="preserve"><value>Draft saved: {0}.</value></data>
+  <data name="ScanDebug_DraftOpened" xml:space="preserve"><value>Draft restored: {0}. Continue editing, or validate and save the full configuration.</value></data>
+  <data name="ScanDebug_DraftCanceled" xml:space="preserve"><value>Draft operation canceled.</value></data>
+  <data name="ScanDebug_DraftOpenSuperseded" xml:space="preserve"><value>Your configuration changed while opening the draft. The current input was kept.</value></data>
+  <data name="ScanDebug_DraftSaveFailed" xml:space="preserve"><value>Could not save draft: {0}</value></data>
+  <data name="ScanDebug_DraftOpenFailed" xml:space="preserve"><value>This draft could not be opened. The file is unsupported or damaged.</value></data>
+  <data name="ScanDebug_DraftTooLarge" xml:space="preserve"><value>The draft is too large. Choose a file smaller than 2 MB.</value></data>
+  <data name="ScanDebug_DraftSaveHint" xml:space="preserve"><value>Drafts keep unfinished input. Validate and save a full configuration before scanning.</value></data>
+  <data name="ScanDebug_DraftSuggestedName" xml:space="preserve"><value>Film configuration draft</value></data>
+  <data name="Scan_DeviceDiagnosticsButton.Content" xml:space="preserve"><value>Connection details</value></data>
+  <data name="Scan_DeviceDiagnosticsText.Text" xml:space="preserve"><value>PRISM USB identifiers: VID 0x0483, PID 0x619C / 0x619D</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.Content" xml:space="preserve"><value>Workflow</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Configuration and scanning workflow</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>View the recommended step and go to configuration, calibration, validation or save.</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.Content" xml:space="preserve"><value>Calibration steps</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View all calibration steps</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>View device, channel and range preparation, calibration, review and save steps.</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.Content" xml:space="preserve"><value>Restore and help</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Range restore options and help</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Restore default ranges, discard unapplied edits, or learn how the ranges are used.</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Start autofocus with the current preset</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Start autofocus with the current preset. Change the preset in Search parameters.</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Start autofocus with the current preset. Adjust it in Search parameters.</value></data>
+  <data name="ScanDebug_QuickFocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Switch to the Quick preset and start autofocus.</value></data>
+  <data name="ScanDebug_FineFocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Switch to the Fine preset and start autofocus.</value></data>
+  <data name="ScanDebug_ProfileStateDraftSaved" xml:space="preserve"><value>Draft saved</value></data>
+  <data name="ScanDebug_ProfileStateDraftUnsaved" xml:space="preserve"><value>Draft has unsaved changes</value></data>
+  <data name="ScanDebug_ProfileSaveStateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View save and apply scopes</value></data>
+  <data name="ScanDebug_ProfileSaveStateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>View the purposes of drafts, channel presets, full configurations and device application.</value></data>
+  <data name="ScanDebug_SaveScopeDraftText.Text" xml:space="preserve"><value>Draft: keeps current edits, including unfinished input.</value></data>
+  <data name="ScanDebug_SaveScopeLibraryText.Text" xml:space="preserve"><value>Channel preset: stores channel parameters for reuse in other configurations.</value></data>
+  <data name="ScanDebug_SaveScopeConfigurationText.Text" xml:space="preserve"><value>Full configuration: save after validation to use it on the scan page.</value></data>
+  <data name="ScanDebug_SaveScopeDeviceText.Text" xml:space="preserve"><value>Device: applied parameters are used for capture and calibration in the current session.</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveFocusPositive" xml:space="preserve"><value>Focus positive (Z+)</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveFocusNegative" xml:space="preserve"><value>Focus negative (Z−)</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveTransportForward" xml:space="preserve"><value>Film forward</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveTransportReverse" xml:space="preserve"><value>Film reverse</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveDirection0" xml:space="preserve"><value>Direction 0</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveDirection1" xml:space="preserve"><value>Direction 1</value></data>
+  <data name="ScanDebug_SaveHintNotValidated" xml:space="preserve"><value>Saving checks the configuration; unfinished work is saved as a draft.</value></data>
+  <data name="Settings_DeviceChannels.Header" xml:space="preserve"><value>Device and channels</value></data>
+  <data name="Settings_DeviceChannelsScope.Text" xml:space="preserve"><value>Saved on this computer. Loaded film profiles retain their sampling parameters and illumination channels.</value></data>
+  <data name="Settings_DeviceMotorAssignments.Text" xml:space="preserve"><value>Motor assignments</value></data>
+  <data name="Settings_DeviceTransportMotor.Header" xml:space="preserve"><value>Transport motor</value></data>
+  <data name="Settings_DeviceLeftFocusMotor.Header" xml:space="preserve"><value>Left focus motor</value></data>
+  <data name="Settings_DeviceRightFocusMotor.Header" xml:space="preserve"><value>Right focus motor</value></data>
+  <data name="Settings_DeviceZPositiveDirection.Header" xml:space="preserve"><value>Focus positive direction (Z+)</value></data>
+  <data name="Settings_DeviceTiltPositiveDirection.Header" xml:space="preserve"><value>Tilt positive direction</value></data>
+  <data name="Settings_DeviceIllumination.Text" xml:space="preserve"><value>Illumination channel roles</value></data>
+  <data name="Settings_DeviceMechanics.Text" xml:space="preserve"><value>Motor mechanics</value></data>
+  <data name="Settings_DeviceStepsPerRevolution.Header" xml:space="preserve"><value>Steps per revolution</value></data>
+  <data name="Settings_DeviceMicrosteps.Header" xml:space="preserve"><value>Microsteps</value></data>
+  <data name="Settings_DeviceLeadLength.Header" xml:space="preserve"><value>Travel per revolution (mm)</value></data>
+  <data name="Settings_SaveDeviceChannels.Content" xml:space="preserve"><value>Save to this computer</value></data>
+  <data name="Settings_PersistenceScopeDevice" xml:space="preserve"><value>Device and channels</value></data>
+  <data name="Settings_DeviceUnsaved" xml:space="preserve"><value>Changes have not been saved.</value></data>
+  <data name="Settings_DeviceSaved" xml:space="preserve"><value>Saved to this computer.</value></data>
+  <data name="Settings_DeviceSelectMotors" xml:space="preserve"><value>Select a motor and direction for each function.</value></data>
+  <data name="Settings_DeviceInvalidMechanics" xml:space="preserve"><value>Steps, microsteps and travel must be positive; steps and microsteps must be whole numbers.</value></data>
+  <data name="Settings_DeviceSelectRoles" xml:space="preserve"><value>Select a role for each illumination channel.</value></data>
+  <data name="Settings_DeviceDuplicateRoles" xml:space="preserve"><value>Each illumination role can be assigned once. Use Unused for spare channels.</value></data>
+  <data name="Settings_DeviceDuplicateMotors" xml:space="preserve"><value>Transport, left focus and right focus must use different motors.</value></data>
+  <data name="Preview_FitButton.Content" xml:space="preserve"><value>Fit</value></data>
+  <data name="Preview_FitButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Fit the window as the preview changes</value></data>
+  <data name="Preview_ActualSizeButton.Content" xml:space="preserve"><value>100%</value></data>
+  <data name="Preview_ActualSizeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Show actual pixels</value></data>
+  <data name="Preview_ZoomOutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Zoom out preview</value></data>
+  <data name="Preview_ZoomInButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Zoom in preview</value></data>
+  <data name="Preview_ZoomOutButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Preview_ZoomInButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Preview_ZoomReadout.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Preview zoom</value></data>
+  <data name="Preview_InteractionHint.Text" xml:space="preserve"><value>Scroll to zoom · Drag to pan</value></data>
+  <data name="Scan_ExecutionOverrideHint.Text" xml:space="preserve"><value>Changes apply to this scan only; the saved configuration is unchanged.</value></data>
+  <data name="Scan_DeviceMappingButton.Content" xml:space="preserve"><value>Device mapping…</value></data>
+  <data name="Scan_DeviceMappingButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open device and channel settings</value></data>
+  <data name="ScanDebug_RawSignalPosition" xml:space="preserve"><value>Row {0} of {1}</value></data>
+  <data name="ScanDebug_RawSignalSelectEmpty" xml:space="preserve"><value>Capture an image, then click or drag the sampling line.</value></data>
+  <data name="ScanDebug_RawSignalSelectSnapshot" xml:space="preserve"><value>Resume live view to select another sampling line.</value></data>
+  <data name="ScanDebug_RawSignalSelectAveragedWaterfall" xml:space="preserve"><value>Compressed strips average multiple rows. Switch to normal image view to select a line, or use precise row position.</value></data>
+  <data name="ScanDebug_RawSignalSelectComposite" xml:space="preserve"><value>Select a single channel to choose a line on the image; precise row position uses the selected channel RAW data.</value></data>
+  <data name="ScanDebug_RawSignalSelectWaterfall" xml:space="preserve"><value>Click or drag in the newest capture at the top. Use Up / Down to adjust one row.</value></data>
+  <data name="ScanDebug_RawSignalSelectImage" xml:space="preserve"><value>Click or drag the horizontal line. Use Up / Down to adjust one row; middle-drag to pan.</value></data>
+  <data name="ScanDebug_RawSignalSamplingLine" xml:space="preserve"><value>Sampling line</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.OnContent" xml:space="preserve"><value>Follow latest row</value></data>
+  <data name="ScanDebug_RawSignalPrecisePosition.Content" xml:space="preserve"><value>Precise position…</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Precise row position, starting at row 1</value></data>
+  <data name="ScanDebug_DeviceChannelsEntry.Content" xml:space="preserve"><value>Device and channel settings…</value></data>
+  <data name="ScanDebug_DeviceClockEntry.Content" xml:space="preserve"><value>Set device clock…</value></data>
+  <data name="ScanDebug_ClockNotSet" xml:space="preserve"><value>Clock not entered</value></data>
+  <data name="ScanDebug_ClockOffline" xml:space="preserve"><value>Device offline</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Save current edits; incomplete configurations are saved as editable drafts.</value></data>
+  <data name="ScanDebug_SaveChannelProfileButton.Content" xml:space="preserve"><value>Save channel preset</value></data>
+  <data name="ScanDebug_ChannelStatusListDescription.Text" xml:space="preserve"><value>Select a channel to edit its parameters.</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.OffContent" xml:space="preserve"><value>Fixed position</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Follow latest row or fixed position</value></data>
+  <data name="Scan_PreparationDeviceAction" xml:space="preserve"><value>Scanner not ready · View connection →</value></data>
+  <data name="Scan_PreparationLoadAction" xml:space="preserve"><value>No configuration · Load configuration…</value></data>
+  <data name="Scan_PreparationConfigurationAction" xml:space="preserve"><value>Configuration incomplete · Review →</value></data>
+  <data name="Scan_PreparationExecutionAction" xml:space="preserve"><value>Motion settings need attention · Review →</value></data>
+  <data name="Scan_PreparationOutputAction" xml:space="preserve"><value>Output in progress · View status →</value></data>
+  <data name="Scan_PreparationUseSavedAction" xml:space="preserve"><value>No configuration · Use saved configuration →</value></data>
+  <data name="Scan_PreparationReplaceAction" xml:space="preserve"><value>Missing channel calibration · Replace configuration…</value></data>
+  <data name="Scan_PreparationColorAction" xml:space="preserve"><value>Color settings need attention · Review →</value></data>
+  <data name="Scan_ExecutionSummaryTitle.Text" xml:space="preserve"><value>Execution summary</value></data>
+  <data name="FilmProfile_Validation_ExposureInputMissing" xml:space="preserve"><value>{0}: Exposure time is not entered. Set it in channel details, in μs.</value></data>
+  <data name="FilmProfile_Validation_AdcOffsetInputMissing" xml:space="preserve"><value>{0}: {1} offset is not entered. Enter an integer from −255 to +255 in channel details.</value></data>
+  <data name="FilmProfile_Validation_AdcGainInputMissing" xml:space="preserve"><value>{0}: {1} gain is not entered. Enter an integer from 0–63 in channel details.</value></data>
+  <data name="FilmProfile_Field_SystemClock" xml:space="preserve"><value>System clock</value></data>
+  <data name="FilmProfile_Field_Exposure" xml:space="preserve"><value>Exposure time</value></data>
+  <data name="FilmProfile_Field_Adc1Offset" xml:space="preserve"><value>ADC1 offset</value></data>
+  <data name="FilmProfile_Field_Adc1Gain" xml:space="preserve"><value>ADC1 gain</value></data>
+  <data name="FilmProfile_Field_Adc2Offset" xml:space="preserve"><value>ADC2 offset</value></data>
+  <data name="FilmProfile_Field_Adc2Gain" xml:space="preserve"><value>ADC2 gain</value></data>
+  <data name="ScanDebug_ClockInputFormatHint" xml:space="preserve"><value>Enter 30–200 MHz with at most three decimal places.</value></data>
+  <data name="ScanDebug_ClockInputInvalidState" xml:space="preserve"><value>Clock input is invalid</value></data>
+  <data name="ScanDebug_ClockPendingOffline" xml:space="preserve"><value>{0} MHz · Not applied (device offline)</value></data>
+  <data name="ScanDebug_ClockNeedsConfirmation" xml:space="preserve"><value>{0} MHz · Read device to confirm</value></data>
+  <data name="ScanDebug_ClockApplied" xml:space="preserve"><value>{0} MHz · Applied</value></data>
+  <data name="ScanDebug_ClockPendingApply" xml:space="preserve"><value>{0} MHz · Not applied</value></data>
+  <data name="ScanDebug_ExposureInputFormatHint" xml:space="preserve"><value>Enter an exposure in μs within the allowed range shown for this clock.</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="Settings_DebugFileLogToggleSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="Settings_DebugFileLogToggleSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="Settings_ThemeDescription.Text" xml:space="preserve"><value>Choose light, dark, or your system setting.</value></data>
+  <data name="Settings_LanguageDescription.Text" xml:space="preserve"><value>Choose the app display language.</value></data>
+  <data name="Settings_SpectralMappingTitle.Text" xml:space="preserve"><value>Spectral wavelength mapping</value></data>
+  <data name="Settings_SpectralMappingDescription.Text" xml:space="preserve"><value>Use for RGB preview and PNG output.</value></data>
+  <data name="Settings_OutputGroup.Text" xml:space="preserve"><value>Output color</value></data>
+  <data name="Settings_GammaLabel.Text" xml:space="preserve"><value>Output gamma</value></data>
+  <data name="Settings_WhitePointLabel.Text" xml:space="preserve"><value>Target white point</value></data>
+  <data name="Settings_ManualTemperatureLabel.Text" xml:space="preserve"><value>Manual color temperature (K)</value></data>
+  <data name="Settings_ManualTemperatureDescription.Text" xml:space="preserve"><value>Used when Manual color temperature is selected.</value></data>
+  <data name="Settings_DeviceTransportMotorLabel.Text" xml:space="preserve"><value>Transport motor</value></data>
+  <data name="Settings_DeviceLeftFocusMotorLabel.Text" xml:space="preserve"><value>Left focus motor</value></data>
+  <data name="Settings_DeviceRightFocusMotorLabel.Text" xml:space="preserve"><value>Right focus motor</value></data>
+  <data name="Settings_FocusDirections.Text" xml:space="preserve"><value>Focus directions</value></data>
+  <data name="Settings_DeviceZPositiveDirectionLabel.Text" xml:space="preserve"><value>Focus positive direction (Z+)</value></data>
+  <data name="Settings_DeviceTiltPositiveDirectionLabel.Text" xml:space="preserve"><value>Tilt positive direction</value></data>
+  <data name="Settings_MechanicsMotorColumn.Text" xml:space="preserve"><value>Motor</value></data>
+  <data name="Settings_MechanicsStepsColumn.Text" xml:space="preserve"><value>Steps per revolution</value></data>
+  <data name="Settings_MechanicsMicrostepsColumn.Text" xml:space="preserve"><value>Microsteps</value></data>
+  <data name="Settings_MechanicsTravelColumn.Text" xml:space="preserve"><value>Travel per revolution (mm)</value></data>
+  <data name="Settings_DebugConsoleTitle.Text" xml:space="preserve"><value>Debug console</value></data>
+  <data name="Settings_DebugConsoleDescription.Text" xml:space="preserve"><value>Mirror program output to the debug console.</value></data>
+  <data name="Settings_DebugFileTitle.Text" xml:space="preserve"><value>Local log file</value></data>
+  <data name="Settings_DebugFileDescription.Text" xml:space="preserve"><value>Mirror program output to a local file.</value></data>
+  <data name="Settings_MultiBufferTitle.Text" xml:space="preserve"><value>Multi-buffer reads</value></data>
+  <data name="Settings_RawIoTitle.Text" xml:space="preserve"><value>Raw I/O</value></data>
+  <data name="Settings_MechanicsStepsInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Steps per revolution</value></data>
+  <data name="Settings_MechanicsMicrostepsInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Microsteps</value></data>
+  <data name="Settings_MechanicsTravelInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Travel per revolution (mm)</value></data>
+  <data name="ScanDebug_WhiteSourceRgb" xml:space="preserve">
+    <value>RGB combined light</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceDedicated" xml:space="preserve">
+    <value>Dedicated white LED</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceUnavailable" xml:space="preserve">
+    <value>The configured light source is not mapped on this device.</value>
+  </data>
+  <data name="ScanDebug_WhiteLightingInvalid" xml:space="preserve">
+    <value>Enter a level from 0 to 65535 and a pulse of at least 2 clocks.</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceLabel.Text" xml:space="preserve">
+    <value>Light source</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceComboBox.AutomationProperties.Name" xml:space="preserve">
+    <value>White channel light source</value>
+  </data>
+  <data name="ScanDebug_WhiteSourcePendingInput" xml:space="preserve">
+    <value>Finish or revert the current channel edits before changing the light source.</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowWhiteCaptureRows" xml:space="preserve">
+    <value>Pass {0}/{1}: White ({2}), capturing {3} rows...</value>
+  </data>
+  <data name="Scan_Runtime_WhiteSourceMappingRequired" xml:space="preserve">
+    <value>The selected white light source requires exactly one {0} LED mapping.</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceProfileRequired" xml:space="preserve">
+    <value>Configure the white channel exposure and calibration for {0} first.</value>
+  </data>
+  <data name="ScanDebug_WhiteWorkflowProgress" xml:space="preserve">
+    <value>Pass {0}/{1}: White ({2}) · {3}</value>
+  </data>
+  <data name="Scan_Runtime_CurrentWhiteProgress" xml:space="preserve">
+    <value>White W · {0}</value>
+  </data>
+  <data name="Scan_Runtime_WhiteSourceSummary" xml:space="preserve">
+    <value>White W: {0}</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeRawWhite" xml:space="preserve">
+    <value>Raw White W ({0})</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputPlan" xml:space="preserve">
+    <value>Exports {0} DNG file(s): {1}</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputRaw4" xml:space="preserve">
+    <value>4-channel raw data</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputRgb" xml:space="preserve">
+    <value>RGB color composite</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputMono" xml:space="preserve">
+    <value>{0} raw grayscale</value>
+  </data>
+  <data name="Scan_Runtime_ChannelMappingRequired" xml:space="preserve">
+    <value>Configure exactly one {0} LED mapping for the selected capture channel.</value>
+  </data>
+  <data name="ScanDebug_WhiteLightingChannelColumn.Text" xml:space="preserve"><value>Channel</value></data>
+  <data name="ScanDebug_WhiteLightingLevelColumn.Text" xml:space="preserve"><value>Level</value></data>
+  <data name="ScanDebug_WhiteLightingPulseColumn.Text" xml:space="preserve"><value>Pulse clocks</value></data>
+  <data name="ScanDebug_WhiteLightingModeColumn.Text" xml:space="preserve"><value>Mode</value></data>
+  <data name="Scan_NewFilmProfileButton.Content" xml:space="preserve"><value>New configuration</value></data>
+  <data name="Scan_PreparationCalibrationMissing" xml:space="preserve"><value>Channel calibration missing</value></data>
+  <data name="Scan_ContinueFilmProfileButton.Content" xml:space="preserve"><value>Continue editing configuration</value></data>
+  <data name="ScanDebug_AcquisitionCalibrationSummaryFormat" xml:space="preserve"><value>{0} selected channels: {1}</value></data>
+  <data name="Scan_PreparationConfigurationMissing" xml:space="preserve"><value>No configuration loaded</value></data>
+  <data name="Settings_DeviceDngGeometry.Header" xml:space="preserve"><value>DNG geometry defaults</value></data>
+  <data name="Settings_RevertDeviceChanges.Content" xml:space="preserve"><value>Revert changes</value></data>
+  <data name="Settings_PersistenceScopeDngGeometry" xml:space="preserve"><value>DNG geometry</value></data>
+  <data name="Settings_DeviceLeaveTitle" xml:space="preserve"><value>Save device settings?</value></data>
+  <data name="Settings_DeviceLeaveMessage" xml:space="preserve"><value>You have unsaved device settings.</value></data>
+  <data name="Settings_DeviceSaveAndLeave" xml:space="preserve"><value>Save and leave</value></data>
+  <data name="Settings_DeviceDiscardAndLeave" xml:space="preserve"><value>Discard changes</value></data>
+  <data name="Settings_DeviceKeepEditing" xml:space="preserve"><value>Keep editing</value></data>
+  <data name="ScanDebug_WorkbenchParametersNotChecked" xml:space="preserve"><value>Parameters not checked</value></data>
+  <data name="ScanDebug_WorkbenchParametersIncomplete" xml:space="preserve"><value>Parameters incomplete · {0}</value></data>
+  <data name="ScanDebug_WorkbenchParametersInvalid" xml:space="preserve"><value>Parameters need repair · {0}</value></data>
+  <data name="ScanDebug_WorkbenchParametersReview" xml:space="preserve"><value>Parameters need review</value></data>
+  <data name="ScanDebug_WorkbenchParametersWithNotices" xml:space="preserve"><value>Parameters checked · notices: {0}</value></data>
+  <data name="ScanDebug_WorkbenchParametersValid" xml:space="preserve"><value>Parameter checks passed</value></data>
+  <data name="ScanDebug_WorkbenchParameterDetail" xml:space="preserve"><value>Checks cover configuration structure and input values. Passing does not confirm complete calibration references, calibration quality, or device readiness.</value></data>
+  <data name="ScanDebug_WorkbenchReferencesNoChannels" xml:space="preserve"><value>No acquisition channels selected</value></data>
+  <data name="ScanDebug_WorkbenchReferencesCoverage" xml:space="preserve"><value>References configured · {0}/{1} channels</value></data>
+  <data name="ScanDebug_WorkbenchReferencesSelectChannels" xml:space="preserve"><value>Choose channels in Sampling to review their black/white references.</value></data>
+  <data name="ScanDebug_WorkbenchReferencesComplete" xml:space="preserve"><value>All selected channels have black/white references. This describes configuration data, not measured calibration quality.</value></data>
+  <data name="ScanDebug_WorkbenchReferencesMissing" xml:space="preserve"><value>Missing black/white references: {0}. A valid configuration can still be saved; review these references before using calibrated output.</value></data>
+  <data name="ScanDebug_WorkbenchDeviceOffline" xml:space="preserve"><value>Device not connected</value></data>
+  <data name="ScanDebug_WorkbenchDeviceReady" xml:space="preserve"><value>Ready to sample</value></data>
+  <data name="ScanDebug_ConfigurationFileNewItem.Text" xml:space="preserve"><value>New film configuration</value></data>
+  <data name="ScanDebug_ConfigurationFileNewItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>New film configuration</value></data>
+  <data name="ScanDebug_ConfigurationFileOpenItem.Text" xml:space="preserve"><value>Open configuration…</value></data>
+  <data name="ScanDebug_ConfigurationFileOpenItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open film configuration file</value></data>
+  <data name="ScanDebug_ConfigurationFileSaveItem.Text" xml:space="preserve"><value>Save full configuration…</value></data>
+  <data name="ScanDebug_ConfigurationFileSaveItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save full film configuration</value></data>
+  <data name="ScanDebug_ConfigurationDraftOpenItem.Text" xml:space="preserve"><value>Open editing draft…</value></data>
+  <data name="ScanDebug_ConfigurationDraftOpenItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open an editing draft and continue editing</value></data>
+  <data name="ScanDebug_ConfigurationPropertiesItem.Text" xml:space="preserve"><value>Configuration properties…</value></data>
+  <data name="ScanDebug_ConfigurationPropertiesItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View and edit film configuration properties</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.Content" xml:space="preserve"><value>View connection</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>View scanner connection</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Open the scanner connection panel without starting sampling or device operations.</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.Content" xml:space="preserve"><value>Start sampling</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Start sampling with the current acquisition settings</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Start sampling with the current acquisition mode, channels, and parameters.</value></data>
+  <data name="Scan_OfflineGuidance" xml:space="preserve">
+    <value>You can load a configuration and adjust this scan offline. Connect the scanner when you are ready to capture.</value>
+  </data>
+  <data name="Scan_SessionSettingsNoBaseline" xml:space="preserve">
+    <value>Load a configuration to track changes for this scan.</value>
+  </data>
+  <data name="Scan_SessionSettingsChanged" xml:space="preserve">
+    <value>Adjusted for this scan: {0}. The saved configuration is unchanged.</value>
+  </data>
+  <data name="Scan_SessionSettingsUnchanged" xml:space="preserve">
+    <value>Using the settings loaded with this configuration.</value>
+  </data>
+  <data name="Scan_ExecutionRowsSummary" xml:space="preserve">
+    <value>{0} rows</value>
+  </data>
+  <data name="Scan_ExecutionPrimarySummary" xml:space="preserve">
+    <value>{0} rows · {1} passes · {2}</value>
+  </data>
+  <data name="Scan_ExecutionSecondarySummary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Scan_ExecutionAlternateCompact" xml:space="preserve">
+    <value>Alternating</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveCompact" xml:space="preserve">
+    <value>{0} {1}/line</value>
+  </data>
+  <data name="Scan_ExecutionSameDirectionCompact" xml:space="preserve">
+    <value>Same direction</value>
+  </data>
+  <data name="Scan_SessionSettingsChangedCompact" xml:space="preserve">
+    <value>Adjusted: {0}</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsCompactButton.Content" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsCompactButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Restore loaded settings</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.Content" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>View channel order, light source, motion and preview settings.</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>View execution details</value>
+  </data>
+  <data name="Scan_ExecutionChannelsNone" xml:space="preserve">
+    <value>No channels selected</value>
+  </data>
+  <data name="Scan_ExecutionChannelsSummary" xml:space="preserve">
+    <value>{0} passes · {1}</value>
+  </data>
+  <data name="Scan_ExecutionMotionSummary" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="Scan_ExecutionAlternate" xml:space="preserve">
+    <value>Alternate each pass</value>
+  </data>
+  <data name="Scan_ExecutionSameDirection" xml:space="preserve">
+    <value>Same direction each pass</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveUnset" xml:space="preserve">
+    <value>Line distance not set</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveSummary" xml:space="preserve">
+    <value>{0} {1} per line</value>
+  </data>
+  <data name="Scan_ExecutionPreviewSummary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Scan_OutputLocationUnavailable" xml:space="preserve">
+    <value>The saved location could not be opened. Check that it still exists and is accessible: {0}</value>
+  </data>
+  <data name="Scan_ChangedRows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="Scan_ChangedTransport" xml:space="preserve">
+    <value>Transport</value>
+  </data>
+  <data name="Scan_ChangedLineDistance" xml:space="preserve">
+    <value>Line distance</value>
+  </data>
+  <data name="Scan_ChangedPreview" xml:space="preserve">
+    <value>Preview and alignment</value>
+  </data>
+  <data name="Scan_ChangedColor" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Scan_ChangedOutput" xml:space="preserve">
+    <value>DNG output</value>
+  </data>
+  <data name="Scan_CompletedFeedback" xml:space="preserve">
+    <value>Scan complete · {0} passes · {1} rows. Ready to save or export.</value>
+  </data>
+  <data name="Scan_PreparationParametersAction" xml:space="preserve">
+    <value>Channel parameters missing · Choose configuration…</value>
+  </data>
+  <data name="Scan_PreparationMappingAction" xml:space="preserve">
+    <value>Channel mapping needs attention · Review mapping →</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsButton.Content" xml:space="preserve">
+    <value>Restore loaded settings</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Restore loaded settings</value>
+  </data>
+  <data name="Scan_OpenOutputFolderButton.Content" xml:space="preserve">
+    <value>Open containing folder</value>
+  </data>
+  <data name="Scan_OpenOutputFolderButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Open containing folder</value>
+  </data>
+  <data name="Scan_PreviewSettingsButton.Content" xml:space="preserve">
+    <value>Preview settings</value>
+  </data>
+  <data name="Scan_PreviewSettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Preview settings</value>
+  </data>
+  <data name="Scan_PreviewSettingsTitle.Text" xml:space="preserve">
+    <value>Preview settings</value>
+  </data>
+  <data name="Scan_ExecutionRowsLabel.Text" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="Scan_ExecutionChannelsLabel.Text" xml:space="preserve">
+    <value>Channels and passes</value>
+  </data>
+  <data name="Scan_ExecutionMotionLabel.Text" xml:space="preserve">
+    <value>Transport</value>
+  </data>
+  <data name="Scan_ExecutionPreviewLabel.Text" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Scan_ConfigurationDetailsExpander.Header" xml:space="preserve"><value>Loaded configuration details</value></data>
+  <data name="ScanDebug_InspectionCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Close signal inspection</value></data>
+  <data name="ScanDebug_InspectionCloseButton.ToolTipService.ToolTip" xml:space="preserve"><value>Close signal inspection</value></data>
+  <data name="ScanDebug_InspectionAwaitingSample.Text" xml:space="preserve"><value>Capture a sample to see column readings and data sources.</value></data>
+  <data name="ScanDebug_Runtime_MotorMovePreview" xml:space="preserve"><value>Estimated {1}&#160;mm · {2} steps · {3}&#160;s&#10;Logical direction: {4}</value></data>
 </root>

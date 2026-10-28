@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$OutputPath = '..\.omo\evidence\task-24-design-correction-repairs.json',
+    [string]$OutputPath = '.artifacts/qa/layered-results.json',
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -447,7 +447,7 @@ $resolvedOutputPath = $null
 $runnerFailure = $false
 $writeFailure = $false
 $result = [ordered]@{
-    schemaVersion = 1; task = 'task24-design-correction-repairs'; startUtc = $startedAt.ToUniversalTime().ToString('o'); endUtc = $null
+    schemaVersion = 1; task = 'layered-qa'; startUtc = $startedAt.ToUniversalTime().ToString('o'); endUtc = $null
     durationSeconds = 0.0; shell = $null; repositoryRoot = $null; requestedOutputPath = $OutputPath; outputPath = $null
     requestedTimeoutSeconds = $TimeoutSeconds; status = 'SKIP'; reason = 'Runner has not completed.'; layers = [ordered]@{}
 }

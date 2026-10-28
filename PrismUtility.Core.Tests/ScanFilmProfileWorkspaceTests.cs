@@ -19,7 +19,7 @@ public sealed class ScanFilmProfileWorkspaceTests
 
         Assert.True(parsed.CanApply);
         Assert.True(built.CanApply);
-        Assert.Equal(6, built.Document?.SchemaVersion);
+        Assert.Equal(7, built.Document?.SchemaVersion);
     }
 
     [Fact]
@@ -730,7 +730,7 @@ public sealed class ScanFilmProfileWorkspaceTests
         var repository = new RecordingCalibrationProfileRepository();
         var workspace = CreateWorkspace(repository);
 
-        var staged = workspace.StageImport(ReadFixture("future-v7.json"));
+        var staged = workspace.StageImport(ReadFixture("future-v8.json"));
 
         Assert.False(staged.Staged);
         Assert.Null(workspace.Snapshot.StagedImport);
@@ -744,7 +744,7 @@ public sealed class ScanFilmProfileWorkspaceTests
         var workspace = CreateWorkspace(repository);
         var before = workspace.Snapshot;
 
-        var staged = workspace.StageImport(ReadFixture("future-v7.json"));
+        var staged = workspace.StageImport(ReadFixture("future-v8.json"));
         var after = workspace.Snapshot;
 
         Assert.False(staged.Staged);
@@ -782,7 +782,7 @@ public sealed class ScanFilmProfileWorkspaceTests
     }
 
     [Theory]
-    [InlineData("future-v7.json")]
+    [InlineData("future-v8.json")]
     [InlineData("invalid-v6-acquisition.json")]
     public void Todo9_FailedImport_PreservesCurrentBaselineAndExistingStagedDraft(string fixtureName)
     {

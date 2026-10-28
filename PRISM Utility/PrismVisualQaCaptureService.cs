@@ -19,7 +19,7 @@ internal static class PrismVisualQaCaptureService
     internal const string RequestDirectoryName = "PRISM_Utility_VisualQaCaptureRequests";
     internal const string ReadyFileName = "ready.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-    private static ScanDebugPage? _page;
+    private static Page? _page;
     private static DispatcherTimer? _timer;
     private static Task? _processingTask;
     private static bool _stopping;
@@ -29,7 +29,7 @@ internal static class PrismVisualQaCaptureService
 
     internal static void CancelShutdown() => _shutdownRequested = false;
 
-    internal static void Start(ScanDebugPage page)
+    internal static void Start(Page page)
     {
         if (_shutdownRequested || _stopping || _processingTask is { IsCompleted: false })
             return;
@@ -48,7 +48,7 @@ internal static class PrismVisualQaCaptureService
     internal static Task DrainActiveAsync()
         => _page is { } page ? StopAsync(page) : Task.CompletedTask;
 
-    internal static async Task StopAsync(ScanDebugPage page)
+    internal static async Task StopAsync(Page page)
     {
         if (!ReferenceEquals(_page, page))
             return;
@@ -108,7 +108,7 @@ internal static class PrismVisualQaCaptureService
         }
     }
 
-    private static async Task ProcessRequestsAsync(ScanDebugPage page)
+    private static async Task ProcessRequestsAsync(Page page)
     {
         foreach (var requestPath in Directory.GetFiles(GetRequestDirectory(), "*.request.json"))
         {
@@ -136,8 +136,28 @@ internal static class PrismVisualQaCaptureService
         }
     }
 
-    private static async Task<object> ProcessRequestAsync(ScanDebugPage page, CaptureRequest request)
+    private static async Task<object> ProcessRequestAsync(Page pageRoot, CaptureRequest request)
     {
+        if (pageRoot is ScanPage scanPage)
+        {
+            if (string.Equals(request.Kind, "scan", StringComparison.OrdinalIgnoreCase))
+            {
+                await scanPage.ApplyScanVisualQaAsync(request.Scenario, request.RootWidth, request.RootHeight, request.Theme);
+                return StateResult.Succeeded(request.Id, scanPage.GetScanVisualQaState(), DateTimeOffset.UtcNow);
+            }
+            if (string.Equals(request.Kind, "state", StringComparison.OrdinalIgnoreCase))
+                return StateResult.Succeeded(request.Id, scanPage.GetScanVisualQaState(), DateTimeOffset.UtcNow);
+            if (!string.Equals(request.Kind, "capture", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Unsupported ScanPage visual QA request '{request.Kind}'.");
+            return await CaptureAsync(scanPage, request);
+        }
+
+        var page = (ScanDebugPage)pageRoot;
+        if (string.Equals(request.Kind, "workbench", StringComparison.OrdinalIgnoreCase))
+        {
+            await page.ApplyWorkbenchVisualQaAsync(request.Scenario, request.RootWidth, request.RootHeight, request.Theme);
+            return StateResult.Succeeded(request.Id, page.GetWorkbenchVisualQaState(), DateTimeOffset.UtcNow);
+        }
         if (string.Equals(request.Kind, "openFlyout", StringComparison.OrdinalIgnoreCase))
         {
             OpenFlyout(page, request.TargetAutomationId);
@@ -195,22 +215,27 @@ internal static class PrismVisualQaCaptureService
         target?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
     }
 
-    private static async Task<CaptureResult> CaptureAsync(ScanDebugPage page, CaptureRequest request)
+    private static async Task<CaptureResult> CaptureAsync(Page page, CaptureRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Id))
             throw new InvalidOperationException("Capture request id is required.");
         if (string.IsNullOrWhiteSpace(request.OutputPath))
             throw new InvalidOperationException("Capture output path is required.");
 
-        var scrollTarget = ResolveTarget(page, request.ScrollAutomationId ?? request.TargetAutomationId);
-        scrollTarget?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
-        await Task.Delay(350);
+        var isScanPopup = page is ScanPage && request.TargetAutomationId == "ScanPreviewSettingsPopup";
+        var focusApplied = false;
+        if (!isScanPopup)
+        {
+            var scrollTarget = ResolveTarget(page, request.ScrollAutomationId ?? request.TargetAutomationId);
+            scrollTarget?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
+            await Task.Delay(350);
 
-        var focusTarget = ResolveTarget(page, request.FocusAutomationId);
-        var focusApplied = focusTarget?.Focus(FocusState.Keyboard) == true;
-        if (focusTarget is null)
-            page.Focus(FocusState.Programmatic);
-        await Task.Delay(150);
+            var focusTarget = ResolveTarget(page, request.FocusAutomationId);
+            focusApplied = focusTarget?.Focus(FocusState.Keyboard) == true;
+            if (focusTarget is null)
+                page.Focus(FocusState.Programmatic);
+            await Task.Delay(150);
+        }
 
         var target = ResolveTarget(page, request.TargetAutomationId) ?? throw new InvalidOperationException($"Missing target AutomationId '{request.TargetAutomationId}'.");
         target.UpdateLayout();
@@ -348,8 +373,12 @@ internal static class PrismVisualQaCaptureService
         return null;
     }
 
-    private static FrameworkElement? ResolveTarget(ScanDebugPage page, string? automationId)
+    private static FrameworkElement? ResolveTarget(Page page, string? automationId)
     {
+        if (automationId == "ApplicationShell")
+            return App.MainWindow.Content as FrameworkElement;
+        if (page is ScanPage scanPage && scanPage.ResolveScanVisualQaTarget(automationId) is { } scanTarget)
+            return scanTarget;
         var target = FindByAutomationId(page, automationId);
         if (target is not null || string.IsNullOrWhiteSpace(automationId))
             return target;
@@ -561,12 +590,12 @@ internal static class PrismVisualQaCaptureService
     private static async Task WriteResultAsync(string resultPath, object result)
         => await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(result, JsonOptions));
 
-    private static void WriteReadyFile(ScanDebugPage page)
+    private static void WriteReadyFile(Page page)
     {
         var ready = new
         {
             ready = true,
-            page = nameof(ScanDebugPage),
+            page = page.GetType().Name,
             marker = PrismVisualQaPendingCalibrationHook.Marker,
             timestampUtc = DateTimeOffset.UtcNow,
             actualWidth = page.ActualWidth,
@@ -576,9 +605,11 @@ internal static class PrismVisualQaCaptureService
     }
 
     private static string GetRequestDirectory()
-        => Path.Combine(Path.GetTempPath(), RequestDirectoryName);
+        => Environment.GetEnvironmentVariable("PRISM_VISUAL_QA_REQUEST_DIRECTORY") is { Length: > 0 } directory
+            ? Path.GetFullPath(directory) : Path.Combine(Path.GetTempPath(), RequestDirectoryName);
 
-    private sealed record CaptureRequest(string Id, string TargetAutomationId, string OutputPath, string? ScrollAutomationId, string? FocusAutomationId, string? Kind);
+    private sealed record CaptureRequest(string Id, string TargetAutomationId, string OutputPath, string? ScrollAutomationId, string? FocusAutomationId, string? Kind,
+        string? Scenario, double? RootWidth, double? RootHeight, string? Theme);
 
     private sealed record CaptureResult(
         string Id,

@@ -46,7 +46,7 @@ public sealed class Set003CalibrationProfileRepositoryTests
     {
         var future = new Set003RecordingCalibrationStorage
         {
-            Document = new VersionedSettingsDocument<ScanCalibrationProfileSettingsPayload>(2, new ScanCalibrationProfileSettingsPayload(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = Profile() }, "Red")),
+            Document = new VersionedSettingsDocument<ScanCalibrationProfileSettingsPayload>(3, new ScanCalibrationProfileSettingsPayload(new Dictionary<string, ScanChannelCalibrationProfile> { ["Red"] = Profile() }, "Red")),
             LegacyProfiles = new Dictionary<string, ScanParameterSnapshot> { ["Blue"] = Snapshot() }
         };
         var futureRepository = new ScanCalibrationProfileRepository(future);
@@ -290,7 +290,7 @@ internal sealed class Set003RecordingCalibrationStorage : IScanCalibrationProfil
                 document.SchemaVersion,
                 document.Payload is null
                     ? null
-                    : new ScanCalibrationProfileSettingsPayload(CloneProfiles(document.Payload.Profiles), document.Payload.SelectedChannel));
+                    : new ScanCalibrationProfileSettingsPayload(CloneProfiles(document.Payload.Profiles), document.Payload.SelectedChannel, document.Payload.WhiteChannelSettings));
 
     private static Dictionary<string, ScanChannelCalibrationProfile>? CloneProfiles(IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? profiles)
         => profiles is null

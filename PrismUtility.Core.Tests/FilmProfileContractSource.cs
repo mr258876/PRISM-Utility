@@ -5,6 +5,18 @@ namespace PrismUtility.Core.Tests;
 
 internal static class FilmProfileContractSource
 {
+    public static string ReadScanDebugPageCodeBehindSource()
+        => string.Join(Environment.NewLine, new[]
+        {
+            "ScanDebugPage.xaml.cs",
+            "ScanDebugPage.CandidateReview.cs",
+            "ScanDebugPage.Workflow.cs",
+            "ScanDebugPage.EditingDraftFiles.cs",
+            "ScanDebugPage.LineProfile.cs",
+            "ScanDebugPage.ZoomRefinement.cs",
+            "ScanDebugPage.UiRefinement.cs"
+        }.Select(file => ReadAppText("Views", file)));
+
     private static readonly Regex ResourceNamePattern = new("<data name=\"(?<name>[^\"]+)\"", RegexOptions.Compiled);
     private static readonly Regex PlaceholderPattern = new("\\{(?<index>\\d+)(?:[^}]*)\\}", RegexOptions.Compiled);
     private static readonly Regex XUidPattern = new("x:Uid=\"(?<uid>[^\"]+)\"", RegexOptions.Compiled);
@@ -19,6 +31,8 @@ internal static class FilmProfileContractSource
         "Draw",
         "Expanding",
         "KeyDown",
+        "ItemClick",
+        "Loaded",
         "Opening",
         "PointerCanceled",
         "PointerCaptureLost",
@@ -29,6 +43,7 @@ internal static class FilmProfileContractSource
         "PointerWheelChanged",
         "SelectionChanged",
         "SizeChanged",
+        "Tapped",
         "TextChanged",
         "ViewChanged"
     };

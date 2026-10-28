@@ -95,8 +95,8 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
     public void VisualQaDrain_JoinsAcceptedProcessingBeforeAllowingANewStart()
     {
         var source = ReadAppSource("PrismVisualQaCaptureService.cs");
-        var start = ExtractBody(source, "internal static void Start(ScanDebugPage page)");
-        var stop = ExtractBody(source, "internal static async Task StopAsync(ScanDebugPage page)");
+        var start = ExtractBody(source, "internal static void Start(Page page)");
+        var stop = ExtractBody(source, "internal static async Task StopAsync(Page page)");
 
         AssertBefore(start, "_shutdownRequested || _stopping || _processingTask is { IsCompleted: false }", "_page = page;");
         Assert.Contains("_page is { } page ? StopAsync(page) : Task.CompletedTask", source, StringComparison.Ordinal);
@@ -110,7 +110,7 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
     public void VisualQaDrain_CompletedOrFaultedTaskClearsOnlyItsOwnPageAndReopensStart()
     {
         var source = ReadAppSource("PrismVisualQaCaptureService.cs");
-        var stop = ExtractBody(source, "internal static async Task StopAsync(ScanDebugPage page)");
+        var stop = ExtractBody(source, "internal static async Task StopAsync(Page page)");
         var finalizationIndex = stop.IndexOf("finally", StringComparison.Ordinal);
         Assert.True(finalizationIndex >= 0, "StopAsync must finalize a settled task even when its await throws.");
         var finalization = stop[finalizationIndex..];
@@ -186,11 +186,38 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         var sizeChanged = ExtractBody(source, "private void ScanDebugRootGrid_SizeChanged(");
         var previewLayout = ExtractBody(source, "private void RefreshPreviewLayout()");
         var responsiveLayout = ExtractBody(source, "private void UpdateWorkbenchPreviewLayout(double availableWidth)");
+        var hidePreview = ExtractBody(source, "private void HidePreviewButton_Click(");
 
         AssertBefore(enqueue, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(enqueue, "DispatcherQueue.TryEnqueue(() =>", "if (IsCurrentActivation(activationEpoch))");
         AssertBefore(enqueue, "if (IsCurrentActivation(activationEpoch))", "action();");
-        Assert.Equal(6, Count(propertyChanged, "EnqueueForCurrentActivation("));
+        var namedPropertyCallbacks = new (string Name, string Invocation, int Count)[]
+        {
+            ("Motor axis role labels", "EnqueueForCurrentActivation(UpdateMotorAxisLabels);", 1),
+            ("Workbench status and identity layout", "EnqueueForCurrentActivation(UpdateWorkbenchPreviewLayout);", 1),
+            ("Closed calibration review focus", "EnqueueForCurrentActivation(() => { if (ViewModel.PendingCalibrationCandidateReviewVisibility != Visibility.Visible) CloseCandidateReview(returnFocus: true); });", 1),
+            ("Acquisition transport visibility", "EnqueueForCurrentActivation(UpdateAcquisitionTransportVisibility);", 1),
+            ("Acquisition row editor synchronization", "EnqueueForCurrentActivation(SynchronizeAcquisitionRowsEditor);", 1),
+            ("Import and validation review entry", "EnqueueForCurrentActivation(UpdateWorkbenchReviewEntry);", 1),
+            ("Inverted observation redraw", "EnqueueForCurrentActivation(() => PreviewCanvasControl.Invalidate());", 1),
+            ("Line selection and ROI overlay redraw", "EnqueueForCurrentActivation(DrawRoiOverlays);", 3),
+            ("Observation snapshot interaction reset", "EnqueueForCurrentActivation(() => { CancelPreviewVisualInteraction(); DrawRoiOverlays(); });", 1),
+            ("Observation frame layout and redraw", "EnqueueForCurrentActivation(() => { RefreshPreviewLayout(); PreviewCanvasControl.Invalidate(); });", 1),
+            ("Raw signal result surface", "EnqueueForCurrentActivation(UpdateRawSignalResultSurface);", 1),
+            ("Current channel illumination editor", "EnqueueForCurrentActivation(RefreshCurrentCalibrationIlluminationEditor);", 1)
+        };
+        var normalizedPropertyChanged = Regex.Replace(propertyChanged, @"\s+", " ");
+        foreach (var callback in namedPropertyCallbacks)
+        {
+            Assert.True(Count(normalizedPropertyChanged, callback.Invocation) == callback.Count,
+                $"Expected {callback.Count} activation-guarded callback(s) for {callback.Name}.");
+        }
+        Assert.Equal(namedPropertyCallbacks.Sum(callback => callback.Count), Count(propertyChanged, "EnqueueForCurrentActivation("));
+        foreach (var role in new[] { "Motor1RoleText", "Motor2RoleText", "Motor3RoleText" })
+            AssertBefore(propertyChanged, $"nameof(ScanDebugViewModel.{role})", "EnqueueForCurrentActivation(UpdateMotorAxisLabels);");
+        AssertBefore(propertyChanged, "nameof(ScanDebugViewModel.FilmProfileImportResultReviewVisibility)", "EnqueueForCurrentActivation(UpdateWorkbenchReviewEntry);");
+        Assert.Contains("CloseCandidateReview(returnFocus: true);", propertyChanged, StringComparison.Ordinal);
+        Assert.Equal(2, Count(propertyChanged, "ViewModel.PendingCalibrationCandidateReviewVisibility != Visibility.Visible"));
         Assert.Contains("nameof(ScanDebugViewModel.IsScanMotorTransportEnabled)", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(UpdateAcquisitionTransportVisibility);", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("nameof(ScanDebugViewModel.SelectedCalibrationChannel)", propertyChanged, StringComparison.Ordinal);
@@ -205,7 +232,7 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         Assert.DoesNotContain("DispatcherQueue.TryEnqueue", propertyChanged, StringComparison.Ordinal);
         Assert.Contains("BeginIssueTargetFocus(sectionIndex, scroller, target, request.ChannelRole", profileNavigation, StringComparison.Ordinal);
         Assert.Contains("EnqueueForCurrentActivation(() =>", beginIssueFocus, StringComparison.Ordinal);
-        AssertBefore(completeIssueFocus, "!IsCurrentFilmProfileNavigationStillValid()", "target.StartBringIntoView();");
+        AssertBefore(completeIssueFocus, "!IsCurrentFilmProfileNavigationStillValid()", "target.StartBringIntoView(new BringIntoViewOptions");
         Assert.Contains("_areViewModelEventsSubscribed", navigationGuard, StringComparison.Ordinal);
         Assert.Contains("IsLoaded", navigationGuard, StringComparison.Ordinal);
         Assert.Contains("FilmProfileImportResultReviewVisibility != Visibility.Visible", navigationGuard, StringComparison.Ordinal);
@@ -214,11 +241,13 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         Assert.Contains("EnqueueForCurrentActivation(ApplyInitialFitZoom);", previewLayout, StringComparison.Ordinal);
         AssertBefore(responsiveLayout, "var activationEpoch = _activationEpoch;", "DispatcherQueue.TryEnqueue(() =>");
         AssertBefore(responsiveLayout, "DispatcherQueue.TryEnqueue(() =>", "if (!IsCurrentActivation(activationEpoch)");
+        AssertBefore(hidePreview, "UpdateWorkbenchPreviewLayout();", "EnqueueForCurrentActivation(() => PreviewToggleButton.Focus(FocusState.Programmatic));");
+        Assert.DoesNotContain("DispatcherQueue.TryEnqueue", hidePreview, StringComparison.Ordinal);
         Assert.Equal(2, Count(source, "DispatcherQueue.TryEnqueue("));
     }
 
     [Theory]
-    [InlineData("ScanMotor", "AcquisitionScanMotorComboBox", "SelectedScanMotor")]
+    [InlineData("ScanMotor", "AcquisitionDeviceMappingButton", "")]
     [InlineData("MotorDistancePerLine", "AcquisitionMotorDistancePerLineTextBox", "MotorDistancePerLineValue")]
     public void NonTransportAcquisitionIssue_ExposesAndFocusesStoredEditorWithoutChangingCaptureMode(
         string issueTarget, string editorName, string inputName)
@@ -233,17 +262,19 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var expander = Assert.Single(xaml.Descendants(), element => (string?)element.Attribute(x + "Name") == "AcquisitionTransportDetailsExpander");
         var editor = Assert.Single(expander.Descendants(), element => (string?)element.Attribute(x + "Name") == editorName);
-        var configurationVisibility = ExtractBody(visibility, "if (_isConfigurationWorkspaceOpen && _activeWorkbenchSectionIndex == 1)");
+        var issueVisibility = ExtractBody(visibility, "if (_isAcquisitionTransportIssueOpen && _activeWorkbenchSectionIndex == 1)");
 
-        AssertBefore(visibility, "if (_isConfigurationWorkspaceOpen && _activeWorkbenchSectionIndex == 1)",
+        AssertBefore(visibility, "if (_isAcquisitionTransportIssueOpen && _activeWorkbenchSectionIndex == 1)",
             "if (!ViewModel.IsScanMotorTransportEnabled");
-        AssertBefore(configurationVisibility, "AcquisitionTransportDetailsExpander.Visibility = Visibility.Visible;", "return;");
+        AssertBefore(issueVisibility, "AcquisitionTransportDetailsExpander.Visibility = Visibility.Visible;", "return;");
         Assert.Contains("AcquisitionTransportDetailsExpander.Visibility = ToVisibility(ViewModel.IsScanMotorTransportEnabled);", visibility, StringComparison.Ordinal);
         Assert.Contains("IsFocusedWithin(focused, AcquisitionTransportDetailsExpander)", visibility, StringComparison.Ordinal);
         AssertBefore(section, "AcquisitionPlanSection.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;",
             "UpdateAcquisitionTransportVisibility();");
-        AssertBefore(navigation, "_isConfigurationWorkspaceOpen = sectionIndex is 0 or 1;", "SetActiveWorkbenchSection(sectionIndex);");
+        AssertBefore(navigation, "_isAuxiliaryPanelOpen = sectionIndex is 0 or 4;", "SetActiveWorkbenchSection(sectionIndex);");
+        AssertBefore(navigation, "_isAcquisitionTransportIssueOpen = sectionIndex == 1", "SetActiveWorkbenchSection(sectionIndex);");
         AssertBefore(navigation, "SetActiveWorkbenchSection(sectionIndex);", "AcquisitionTransportDetailsExpander.IsExpanded = true;");
+        AssertBefore(section, "if (index != 1)", "_isAcquisitionTransportIssueOpen = false;");
         AssertBefore(navigation, "AcquisitionTransportDetailsExpander.IsExpanded = true;", "BeginIssueTargetFocus(sectionIndex, scroller, target");
         Assert.Contains("request.EditorTarget is ScanFilmProfileIssueEditorTarget.ScanMotor", navigation, StringComparison.Ordinal);
         Assert.Contains("or ScanFilmProfileIssueEditorTarget.MotorDistancePerLine))", navigation, StringComparison.Ordinal);
@@ -253,12 +284,23 @@ public sealed class ScanDebugPageReentryUi006SourceContractTests
         Assert.Contains("!IsCurrentFilmProfileNavigationStillValid()", focus, StringComparison.Ordinal);
         Assert.Contains("!IsVisibleInTree(target)", focus, StringComparison.Ordinal);
         Assert.Contains("!ReferenceEquals(focused, target) && IsVisibleInTree(focused)", focus, StringComparison.Ordinal);
-        AssertBefore(focus, "target.StartBringIntoView();", "target.Focus(FocusState.Programmatic)");
-        var bindingProperty = editorName.EndsWith("TextBox", StringComparison.Ordinal) ? "Text" : "SelectedItem";
-        var expectedBinding = bindingProperty == "Text"
-            ? $"{{x:Bind ViewModel.{inputName}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}"
-            : $"{{x:Bind ViewModel.{inputName}, Mode=TwoWay}}";
-        Assert.Equal(expectedBinding, (string?)editor.Attribute(bindingProperty));
+        AssertBefore(focus, "target.StartBringIntoView(new BringIntoViewOptions", "target.Focus(FocusState.Programmatic)");
+        Assert.Contains("AnimationDesired = false", focus, StringComparison.Ordinal);
+        Assert.Contains("VerticalAlignmentRatio = 0.5", focus, StringComparison.Ordinal);
+        if (issueTarget == "ScanMotor")
+        {
+            Assert.Equal("HyperlinkButton", editor.Name.LocalName);
+            Assert.Equal("OpenDeviceChannelsSettings_Click", (string?)editor.Attribute("Click"));
+            Assert.Null(editor.Attribute("SelectedItem"));
+            var settingsNavigation = ReadAppSource("Views", "ScanDebugPage.UiRefinement.cs");
+            Assert.Contains("NavigateTo(AppRoute.Settings", settingsNavigation, StringComparison.Ordinal);
+            Assert.Contains("SettingsViewModel.DeviceChannelsNavigationParameter", settingsNavigation, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal($"{{x:Bind ViewModel.{inputName}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}",
+                (string?)editor.Attribute("Text"));
+        }
         Assert.DoesNotContain("SelectedCaptureMode =", navigation, StringComparison.Ordinal);
         Assert.DoesNotContain("MotorDistancePerLineValue =", navigation, StringComparison.Ordinal);
         Assert.DoesNotContain("StartScan", navigation, StringComparison.Ordinal);

@@ -31,9 +31,9 @@ DNG 请求模型在 `Host Software/PRISM Utility.Core/Models/DngWriteModels.cs`�
 
 通过托管验证后，服务使用 `GCHandle.Alloc(request.PixelData, GCHandleType.Pinned)` 固定像素数组，在 finally 中释放。`BuildNativeRequest` 写入 `StructSize`、`AbiVersion = 2`、UTF 16 路径和字符串、图像参数、矩形、最多 4 个 masked areas、最多 4 个黑位平面、颜色矩阵、通道颜色和保留字段。P Invoke 使用 `CallingConvention.Cdecl` 调用 `DngSdkWarpper.dll`。
 
-原生层再做一次验证。这不是重复浪费，而是托管和原生边界的双保险。托管验证保护调用者，并在进入 DLL 前给出 .NET 异常。原生验证保护 C ABI，因为 DLL 也可能被非 .NET 调用者调用，或收到不匹配的结构体。`PrismDngWriter::WriteFromBuffer` 检查 structSize、ABI 版本、输出路径、数据指针、图像尺寸、位深、缓冲区大小、像素布局、样本数、CFA、active area、default crop、masked areas 和黑位平面数量。失败时它不会抛出给 ABI 调用方，而是调用 `PrismDngSetLastErrorMessage` 并返回 `PRISM_DNG_STATUS_INVALID_ARGUMENT`、`PRISM_DNG_STATUS_UNSUPPORTED_FORMAT` 或 `PRISM_DNG_STATUS_INTERNAL_ERROR` 等状态码。task 23 只关闭托管验证和状态映射子范围；原生 C++ 仍有未验证的既有 parity 风险，因为它没有独立强制 packed row-stride minimum 或 blackLevelPlaneCount equality。这个风险未整改，因为本轮是 managed-only，且 task 23 没有运行原生构建或 native smoke。
+原生层独立验证 C ABI 输入，以保护非 .NET 调用者和结构体不匹配的调用。`PrismDngWriter::WriteFromBuffer` 检查 structSize、ABI 版本、输出路径、数据指针、图像尺寸、位深、缓冲区大小、像素布局、样本数、CFA、active area、default crop、masked areas 和黑位平面数量。失败时调用 `PrismDngSetLastErrorMessage` 并返回 `PRISM_DNG_STATUS_INVALID_ARGUMENT`、`PRISM_DNG_STATUS_UNSUPPORTED_FORMAT` 或 `PRISM_DNG_STATUS_INTERNAL_ERROR` 等状态码，不把异常传给 ABI 调用方。原生 C++ 尚未独立强制 packed row-stride minimum 或非零 blackLevelPlaneCount 与 samplesPerPixel 相等，存在与托管检查不一致的风险；托管测试不能关闭此风险。
 
-托管层收到非 0 状态码时调用 `PrismDngGetLastErrorMessage` 取回原生消息，并抛出 `InvalidOperationException`。DLL 缺失会被包装成说明 `DngSdkWarpper.dll` 不在应用输出旁边的 `InvalidOperationException`。架构不匹配会被包装成说明原生库和当前进程架构不匹配的 `InvalidOperationException`。task 23 托管测试覆盖了 `DllNotFoundException`、`BadImageFormatException`、`EntryPointNotFoundException` missing export、native ABI error message 独立映射，以及原生状态 1 到 5 和 unknown status 的映射。
+托管层收到非 0 状态码时调用 `PrismDngGetLastErrorMessage` 取回原生消息，并抛出 `InvalidOperationException`。DLL 缺失和架构不匹配分别包装成说明缺少 `DngSdkWarpper.dll` 或进程架构不匹配的异常。托管测试覆盖 `DllNotFoundException`、`BadImageFormatException`、`EntryPointNotFoundException`、native ABI error message，以及原生状态 1 到 5 和 unknown status 的映射。
 
 原生写入器依赖 Adobe DNG SDK。项目包含 `dng_camera_profile.h`、`dng_file_stream.h`、`dng_host.h`、`dng_image_writer.h`、`dng_negative.h` 等头文件，并在 `.vcxproj` 中把 `Adobe_DNG_SDK\dng_sdk\source`、`Adobe_DNG_SDK\libjxl` 和 `Adobe_DNG_SDK\xmp\toolkit\third-party\zlib` 加到 include 或源文件路径。工程使用 Visual Studio C++ toolset v143，配置为动态库，平台映射包含 Win32、x64 和 ARM64。因为 Adobe DNG SDK 文件不是本文下载或安装的对象，所以不能把原生构建描述成普通 `dotnet build` 必然可用。
 
@@ -91,17 +91,17 @@ The current core test project enumerated by `Host Software/PrismUtility.Core.Tes
 | --- | --- | --- |
 | 扫描组合缓冲区 | `Host Software/PrismUtility.Core.Tests/ScanCompositeImageProcessorTests.cs` | RGB 组合、缺失通道补零、alpha 行可用性。 |
 | 通道对齐 | `Host Software/PrismUtility.Core.Tests/ScanChannelAlignmentServiceTests.cs` | 对齐服务的参数和结果行为。 |
-| 胶片配置导出模式 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileSchemaV6Tests.cs` | `InvalidDngExportMode` 验证、schema 5→6 迁移和当前 schema 6 配置归一化。 |
+| 胶片配置导出模式 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileDocumentServiceTests.cs`, `Host Software/PrismUtility.Core.Tests/ScanFilmProfileSchemaV6Tests.cs` | `InvalidDngExportMode` 验证、schema 5/6 兼容输入和当前 schema 7 配置归一化；白光版本兼容另见 `WhiteChannelPersistenceTests.cs`。 |
 | 工作区导出补丁 | `Host Software/PrismUtility.Core.Tests/ScanFilmProfileWorkspaceTests.cs` | 导出文档时间戳、选中通道补丁和导出后基线更新。 |
 | DNG managed seam | `Host Software/PrismUtility.Core.Tests/DngWriterServiceValidationTests.cs`, `Host Software/PrismUtility.Core.Tests/DngWriterServiceNativeStatusTests.cs`, `Host Software/PrismUtility.Core.Tests/DngWriterServiceNativeAbiLayoutTests.cs` | 托管请求验证、native seam status mapping、loader failure mapping、ABI V2 x64 header contract。 |
 
-task 23 证据记录 focused managed DNG tests 36/36、full managed suite 591/591、Core build 0 warnings/errors、changed-file diagnostics clean、Oracle `MANAGED_SUBSCOPE_APPROVED`。task 24 在 this task24 environment 证明 VS2022、v143、MSBuild 和 inspected Adobe_DNG_SDK/native wrapper dependency probe 为 `PASS`，layered runner 也记录 managed 591/591 `PASS`、Core `PASS` 0 errors、x64 app `PASS` 且只有既有 WindowsAppSDK PublishSingleFile warning、timeout 和 cleanup `PASS`、overall runner `PASS`/exit 0。原生 build 明确是 `SKIP`/not run，不是 PASS。新增 blackLevelPlanes length vs SamplesPerPixel seam-not-invoked test 是 existing behavior 的 green characterization, 不是 fabricated RED。托管 ABI layout tests 是 hardcoded x64 header-contract checks，不证明 native C++ `sizeof`，除非原生构建可用并单独验证。托管测试没有暴露 JXL request 或 runtime probe；JXL source inspection 只确认 `SupportsJXL=false` stubs，不是 runtime smoke。仍未覆盖的缺口是真实 native bridge smoke、JPEG XL stub runtime smoke、WinUI 文件选择和真实导出交互。native smoke/JXL runtime smoke 当前为 `ENVIRONMENT_BLOCKED`，不是 PASS。
+托管测试覆盖请求验证、native status 与缺失导出映射、blackLevelPlanes 与 SamplesPerPixel 检查，以及 x64 ABI header layout。后者不能证明 native C++ `sizeof`；需要构建原生库后独立验证。托管测试未提供 JXL request 或 runtime probe，源码中的 `SupportsJXL=false` stubs 也不能替代运行验证。真实 native bridge 写入、JPEG XL stub runtime、WinUI 文件选择与导出交互仍待验证，当前结果与执行范围见[项目待办](../TODO.md)。
 
 ## Known issues and solutions
 
 Issue-ID: DNG-BRIDGE-001
 
-原生构建依赖 Adobe DNG SDK 路径。仓库记录了 include 和源文件引用，但本文没有下载 SDK，也没有证明所有平台都能在当前机器构建。解决方向是在开发机准备 SDK 后，单独验证 Win32、x64 和 ARM64 的 v143 构建矩阵。
+原生构建依赖本地 Adobe DNG SDK 的 include 和源文件路径。开发机与 CI 应按仓库 README 准备 SDK 和 MSVC v143，并分别验证所需的 Win32、x64 和 ARM64 配置；一个平台的成功构建不代表其他平台可用。
 
 Issue-ID: DNG-BRIDGE-002
 
@@ -109,7 +109,7 @@ JPEG XL 是 stub，不是功能。`SupportsJXL` 返回 false，编码和解码�
 
 Issue-ID: DNG-BRIDGE-003
 
-托管 DNG validation/status seam 已有单元测试覆盖，子范围为 `PASS`。整体 DNG-001 仍为 `ENVIRONMENT_BLOCKED`，不是因为 task24 证明过的 VS2022、v143、MSBuild 或 Adobe SDK dependency readiness 缺失，而是因为没有维护中的 runnable native smoke fixture/artifact 被执行，也没有维护中的 JXL stub runtime probe/artifact 被执行。解决方向是在有可加载 native artifact 和维护中的 runtime probe 后，单独运行原生 smoke 和 JXL stub smoke，并保留 native parity risk 检查。
+托管 DNG validation/status seam 已有单元测试覆盖。DNG-001 仍开放，原生 ABI、实际 DNG 写入和 JXL stub runtime 均待运行验证。现有 `tools/build.ps1` 提供依赖探测和原生构建步骤；应先获得可加载产物，再通过维护中的 probe 验证 native smoke，并独立检查 native parity 风险。只有实际依赖检查失败时才记录环境阻塞。
 
 Registry links: DNG-BRIDGE-001 -> [DNG-002](issues-and-remediation.md#dng-002); DNG-BRIDGE-002 -> [DNG-003](issues-and-remediation.md#dng-003); DNG-BRIDGE-003 -> [DNG-001](issues-and-remediation.md#dng-001).
 

@@ -107,9 +107,11 @@ sequenceDiagram
 
 ## 测试覆盖 Test coverage
 
-当前测试清单包含 UI-001 的 `NavigationViewHeaderBehavior` source-contract 覆盖，证明 `HeaderModeProperty` 注册为 `NavigationViewHeaderMode`，并且 Scan/ScanDebug XAML 仍使用 `HeaderMode="Never"`。x64 XAML 编译输出也证明生成的 XAML member 和 setter cast 使用 enum。UI-002 由 16 个 focused tests 两次覆盖 `AppRoute` 六值闭集、`INavigationService` 和 `IPageService` typed signatures、nullable enum `NavigationHelper.NavigateTo`、无 full-name route 字符串、`PageService` duplicate/missing/invalid route 拒绝、transition decider 和 resolver seam。UI-003 由 8 个 focused tests 两次覆盖 `IPageViewModelHost<TViewModel>`、`PageService` exact route/Page/ViewModel constraint、六个真实 Page host 声明、negative compile missing host、wrong pairing 和 invariance、real app metadata probe、direct `FrameExtensions` retrieval 和 nonhost failure、production navigation 无反射以及 lifecycle callback order。UI-002+UI-003 合计 24 个 focused tests 通过，full managed suite 511/511 通过。Core/app builds 通过且只保留既有 app warning。Current source shows six routes; older seven-route UIA artifacts are historical inventory only and do not describe the maintained route set. DeviceConfiguration 经 footer flyout 进入。导航图和源码路径由 `validate-docs.ps1 -Mode Full` 的章节、路径、链接和 Mermaid 检查覆盖。
+UI-001 的 `NavigationViewHeaderBehavior` source-contract 检查 `HeaderModeProperty` 注册类型及 Scan/ScanDebug 的 `HeaderMode="Never"`。UI-002 测试覆盖 `AppRoute` 六值闭集、typed signatures、nullable enum 导航、无 full-name route 字符串、重复/缺失/无效路由拒绝，以及 transition decider 和 resolver seam。UI-003 测试覆盖 `IPageViewModelHost<TViewModel>`、精确 route/Page/ViewModel 配对、六个 Page host、negative compile missing host/wrong pairing/invariance、生产应用 metadata、`FrameExtensions` direct retrieval、nonhost failure 和 lifecycle callback 顺序。DeviceConfiguration 经 footer flyout 进入。文档验证器检查导航图、源码路径和本地链接；当前测试结果见[项目待办](../TODO.md)。
 
-Task 25 reran the current UI-002/UI-003 source-contract filter and it passed 24/24. The older `.omo/harness/task-16-ui002-route-harness.ps1` is now stale because it expects the previous `new(AppRoute.X, typeof(Page))` PageService source shape, while current source uses `Configure<TPage,TViewModel>(AppRoute.X)`. Historical native UIA navigation summaries remain inventory only; TEST-002 is still blocked for maintained end-to-end navigation, language switch state retention and window-close teardown automation.
+当前路由注册采用 `Configure<TPage,TViewModel>(AppRoute.X)`。导航与 Page host 测试保护类型约束；真实导航、语言切换后的状态保留和窗口关闭仍属于 TEST-002 的运行验证范围。
+
+<a id="known-issues-and-solutions"></a>
 
 ## 已知问题与解决方案 Known issues and solutions
 

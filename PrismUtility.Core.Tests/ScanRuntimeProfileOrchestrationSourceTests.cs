@@ -9,7 +9,9 @@ public sealed class ScanRuntimeProfileOrchestrationSourceTests
     [Fact]
     public void Todo13Baseline_ScanProfileLoadRetainsExistingProjection()
     {
-        var load = ExtractMethod(ReadScanViewModelSource(), "LoadConfigProfile");
+        var source = ReadScanViewModelSource();
+        Assert.Contains("await ApplyConfigProfileAsync(imported.Profile, activationEpoch, ct);", ExtractMethod(source, "LoadConfigProfile"), StringComparison.Ordinal);
+        var load = ExtractMethod(source, "ApplyConfigProfileAsync");
 
         Assert.Contains("SelectedConfigProfileName", load, StringComparison.Ordinal);
         Assert.Contains("_selectedConfigAcquisitionSettings", load, StringComparison.Ordinal);
@@ -27,10 +29,10 @@ public sealed class ScanRuntimeProfileOrchestrationSourceTests
         var workflow = ExtractMethod(ReadScanViewModelSource(), "TryBuildWorkflowRequest");
 
         Assert.Contains("if (!_isConfigProfileLoaded)", workflow, StringComparison.Ordinal);
-        Assert.Contains("TryGetProfile", workflow, StringComparison.Ordinal);
+        Assert.Contains("TryGetConfiguredProfile", workflow, StringComparison.Ordinal);
         Assert.True(
             workflow.IndexOf("if (!_isConfigProfileLoaded)", StringComparison.Ordinal)
-            < workflow.IndexOf("TryGetProfile", StringComparison.Ordinal));
+            < workflow.IndexOf("TryGetConfiguredProfile", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -44,7 +46,7 @@ public sealed class ScanRuntimeProfileOrchestrationSourceTests
         Assert.Contains("IScanFilmProfileFileCoordinator filmProfileFiles", source, StringComparison.Ordinal);
         Assert.Contains("private readonly IScanCalibrationProfileRepository _calibrationProfiles;", source, StringComparison.Ordinal);
         Assert.Contains("private readonly IScanFilmProfileFileCoordinator _filmProfileFiles;", source, StringComparison.Ordinal);
-        Assert.Contains("await _calibrationProfiles.InitializeAsync(CancellationToken.None);", source, StringComparison.Ordinal);
+        Assert.Contains("await _calibrationProfiles.InitializeAsync(ct);", source, StringComparison.Ordinal);
         Assert.Contains("_calibrationProfiles.Snapshot.Profiles", source, StringComparison.Ordinal);
     }
 
@@ -52,18 +54,21 @@ public sealed class ScanRuntimeProfileOrchestrationSourceTests
     public void Todo13DesiredContract_LoadSeparatesCanceledAndInvalidFilesBeforeOneReplacement()
     {
         var load = ExtractMethod(ReadScanViewModelSource(), "LoadConfigProfile");
-        var importIndex = load.IndexOf("_filmProfileFiles.ImportAsync(CancellationToken.None)", StringComparison.Ordinal);
+        var importIndex = load.IndexOf("_filmProfileFiles.ImportAsync(ct)", StringComparison.Ordinal);
         var canceledIndex = load.IndexOf("if (imported.WasCanceled)", StringComparison.Ordinal);
         var invalidIndex = load.IndexOf("if (imported.Profile is null)", StringComparison.Ordinal);
         var returnIndex = load.IndexOf("return;", invalidIndex, StringComparison.Ordinal);
-        var replaceIndex = load.IndexOf("_calibrationProfiles.ReplaceAsync(", StringComparison.Ordinal);
+        var replaceIndex = load.IndexOf("await ApplyConfigProfileAsync(imported.Profile, activationEpoch, ct);", StringComparison.Ordinal);
+        var apply = ExtractMethod(ReadScanViewModelSource(), "ApplyConfigProfileAsync");
 
         Assert.True(importIndex >= 0, "Load must import through the file coordinator.");
         Assert.True(canceledIndex > importIndex, "Cancellation must be handled after import.");
         Assert.True(invalidIndex > canceledIndex, "Invalid imports must be handled separately from cancellation.");
         Assert.True(returnIndex > invalidIndex, "The null-profile branch must return.");
         Assert.True(replaceIndex > returnIndex, "Invalid imports must return before runtime profiles are replaced.");
-        Assert.Contains("new ScanCalibrationProfileRepositorySnapshot(profile.ChannelProfiles, profile.SelectedCalibrationChannel)", load, StringComparison.Ordinal);
+        Assert.Contains("_calibrationProfiles.ReplaceAsync(", apply, StringComparison.Ordinal);
+        Assert.Contains("new ScanCalibrationProfileRepositorySnapshot(profile.ChannelProfiles, profile.SelectedCalibrationChannel,", apply, StringComparison.Ordinal);
+        Assert.Contains("profile.AcquisitionSettings?.WhiteChannelSettings", apply, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -84,7 +89,7 @@ public sealed class ScanRuntimeProfileOrchestrationSourceTests
     {
         var workflow = ExtractMethod(ReadScanViewModelSource(), "TryBuildWorkflowRequest");
 
-        Assert.Contains("if (!_calibrationProfiles.TryGetProfile", workflow, StringComparison.Ordinal);
+        Assert.Contains("if (!TryGetConfiguredProfile", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("? profile.Parameters : fallbackSnapshot", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("fallbackSnapshot", workflow, StringComparison.Ordinal);
         Assert.Contains("return false;", workflow, StringComparison.Ordinal);

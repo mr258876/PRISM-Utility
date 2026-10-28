@@ -69,6 +69,12 @@ public static class ScanFilmProfileIssueNavigation
             ["acquisitionSettings.acquisitionChannelAssignment"] = new(ScanFilmProfileIssueNavigationSection.AcquisitionPlan, ScanFilmProfileIssueEditorTarget.ChannelAssignment),
             ["AcquisitionSettings.Illumination"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.Illumination),
             ["ChannelProfiles.Selected.Parameters"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.SysClockMhz"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.ExposureMicroseconds"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.Adc1Offset"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.Adc1Gain"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.Adc2Offset"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
+            ["ChannelProfiles.Selected.Parameters.Adc2Gain"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelParameters),
             ["ChannelProfiles.Selected.RoiSettings"] = new(ScanFilmProfileIssueNavigationSection.ChannelCalibration, ScanFilmProfileIssueEditorTarget.ChannelRoiSettings)
         };
 

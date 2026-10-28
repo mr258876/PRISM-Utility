@@ -17,7 +17,7 @@ public class PageService : IPageService
         Configure<ScanPage, ScanViewModel>(AppRoute.Scan),
         Configure<ScanDebugPage, ScanDebugViewModel>(AppRoute.ScanDebug),
         Configure<SettingsPage, SettingsViewModel>(AppRoute.Settings),
-        Configure<DeviceConfigurationPage, DeviceConfigurationViewModel>(AppRoute.DeviceConfiguration)
+        Configure<SettingsPage, SettingsViewModel>(AppRoute.DeviceConfiguration)
     ];
 
     private readonly Dictionary<AppRoute, Type> _pages = new();
@@ -61,7 +61,7 @@ public class PageService : IPageService
                 throw new ArgumentException($"The route {route} is already configured in PageService");
             }
 
-            if (_pages.ContainsValue(type))
+            if (_pages.ContainsValue(type) && route != AppRoute.DeviceConfiguration)
             {
                 throw new ArgumentException($"This type is already configured with route {_pages.First(p => p.Value == type).Key}");
             }

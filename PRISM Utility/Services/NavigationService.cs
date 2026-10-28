@@ -10,6 +10,7 @@ using PRISM_Utility.Contracts.Navigation;
 using PRISM_Utility.Contracts.Services;
 using PRISM_Utility.Contracts.ViewModels;
 using PRISM_Utility.Helpers;
+using PRISM_Utility.Views;
 
 namespace PRISM_Utility.Services;
 
@@ -20,6 +21,7 @@ public class NavigationService : INavigationService
     private readonly IPageService _pageService;
     private object? _lastParameterUsed;
     private Frame? _frame;
+    private readonly NavigationCompletionTracker _navigationCompletion = new();
 
     public event NavigatedEventHandler? Navigated;
 
@@ -81,10 +83,14 @@ public class NavigationService : INavigationService
         if (frame is not null && NavigationTransitionDecider.CanGoBack(hasFrame: true, frame.CanGoBack))
         {
             var vmBeforeNavigation = NavigationLifecycleDispatcher.CaptureNavigationAware(frame.Content);
-            frame.GoBack();
-            NavigationLifecycleDispatcher.NotifyNavigatedFromAfterFrameResult(vmBeforeNavigation, succeeded: true);
+            var navigated = _navigationCompletion.TryNavigate(() =>
+            {
+                frame.GoBack();
+                return true;
+            });
+            NavigationLifecycleDispatcher.NotifyNavigatedFromAfterFrameResult(vmBeforeNavigation, navigated);
 
-            return true;
+            return navigated;
         }
 
         return false;
@@ -92,7 +98,17 @@ public class NavigationService : INavigationService
 
     public bool NavigateTo(AppRoute route, object? parameter = null, bool clearNavigation = false)
     {
+        var target = AppNavigationTarget.Resolve(route, parameter);
+        route = target.Route;
+        parameter = target.Parameter;
         var pageType = _pageService.GetPageType(route);
+        if (!clearNavigation && pageType == typeof(SettingsPage) && _frame?.Content is SettingsPage settingsPage)
+        {
+            // Section navigation reuses the editor and its draft without leaving the page.
+            var changed = settingsPage.TryNavigateWithinSettings(parameter);
+            _lastParameterUsed = parameter;
+            return changed;
+        }
         var decision = NavigationTransitionDecider.Decide(_frame?.Content?.GetType(), pageType, parameter, _lastParameterUsed, clearNavigation);
 
         if (_frame != null && decision.ShouldNavigate)
@@ -105,7 +121,7 @@ public class NavigationService : INavigationService
             _frame.Tag = decision.ClearNavigation;
             var vmBeforeNavigation = NavigationLifecycleDispatcher.CaptureNavigationAware(_frame.Content);
             var frameNavigateStopwatch = Stopwatch.StartNew();
-            var navigated = _frame.Navigate(pageType, decision.Parameter);
+            var navigated = _navigationCompletion.TryNavigate(() => _frame.Navigate(pageType, decision.Parameter));
             frameNavigateStopwatch.Stop();
             if (navigated)
             {
@@ -126,6 +142,8 @@ public class NavigationService : INavigationService
     {
         if (sender is Frame frame)
         {
+            _navigationCompletion.NotifyNavigated();
+            _lastParameterUsed = e.Parameter;
             var stopwatch = Stopwatch.StartNew();
             if (NavigationTransitionDecider.ShouldClearBackStack(frame.Tag))
             {

@@ -110,6 +110,8 @@ public partial class ScanDebugViewModel
         {
             _observationFeedback = FormatRoiEditIssue(issue);
             OnPropertyChanged(nameof(ObservationFeedbackText));
+            OnPropertyChanged(nameof(ObservationFeedbackVisibility));
+            OnPropertyChanged(nameof(ObservationNoticeVisibility));
             return;
         }
         if (!TryClaimRuntimeOperation(ScanDebugRuntimeCommandKind.ApplySelectedRoiInputs, out var runtimeClaim))
@@ -125,6 +127,8 @@ public partial class ScanDebugViewModel
             SetRoiNumericDraft(SelectedRoiSelection, range.EndInclusive.ToString(CultureInfo.InvariantCulture), isStart: false);
             _observationFeedback = "ScanDebug_ObservationSelectionCopied".GetLocalizedFormat(GetRoiSelectionDisplayName(SelectedRoiSelection));
             OnPropertyChanged(nameof(ObservationFeedbackText));
+            OnPropertyChanged(nameof(ObservationFeedbackVisibility));
+            OnPropertyChanged(nameof(ObservationNoticeVisibility));
         }
     }
 
@@ -138,6 +142,47 @@ public partial class ScanDebugViewModel
     public bool CanEditObservationGamma => IsObservationLive && IsGammaCorrectionEnabled;
     public Visibility ObservationLiveToolsVisibility => IsObservationLive ? Visibility.Visible : Visibility.Collapsed;
     public bool HasObservationBaseline => _baselineObservation is not null;
+    public bool HasObservationSample => ObservationFrame is { Width: > 0, Height: > 0 };
+    public Visibility ObservationSummaryVisibility => HasObservationSample ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ObservationEmptyVisibility => HasObservationSample ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility ObservationRawSourceVisibility => HasObservationSample && !string.IsNullOrWhiteSpace(ObservationRawSourceText)
+        ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ObservationEvidenceSourceVisibility => HasObservationSample && VisibleObservationEvidence is not null
+        ? Visibility.Visible : Visibility.Collapsed;
+    public string ObservationEvidenceStatusText
+    {
+        get
+        {
+            if (!HasObservationSample)
+                return string.Empty;
+            if (VisibleObservationEvidence is not { } capture)
+                return "ScanDebug_ObservationEvidenceUnconfirmed".GetLocalized();
+            if (capture.DeviceParameterCommandGeneration != _deviceParameterCommandGeneration)
+                return "ScanDebug_ObservationEvidenceParametersChanged".GetLocalized();
+            if (!IsConnected || capture.SessionGeneration != _calibrationDeviceSessionGeneration
+                || !string.Equals(capture.DeviceId, _calibrationDeviceSessionId, StringComparison.Ordinal))
+                return "ScanDebug_ObservationEvidenceHistorical".GetLocalized();
+            if (!IsCompositeObservation(capture)
+                && !string.Equals(capture.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+                return "ScanDebug_ObservationEvidenceOtherChannel".GetLocalized();
+            return "ScanDebug_ObservationEvidenceRecorded".GetLocalized();
+        }
+    }
+    public string ObservationEvidenceHintText => !HasObservationSample ? string.Empty
+        : !IsConnected ? "ScanDebug_ObservationEvidenceConnectNext".GetLocalized()
+        : IsObservationSnapshotVisible ? "ScanDebug_ObservationEvidenceResumeNext".GetLocalized()
+        : IsAcquisitionRunning ? "ScanDebug_ObservationEvidenceAcquiring".GetLocalized()
+        : ObservationWarningVisibility == Visibility.Visible ? "ScanDebug_ObservationEvidenceSampleNext".GetLocalized()
+        : "ScanDebug_ObservationEvidenceComparisonPending".GetLocalized();
+    public Visibility ObservationWarningVisibility => HasObservationSample && (VisibleObservationEvidence is not { } capture
+        || capture.DeviceParameterCommandGeneration != _deviceParameterCommandGeneration
+        || !IsConnected || capture.SessionGeneration != _calibrationDeviceSessionGeneration
+        || !string.Equals(capture.DeviceId, _calibrationDeviceSessionId, StringComparison.Ordinal)
+        || !IsCompositeObservation(capture) && !string.Equals(capture.Role, SelectedCalibrationChannel, StringComparison.OrdinalIgnoreCase))
+        ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ObservationFeedbackVisibility => string.IsNullOrWhiteSpace(_observationFeedback) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility ObservationNoticeVisibility => ObservationWarningVisibility == Visibility.Visible || ObservationFeedbackVisibility == Visibility.Visible
+        ? Visibility.Visible : Visibility.Collapsed;
     public ScanPreviewFrame? ObservationFrame => VisibleObservationCopy?.Data.Frame ?? PreviewFrame;
     public ScanRawSignalResult? ObservationRawSignalResult => VisibleObservationCopy is { } copy ? copy.Data.Signal : RawSignalResult;
     public string ObservationRawStatusText => VisibleObservationCopy?.RawStatus ?? RawSignalStatusText;
@@ -149,19 +194,21 @@ public partial class ScanDebugViewModel
         : string.Empty);
     public string ObservationFeedbackText => _observationFeedback;
     public string ObservationModeText => (_isShowingBaseline ? "ScanDebug_ObservationBaseline"
-        : _frozenObservation is not null ? "ScanDebug_ObservationFrozen" : "ScanDebug_ObservationLive").GetLocalized();
+        : _frozenObservation is not null ? "ScanDebug_ObservationFrozen"
+        : !HasObservationSample ? "ScanDebug_ObservationEmpty"
+        : IsAcquisitionRunning && IsPreviewEnabledForCurrentRows ? "ScanDebug_ObservationUpdating" : "ScanDebug_ObservationLatest").GetLocalized();
     public string ObservationFreezeActionText => (_frozenObservation is null ? "ScanDebug_FreezeObservation"
         : "ScanDebug_ResumeObservation").GetLocalized();
     public string ObservationBaselineActionText => (_isShowingBaseline ? "ScanDebug_ShowCurrentObservation"
         : "ScanDebug_ShowBaselineObservation").GetLocalized();
 
-    public string ObservationSourceSummaryText => VisibleObservationEvidence is { } capture
+    public string ObservationSourceSummaryText => !HasObservationSample ? string.Empty : VisibleObservationEvidence is { } capture
         ? "ScanDebug_ObservationSourceSummary".GetLocalizedFormat(capture.Id.ToString("N")[..8],
             IsCompositeObservation(capture) ? "ScanDebug_ObservationCompositeRole".GetLocalizedFormat(capture.Role) : capture.Role,
             capture.LedChannelIndex?.ToString() ?? "ScanDebug_CaptureUnknown".GetLocalized(), capture.CompletedRows,
             (capture.CompletedAtUtc ?? capture.RequestedAtUtc)?.ToLocalTime().ToString("HH:mm:ss")
-                ?? "ScanDebug_CaptureUnknown".GetLocalized()) + " · " + capture.Stage
-        : "ScanDebug_ObservationSourceUnknown".GetLocalized();
+                ?? "ScanDebug_CaptureUnknown".GetLocalized())
+        : "ScanDebug_ObservationSourceUnconfirmed".GetLocalized();
 
     public string ObservationFullSourceText => BuildCaptureSourceText(VisibleObservationEvidence);
     private static bool IsCompositeObservation(CaptureEvidence capture)
@@ -171,7 +218,7 @@ public partial class ScanDebugViewModel
         get
         {
             if (VisibleObservationEvidence is not { } capture)
-                return "ScanDebug_CaptureComparisonUnknown".GetLocalized();
+                return HasObservationSample ? "ScanDebug_ObservationSourceUnknown".GetLocalized() : string.Empty;
             if (capture.DeviceParameterCommandGeneration != _deviceParameterCommandGeneration)
                 return "ScanDebug_ObservationParametersChanged".GetLocalized();
             if (IsCompositeObservation(capture))
@@ -191,7 +238,7 @@ public partial class ScanDebugViewModel
     }
 
     public string ObservationBaselineSummaryText => _baselineObservation is not { } baseline
-        ? "ScanDebug_ObservationBaselineEmpty".GetLocalized()
+        ? string.Empty
         : "ScanDebug_ObservationBaselineSummary".GetLocalizedFormat(
             baseline.Evidence?.Id.ToString("N")[..8] ?? "ScanDebug_CaptureUnknown".GetLocalized(),
             baseline.Evidence?.Role ?? "ScanDebug_CaptureUnknown".GetLocalized(),
@@ -258,6 +305,8 @@ public partial class ScanDebugViewModel
         {
             _observationFeedback = "ScanDebug_ObservationCopyUnavailable".GetLocalized();
             OnPropertyChanged(nameof(ObservationFeedbackText));
+            OnPropertyChanged(nameof(ObservationFeedbackVisibility));
+            OnPropertyChanged(nameof(ObservationNoticeVisibility));
             return false;
         }
         copy = new ObservationCopy(data!, VisibleObservationEvidence,
@@ -288,6 +337,11 @@ public partial class ScanDebugViewModel
             nameof(ObservationSelectionStatusText), nameof(ObservationFooterText), nameof(ObservationFooterVisibility),
             nameof(ObservationSourceSummaryText), nameof(ObservationFullSourceText), nameof(ObservationComparisonText),
             nameof(ObservationModeText), nameof(ObservationFreezeActionText), nameof(ObservationBaselineActionText),
+            nameof(HasObservationSample), nameof(ObservationSummaryVisibility), nameof(ObservationWarningVisibility),
+            nameof(ObservationEmptyVisibility), nameof(ObservationRawSourceVisibility),
+            nameof(ObservationEvidenceSourceVisibility), nameof(ObservationEvidenceStatusText), nameof(ObservationEvidenceHintText),
+            nameof(ObservationFeedbackVisibility),
+            nameof(ObservationNoticeVisibility),
             nameof(ObservationBaselineSummaryText), nameof(ObservationFeedbackText), nameof(HasObservationBaseline),
             nameof(IsObservationLive), nameof(CanEditObservationGamma), nameof(CanEditRoiSelection),
             nameof(ObservationLiveToolsVisibility),

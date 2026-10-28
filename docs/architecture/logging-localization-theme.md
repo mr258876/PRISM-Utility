@@ -109,11 +109,11 @@ flowchart TD
 
 `ThemeSelectorService.SetThemeAsync` 也没有本地 catch。SET-005 后, `SettingsViewModel.SwitchThemeCommand` await coordinator-backed operation result, failure 走同一 diagnostic、rollback 和 InfoBar 路径。debug、transfer 和 color settings 也使用同一 per-scope result model。
 
-`App.App_UnhandledException` 调用 `UnhandledExceptionReporter.Report`，把异常送入 `DebugOutputMirrorService.Mirror`，并在 mirror 失败时退到 `Debug` 和 `Trace`。处理器不设置 `Handled`，APP-001 的 live WinUI controlled-event smoke 仍是 `ENVIRONMENT_BLOCKED`，不是通过证据。
+`App.App_UnhandledException` 调用 `UnhandledExceptionReporter.Report`，把异常送入 `DebugOutputMirrorService.Mirror`，并在 mirror 失败时退到 `Debug` 和 `Trace`。处理器不设置 `Handled`，APP-001 的 live WinUI controlled-event smoke 仍待独立运行验证。
 
 ## Test coverage
 
-本文范围仍没有覆盖 `DebugOutputSettingsService`、`LanguageSelectorService`、`ThemeSelectorService` 或 `ResourceExtensions` 的专门测试文件。LOG-001 已由 `Log001DebugOutputMirrorLifecycleTests.cs` 覆盖 accepted append tracking、snapshot `FlushAsync`、idempotent `ShutdownAsync`、caller-bounded wait、diagnostic-before-completion、same-thread reentrant shutdown guard、append failure diagnostics、actual temp file ordered persistence、post-shutdown file policy 和 `MainWindow_Closed` scanner-before-log close。LOG-002 已由 `Log002DebugOutputMirrorTests.cs` 覆盖 core-first ordering、subscriber isolation、safe diagnostic sink、bounded reentry 和 append failure diagnostics。SET-002 已用 compiled resolver runtime tests 证明 settings/log fallback root parity；SET-005 focused 29 个 tests 覆盖 Settings persistence coordinator、per-scope InfoBar errors 和 bounded teardown；APP-001 已用 reporter tests 和 source contracts 证明顶层异常报告路径。LOG-001 focused 19 个 tests 两次通过, combined managed suite 为 487/487；文档源码引用检查和人工 source-backed 检查不能替代本地化 parity 测试或 live WinUI event smoke。
+本文范围仍没有覆盖 `DebugOutputSettingsService`、`LanguageSelectorService`、`ThemeSelectorService` 或 `ResourceExtensions` 的专门测试文件。`Log001DebugOutputMirrorLifecycleTests.cs` 覆盖 accepted append tracking、snapshot `FlushAsync`、幂等 `ShutdownAsync`、有界等待、diagnostic-before-completion、同线程重入保护、append failure diagnostics、临时文件有序持久化和 shutdown 后的文件策略。关闭路径先在 QA 构建中 drain 已接受捕获，再执行实际 VM cleanup、设置保存收尾、scanner shutdown、settings coordinator Dispose，最后 mirror shutdown；`Log001_AppClose_BoundsMirrorShutdownAfterScannerCleanupWithoutSynchronouslyBlocking` 检查 scanner-before-mirror 和非阻塞关闭契约。`Log002DebugOutputMirrorTests.cs` 覆盖 core-first ordering、subscriber isolation、safe diagnostic sink 和 bounded reentry。SET-002 测试覆盖 settings/log root parity；SET-005 覆盖设置保存、InfoBar errors 和有界收尾；APP-001 覆盖顶层异常报告。当前结果见[项目待办](../TODO.md)，原生关闭、本地化 parity 与 live WinUI event smoke 仍需独立验证。
 
 项目质量门应在发布前补充应用 UI smoke，至少覆盖日志开关、语言切换、主题切换和顶层异常呈现。文档验证流程覆盖本文件结构、Mermaid、本地链接和源码路径，并用 `MissingServiceCoverage` self-test 约束服务覆盖标记。
 
@@ -129,7 +129,7 @@ Issue-ID: LOGGING-LOCALIZATION-THEME-002
 
 Issue-ID: LOGGING-LOCALIZATION-THEME-003
 
-事实: `App_UnhandledException` 已把顶层异常送入 reporter，reporter 尝试 debug mirror、Debug 和 Trace fallback，且不会向外抛出。APP-001 的 live WinUI controlled-event smoke 仍为 `ENVIRONMENT_BLOCKED`。建议: 后续如果需要用户可见 fatal error 或 handled 策略，应单独设计并验证。
+事实: `App_UnhandledException` 已把顶层异常送入 reporter，reporter 尝试 debug mirror、Debug 和 Trace fallback，且不会向外抛出。APP-001 的 live WinUI controlled-event smoke 仍待独立运行验证。建议: 后续如果需要用户可见 fatal error 或 handled 策略，应单独设计并验证。
 
 Issue-ID: LOGGING-LOCALIZATION-THEME-004
 
@@ -137,7 +137,7 @@ Issue-ID: LOGGING-LOCALIZATION-THEME-004
 
 Issue-ID: LOGGING-LOCALIZATION-THEME-005
 
-事实: SET-005 已关闭。`SettingsViewModel` 对语言和多个设置保存不再使用未观察 fire and forget 属性回调；owner-scoped `SettingsSaveCoordinator` 管理 language、theme、debug、transfer 和 color 五个 family 以及 restore/default 命令。latest failure 先写 mirror diagnostic, 再经 UI dispatcher rollback 并显示既有 Settings persistence InfoBar。normal/recovery en/zh visual captures clean；rendered failure InfoBar/accessibility evidence 为 `HARNESS_BLOCKED`, 不能写成 error-state visual pass。建议: 新增 setting family 时接入同一 coordinator 和 per-scope error model。
+事实: SET-005 已关闭。`SettingsViewModel` 对语言和多个设置保存不再使用未观察 fire and forget 属性回调；owner-scoped `SettingsSaveCoordinator` 管理 language、theme、debug、transfer 和 color 五个 family 以及 restore/default 命令。latest failure 先写 mirror diagnostic, 再经 UI dispatcher rollback 并显示既有 Settings persistence InfoBar。错误 InfoBar 的实际渲染和可访问性仍待 WinUI 验证。建议: 新增 setting family 时接入同一 coordinator 和 per-scope error model。
 
 Issue-ID: LOGGING-LOCALIZATION-THEME-006
 

@@ -93,7 +93,7 @@ flowchart TD
 
 Issue-ID: IMG-PREVIEW-ZERO-ROWS
 
-证据: `ScanImageDecoder.DecodeWaterfallStripToBgra` 现在在任何 buffer、width 或 division work 前拒绝 `rows <= 0`。`ScanPreviewPresenter` 的压缩瀑布分支也在调用 decoder 前检查 rows, 对无效 rows 返回错误并保留既有输出。IMG-001 tests 和 independent harness 证明 zero-row reject、malformed positive-row reject、stale output unchanged 和 valid output unchanged。
+`ScanImageDecoder.DecodeWaterfallStripToBgra` 在任何 buffer、width 或 division work 前拒绝 `rows <= 0`。`ScanPreviewPresenter` 的压缩瀑布分支也在调用 decoder 前检查 rows，对无效 rows 返回错误并保留既有输出。`ScanImageDecoderImg001Tests.cs` 覆盖 zero-row reject、malformed positive-row reject、stale output unchanged 和 valid output unchanged；当前结果见[项目待办](../TODO.md)。
 
 状态: 已关闭。继续把空扫描视为无效预览输入；后续性能和缓存成本由 IMG-PREVIEW-ALLOC-COPY 跟踪。
 

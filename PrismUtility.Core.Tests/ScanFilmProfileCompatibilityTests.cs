@@ -10,7 +10,7 @@ public sealed class ScanFilmProfileCompatibilityTests
     [Fact]
     public void ParseExchangeJson_RejectsFutureSchemaWithoutReturningPartialDocument()
     {
-        var outcome = ParseFixture("future-v7.json");
+        var outcome = ParseFixture("future-v8.json");
 
         Assert.Null(outcome.Profile);
         Assert.Equal(ScanFilmProfileParseErrorCode.UnsupportedSchemaVersion, outcome.Error?.Code);
@@ -37,7 +37,7 @@ public sealed class ScanFilmProfileCompatibilityTests
 
         var profileSet = Assert.IsType<ScanFilmParameterProfileSet>(outcome.Profile);
         Assert.Null(outcome.Error);
-        Assert.Equal(6, profileSet.SchemaVersion);
+        Assert.Equal(7, profileSet.SchemaVersion);
         Assert.Equal(selectedChannel, profileSet.SelectedCalibrationChannel);
         Assert.NotNull(profileSet.AcquisitionSettings);
         Assert.Equal(hasRecipeSettings, profileSet.ScanRecipeSettings is not null);

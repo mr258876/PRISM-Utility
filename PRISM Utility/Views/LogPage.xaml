@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d">
     <Page.Resources>
         <Thickness x:Key="LogCardPadding">12</Thickness>
@@ -21,7 +22,7 @@
     </Page.Resources>
 
     <Grid
-        Margin="{StaticResource SmallLeftRightMargin}"
+        Margin="12,12,12,24"
         RowSpacing="{StaticResource LogPanelSpacing}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -29,40 +30,60 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <StackPanel Grid.Row="0" Spacing="8">
+            <controls:WrapPanel HorizontalSpacing="12" VerticalSpacing="8">
+                <TextBox x:Uid="Log_SearchTextBox" Width="260"
+                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <ComboBox x:Uid="Log_LevelFilter" MinWidth="140"
+                          SelectedValuePath="Tag" SelectedValue="{x:Bind ViewModel.LevelFilter, Mode=TwoWay}">
+                    <ComboBoxItem x:Uid="Log_FilterAll" Tag="All" />
+                    <ComboBoxItem x:Uid="Log_FilterError" Tag="Error" />
+                    <ComboBoxItem x:Uid="Log_FilterWarning" Tag="Warning" />
+                    <ComboBoxItem x:Uid="Log_FilterInformation" Tag="Information" />
+                    <ComboBoxItem x:Uid="Log_FilterUnknown" Tag="Unknown" />
+                </ComboBox>
+                <ToggleSwitch x:Uid="Log_FollowToggle" IsOn="{x:Bind ViewModel.IsFollowing, Mode=TwoWay}" />
+            </controls:WrapPanel>
+            <TextBlock x:Uid="Log_FilterHelp" TextWrapping="WrapWholeWords"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
+        </StackPanel>
+
         <Border Grid.Row="1" Style="{StaticResource LogSectionCardStyle}">
-            <Grid ColumnSpacing="{StaticResource LogPanelSpacing}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <StackPanel Spacing="8">
                 <TextBlock
-                    Grid.Column="0"
                     Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                     Style="{ThemeResource BodyStrongTextBlockStyle}"
                     TextWrapping="WrapWholeWords" />
-                <Button
-                    Grid.Column="1"
-                    x:Uid="Log_ClearButton"
-                    Command="{x:Bind ViewModel.ClearCommand}" />
-            </Grid>
+                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8">
+                    <Button x:Uid="Log_CopyVisibleErrorsButton" Click="CopyVisibleErrorsButton_Click"
+                            IsEnabled="{x:Bind ViewModel.HasVisibleErrors, Mode=OneWay}" />
+                    <Button x:Uid="Log_CopySelectedButton" Click="CopySelectedButton_Click"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedEntry, Mode=OneWay}" />
+                    <Button x:Uid="Log_ClearButton" Command="{x:Bind ViewModel.ClearCommand}" />
+                    <TextBlock Text="{x:Bind ViewModel.CopyStatusText, Mode=OneWay}" VerticalAlignment="Center"
+                               TextWrapping="WrapWholeWords" AutomationProperties.LiveSetting="Polite" />
+                </controls:WrapPanel>
+            </StackPanel>
         </Border>
 
         <Border Grid.Row="2" Style="{StaticResource LogSectionCardStyle}">
             <Grid>
-                <ListView
+                <ListView x:Name="LogEntriesList"
                     ItemsSource="{x:Bind ViewModel.Entries, Mode=OneWay}"
-                    SelectionMode="None">
+                    SelectedItem="{x:Bind ViewModel.SelectedEntry, Mode=TwoWay}"
+                    SelectionMode="Single" HorizontalContentAlignment="Stretch">
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock
-                                Text="{Binding Display}"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                TextWrapping="WrapWholeWords" />
+                            <StackPanel Spacing="4" Padding="0,4">
+                                <TextBlock Text="{Binding LevelText}" FontSize="12" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Display}" IsTextSelectionEnabled="True"
+                                           TextWrapping="WrapWholeWords" />
+                            </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
                 <TextBlock
-                    x:Uid="Log_EmptyState"
+                    Text="{x:Bind ViewModel.EmptyStateText, Mode=OneWay}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"

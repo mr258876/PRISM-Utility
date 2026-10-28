@@ -38,6 +38,7 @@
     <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputMirrorService.cs" Link="Services\IDebugOutputMirrorService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IDebugOutputSettingsService.cs" Link="Services\IDebugOutputSettingsService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IScanChannelImageService.cs" Link="Services\IScanChannelImageService.cs" />
+    <Compile Include="..\PRISM Utility\Contracts\Services\IScanOutputLocationService.cs" Link="Services\IScanOutputLocationService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IScanPreviewPresenter.cs" Link="Services\IScanPreviewPresenter.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\ILanguageSelectorService.cs" Link="Services\ILanguageSelectorService.cs" />
     <Compile Include="..\PRISM Utility\Contracts\Services\IThemeSelectorService.cs" Link="Services\IThemeSelectorService.cs" />
@@ -46,6 +47,7 @@
     <Compile Include="..\PRISM Utility\Contracts\ViewModels\IPageViewModelHost.cs" Link="ViewModels\IPageViewModelHost.cs" />
     <Compile Include="..\PRISM Utility\Helpers\FrameExtensions.cs" Link="Helpers\FrameExtensions.cs" />
     <Compile Include="..\PRISM Utility\Helpers\FilmProfileValidationTextPresenter.cs" Link="Helpers\FilmProfileValidationTextPresenter.cs" />
+    <Compile Include="..\PRISM Utility\Helpers\LogEntryPresentation.cs" Link="Helpers\LogEntryPresentation.cs" />
     <Compile Include="..\PRISM Utility\Helpers\NavigationTimingLogger.cs" Link="Helpers\NavigationTimingLogger.cs" />
     <Compile Include="..\PRISM Utility\Helpers\ResourceExtensions.cs" Link="Helpers\ResourceExtensions.cs" />
     <Compile Include="..\PRISM Utility\Helpers\RuntimeHelper.cs" Link="Helpers\RuntimeHelper.cs" />
@@ -55,6 +57,8 @@
     <Compile Include="..\PRISM Utility\Models\AppLanguageOption.cs" Link="Models\AppLanguageOption.cs" />
     <Compile Include="..\PRISM Utility\Models\LocalSettingsOptions.cs" Link="Models\LocalSettingsOptions.cs" />
     <Compile Include="..\PRISM Utility\Models\ScanWorkflowModels.cs" Link="Models\ScanWorkflowModels.cs" />
+    <Compile Include="..\PRISM Utility\Models\ScanPreviewModeOption.cs" Link="Models\ScanPreviewModeOption.cs" />
+    <Compile Include="..\PRISM Utility\Models\ScanDngOutputPlan.cs" Link="Models\ScanDngOutputPlan.cs" />
     <Compile Include="..\PRISM Utility\Services\DebugOutputMirrorService.cs" Link="Services\DebugOutputMirrorService.cs" />
     <Compile Include="..\PRISM Utility\Services\DebugOutputSettingsService.cs" Link="Services\DebugOutputSettingsService.cs" />
     <Compile Include="..\PRISM Utility\Services\LanguageSelectorService.cs" Link="Services\LanguageSelectorService.cs" />
@@ -65,8 +69,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\PRISM Utility\ViewModels\DeviceConfigurationViewModel.cs" Link="ViewModels\DeviceConfigurationViewModel.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\SettingsViewModel.cs" Link="ViewModels\SettingsViewModel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\SettingsViewModel.Device.cs" Link="ViewModels\SettingsViewModel.Device.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\LogViewModel.cs" Link="ViewModels\LogViewModel.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.cs" Link="ViewModels\ScanDebugViewModel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.WhiteChannel.cs" Link="ViewModels\ScanDebugViewModel.WhiteChannel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.ScanHandoff.cs" Link="ViewModels\ScanDebugViewModel.ScanHandoff.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.UiRefinement.cs" Link="ViewModels\ScanDebugViewModel.UiRefinement.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.EditorInputs.cs" Link="ViewModels\ScanDebugViewModel.EditorInputs.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.EditingDraftFiles.cs" Link="ViewModels\ScanDebugViewModel.EditingDraftFiles.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.Workflow.cs" Link="ViewModels\ScanDebugViewModel.Workflow.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.WorkbenchStatus.cs" Link="ViewModels\ScanDebugViewModel.WorkbenchStatus.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanViewModel.cs" Link="ViewModels\ScanViewModel.cs" />
+    <Compile Include="..\PRISM Utility\ViewModels\ScanViewModel.Presentation.cs" Link="ViewModels\ScanViewModel.Presentation.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.Observation.cs" Link="ViewModels\ScanDebugViewModel.Observation.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.RawSignal.cs" Link="ViewModels\ScanDebugViewModel.RawSignal.cs" />
     <Compile Include="..\PRISM Utility\ViewModels\ScanDebugViewModel.RawSignal.Worker.cs" Link="ViewModels\ScanDebugViewModel.RawSignal.Worker.cs" />

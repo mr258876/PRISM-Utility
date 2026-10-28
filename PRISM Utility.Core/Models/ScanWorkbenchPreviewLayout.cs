@@ -9,7 +9,9 @@ public enum ScanWorkbenchPreviewLayoutMode
     NarrowEditor,
     NarrowPreview,
     NarrowInspection,
-    ConfigurationEditor
+    ConfigurationEditor,
+    PreviewCollapsed,
+    ReviewOnly
 }
 
 public static class ScanWorkbenchPreviewLayout
@@ -21,39 +23,79 @@ public static class ScanWorkbenchPreviewLayout
     public const double WideGapWidth = 12;
     public const double SplitterWidth = 12;
     public const double EditorMinimumWidth = TaskRailWidth;
+    public const double EmptyPreviewEditorMinimumWidth = 360;
     public const double PreviewMinimumWidth = 480;
+    public const double EmptyPreviewMinimumWidth = 420;
     public const double DefaultEditorRatio = 0.25;
+    public const double DefaultEmptyPreviewEditorRatio = 0.48;
     public const double KeyboardResizeDelta = 8;
+    public const double ReviewDockThreshold = 720;
+    public const double ReviewRailWidth = 320;
+    public const double ReviewGapWidth = 12;
 
     public static ScanWorkbenchPreviewLayoutResult Calculate(ScanWorkbenchPreviewLayoutInput input)
     {
         ThrowIfInvalidAvailableWidth(input.AvailableWidth);
 
+        if (!input.IsReviewOpen)
+            return CalculateContent(input);
+
+        if (input.AvailableWidth < ReviewDockThreshold)
+            return new ScanWorkbenchPreviewLayoutResult(ScanWorkbenchPreviewLayoutMode.ReviewOnly,
+                0, 0, 0,
+                IsEditorVisible: false,
+                IsPreviewVisible: false,
+                IsSplitterVisible: false,
+                IsPreviewOpenButtonVisible: false,
+                IsBackToEditorButtonVisible: false,
+                HideThumbnail: true,
+                ContentRowCount: 1,
+                ReviewWidth: input.AvailableWidth,
+                IsReviewVisible: true,
+                IsReviewFullWidth: true);
+
+        return CalculateContent(input with
+        {
+            AvailableWidth = input.AvailableWidth - ReviewRailWidth - ReviewGapWidth
+        }) with
+        {
+            ReviewWidth = ReviewRailWidth,
+            ReviewGapWidth = ReviewGapWidth,
+            IsReviewVisible = true
+        };
+    }
+
+    private static ScanWorkbenchPreviewLayoutResult CalculateContent(ScanWorkbenchPreviewLayoutInput input)
+    {
         if (input.IsConfigurationOpen)
             return new ScanWorkbenchPreviewLayoutResult(ScanWorkbenchPreviewLayoutMode.ConfigurationEditor,
                 input.AvailableWidth, 0, 0, true, false, false, false, false, false, 1);
 
         if (input.AvailableWidth < CompactThreshold)
             return input.IsInspectionOpen ? NarrowInspection(input.AvailableWidth)
-                : input.IsNarrowPreviewOpen ? NarrowPreview(input.AvailableWidth) : NarrowEditor(input.AvailableWidth);
+                : input.IsNarrowPreviewOpen && !input.IsPreviewCollapsed ? NarrowPreview(input.AvailableWidth) : NarrowEditor(input.AvailableWidth);
 
-        if (input.AvailableWidth < WideThreshold && input.IsInspectionOpen)
-            return new ScanWorkbenchPreviewLayoutResult(ScanWorkbenchPreviewLayoutMode.MediumInspection,
-                0, Math.Max(0, input.AvailableWidth - InspectionRailWidth - WideGapWidth), 0,
-                false, true, false, false, false, false, 1,
-                InspectionWidth: InspectionRailWidth, InspectionGapWidth: WideGapWidth, IsInspectionVisible: true);
+        if (input.IsPreviewCollapsed)
+            return new ScanWorkbenchPreviewLayoutResult(ScanWorkbenchPreviewLayoutMode.PreviewCollapsed,
+                input.AvailableWidth - (input.IsInspectionOpen ? InspectionRailWidth + WideGapWidth : 0), 0, 0,
+                true, false, false, true, false, true, 1,
+                InspectionWidth: input.IsInspectionOpen ? InspectionRailWidth : 0,
+                InspectionGapWidth: input.IsInspectionOpen ? WideGapWidth : 0,
+                IsInspectionVisible: input.IsInspectionOpen);
 
         var showInspection = input.AvailableWidth >= WideThreshold && input.IsInspectionOpen;
-        var split = CalculateWideImageSplit(input.AvailableWidth, input.EditorRatio, showInspection);
+        var overlayInspection = input.AvailableWidth < WideThreshold && input.IsInspectionOpen;
+        var split = CalculateWideImageSplit(input.AvailableWidth, input.EditorRatio, showInspection, input.HasImage);
         return new ScanWorkbenchPreviewLayoutResult(
             input.AvailableWidth >= WideThreshold
                 ? input.HasImage ? ScanWorkbenchPreviewLayoutMode.WideImage : ScanWorkbenchPreviewLayoutMode.WideCompact
-                : ScanWorkbenchPreviewLayoutMode.MediumImage,
+                : overlayInspection ? ScanWorkbenchPreviewLayoutMode.MediumInspection : ScanWorkbenchPreviewLayoutMode.MediumImage,
             split.EditorWidth, split.PreviewWidth, SplitterWidth,
-            true, true, input.HasImage, false, false, false, 1,
+            true, true, true, false, false, false, 1,
             InspectionWidth: showInspection ? InspectionRailWidth : 0,
             InspectionGapWidth: showInspection ? WideGapWidth : 0,
-            IsInspectionVisible: showInspection);
+            IsInspectionVisible: showInspection || overlayInspection,
+            IsInspectionOverlay: overlayInspection);
     }
 
     public static ScanWorkbenchPreviewSplit ResizeWideImageSplit(ScanWorkbenchPreviewResizeInput input)
@@ -62,11 +104,12 @@ public static class ScanWorkbenchPreviewLayout
         if (!double.IsFinite(input.EditorDelta))
             throw new ArgumentOutOfRangeException(nameof(input), input.EditorDelta, "Editor delta must be finite.");
 
-        var current = CalculateWideImageSplit(input.AvailableWidth, input.EditorRatio, input.IsInspectionOpen && input.AvailableWidth >= WideThreshold);
+        var current = CalculateWideImageSplit(input.AvailableWidth, input.EditorRatio,
+            input.IsInspectionOpen && input.AvailableWidth >= WideThreshold, input.HasImage);
         if (current.UsableWidth <= 0)
-            return new ScanWorkbenchPreviewSplit(0, 0, DefaultEditorRatio);
+            return new ScanWorkbenchPreviewSplit(0, 0, GetDefaultEditorRatio(input.HasImage));
 
-        var editorWidth = ClampWideImageEditorWidth(current.UsableWidth, current.EditorWidth + input.EditorDelta, input.EditorRatio);
+        var editorWidth = ClampWideImageEditorWidth(current.UsableWidth, current.EditorWidth + input.EditorDelta, input.HasImage);
         var previewWidth = current.UsableWidth - editorWidth;
         var ratio = editorWidth / current.UsableWidth;
         return new ScanWorkbenchPreviewSplit(editorWidth, previewWidth, ratio);
@@ -111,27 +154,32 @@ public static class ScanWorkbenchPreviewLayout
         InspectionWidth: availableWidth,
         IsInspectionVisible: true);
 
-    private static SplitCalculation CalculateWideImageSplit(double availableWidth, double editorRatio, bool showInspection)
+    private static SplitCalculation CalculateWideImageSplit(double availableWidth, double editorRatio, bool showInspection, bool hasImage)
     {
         var inspectionWidth = showInspection ? InspectionRailWidth + WideGapWidth : 0;
         var usableWidth = Math.Max(0, availableWidth - SplitterWidth - inspectionWidth);
         if (usableWidth <= 0)
             return new SplitCalculation(0, 0, 0);
 
-        var requestedEditorWidth = usableWidth * NormalizeRatio(editorRatio);
-        var editorWidth = ClampWideImageEditorWidth(usableWidth, requestedEditorWidth, editorRatio);
+        var requestedEditorWidth = usableWidth * NormalizeRatio(editorRatio, hasImage);
+        var editorWidth = ClampWideImageEditorWidth(usableWidth, requestedEditorWidth, hasImage);
         return new SplitCalculation(usableWidth, editorWidth, usableWidth - editorWidth);
     }
 
-    private static double ClampWideImageEditorWidth(double usableWidth, double editorWidth, double editorRatio)
+    private static double ClampWideImageEditorWidth(double usableWidth, double editorWidth, bool hasImage)
     {
-        if (usableWidth < EditorMinimumWidth + PreviewMinimumWidth)
-            return Math.Clamp(usableWidth * NormalizeRatio(editorRatio), 0, usableWidth);
+        var editorMinimumWidth = hasImage ? EditorMinimumWidth : EmptyPreviewEditorMinimumWidth;
+        var previewMinimumWidth = hasImage ? PreviewMinimumWidth : EmptyPreviewMinimumWidth;
+        if (usableWidth < editorMinimumWidth + previewMinimumWidth)
+            return Math.Clamp(editorWidth, 0, usableWidth);
 
-        return Math.Clamp(editorWidth, EditorMinimumWidth, usableWidth - PreviewMinimumWidth);
+        return Math.Clamp(editorWidth, editorMinimumWidth, usableWidth - previewMinimumWidth);
     }
 
-    private static double NormalizeRatio(double editorRatio) => double.IsFinite(editorRatio) ? Math.Clamp(editorRatio, 0, 1) : DefaultEditorRatio;
+    private static double NormalizeRatio(double editorRatio, bool hasImage)
+        => double.IsFinite(editorRatio) ? Math.Clamp(editorRatio, 0, 1) : GetDefaultEditorRatio(hasImage);
+
+    private static double GetDefaultEditorRatio(bool hasImage) => hasImage ? DefaultEditorRatio : DefaultEmptyPreviewEditorRatio;
 
     private static void ThrowIfInvalidAvailableWidth(double availableWidth)
     {
@@ -146,9 +194,11 @@ public readonly record struct ScanWorkbenchPreviewLayoutInput(
     double AvailableWidth,
     bool HasImage,
     bool IsNarrowPreviewOpen,
-    double EditorRatio = ScanWorkbenchPreviewLayout.DefaultEditorRatio,
+    double EditorRatio = double.NaN,
     bool IsInspectionOpen = false,
-    bool IsConfigurationOpen = false);
+    bool IsConfigurationOpen = false,
+    bool IsPreviewCollapsed = false,
+    bool IsReviewOpen = false);
 
 public readonly record struct ScanWorkbenchPreviewLayoutResult(
     ScanWorkbenchPreviewLayoutMode Mode,
@@ -164,13 +214,19 @@ public readonly record struct ScanWorkbenchPreviewLayoutResult(
     int ContentRowCount,
     double InspectionWidth = 0,
     double InspectionGapWidth = 0,
-    bool IsInspectionVisible = false);
+    bool IsInspectionVisible = false,
+    double ReviewWidth = 0,
+    double ReviewGapWidth = 0,
+    bool IsReviewVisible = false,
+    bool IsReviewFullWidth = false,
+    bool IsInspectionOverlay = false);
 
 public readonly record struct ScanWorkbenchPreviewResizeInput(
     double AvailableWidth,
     double EditorRatio,
     double EditorDelta,
-    bool IsInspectionOpen = false);
+    bool IsInspectionOpen = false,
+    bool HasImage = true);
 
 public readonly record struct ScanWorkbenchPreviewSplit(
     double EditorWidth,

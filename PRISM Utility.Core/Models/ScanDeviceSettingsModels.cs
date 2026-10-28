@@ -23,7 +23,8 @@ public sealed record ScanDeviceSettings(
     string Channel2Role = "White",
     string Channel3Role = "Red",
     string Channel4Role = "Green",
-    ScanFocusMotorMapping? FocusMotorMapping = null)
+    ScanFocusMotorMapping? FocusMotorMapping = null,
+    byte? DefaultScanMotorId = null)
 {
     private static readonly HashSet<string> ValidChannelRoles = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -54,10 +55,48 @@ public sealed record ScanDeviceSettings(
             NormalizeChannelRole(Channel2Role, defaults.Channel2Role),
             NormalizeChannelRole(Channel3Role, defaults.Channel3Role),
             NormalizeChannelRole(Channel4Role, defaults.Channel4Role),
-            focusMotorMapping);
+            focusMotorMapping,
+            DefaultScanMotorId ?? FindUnassignedMotor(focusMotorMapping));
+    }
+
+    public ScanDeviceSettingsValidationResult ValidateMappings()
+    {
+        var normalized = Normalize();
+        if (!normalized.FocusMotorMapping!.Validate().IsValid)
+            return new(ScanDeviceSettingsValidationError.InvalidFocusMapping);
+
+        if (normalized.DefaultScanMotorId >= ScanDebugConstants.MotionMotorCount)
+            return new(ScanDeviceSettingsValidationError.InvalidScanMotor);
+
+        if (normalized.DefaultScanMotorId == normalized.FocusMotorMapping.LeftMotorId
+            || normalized.DefaultScanMotorId == normalized.FocusMotorMapping.RightMotorId)
+            return new(ScanDeviceSettingsValidationError.DuplicateMotorAssignments);
+
+        var assignedRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in normalized.ChannelRoles)
+        {
+            if (!string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase) && !assignedRoles.Add(role))
+                return new(ScanDeviceSettingsValidationError.DuplicateChannelRoles);
+        }
+
+        return new(ScanDeviceSettingsValidationError.None);
+    }
+
+    private static byte FindUnassignedMotor(ScanFocusMotorMapping mapping)
+    {
+        for (byte motor = 0; motor < ScanDebugConstants.MotionMotorCount; motor++)
+        {
+            if (motor != mapping.LeftMotorId && motor != mapping.RightMotorId)
+                return motor;
+        }
+
+        return 1;
     }
 
     public IReadOnlyList<string> ChannelRoles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
+
+    public static string NormalizeProjectedChannelRole(string? role)
+        => NormalizeChannelRole(role, "Unused");
 
     public ScanMotorMechanicalSettings GetMotorSettings(byte motorId)
         => motorId switch
@@ -76,4 +115,18 @@ public sealed record ScanDeviceSettings(
         var trimmed = role.Trim();
         return ValidChannelRoles.TryGetValue(trimmed, out var normalized) ? normalized : fallback;
     }
+}
+
+public enum ScanDeviceSettingsValidationError
+{
+    None,
+    InvalidFocusMapping,
+    InvalidScanMotor,
+    DuplicateMotorAssignments,
+    DuplicateChannelRoles
+}
+
+public sealed record ScanDeviceSettingsValidationResult(ScanDeviceSettingsValidationError Error)
+{
+    public bool IsValid => Error == ScanDeviceSettingsValidationError.None;
 }

@@ -58,6 +58,19 @@ public partial class App : Application
         return service;
     }
 
+    public static bool TryGetCreatedScanDebugViewModel(out ScanDebugViewModel? viewModel)
+    {
+        viewModel = null;
+        if (Current is not App app)
+            return false;
+
+        lock (app._viewModelGate)
+        {
+            viewModel = app._createdScanDebugViewModel;
+            return viewModel is not null;
+        }
+    }
+
     private void TrackResolvedViewModel(object service)
     {
         lock (_viewModelGate)
@@ -131,6 +144,7 @@ public partial class App : Application
             services.AddTransient<IScanWorkflowService, ScanWorkflowService>();
             services.AddTransient<IScanIlluminationService, ScanIlluminationService>();
             services.AddTransient<IScanChannelImageService, ScanChannelImageService>();
+            services.AddTransient<IScanOutputLocationService, ScanOutputLocationService>();
             services.AddTransient<IScanParameterService, ScanParameterService>();
             services.AddTransient<IScanAutoCalibrationService, ScanAutoCalibrationService>();
             services.AddTransient<IScanAutoFocusService, ScanAutoFocusService>();
@@ -147,8 +161,6 @@ public partial class App : Application
             // Views and ViewModels
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<SettingsPage>();
-            services.AddTransient<DeviceConfigurationViewModel>();
-            services.AddTransient<DeviceConfigurationPage>();
             services.AddTransient<LogViewModel>();
             services.AddTransient<LogPage>();
             services.AddTransient<ScanViewModel>();

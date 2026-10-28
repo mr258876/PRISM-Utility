@@ -47,6 +47,7 @@ public partial class SettingsViewModel : ObservableRecipient
     private int _settingsPersistenceDisposed;
     private int _settingsSaveOwnerDisposed;
     private bool _isLoadingLanguageSettings;
+    private bool _isLanguageDecisionPending;
     private bool _isLoadingDebugOutputSettings;
     private bool _isLoadingScanTransferMode;
     private bool _isLoadingColorManagementSettings;
@@ -136,8 +137,10 @@ public partial class SettingsViewModel : ObservableRecipient
     public IAsyncRelayCommand RestoreScanTransferDefaultsCommand { get; }
 
     public IAsyncRelayCommand RestoreColorManagementDefaultsCommand { get; }
+    public IAsyncRelayCommand<string> ChangeLanguageCommand { get; }
+    public Func<Task<bool>>? ConfirmDeviceSettingsLeaveAsync { get; set; }
 
-    public SettingsViewModel(IThemeSelectorService themeSelectorService, ILanguageSelectorService languageSelectorService, IDebugOutputSettingsService debugOutputSettingsService, IDebugOutputMirrorService debugOutputMirrorService, IScanTransferSettingsService scanTransferSettingsService, IScanColorManagementSettingsService colorManagementSettingsService, SettingsSaveCoordinator settingsSaveCoordinator, IUiDispatcher uiDispatcher)
+    public SettingsViewModel(IThemeSelectorService themeSelectorService, ILanguageSelectorService languageSelectorService, IDebugOutputSettingsService debugOutputSettingsService, IDebugOutputMirrorService debugOutputMirrorService, IScanTransferSettingsService scanTransferSettingsService, IScanColorManagementSettingsService colorManagementSettingsService, SettingsSaveCoordinator settingsSaveCoordinator, IUiDispatcher uiDispatcher, IScanDeviceSettingsService? deviceSettingsService = null, IScanDngGeometrySettingsService? dngGeometrySettingsService = null)
     {
         _themeSelectorService = themeSelectorService;
         _languageSelectorService = languageSelectorService;
@@ -148,12 +151,15 @@ public partial class SettingsViewModel : ObservableRecipient
         _settingsSaveCoordinator = settingsSaveCoordinator;
         _settingsSaveOwner = _settingsSaveCoordinator.CreateOwner();
         _uiDispatcher = uiDispatcher;
+        _deviceSettingsService = deviceSettingsService;
+        _dngGeometrySettingsService = dngGeometrySettingsService;
         ElementTheme = _themeSelectorService.Theme;
         var versionInfo = GetVersionInfo();
         VersionDescription = versionInfo.VersionDescription;
         BuildDescription = versionInfo.BuildDescription;
 
         SwitchThemeCommand = new AsyncRelayCommand<ElementTheme>(SwitchThemeAsync);
+        ChangeLanguageCommand = new AsyncRelayCommand<string>(ChangeLanguageAsync);
 
         RestoreScanTransferDefaultsCommand = new AsyncRelayCommand(RestoreScanTransferDefaultsAsync);
         RestoreColorManagementDefaultsCommand = new AsyncRelayCommand(RestoreColorManagementDefaultsAsync);
@@ -162,6 +168,7 @@ public partial class SettingsViewModel : ObservableRecipient
         QueueSettingsOperation(ScopeDebug, "Settings_PersistenceScopeDebugOutput", LoadDebugOutputSettingsAsync);
         QueueSettingsOperation(ScopeTransfer, "Settings_PersistenceScopeTransfer", LoadScanTransferSettingsAsync);
         QueueSettingsOperation(ScopeColor, "Settings_PersistenceScopeColor", LoadColorManagementSettingsAsync);
+        InitializeDeviceSettingsEditor();
     }
 
     public async Task FlushSettingsPersistenceAsync(CancellationToken cancellationToken = default)
@@ -376,11 +383,67 @@ public partial class SettingsViewModel : ObservableRecipient
         if (_isLoadingLanguageSettings || string.IsNullOrWhiteSpace(value))
             return;
 
-        QueueSettingsOperation(
-            ScopeLanguage,
-            "Settings_PersistenceScopeLanguage",
-            cancellationToken => _languageSelectorService.SetLanguageAsync(value, cancellationToken),
-            RollBackLanguageSettings);
+        ChangeLanguageCommand.Execute(value);
+    }
+
+    private async Task ChangeLanguageAsync(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        try
+        {
+            if (HasDeviceSettingsChanges)
+            {
+                // A language change replaces the shell, so resolve the device draft first.
+                // This decision stays outside the persistence queue: saving the draft flushes that queue.
+                if (_isLanguageDecisionPending)
+                {
+                    RollBackLanguageSettings();
+                    return;
+                }
+                _isLanguageDecisionPending = true;
+                try
+                {
+                    if (ConfirmDeviceSettingsLeaveAsync is null || !await ConfirmDeviceSettingsLeaveAsync())
+                    {
+                        RollBackLanguageSettings();
+                        return;
+                    }
+                }
+                finally
+                {
+                    _isLanguageDecisionPending = false;
+                }
+                if (HasDeviceSettingsChanges || IsSettingsPersistenceDisposed())
+                {
+                    RollBackLanguageSettings();
+                    return;
+                }
+                _isLoadingLanguageSettings = true;
+                try
+                {
+                    SelectedLanguage = value;
+                }
+                finally
+                {
+                    _isLoadingLanguageSettings = false;
+                }
+            }
+
+            QueueSettingsOperation(
+                ScopeLanguage,
+                "Settings_PersistenceScopeLanguage",
+                cancellationToken => _languageSelectorService.SetLanguageAsync(value, cancellationToken),
+                RollBackLanguageSettings);
+            await FlushSettingsPersistenceAsync();
+        }
+        catch (Exception ex)
+        {
+            RollBackLanguageSettings();
+            _debugOutputMirrorService.Mirror("Settings.Persistence", $"language change failed: {ex}");
+            SetSettingsPersistenceError(ScopeLanguage, "Settings_PersistenceScopeLanguage", ex);
+        }
     }
 
     partial void OnIsDebugConsoleMirrorEnabledChanged(bool value)
@@ -491,7 +554,10 @@ public partial class SettingsViewModel : ObservableRecipient
         _isLoadingLanguageSettings = true;
         try
         {
+            var previousSelection = SelectedLanguage;
             SelectedLanguage = _languageSelectorService.CurrentLanguage;
+            if (SelectedLanguage == previousSelection)
+                OnPropertyChanged(nameof(SelectedLanguage));
         }
         finally
         {

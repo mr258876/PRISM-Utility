@@ -4,4 +4,5 @@ public sealed record VersionedSettingsDocument<TPayload>(int SchemaVersion, TPay
 
 public sealed record ScanCalibrationProfileSettingsPayload(
     Dictionary<string, ScanChannelCalibrationProfile>? Profiles,
-    string? SelectedChannel);
+    string? SelectedChannel,
+    WhiteChannelSettings? WhiteChannelSettings = null);

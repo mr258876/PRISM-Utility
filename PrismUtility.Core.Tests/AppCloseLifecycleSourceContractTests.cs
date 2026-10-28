@@ -123,7 +123,7 @@ public sealed class AppCloseLifecycleSourceContractTests
         var source = ReadAppSource("App.xaml.cs");
         var closing = ExtractMethod(source, "private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)");
         var capture = ReadAppSource("PrismVisualQaCaptureService.cs");
-        var start = ExtractMethod(capture, "internal static void Start(ScanDebugPage page)");
+        var start = ExtractMethod(capture, "internal static void Start(Page page)");
 
         Assert.Contains("internal static bool IsShuttingDown => Current is App app && Volatile.Read(ref app._windowShutdownStarted) != 0;", source, StringComparison.Ordinal);
         AssertBefore(closing, "Interlocked.Exchange(ref _windowShutdownStarted, 1)", "PrismVisualQaCaptureService.BeginShutdown();");
@@ -139,10 +139,10 @@ public sealed class AppCloseLifecycleSourceContractTests
     public void AppClose_SourceOnly_QaShutdownRejectsTimerAndQueuedRequestsButDrainsAcceptedWork()
     {
         var capture = ReadAppSource("PrismVisualQaCaptureService.cs");
-        var start = ExtractMethod(capture, "internal static void Start(ScanDebugPage page)");
+        var start = ExtractMethod(capture, "internal static void Start(Page page)");
         var tick = ExtractMethod(capture, "private static async void ProcessRequests(object? sender, object e)");
-        var process = ExtractMethod(capture, "private static async Task ProcessRequestsAsync(ScanDebugPage page)");
-        var stop = ExtractMethod(capture, "internal static async Task StopAsync(ScanDebugPage page)");
+        var process = ExtractMethod(capture, "private static async Task ProcessRequestsAsync(Page page)");
+        var stop = ExtractMethod(capture, "internal static async Task StopAsync(Page page)");
 
         Assert.Matches(@"\A\{\s*if \(_shutdownRequested \|\| _stopping \|\| _processingTask is \{ IsCompleted: false \}\)\s*return;", start);
         AssertBefore(start, "if (_shutdownRequested || _stopping", "_page = page;");

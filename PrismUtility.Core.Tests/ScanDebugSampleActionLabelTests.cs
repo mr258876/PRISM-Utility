@@ -10,9 +10,9 @@ public sealed class ScanDebugSampleActionLabelTests
 
     [Theory]
     [InlineData("en-us", "Fill black input from sample", "Fill white input from sample",
-        "Save black level to calibration library", "Save white level to calibration library", "calibration library", "save")]
+        "Save black level to channel preset", "Save white level to channel preset", "channel preset", "save")]
     [InlineData("zh-CN", "使用采样填入黑值", "使用采样填入白值",
-        "保存黑电平到校准库", "保存白电平到校准库", "校准库", "保存")]
+        "保存黑电平到通道预设", "保存白电平到通道预设", "通道预设", "保存")]
     public void LocalizedButtons_DistinguishInputOnlyFromLibraryPersistence(
         string culture, string expectedBlackFill, string expectedWhiteFill,
         string expectedBlackSave, string expectedWhiteSave, string libraryTerm, string saveVerb)

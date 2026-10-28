@@ -187,8 +187,8 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         var captureTime = DateTimeOffset.Now;
         var timestamp = captureTime.ToString("yyyyMMdd_HHmmss");
 
-        if (result.Passes.Count != ScanDebugConstants.IlluminationChannelCount)
-            throw new InvalidOperationException($"Expected {ScanDebugConstants.IlluminationChannelCount} scan passes for DNG export, but found {result.Passes.Count}.");
+        var outputPlan = ScanDngOutputPlan.Build(assignment,
+            result.Passes.Select(capture => (int)capture.LedChannelIndex).ToArray(), exportMode);
 
         var width = _decoder.GetDecodedPixelsPerLine();
         if (width <= 0)
@@ -214,17 +214,8 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         var baseFileName = $"scan_{timestamp}";
         var exposureTime = BuildExposureTime(result);
 
-        switch (exportMode)
-        {
-            case ScanDngExportMode.LinearRaw4:
-                await ExportLinearRaw4Async(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, captureTime, channelProfiles, cancellationToken);
-                break;
-            case ScanDngExportMode.LinearRgbIrw:
-                await ExportLinearRgbIrwAsync(folder, baseFileName, result, assignment, normalizedPasses, width, effectiveArea, maskedAreas, exposureTime, captureTime, channelProfiles, cancellationToken);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(exportMode), exportMode, "Unsupported DNG export mode.");
-        }
+        await ExportDngPlanAsync(folder, baseFileName, result, assignment, outputPlan, normalizedPasses,
+            width, effectiveArea, maskedAreas, exposureTime, captureTime, channelProfiles, cancellationToken);
 
         return ScanDngExportResult.FromAlignmentResult(alignmentResult);
     }
@@ -316,7 +307,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         ReportAlignmentDiagnostics(alignmentResult);
         var alignedPasses = alignmentResult.AlignedPassBuffers;
 
-        var channelIndex = FindRoleIndex(assignment, channelRole);
+        var channelIndex = Array.FindIndex(GetCapturedRoles(result, assignment), role => string.Equals(role, channelRole, StringComparison.OrdinalIgnoreCase));
         if (channelIndex < 0 || channelIndex >= alignedPasses.Length)
         {
             error = $"Channel role '{channelRole}' is not present in the current scan preview.";
@@ -327,15 +318,14 @@ public sealed class ScanChannelImageService : IScanChannelImageService
     }
 
     private static ScanWorkflowResult BuildAlignedResult(ScanWorkflowResult result, byte[][] alignedPasses)
-        => new(
-            result.Rows,
-            result.Passes.Select((capture, index) =>
-                new ScanPassCapture(capture.PassIndex, capture.LedChannelIndex, true, capture.Rows, capture.MotorSteps, alignedPasses[index]))
-                .ToArray(),
-            result.ComputedMotorStepsPerPass,
-            result.MotorIntervalNs,
-            result.ExposureTicks,
-            result.SysClockKhz);
+        => result with
+        {
+            Passes = result.Passes.Select((capture, index) => capture with
+            {
+                DirectionPositive = true,
+                ImageBytes = alignedPasses[index]
+            }).ToArray()
+        };
 
     private bool TryBuildRgbCompositeBuffer(ScanWorkflowResult result, ScanChannelAssignment assignment, ScanColorManagementOptions colorManagement, ScanChannelAlignmentMode alignmentMode, CancellationToken cancellationToken, out ScanCompositePixelBuffer? buffer, out string error, IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles = null, bool applyWhiteLevel = false)
     {
@@ -351,7 +341,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         ReportAlignmentDiagnostics(alignmentResult);
         var alignedPasses = alignmentResult.AlignedPassBuffers;
 
-        var previewPasses = applyWhiteLevel ? ApplyWhiteLevelOverrides(alignedPasses, assignment.Roles.ToArray(), result.Rows, channelProfiles, cancellationToken) : alignedPasses;
+        var previewPasses = applyWhiteLevel ? ApplyWhiteLevelOverrides(alignedPasses, GetCapturedRoles(result, assignment), result.Rows, channelProfiles, cancellationToken) : alignedPasses;
         var alignedResult = BuildAlignedResult(result, previewPasses);
         var normalizedAssignment = BuildNormalizedAssignment(assignment);
         return _processor.TryBuildRgbComposite(alignedResult, normalizedAssignment, colorManagement, cancellationToken, out buffer, out error);
@@ -368,7 +358,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         buffer = null;
 
         var normalizedPasses = BuildNormalizedPassBuffers(result, assignment);
-        var previewPasses = applyWhiteLevel ? ApplyWhiteLevelOverrides(normalizedPasses, assignment.Roles.ToArray(), result.Rows, channelProfiles, CancellationToken.None) : normalizedPasses;
+        var previewPasses = applyWhiteLevel ? ApplyWhiteLevelOverrides(normalizedPasses, GetCapturedRoles(result, assignment), result.Rows, channelProfiles, CancellationToken.None) : normalizedPasses;
         var normalizedResult = BuildAlignedResult(result, previewPasses);
         var normalizedAssignment = BuildNormalizedAssignment(assignment);
         var availableRowsByRole = BuildRoleAvailabilityMap(result, assignment, completedRowsByPassIndex);
@@ -379,7 +369,10 @@ public sealed class ScanChannelImageService : IScanChannelImageService
     {
         var normalizedPasses = new byte[result.Passes.Count][];
         for (var index = 0; index < result.Passes.Count; index++)
-            normalizedPasses[index] = _processor.NormalizePassBuffer(result.Passes[index], index < assignment.ReversedFlags.Count && assignment.ReversedFlags[index], CancellationToken.None);
+        {
+            var slot = result.Passes[index].LedChannelIndex;
+            normalizedPasses[index] = _processor.NormalizePassBuffer(result.Passes[index], slot < assignment.ReversedFlags.Count && assignment.ReversedFlags[slot], CancellationToken.None);
+        }
 
         return normalizedPasses;
     }
@@ -387,9 +380,12 @@ public sealed class ScanChannelImageService : IScanChannelImageService
     private static IReadOnlyDictionary<string, ScanRowAvailability> BuildRoleAvailabilityMap(ScanWorkflowResult result, ScanChannelAssignment assignment, IReadOnlyDictionary<int, int> completedRowsByPassIndex)
     {
         var availability = new Dictionary<string, ScanRowAvailability>(StringComparer.OrdinalIgnoreCase);
-        for (var index = 0; index < result.Passes.Count && index < assignment.Roles.Count; index++)
+        for (var index = 0; index < result.Passes.Count; index++)
         {
-            var role = assignment.Roles[index];
+            var slot = result.Passes[index].LedChannelIndex;
+            if (slot >= assignment.Roles.Count)
+                continue;
+            var role = assignment.Roles[slot];
             if (string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase) || availability.ContainsKey(role))
                 continue;
 
@@ -398,7 +394,7 @@ public sealed class ScanChannelImageService : IScanChannelImageService
                 : result.Rows;
             completedRows = Math.Clamp(completedRows, 0, result.Rows);
 
-            var shouldReverse = !result.Passes[index].DirectionPositive ^ assignment.ReversedFlags[index];
+            var shouldReverse = !result.Passes[index].DirectionPositive ^ assignment.ReversedFlags[slot];
             var startRow = shouldReverse ? result.Rows - completedRows : 0;
             availability[role] = new ScanRowAvailability(startRow, completedRows);
         }
@@ -407,21 +403,26 @@ public sealed class ScanChannelImageService : IScanChannelImageService
     }
 
     private static ScanChannelAssignment BuildNormalizedAssignment(ScanChannelAssignment assignment)
-        => new(
-            assignment.Channel1Role,
-            assignment.Channel2Role,
-            assignment.Channel3Role,
-            assignment.Channel4Role,
-            false,
-            false,
-            false,
-            false);
+        => assignment with
+        {
+            Channel1Reversed = false,
+            Channel2Reversed = false,
+            Channel3Reversed = false,
+            Channel4Reversed = false,
+            Channel5Reversed = false
+        };
 
-    private async Task ExportLinearRaw4Async(
+    private static string[] GetCapturedRoles(ScanWorkflowResult result, ScanChannelAssignment assignment)
+        => result.Passes.Select(capture => capture.LedChannelIndex < assignment.Roles.Count
+            ? assignment.Roles[capture.LedChannelIndex]
+            : throw new InvalidOperationException($"Capture slot {capture.LedChannelIndex} has no channel assignment.")).ToArray();
+
+    private async Task ExportDngPlanAsync(
         StorageFolder folder,
         string baseFileName,
         ScanWorkflowResult result,
         ScanChannelAssignment assignment,
+        IReadOnlyList<ScanDngOutputPart> outputPlan,
         byte[][] normalizedPasses,
         int width,
         DngRectangle effectiveArea,
@@ -431,135 +432,53 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles,
         CancellationToken cancellationToken)
     {
-        var targetPath = Path.Combine(folder.Path, $"{baseFileName}_linearraw4.dng");
-        using var transaction = new ScanOutputFileTransaction(targetPath);
-        var outputPath = transaction.TemporaryPath;
-        try
+        var targets = outputPlan.Select(part => Path.Combine(folder.Path, $"{baseFileName}_{part.FileSuffix}.dng")).ToArray();
+        using var transaction = new ScanOutputFileSetTransaction(targets);
+        var capturedRoles = GetCapturedRoles(result, assignment);
+        await Task.Run(() =>
         {
-            await Task.Run(() =>
+            for (var outputIndex = 0; outputIndex < outputPlan.Count; outputIndex++)
             {
-                var interleaved = BuildPacked16Buffer(normalizedPasses, result.Rows, width, cancellationToken);
-                var blackLevelPlanes = BuildBlackLevelPlanes(normalizedPasses, result.Rows, maskedAreas, assignment.Roles.ToArray(), channelProfiles, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
+                var part = outputPlan[outputIndex];
+                var passes = part.PassIndexes.Select(index => normalizedPasses[index]).ToArray();
+                var roles = part.PassIndexes.Select(index => capturedRoles[index]).ToArray();
+                var interleaved = BuildPacked16Buffer(passes, result.Rows, width, cancellationToken);
+                var blackLevels = BuildBlackLevelPlanes(passes, result.Rows, maskedAreas, roles, channelProfiles, cancellationToken);
+                var partExposure = exposureTime;
+                if (part.PassIndexes.Count == 1 && result.Passes[part.PassIndexes[0]].Provenance is { } provenance)
+                    partExposure = BuildExposureTime(provenance.SubmittedParameters.ExposureTicks, provenance.SubmittedParameters.SysClockKhz);
+                var modelSuffix = part.ModelSuffix;
+                var whiteCapture = part.PassIndexes.Where(index => string.Equals(capturedRoles[index], "White", StringComparison.OrdinalIgnoreCase))
+                    .Select(index => result.Passes[index]).FirstOrDefault();
+                if (whiteCapture?.Provenance?.WhiteLightSource is { } whiteSource)
+                    modelSuffix += whiteSource == WhiteLightSource.RgbComposite ? " (White: RGB combined light)" : " (White: dedicated LED)";
 
                 _dngWriter.WriteRawDng(new DngWriteRequest(
-                    outputPath,
+                    transaction.TemporaryPaths[outputIndex],
                     interleaved,
                     (uint)width,
                     (uint)result.Rows,
-                    (uint)(width * normalizedPasses.Length * sizeof(ushort)),
+                    (uint)(width * passes.Length * sizeof(ushort)),
                     16,
-                    (ushort)normalizedPasses.Length,
-                    DngPixelLayout.LinearRawMultiChannel,
+                    (ushort)passes.Length,
+                    part.PixelLayout,
                     DngCfaPattern.Unknown,
-                    BuildChannelColors(assignment),
+                    ChannelColors: part.PixelLayout == DngPixelLayout.LinearRawMultiChannel ? roles.Select(MapRoleToChannelColor).ToArray() : null,
                     Make: ScannerMake,
-                    Model: $"{ScannerModel} LinearRaw4",
+                    Model: $"{ScannerModel} {modelSuffix}",
                     Software: ScannerSoftware,
-                    ExposureTime: exposureTime,
-                    WhiteLevel: ResolveWhiteLevel(assignment.Roles, channelProfiles),
+                    ExposureTime: partExposure,
+                    WhiteLevel: ResolveWhiteLevel(roles, channelProfiles),
                     CaptureTime: captureTime,
                     ActiveArea: effectiveArea,
                     DefaultCrop: effectiveArea,
                     MaskedAreas: maskedAreas,
-                    BlackLevelPlanes: blackLevelPlanes));
+                    BlackLevelPlanes: blackLevels,
+                    Color: part.PixelLayout == DngPixelLayout.LinearRgb ? LinearRgbColorMetadata : null));
                 cancellationToken.ThrowIfCancellationRequested();
-            }, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        transaction.Publish(cancellationToken);
-    }
-
-    private async Task ExportLinearRgbIrwAsync(
-        StorageFolder folder,
-        string baseFileName,
-        ScanWorkflowResult result,
-        ScanChannelAssignment assignment,
-        byte[][] normalizedPasses,
-        int width,
-        DngRectangle effectiveArea,
-        DngRectangle[] maskedAreas,
-        DngRational? exposureTime,
-        DateTimeOffset captureTime,
-        IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? channelProfiles,
-        CancellationToken cancellationToken)
-    {
-        var rgbPasses = GetRequiredRolePasses(normalizedPasses, assignment, "Red", "Green", "Blue");
-        var auxChannel = GetRequiredAuxiliaryPass(normalizedPasses, assignment);
-        var rgbRoles = new[] { "Red", "Green", "Blue" };
-
-        var rgbTargetPath = Path.Combine(folder.Path, $"{baseFileName}_rgb.dng");
-        var auxTargetPath = Path.Combine(folder.Path, $"{baseFileName}_irw.dng");
-        using var transaction = new ScanOutputFilePairTransaction(rgbTargetPath, auxTargetPath);
-        var rgbOutputPath = transaction.FirstTemporaryPath;
-        var auxOutputPath = transaction.SecondTemporaryPath;
-        try
-        {
-            await Task.Run(() =>
-            {
-                var rgbInterleaved = BuildPacked16Buffer(rgbPasses, result.Rows, width, cancellationToken);
-                var rgbBlackLevelPlanes = BuildBlackLevelPlanes(rgbPasses, result.Rows, maskedAreas, rgbRoles, channelProfiles, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                _dngWriter.WriteRawDng(new DngWriteRequest(
-                    rgbOutputPath,
-                    rgbInterleaved,
-                    (uint)width,
-                    (uint)result.Rows,
-                    (uint)(width * rgbPasses.Length * sizeof(ushort)),
-                    16,
-                    (ushort)rgbPasses.Length,
-                    DngPixelLayout.LinearRgb,
-                    DngCfaPattern.Unknown,
-                    Make: ScannerMake,
-                    Model: $"{ScannerModel} RGB",
-                    Software: ScannerSoftware,
-                    ExposureTime: exposureTime,
-                    WhiteLevel: ResolveWhiteLevel(rgbRoles, channelProfiles),
-                    CaptureTime: captureTime,
-                    ActiveArea: effectiveArea,
-                    DefaultCrop: effectiveArea,
-                    MaskedAreas: maskedAreas,
-                    BlackLevelPlanes: rgbBlackLevelPlanes,
-                    Color: LinearRgbColorMetadata));
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var auxPasses = new[] { auxChannel.Pass };
-                var auxBuffer = BuildPacked16Buffer(auxPasses, result.Rows, width, cancellationToken);
-                var auxBlackLevelPlanes = BuildBlackLevelPlanes(auxPasses, result.Rows, maskedAreas, new[] { auxChannel.Role }, channelProfiles, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                _dngWriter.WriteRawDng(new DngWriteRequest(
-                    auxOutputPath,
-                    auxBuffer,
-                    (uint)width,
-                    (uint)result.Rows,
-                    (uint)(width * sizeof(ushort)),
-                    16,
-                    1,
-                    DngPixelLayout.MonochromeRaw,
-                    DngCfaPattern.Unknown,
-                    Make: ScannerMake,
-                    Model: $"{ScannerModel} {auxChannel.Role}",
-                    Software: ScannerSoftware,
-                    ExposureTime: exposureTime,
-                    WhiteLevel: ResolveWhiteLevel(new[] { auxChannel.Role }, channelProfiles),
-                    CaptureTime: captureTime,
-                    ActiveArea: effectiveArea,
-                    DefaultCrop: effectiveArea,
-                    MaskedAreas: maskedAreas,
-                    BlackLevelPlanes: auxBlackLevelPlanes));
-                cancellationToken.ThrowIfCancellationRequested();
-            }, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        cancellationToken.ThrowIfCancellationRequested();
+            }
+        }, cancellationToken);
         transaction.Publish(cancellationToken);
     }
 
@@ -814,10 +733,6 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         return found ? resolved : ushort.MaxValue;
     }
 
-    private static int FindRoleIndex(ScanChannelAssignment assignment, string role)
-        => assignment.Roles.Select((assignedRole, index) => new { assignedRole, index })
-            .FirstOrDefault(entry => string.Equals(entry.assignedRole, role, StringComparison.OrdinalIgnoreCase))?.index ?? -1;
-
     private static byte[] ScalePassToWhiteLevel(byte[] lineBuffer, int rows, ushort whiteLevel, CancellationToken cancellationToken)
     {
         if (whiteLevel == 0 || whiteLevel == ushort.MaxValue)
@@ -858,60 +773,6 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         buffer[startIndex + 3] = (byte)(sample0 & 0xFF);
     }
 
-    private static DngChannelColor[] BuildChannelColors(ScanChannelAssignment assignment)
-        => assignment.Roles.Select(MapRoleToChannelColor).ToArray();
-
-    private static byte[][] GetRequiredRolePasses(byte[][] normalizedPasses, ScanChannelAssignment assignment, params string[] roles)
-    {
-        ArgumentNullException.ThrowIfNull(normalizedPasses);
-        ArgumentNullException.ThrowIfNull(assignment);
-        ArgumentNullException.ThrowIfNull(roles);
-
-        var selectedPasses = new byte[roles.Length][];
-
-        for (var roleIndex = 0; roleIndex < roles.Length; roleIndex++)
-        {
-            var role = roles[roleIndex];
-            var matchingIndexes = assignment.Roles
-                .Select((assignedRole, index) => new { assignedRole, index })
-                .Where(entry => string.Equals(entry.assignedRole, role, StringComparison.OrdinalIgnoreCase))
-                .Select(entry => entry.index)
-                .ToArray();
-
-            if (matchingIndexes.Length != 1)
-                throw new InvalidOperationException($"DNG export mode requires exactly one '{role}' channel assignment, but found {matchingIndexes.Length}.");
-
-            var passIndex = matchingIndexes[0];
-            if (passIndex < 0 || passIndex >= normalizedPasses.Length)
-                throw new InvalidOperationException($"Aligned pass index {passIndex} for role '{role}' is out of range.");
-
-            selectedPasses[roleIndex] = normalizedPasses[passIndex];
-        }
-
-        return selectedPasses;
-    }
-
-    private static (string Role, byte[] Pass) GetRequiredAuxiliaryPass(byte[][] normalizedPasses, ScanChannelAssignment assignment)
-    {
-        ArgumentNullException.ThrowIfNull(normalizedPasses);
-        ArgumentNullException.ThrowIfNull(assignment);
-
-        var auxMatches = assignment.Roles
-            .Select((role, index) => new { role, index })
-            .Where(entry => string.Equals(entry.role, "IR", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(entry.role, "White", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        if (auxMatches.Length != 1)
-            throw new InvalidOperationException($"DNG export mode requires exactly one auxiliary IR or White channel assignment, but found {auxMatches.Length}.");
-
-        var auxMatch = auxMatches[0];
-        if (auxMatch.index < 0 || auxMatch.index >= normalizedPasses.Length)
-            throw new InvalidOperationException($"Aligned pass index {auxMatch.index} for role '{auxMatch.role}' is out of range.");
-
-        return (auxMatch.role, normalizedPasses[auxMatch.index]);
-    }
-
     private static DngChannelColor MapRoleToChannelColor(string role)
         => role switch
         {
@@ -931,11 +792,14 @@ public sealed class ScanChannelImageService : IScanChannelImageService
         => ranges.Select(range => BuildRectangle(range, rows)).ToArray();
 
     private static DngRational? BuildExposureTime(ScanWorkflowResult result)
+        => BuildExposureTime(result.ExposureTicks, result.SysClockKhz);
+
+    private static DngRational? BuildExposureTime(ushort exposureTicks, uint sysClockKhz)
     {
-        if (result.SysClockKhz == 0)
+        if (sysClockKhz == 0)
             return null;
 
-        var exposureNanoseconds = ScanTimingMath.ExposureTicksToNanosecondsFloor(result.ExposureTicks, result.SysClockKhz);
+        var exposureNanoseconds = ScanTimingMath.ExposureTicksToNanosecondsFloor(exposureTicks, sysClockKhz);
         return exposureNanoseconds == 0
             ? null
             : new DngRational(exposureNanoseconds, 1_000_000_000u);

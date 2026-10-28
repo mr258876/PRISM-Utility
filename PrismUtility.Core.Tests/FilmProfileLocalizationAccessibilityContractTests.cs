@@ -1,4 +1,5 @@
 using static PrismUtility.Core.Tests.FilmProfileContractSource;
+using System.Xml.Linq;
 using PRISM_Utility.Core.Models;
 using Xunit;
 
@@ -25,15 +26,15 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     private static readonly (string Key, string English, string Chinese)[] RequiredTerminologyResources =
     [
         ("ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content", "New film profile", "新建胶片配置"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content", "Open profile JSON", "打开配置 JSON"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content", "Check configuration", "检查配置"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content", "Export configuration JSON", "导出配置 JSON"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content", "Save to calibration library", "保存到校准库"),
-        ("ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content", "Remove from calibration library", "从校准库移除"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content", "Open configuration file", "打开配置文件"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content", "Validate", "检查配置"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content", "Save configuration file", "保存配置文件"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content", "Save channel preset", "保存通道预设"),
+        ("ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content", "Remove channel preset", "移除通道预设"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content", "Apply staged profile", "应用暂存配置"),
         ("ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content", "Discard staged profile", "丢弃暂存配置"),
         ("ScanDebug_FilmProfileWorkbenchStagedImportTitle.Text", "Staged import review", "暂存导入审查"),
-        ("ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text", "Review the loaded JSON before applying it. Apply replaces the current workspace profile; Discard leaves current settings unchanged.", "应用前请审查已加载的 JSON。应用会替换当前工作区配置；丢弃会保留当前设置不变。"),
+        ("ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text", "Review the loaded configuration. Apply replaces the current configuration; Discard cancels this import.", "检查载入的配置。应用将替换当前配置；丢弃可取消此次导入。"),
         ("ScanDebug_FilmProfileWorkbenchImportError", "Import error", "导入错误"),
         ("ScanDebug_FilmProfileWorkbenchImportResultNoChannels", "No staged profile", "没有暂存配置"),
         ("ScanDebug_Runtime_FilmProfileImportDiscardConfirmationTitle", "Discard pending import result", "丢弃待处理导入结果"),
@@ -42,7 +43,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_FilmProfileWorkbenchImportDiscardConfirmationMessage.Text", "The current import result, including any staged profile or import errors, will be discarded before creating a new film profile. Current workspace settings are unchanged until you confirm.", "新建配置会丢弃暂存配置或导入错误。取消则保留当前设置。"),
         ("ScanDebug_Runtime_FilmProfileImportReplacementConfirmationTitle", "Replace pending import result", "替换待处理导入结果"),
         ("ScanDebug_Runtime_FilmProfileImportReplacementConfirmationMessage", "Choosing another file will replace the current import result, including any staged profile or import errors. Canceling the file picker keeps the current import result.", "选择其他文件会替换暂存配置或导入错误。取消则保留当前结果。"),
-        ("ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton", "Open profile JSON", "打开配置 JSON"),
+        ("ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton", "Open configuration file", "打开配置文件"),
         ("ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationTitle.Text", "Replace pending import result", "替换待处理导入结果"),
         ("ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationMessage.Text", "Choosing another file will replace the current import result, including any staged profile or import errors. Canceling the file picker keeps the current import result.", "选择其他文件会替换暂存配置或导入错误。取消则保留当前结果。"),
         ("ScanDebug_FilmProfileWorkbenchSectionMetadata.Text", "1. Profile metadata", "1. 配置元数据"),
@@ -57,19 +58,19 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_FilmProfileWorkbenchSectionDeviceSettings.Text", "5. Device settings", "5. 设备设置"),
         ("ScanDebug_FilmProfileWorkbenchSectionEngineeringTools.Text", "6. Engineering tools", "6. 工程工具"),
         ("Scan_AlternateDirectionToggleSwitch.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Alternate motor direction each pass", "每轮交替电机方向"),
-        ("ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Basic info section", "基本信息区域"),
+        ("ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Output and color settings", "输出与色彩设置"),
         ("ScanDebug_AcquisitionPlanSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Acquisition plan section", "采集计划区域"),
         ("ScanDebug_ChannelCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Channel calibration section", "通道校准区域"),
         ("ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Live calibration section", "实时校准区域"),
         ("ScanDebug_DeviceSettingsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Device settings section", "设备设置区域"),
         ("ScanDebug_EngineeringToolsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Engineering tools section", "工程工具区域"),
-        ("ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text", "Export an existing capture as DNG. This does not save profile JSON or apply parameters to the device.", "将已有采集数据导出为 DNG；不会保存配置 JSON 或向设备应用参数。"),
+        ("ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text", "Export an existing capture as a DNG image file.", "将已有采样导出为 DNG 图像文件。"),
         ("ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text", "Progress appears here while a scan is running.", "扫描运行时会在这里显示进度。"),
         ("ScanDebug_FilmProfileWorkbenchCurrentValidationTitle.Title", "Current profile validation", "当前配置验证"),
         ("ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle.Text", "Current profile validation", "当前配置验证"),
         ("ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text", "Staged import validation", "暂存导入验证"),
         ("ScanDebug_FilmProfileWorkbenchValidationNotRun", "Not validated", "尚未验证"),
-        ("ScanDebug_FilmProfileWorkbenchValidationValid", "Valid", "有效"),
+        ("ScanDebug_FilmProfileWorkbenchValidationValid", "Parameter checks passed", "参数检查通过"),
         ("ScanDebug_FilmProfileWorkbenchValidationIssues", "{0} validation issue(s)", "{0} 个验证问题"),
         ("ScanDebug_FilmProfileWorkbenchOperationStatusTitle.Text", "Operation status", "操作状态"),
         ("ScanDebug_FilmProfileWorkbenchDeviceStatusTitle.Text", "Device status", "设备状态"),
@@ -81,8 +82,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_FilmProfileWorkbenchDeviceDisconnected", "Scanner disconnected", "扫描仪未连接"),
         ("ScanDebug_FilmProfileWorkbenchDeviceConnected", "Scanner connected", "扫描仪已连接"),
         ("ScanDebug_FilmProfileWorkbenchPersistenceScopeWorkspace", "Current workspace", "当前工作区"),
-        ("ScanDebug_FilmProfileWorkbenchPersistenceScopeJson", "Profile JSON file", "配置 JSON 文件"),
-        ("ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary", "Calibration library", "校准库"),
+        ("ScanDebug_FilmProfileWorkbenchPersistenceScopeJson", "Configuration file", "配置文件"),
+        ("ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary", "Channel presets", "通道预设"),
         ("ScanDebug_FilmProfileWorkbenchPersistenceScopeUnsaved", "Unsaved changes", "未保存更改"),
         ("ScanDebug_FilmProfileWorkbenchChannelStatusReady", "{0}: ready", "{0}：就绪"),
         ("ScanDebug_FilmProfileWorkbenchChannelStatusMissingCalibration", "{0}: calibration missing", "{0}：缺少校准"),
@@ -112,16 +113,16 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_Runtime_FilmProfileDirtyConfirmationDiscardButton", "Discard changes", "丢弃更改"),
         ("ScanDebug_FilmProfileWorkbenchDirtyConfirmationStayButton.Content", "Keep editing", "继续编辑"),
         ("ScanDebug_FilmProfileWorkbenchDirtyConfirmationDiscardButton.Content", "Discard changes", "丢弃更改"),
-        ("ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content", "Export configuration JSON", "导出配置 JSON"),
-        ("ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content", "Save selected channel calibration to library", "将所选通道校准保存到校准库"),
-        ("ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content", "Remove selected channel calibration from library", "从校准库移除所选通道校准"),
+        ("ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content", "Save configuration file", "保存配置文件"),
+        ("ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content", "Save selected channel as a preset", "将所选通道保存为预设"),
+        ("ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content", "Remove the selected channel preset", "移除所选通道的预设"),
         ("ScanDebug_CalibrationCopySourceComboBox.Header", "Copy from channel", "复制来源通道"),
         ("ScanDebug_CalibrationCopySourceComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Copy calibration source", "复制校准来源"),
         ("ScanDebug_CalibrationCopySourceComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Select a saved channel to stage its calibration values on the selected channel.", "选择已保存的通道，将其校准值暂存到所选通道。"),
         ("ScanDebug_CopyCalibrationProfileButton.Content", "Copy to selected channel", "复制到所选通道"),
         ("ScanDebug_CopyCalibrationProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Copy calibration to selected channel", "复制校准到所选通道"),
-        ("ScanDebug_CopyCalibrationProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Copying stages values only. Use Save channel calibration to persist them.", "复制只会暂存数值。保存通道校准后才会写入。"),
-        ("ScanDebug_CalibrationCopyHelperText.Text", "Copying stages values for the selected channel only. Use Save channel calibration to persist them.", "复制只会暂存所选通道的数值。保存通道校准后才会写入。"),
+        ("ScanDebug_CopyCalibrationProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Copying stages channel parameters. Use Save channel preset to reuse them in other configurations.", "复制仅暂存通道参数；“另存为通道预设”后可在其他配置中复用。"),
+        ("ScanDebug_CalibrationCopyHelperText.Text", "Copying stages channel parameters. Use Save channel preset to reuse them in other configurations.", "复制仅暂存通道参数；“另存为通道预设”后可在其他配置中复用。"),
         ("ScanDebug_PendingCalibrationCandidateReviewTitle.Text", "Pending calibration candidate", "待审查校准候选"),
         ("ScanDebug_PendingCalibrationCandidateReviewHelperText.Text", "Original device parameters are active during review. Accept applies the candidate to the device only; Accept and Save persists only the captured selected channel.", "审查时设备仍用原始参数。接受仅应用到设备；接受并保存仅保存捕获时所选通道。"),
         ("ScanDebug_PendingCalibrationSelectedChannelLabel.Text", "Selected channel", "所选通道"),
@@ -144,7 +145,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_AutofocusPresetComboBox.Header", "Autofocus preset", "自动对焦预设"),
         ("ScanDebug_AutofocusNote.Text", "Autofocus uses the saved motor mapping. Select Custom to edit search bounds.", "自动对焦使用已保存的电机映射；自定义预设可调整搜索边界。"),
         ("ScanDebug_AutofocusMaxTiltIterationsTextBox.Header", "Max tilt iterations", "最大倾斜迭代次数"),
-        ("ScanDebug_AutofocusPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Quick, Standard, and Fine fill deterministic autofocus distances and iteration limits; Custom enables manual values.", "快速、标准和精细会填入确定性的自动对焦距离与迭代限制；自定义允许手动输入。"),
+        ("ScanDebug_AutofocusPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Quick, Standard or Fine presets set search ranges and iteration limits. Choose Custom to adjust them manually.", "快速、标准或精细预设会设置搜索范围与迭代次数；自定义可手动调整。"),
         ("ScanDebug_AutofocusMaxZIterationsTextBox.Header", "Max Z iterations", "最大 Z 迭代次数"),
         ("ScanDebug_FocusMappingTitle.Text", "Device focus motor mapping", "设备对焦电机映射"),
         ("ScanDebug_FocusMappingLeftMotorComboBox.Header", "Left focus motor", "左侧对焦电机"),
@@ -191,17 +192,17 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_Runtime_PendingCalibrationValidationWarning", "Valid with warning(s)", "有效但有警告"),
         ("ScanDebug_Runtime_PendingCalibrationValidationIssues", "Issues: {0}", "问题：{0}"),
         ("ScanDebug_Runtime_PendingCalibrationValidationNoIssues", "No validation issues.", "没有验证问题。"),
-        ("ScanDebug_Runtime_ChannelStatusSaved", "Saved", "已保存"),
-        ("ScanDebug_Runtime_ChannelStatusModified", "Modified", "已修改"),
-        ("ScanDebug_Runtime_ChannelStatusInvalid", "Invalid", "无效"),
-        ("ScanDebug_Runtime_ChannelStatusMissing", "Missing", "缺少"),
-        ("ScanDebug_Runtime_ChannelStatusCopiedUnverified", "Copied-Unverified", "已复制待验证"),
-        ("ScanDebug_Runtime_ChannelStatusUnconfigured", "Missing", "缺少"),
-        ("ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text", "Profile identity", "配置身份"),
-        ("ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text", "Name and output options belong to the current draft; export JSON separately.", "名称和输出选项属于当前配置草稿；导出 JSON 需单独操作。"),
-        ("ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text", "Color and scan recipe", "色彩与扫描配方"),
+        ("ScanDebug_Runtime_ChannelStatusSaved", "Calibration saved", "校准已保存"),
+        ("ScanDebug_Runtime_ChannelStatusModified", "Calibration has unsaved changes", "校准有未保存更改"),
+        ("ScanDebug_Runtime_ChannelStatusInvalid", "Parameters need correction", "参数待修正"),
+        ("ScanDebug_Runtime_ChannelStatusMissing", "Missing calibration", "缺少校准"),
+        ("ScanDebug_Runtime_ChannelStatusCopiedUnverified", "Copied; review needed", "已复制待检查"),
+        ("ScanDebug_Runtime_ChannelStatusUnconfigured", "Missing calibration", "缺少校准"),
+        ("ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text", "Image output", "图像输出"),
+        ("ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text", "Output options belong to this draft. The configuration name follows the file name.", "这些输出选项属于当前配置草稿；配置名称由文件名确定。"),
+        ("ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text", "Color management", "色彩管理"),
         ("ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text", "Output settings do not replace the selected channel's black / white calibration.", "这些输出设置不代替所选通道的黑白场校准。"),
-        ("ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text", "Current configuration issues", "当前配置问题"),
+        ("ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text", "Output & color check", "输出与色彩检查"),
         ("ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text", "Review field issues; choose a locatable item to jump to its editor.", "查看字段问题，选择可定位项可直接跳转修改。"),
         ("ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header", "Profile name", "配置名称"),
         ("ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText", "e.g. 5207", "例如 5207"),
@@ -218,8 +219,19 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         ("ScanDebug_FilmProfileWorkbenchBasicTargetWhitePointManualComboBoxItem.Content", "Manual color temperature", "手动色温"),
         ("ScanDebug_FilmProfileWorkbenchBasicManualWhitePointColorTemperatureTextBox.Header", "Manual color temperature (K)", "手动色温 (K)"),
         ("ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name", "Profile name", "配置名称"),
-        ("Scan_Runtime_ProfileDngExportModeLinearRaw4", "4-channel raw DNG", "4 通道原始 DNG"),
-        ("Scan_Runtime_ProfileDngExportModeLinearRgbIrw", "RGB + IR/W DNG", "RGB + IR/W DNG"),
+        ("Scan_Runtime_ProfileDngExportModeLinearRaw4", "Raw channel DNG", "原始通道 DNG"),
+        ("Scan_Runtime_ProfileDngExportModeLinearRgbIrw", "RGB composite and auxiliary DNG", "RGB 合成及辅助通道 DNG"),
+        ("Scan_Runtime_DngOutputPlan", "Exports {0} DNG file(s): {1}", "将导出 {0} 个 DNG：{1}"),
+        ("Scan_Runtime_DngOutputMono", "{0} raw grayscale", "{0} 原始灰度"),
+        ("ScanDebug_ProfileStateDraftSaved", "Draft saved", "草稿已保存"),
+        ("ScanDebug_ProfileStateDraftUnsaved", "Draft has unsaved changes", "草稿有未保存更改"),
+        ("ScanDebug_SaveHintInvalid", "{0} issues remain. You can save a draft.", "还有 {0} 项需要修正，可保存草稿。"),
+        ("ScanDebug_SaveHintReady", "Parameter checks passed. The full configuration can be saved; sampling still depends on device and channel readiness.", "参数检查通过，可保存完整配置；采样仍取决于设备与通道状态。"),
+        ("ScanDebug_SaveHintNotValidated", "Saving checks the configuration; unfinished work is saved as a draft.", "保存时检查配置；未完成的内容保存为草稿。"),
+        ("ScanDebug_SaveScopeDraftText.Text", "Draft: keeps current edits, including unfinished input.", "草稿：保留当前编辑，含未完成输入。"),
+        ("ScanDebug_SaveScopeLibraryText.Text", "Channel preset: stores channel parameters for reuse in other configurations.", "通道预设：保存所选通道参数，供其他配置复用。"),
+        ("ScanDebug_SaveScopeConfigurationText.Text", "Full configuration: save after validation to use it on the scan page.", "完整配置：校验通过后保存，供扫描页使用。"),
+        ("ScanDebug_SaveScopeDeviceText.Text", "Device: applied parameters are used for capture and calibration in the current session.", "设备：应用参数后用于当前会话的采样和校准。"),
         ("FilmProfile_Validation_NumberInvalid", "Enter a valid number for {0}.", "请为 {0} 输入有效数字。")
     ];
 
@@ -283,7 +295,9 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         Assert.Equal("胶片配置与校准", chinese["Main_ScanDebugCardTitle.Text"]);
         Assert.Equal("Open Film Profile and Calibration", english["Main_OpenScanDebugButton.Content"]);
         Assert.Equal("进入胶片配置与校准", chinese["Main_OpenScanDebugButton.Content"]);
-        Assert.Equal("Film Profile and Calibration", english["ScanDebug_WorkstationTitle.Text"]);
+        Assert.Equal("Film calibration", english["ScanDebug_WorkstationTitle.Text"]);
+        Assert.Equal("Edit film configurations, calibrate channels and preview captures.", english["ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip"]);
+        Assert.Equal("编辑胶片配置、校准通道并预览采样。", chinese["ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip"]);
         Assert.Equal("胶片配置与校准", chinese["ScanDebug_WorkstationTitle.Text"]);
 
         foreach (var key in VisibleRenameResourceKeys)
@@ -364,9 +378,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             ("ScanDebug_BwLocalInputStatus.Text", "Local input not applied", "本地输入未应用"),
             ("ScanDebug_BwMissingProfileText.Text", "Missing channel profile", "缺少通道档案"),
             ("ScanDebug_BwConfigureChannelButton.Content", "Configure this channel", "配置当前通道"),
-            ("ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText",
-                "Open the selected channel's library and parameters. Does not create, apply, or save a profile.",
-                "打开所选通道的通道库与参数；不会自动创建、应用或保存档案。"),
+            ("ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", "Open the current channel's preset and parameters.", "打开当前通道的预设和参数。"),
             ("ScanDebug_BwDiscardInputTitle", "Discard local black / white input?", "放弃本地黑白值输入？"),
             ("ScanDebug_BwDiscardInputMessage", "Switching channels discards unapplied black / white input. Keep editing or discard this local input?", "切换通道将丢弃未应用的黑白值输入。继续编辑还是放弃本地输入？")
         })
@@ -496,32 +508,34 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     [Fact]
     public void ScanDebugCurrentValidationTitleUids_SeparateTextBlockTextResourcesFromInfoBarTitleResources()
     {
-        const string infoBarUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTitle";
+        const string infoBarUid = "ScanDebug_BasicInformationValidationTitle";
+        const string legacyGlobalInfoBarUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTitle";
         const string textBlockUid = "ScanDebug_FilmProfileWorkbenchCurrentValidationTextTitle";
         var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
 
-        Assert.Equal(1, CountOccurrences(xaml, $"x:Uid=\"{textBlockUid}\""));
+        Assert.Equal(1, CountOccurrences(xaml, $"<TextBlock x:Uid=\"{textBlockUid}\""));
         Assert.DoesNotContain($"<TextBlock x:Uid=\"{infoBarUid}\"", xaml, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(xaml, $"<InfoBar x:Uid=\"{infoBarUid}\""));
+        Assert.DoesNotContain($"x:Uid=\"{legacyGlobalInfoBarUid}\"", xaml, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(xaml, "ItemsSource=\"{x:Bind ViewModel.CurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\""));
         Assert.Equal(1, CountOccurrences(xaml, "ItemsSource=\"{x:Bind ViewModel.BasicCurrentFilmProfileValidationIssueDisplays, Mode=OneWay}\""));
         Assert.DoesNotContain("AcquisitionCurrentFilmProfileValidationIssueScrollViewer", xaml, StringComparison.Ordinal);
 
-        foreach (var (culture, expectedTitle) in new[]
+        foreach (var (culture, expectedGlobalTitle, expectedLocalTitle) in new[]
         {
-            ("en-us", "Current profile validation"),
-            ("zh-CN", "当前配置验证")
+            ("en-us", "Current profile validation", "Output & color check"),
+            ("zh-CN", "当前配置验证", "输出与色彩检查")
         })
         {
             var resources = ReadResources(culture);
             var names = resources.Keys.ToHashSet(StringComparer.Ordinal);
 
             Assert.True(resources.TryGetValue($"{textBlockUid}.Text", out var textBlockTitle), $"Missing {culture} TextBlock title resource.");
-            Assert.Equal(expectedTitle, textBlockTitle);
+            Assert.Equal(expectedGlobalTitle, textBlockTitle);
             Assert.DoesNotContain($"{textBlockUid}.Title", names);
 
             Assert.True(resources.TryGetValue($"{infoBarUid}.Title", out var infoBarTitle), $"Missing {culture} InfoBar title resource.");
-            Assert.Equal(expectedTitle, infoBarTitle);
+            Assert.Equal(expectedLocalTitle, infoBarTitle);
             Assert.DoesNotContain($"{infoBarUid}.Text", names);
         }
     }
@@ -569,7 +583,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         Assert.DoesNotContain("loaded", englishResources["ScanDebug_Runtime_StatusFilmProfileStaged"], StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("applied", englishResources["ScanDebug_Runtime_StatusFilmProfileStaged"], StringComparison.OrdinalIgnoreCase);
         Assert.Contains("staged", englishResources["ScanDebug_Runtime_StatusFilmProfileStaged"], StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("applied", englishResources["ScanDebug_Runtime_StatusFilmProfileApplied"], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("loaded in the editor", englishResources["ScanDebug_Runtime_StatusFilmProfileApplied"], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("已载入编辑器", chineseResources["ScanDebug_Runtime_StatusFilmProfileApplied"], StringComparison.Ordinal);
         Assert.Empty(GetPlaceholderIndexes(englishResources["ScanDebug_Runtime_StatusFilmProfileImportInvalid"]));
         Assert.Empty(GetPlaceholderIndexes(chineseResources["ScanDebug_Runtime_StatusFilmProfileImportInvalid"]));
 
@@ -674,8 +689,8 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         var english = ReadResources("en-us");
         var chinese = ReadResources("zh-CN");
 
-        Assert.Equal("Valid", english["ScanDebug_FilmProfileWorkbenchValidationValid"]);
-        Assert.Equal("有效", chinese["ScanDebug_FilmProfileWorkbenchValidationValid"]);
+        Assert.Equal("Parameter checks passed", english["ScanDebug_FilmProfileWorkbenchValidationValid"]);
+        Assert.Equal("参数检查通过", chinese["ScanDebug_FilmProfileWorkbenchValidationValid"]);
         Assert.Contains("public string StagedFilmProfileImportValidationSummary =>", scanDebugSource, StringComparison.Ordinal);
         Assert.Contains("StagedFilmProfileImportValidationIssues.Count == 0", scanDebugSource, StringComparison.Ordinal);
         Assert.Contains("\"ScanDebug_FilmProfileWorkbenchValidationValid\".GetLocalized()", scanDebugSource, StringComparison.Ordinal);
@@ -683,7 +698,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     }
 
     [Fact]
-    public void Todo4InvalidImportHighDpiValidationCopy_IsConciseAndKeepsFieldPathSeparate()
+    public void Todo4InvalidImportHighDpiValidationCopy_IsConciseAndUsesFriendlyFieldNames()
     {
         const string key = "FilmProfile_Validation_ChannelParametersInvalid";
         var scanDebugSource = ReadAppText("ViewModels", "ScanDebugViewModel.cs");
@@ -695,7 +710,7 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         Assert.Equal(GetPlaceholderIndexes(english[key]), GetPlaceholderIndexes(chinese[key]));
         Assert.DoesNotContain("保存前", chinese[key], StringComparison.Ordinal);
         Assert.DoesNotContain("所选", chinese[key], StringComparison.Ordinal);
-        Assert.Contains("$\"{issue.FieldPath}: {FilmProfileValidationTextPresenter.GetValidationIssueText(issue)}\"", scanDebugSource, StringComparison.Ordinal);
+        Assert.Contains("$\"{FilmProfileValidationTextPresenter.GetFieldDisplayName(issue.FieldPath)}: {FilmProfileValidationTextPresenter.GetValidationIssueText(issue)}\"", scanDebugSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -737,34 +752,43 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
             Assert.DoesNotContain("TooNarrow", value, StringComparison.Ordinal);
         }
 
-        Assert.Equal("ADC 校准使用有效区和屏蔽区。\n无效输入可继续修改。\n仅限制 ADC 校准，不影响对焦。", chinese["ScanDebug_AdcRoiEditorHelpText.Text"]);
-        Assert.Equal("用于自动对焦。\n可设置整体、左侧和右侧范围。\n无效输入可修改，不影响 ADC 校准。", chinese["ScanDebug_FocusRoiEditorHelpText.Text"]);
+        Assert.Equal("Set the active and shield ranges used for black/white calibration.", english["ScanDebug_AdcRoiEditorHelpText.Text"]);
+        Assert.Equal("设置黑白场校准使用的有效区和屏蔽区。", chinese["ScanDebug_AdcRoiEditorHelpText.Text"]);
+        Assert.Equal("Set the overall, left and right ranges used for autofocus.", english["ScanDebug_FocusRoiEditorHelpText.Text"]);
+        Assert.Equal("设置自动对焦使用的整体、左侧和右侧范围。", chinese["ScanDebug_FocusRoiEditorHelpText.Text"]);
         Assert.Equal("ROI 已修改，尚未应用。\n请点击“应用 ROI”。", chinese["ScanDebug_Runtime_RoiRangeChanged"]);
         Assert.Equal("{0} - {1}\n{2}", chinese["ScanDebug_Runtime_RoiIssueMessage"]);
         Assert.Equal(GetPlaceholderIndexes(english["ScanDebug_Runtime_RoiIssueMessage"]), GetPlaceholderIndexes(chinese["ScanDebug_Runtime_RoiIssueMessage"]));
         Assert.DoesNotContain("并且", chinese["ScanDebug_AdcRoiEditorHelpText.Text"], StringComparison.Ordinal);
         Assert.DoesNotContain("可编辑文本", chinese["ScanDebug_FocusRoiEditorHelpText.Text"], StringComparison.Ordinal);
         Assert.DoesNotContain("提交", chinese["ScanDebug_Runtime_RoiRangeChanged"], StringComparison.Ordinal);
-        Assert.Contains("不影响对焦", chinese["ScanDebug_AdcRoiEditorHelpText.Text"], StringComparison.Ordinal);
-        Assert.Contains("不影响 ADC 校准", chinese["ScanDebug_FocusRoiEditorHelpText.Text"], StringComparison.Ordinal);
+        Assert.Contains("active and shield", english["ScanDebug_AdcRoiEditorHelpText.Text"], StringComparison.Ordinal);
+        Assert.Contains("黑白场校准", chinese["ScanDebug_AdcRoiEditorHelpText.Text"], StringComparison.Ordinal);
+        Assert.Contains("overall, left and right", english["ScanDebug_FocusRoiEditorHelpText.Text"], StringComparison.Ordinal);
+        Assert.Contains("自动对焦", chinese["ScanDebug_FocusRoiEditorHelpText.Text"], StringComparison.Ordinal);
     }
 
     [Fact]
     public void Stage01ScanDebugMotorSurface_UsesPersistentRunBarStopAndVisibleReadRequiredBindings()
     {
         var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
+        var page = ReadAppText("Views", "ScanDebugPage.xaml.cs");
+        var axisLabels = ScanDebugFilmProfileOrchestrationSourceTests.ExtractMethod(page, "UpdateMotorAxisLabels");
         var english = ReadResources("en-us");
         var chinese = ReadResources("zh-CN");
 
         Assert.Contains("x:Uid=\"ScanDebug_StopAllMotorsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.AutomationId=\"StopAllMotorsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{x:Bind ViewModel.StopAllMotorsCommand}\"", xaml, StringComparison.Ordinal);
-        var runStart = xaml.IndexOf("x:Name=\"WorkbenchRunBar\"", StringComparison.Ordinal);
-        var stopStart = xaml.IndexOf("x:Uid=\"ScanDebug_StopAllMotorsButton\"", StringComparison.Ordinal);
-        var workStart = xaml.IndexOf("x:Name=\"WorkbenchSectionSelectorBar\"", StringComparison.Ordinal);
-        Assert.True(
-            runStart >= 0 && stopStart > runStart && stopStart < workStart,
-            "Stop all motors must remain in the non-scrolling run bar, above the task selector and motor card.");
+        var document = XDocument.Parse(xaml);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var run = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "WorkbenchRunBar");
+        var stop = Assert.Single(run.Descendants(), element => (string?)element.Attribute(x + "Uid") == "ScanDebug_StopAllMotorsButton");
+        var content = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Name") == "WorkbenchContentSplitGrid");
+        Assert.DoesNotContain(stop.Ancestors(), element => element.Name.LocalName is "ScrollViewer" or "Flyout");
+        Assert.Same(run.Parent, content.Parent);
+        Assert.True((int?)run.Attribute("Grid.Row") < (int?)content.Attribute("Grid.Row"),
+            "Stop all motors must remain in the non-scrolling run bar above the editor and preview.");
         Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", english.Keys);
         Assert.Contains("ScanDebug_StopAllMotorsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText", chinese.Keys);
         Assert.Contains("AutomationProperties.HelpText=\"{x:Bind ViewModel.StopDisabledReasonText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
@@ -779,9 +803,6 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
 
         foreach (var property in new[]
         {
-            "Motor1RoleText",
-            "Motor2RoleText",
-            "Motor3RoleText",
             "Motor1MoveSummaryText",
             "Motor2MoveSummaryText",
             "Motor3MoveSummaryText",
@@ -795,11 +816,17 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
 
         foreach (var motorNumber in new[] { 1, 2, 3 })
         {
+            Assert.Contains($"ViewModel.Motor{motorNumber}RoleText", axisLabels, StringComparison.Ordinal);
+            Assert.Contains($"Text=\"{{x:Bind ViewModel.Motor{motorNumber}DisplayStatusText, Mode=OneWay}}\"", xaml, StringComparison.Ordinal);
             Assert.Contains($"Text=\"{{x:Bind ViewModel.Motor{motorNumber}MoveValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}\"", xaml, StringComparison.Ordinal);
             Assert.Contains($"Text=\"{{x:Bind ViewModel.Motor{motorNumber}SpeedValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}\"", xaml, StringComparison.Ordinal);
-            Assert.Contains($"SelectedItem=\"{{x:Bind ViewModel.Motor{motorNumber}MoveDirection, Mode=TwoWay}}\"", xaml, StringComparison.Ordinal);
+            Assert.Contains($"ItemsSource=\"{{x:Bind ViewModel.Motor{motorNumber}MoveDirectionOptions, Mode=OneWay}}\"", xaml, StringComparison.Ordinal);
+            Assert.Contains($"SelectedValuePath=\"Token\" SelectedValue=\"{{x:Bind ViewModel.Motor{motorNumber}MoveDirection, Mode=TwoWay}}\"", xaml, StringComparison.Ordinal);
             Assert.Contains($"SelectedItem=\"{{x:Bind ViewModel.Motor{motorNumber}MoveUnit, Mode=TwoWay}}\"", xaml, StringComparison.Ordinal);
         }
+        Assert.Contains("MotorAxisComboBox.Items[index]", axisLabels, StringComparison.Ordinal);
+        Assert.Contains("item.Content =", axisLabels, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(item, item.Content.ToString());", axisLabels, StringComparison.Ordinal);
 
         Assert.Equal("{0}.\nRequested move is invalid: {1}", english["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
         Assert.Equal("{0}。\n请求移动无效：{1}", chinese["ScanDebug_Runtime_MotorMoveSummaryInvalid"]);
@@ -813,12 +840,18 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
         var english = ReadResources("en-us");
         var chinese = ReadResources("zh-CN");
 
-        Assert.Equal("Untitled Film Profile", english["ScanDebug_Runtime_FilmProfileUntitled"]);
+        Assert.Equal("Untitled profile", english["ScanDebug_Runtime_FilmProfileUntitled"]);
         Assert.Equal("未命名胶片配置", chinese["ScanDebug_Runtime_FilmProfileUntitled"]);
-        Assert.Contains("public string CurrentProfileNameText => string.IsNullOrWhiteSpace(FilmProfileName)", scanDebugSource, StringComparison.Ordinal);
+        var presentation = scanDebugSource[scanDebugSource.IndexOf("public string CurrentProfileNameText =>", StringComparison.Ordinal)
+            ..scanDebugSource.IndexOf("private static string GetFilmProfileDisplayName", StringComparison.Ordinal)];
+        Assert.Contains("!string.IsNullOrWhiteSpace(EditingDraftFileName)", presentation, StringComparison.Ordinal);
+        Assert.Contains("? EditingDraftFileName", presentation, StringComparison.Ordinal);
+        Assert.Contains(": string.IsNullOrWhiteSpace(FilmProfileFileName)", presentation, StringComparison.Ordinal);
+        Assert.True(presentation.IndexOf("EditingDraftFileName", StringComparison.Ordinal)
+            < presentation.IndexOf("FilmProfileFileName", StringComparison.Ordinal));
         Assert.Contains("? \"ScanDebug_Runtime_FilmProfileUntitled\".GetLocalized()", scanDebugSource, StringComparison.Ordinal);
         Assert.DoesNotContain("FilmProfileName = \"ScanDebug_Runtime_FilmProfileUntitled\".GetLocalized()", scanDebugSource, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{x:Bind ViewModel.FilmProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{x:Bind ViewModel.FilmProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{x:Bind ViewModel.CurrentProfileNameText, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
     }
 
@@ -842,15 +875,48 @@ public sealed class FilmProfileLocalizationAccessibilityContractTests
     public void ScanDebugJsonActions_HaveLocalizedButtonResources()
     {
         var xaml = ReadAppText("Views", "ScanDebugPage.xaml");
+        var document = XDocument.Parse(xaml);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var english = ReadResourceNames("en-us");
         var chinese = ReadResourceNames("zh-CN");
 
+        foreach (var (uid, command) in new[]
+        {
+            ("ScanDebug_ConfigurationFileNewItem", "NewFilmProfileCommand"),
+            ("ScanDebug_ConfigurationFileOpenItem", "LoadFilmProfileJsonCommand"),
+            ("ScanDebug_ConfigurationFileSaveItem", "SaveFilmProfileJsonCommand")
+        })
+        {
+            var item = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Uid") == uid);
+            Assert.Equal("MenuFlyoutItem", item.Name.LocalName);
+            Assert.Equal($"{{x:Bind ViewModel.{command}}}", (string?)item.Attribute("Command"));
+            Assert.Null(item.Attribute("Click"));
+            foreach (var suffix in new[] { ".Text", ".[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" })
+            {
+                Assert.Contains(uid + suffix, english);
+                Assert.Contains(uid + suffix, chinese);
+            }
+        }
+
+        foreach (var (uid, handler) in new[]
+        {
+            ("ScanDebug_ConfigurationDraftOpenItem", "LoadFilmProfileDraftButton_Click"),
+            ("ScanDebug_ConfigurationPropertiesItem", "OpenConfigurationButton_Click")
+        })
+        {
+            var item = Assert.Single(document.Descendants(), element => (string?)element.Attribute(x + "Uid") == uid);
+            Assert.Equal("MenuFlyoutItem", item.Name.LocalName);
+            Assert.Equal(handler, (string?)item.Attribute("Click"));
+            Assert.Null(item.Attribute("Command"));
+            foreach (var suffix in new[] { ".Text", ".[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" })
+            {
+                Assert.Contains(uid + suffix, english);
+                Assert.Contains(uid + suffix, chinese);
+            }
+        }
+
         foreach (var key in new[]
         {
-            "ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content",
-            "ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content",
-            "ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name",
-            "ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name",
             "ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content",
             "ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content",
             "ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name",

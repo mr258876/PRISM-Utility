@@ -11,11 +11,18 @@ public sealed class ScanFilmProfileFileCoordinator : IScanFilmProfileFileCoordin
     public ScanFilmProfileFileCoordinator(IScanFilmProfileFileGateway gateway, IScanFilmProfileDocumentService documents)
     { _gateway = gateway; _documents = documents; }
 
-    public async Task<bool> ExportAsync(ScanFilmParameterProfileSet profileSet, CancellationToken ct)
+    public async Task<ScanFilmProfileFileExportResult> ExportAsync(ScanFilmParameterProfileSet profileSet, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var result = await _gateway.WriteJsonAsync(ScanFilmProfileFileName.CreateSuggestedName(profileSet.ProfileName), _documents.Serialize(profileSet));
-        return !result.WasCanceled;
+        ScanFilmParameterProfileSet? exportedProfile = null;
+        var result = await _gateway.WriteJsonAsync(ScanFilmProfileFileName.CreateSuggestedName(profileSet.ProfileName), fileName =>
+        {
+            exportedProfile = profileSet with { ProfileName = ScanFilmProfileFileName.FromFileName(fileName) ?? profileSet.ProfileName };
+            return _documents.Serialize(exportedProfile);
+        });
+        if (result.WasCanceled)
+            return new(true, null, null);
+        return new(false, exportedProfile ?? throw new InvalidOperationException("The file gateway did not serialize the selected configuration file."), result.FileName);
     }
 
     public async Task<ScanFilmProfileFileImportResult> ImportAsync(CancellationToken ct)
@@ -25,6 +32,9 @@ public sealed class ScanFilmProfileFileCoordinator : IScanFilmProfileFileCoordin
         if (file.WasCanceled)
             return new(true, null, null);
         var parsed = _documents.Parse(file.Text ?? string.Empty);
-        return new(false, parsed.CanApply ? parsed.Document : null, parsed.Validation);
+        var profile = parsed.CanApply ? parsed.Document : null;
+        if (profile is not null && ScanFilmProfileFileName.FromFileName(file.FileName) is { } name)
+            profile = profile with { ProfileName = name };
+        return new(false, profile, parsed.Validation, file.FileName);
     }
 }

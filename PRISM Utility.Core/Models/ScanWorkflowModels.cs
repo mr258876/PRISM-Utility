@@ -84,6 +84,8 @@ public sealed record ScanPassCaptureProvenance(
     public string? ConfigurationIdentity { get; init; }
     public string? CalibrationIdentity { get; init; }
     public ScanParameterSnapshot? DeviceReadbackParameters { get; init; }
+    public WhiteLightSource? WhiteLightSource { get; init; }
+    public ScanIlluminationState? SubmittedIllumination { get; init; }
 }
 
 public sealed record ScanPassCapture(
@@ -114,7 +116,11 @@ public sealed record ScanWorkflowProgress(
     int TotalPasses,
     byte LedChannelIndex,
     bool DirectionPositive,
-    string Stage);
+    string Stage)
+{
+    public string? ChannelRole { get; init; }
+    public WhiteLightSource? WhiteLightSource { get; init; }
+}
 
 public sealed record ScanWorkflowRowsAvailable(
     int CurrentPass,
@@ -153,13 +159,22 @@ public sealed record ScanChannelAssignment(
     bool Channel1Reversed,
     bool Channel2Reversed,
     bool Channel3Reversed,
-    bool Channel4Reversed)
+    bool Channel4Reversed,
+    string Channel5Role = "Unused",
+    bool Channel5Reversed = false)
 {
     [Newtonsoft.Json.JsonIgnore]
-    public IReadOnlyList<string> Roles => new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
+    public IReadOnlyList<string> Roles => HasFifthChannel
+        ? new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role, Channel5Role }
+        : new[] { Channel1Role, Channel2Role, Channel3Role, Channel4Role };
 
     [Newtonsoft.Json.JsonIgnore]
-    public IReadOnlyList<bool> ReversedFlags => new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed };
+    public IReadOnlyList<bool> ReversedFlags => HasFifthChannel
+        ? new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed, Channel5Reversed }
+        : new[] { Channel1Reversed, Channel2Reversed, Channel3Reversed, Channel4Reversed };
+
+    private bool HasFifthChannel => !string.IsNullOrWhiteSpace(Channel5Role)
+        && !string.Equals(Channel5Role, "Unused", StringComparison.OrdinalIgnoreCase);
 }
 
 public enum ScanChannelAlignmentMode

@@ -131,6 +131,26 @@ internal static partial class ScanRuntimeMessageLocalizer
                 workflowCaptureRowsMatch.Groups["rows"].Value);
         }
 
+        var whiteCaptureMatch = WorkflowWhiteCaptureRowsRegex().Match(text);
+        if (whiteCaptureMatch.Success)
+        {
+            var sourceName = whiteCaptureMatch.Groups["source"].Value == "RgbComposite"
+                ? "ScanDebug_WhiteSourceRgb".GetLocalizedOrFallback("RGB combined light")
+                : "ScanDebug_WhiteSourceDedicated".GetLocalizedOrFallback("Dedicated white LED");
+            return "Scan_Runtime_WorkflowWhiteCaptureRows".GetLocalizedFormatOrFallback(
+                "Pass {0}/{1}: White ({2}), capturing {3} rows...",
+                whiteCaptureMatch.Groups["pass"].Value,
+                whiteCaptureMatch.Groups["total"].Value,
+                sourceName,
+                whiteCaptureMatch.Groups["rows"].Value);
+        }
+
+        var whiteMappingMatch = WhiteSourceMappingRequiredRegex().Match(text);
+        if (whiteMappingMatch.Success)
+            return "Scan_Runtime_WhiteSourceMappingRequired".GetLocalizedFormatOrFallback(
+                "The selected white light source requires exactly one {0} LED mapping.",
+                LocalizeChannelRole(whiteMappingMatch.Groups["role"].Value));
+
         var workflowReturnMotorMatch = WorkflowReturnMotorRegex().Match(text);
         if (workflowReturnMotorMatch.Success)
         {
@@ -285,6 +305,12 @@ internal static partial class ScanRuntimeMessageLocalizer
 
     [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): LED(?<led>\d+) active, capturing (?<rows>\d+) row\(s\)\.\.\.$", RegexOptions.CultureInvariant)]
     private static partial Regex WorkflowCaptureRowsRegex();
+
+    [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): White \((?<source>DedicatedLed|RgbComposite)\) active, capturing (?<rows>\d+) row\(s\)\.\.\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex WorkflowWhiteCaptureRowsRegex();
+
+    [GeneratedRegex(@"^The selected white illumination source requires exactly one mapped (?<role>Red|Green|Blue|White) LED\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex WhiteSourceMappingRequiredRegex();
 
     [GeneratedRegex(@"^Pass (?<pass>\d+)\/(?<total>\d+): returning Motor(?<motor>\d+) to start position\.\.\.$", RegexOptions.CultureInvariant)]
     private static partial Regex WorkflowReturnMotorRegex();

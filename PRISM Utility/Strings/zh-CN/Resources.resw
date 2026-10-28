@@ -139,7 +139,7 @@
     <value>深色</value>
   </data>
   <data name="Settings_Theme_Default.Content" xml:space="preserve">
-    <value>默认</value>
+    <value>跟随系统</value>
   </data>
   <data name="Settings_Language.Text" xml:space="preserve">
     <value>语言</value>
@@ -187,8 +187,18 @@
     <value>设备配置</value>
   </data>
   <data name="DeviceConfiguration_DeviceSettings.Text" xml:space="preserve">
-    <value>设备设置</value>
+    <value>电机与通道</value>
   </data>
+  <data name="DeviceConfiguration_AutoSaveDescription.Text" xml:space="preserve"><value>有效修改会自动保存到此电脑。</value></data>
+  <data name="DeviceConfiguration_MotorStepsInvalid" xml:space="preserve"><value>每转步数必须为正整数。修改未保存。</value></data>
+  <data name="DeviceConfiguration_MotorMicrostepsInvalid" xml:space="preserve"><value>细分必须为正整数。修改未保存。</value></data>
+  <data name="DeviceConfiguration_MotorLeadInvalid" xml:space="preserve"><value>导程长度必须为大于 0 的数字。修改未保存。</value></data>
+  <data name="DeviceConfiguration_DngStartInvalid" xml:space="preserve"><value>有效起始列必须为 0–{0} 的整数。</value></data>
+  <data name="DeviceConfiguration_DngEndInvalid" xml:space="preserve"><value>有效结束列必须为 0–{0} 的整数。</value></data>
+  <data name="DeviceConfiguration_DngActiveOrderInvalid" xml:space="preserve"><value>有效结束列不能小于起始列。</value></data>
+  <data name="DeviceConfiguration_DngMaskedInvalid" xml:space="preserve"><value>请填写 1–4 段“起始列-结束列”，以逗号分隔，列号须在 0–{0} 内。</value></data>
+  <data name="DeviceConfiguration_DngMaskedOverlap" xml:space="preserve"><value>屏蔽黑电平范围不能与有效列重叠。</value></data>
+  <data name="DeviceConfiguration_SaveFailed" xml:space="preserve"><value>未能保存：{0}</value></data>
   <data name="DeviceConfiguration_DeviceSettingsDescription.Text" xml:space="preserve">
     <value>为每个电机配置机械参数，供主机端按工程单位解释移动量和速度。</value>
   </data>
@@ -306,17 +316,11 @@
   <data name="DeviceConfiguration_DngGeometryDescription.Text" xml:space="preserve">
     <value>对焦 ROI 与 DNG 导出几何相互独立，除非扫描流程明确应用某个 ROI 目标。</value>
   </data>
-  <data name="Settings_MultiBufferedBulkInToggleSwitch.Header" xml:space="preserve">
-    <value>多缓冲 Bulk IN</value>
-  </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OnContent" xml:space="preserve">
     <value>已启用</value>
   </data>
   <data name="Settings_MultiBufferedBulkInToggleSwitch.OffContent" xml:space="preserve">
     <value>已禁用</value>
-  </data>
-  <data name="Settings_RawIoToggleSwitch.Header" xml:space="preserve">
-    <value>原始 I/O</value>
   </data>
   <data name="Settings_RawIoToggleSwitch.OnContent" xml:space="preserve">
     <value>已启用</value>
@@ -325,46 +329,37 @@
     <value>已禁用</value>
   </data>
   <data name="Settings_RequestBytesTextBox.Header" xml:space="preserve">
-    <value>请求字节数</value>
+    <value>读取大小 (字节)</value>
   </data>
   <data name="Settings_RequestBytesTextBox.PlaceholderText" xml:space="preserve">
     <value>每个进行中读取的字节数</value>
   </data>
   <data name="Settings_OutstandingReadsTextBox.Header" xml:space="preserve">
-    <value>未完成读取数</value>
+    <value>并发读取数</value>
   </data>
   <data name="Settings_OutstandingReadsTextBox.PlaceholderText" xml:space="preserve">
     <value>并发读取请求数</value>
   </data>
   <data name="Settings_TimeoutMsTextBox.Header" xml:space="preserve">
-    <value>传输超时 (ms)</value>
+    <value>超时 (ms)</value>
   </data>
   <data name="Settings_TimeoutMsTextBox.PlaceholderText" xml:space="preserve">
     <value>每次读取请求的超时时间</value>
   </data>
   <data name="Settings_MultiBufferedBulkInDescription.Text" xml:space="preserve">
-    <value>在扫描图像端点上排队多个并发读取，以减少主机端 Bulk IN 完成之间的间隙，并支持超过单次请求 2 MiB 限制的大尺寸扫描。</value>
-  </data>
-  <data name="Settings_DebugConsoleMirrorToggleSwitch.Header" xml:space="preserve">
-    <value>将程序输出镜像到调试控制台</value>
-  </data>
-  <data name="Settings_DebugFileLogToggleSwitch.Header" xml:space="preserve">
-    <value>将程序输出镜像到本地日志文件</value>
+    <value>并发读取可减少传输等待，并支持超过单次请求 2 MiB 限制的扫描。</value>
   </data>
   <data name="Settings_ColorManagement.Text" xml:space="preserve">
-    <value>默认色彩管理</value>
-  </data>
-  <data name="Settings_ColorManagementToggleSwitch.Header" xml:space="preserve">
-    <value>将光谱波长映射作为 RGB 预览和 PNG 输出的全局默认值</value>
+    <value>输入光谱</value>
   </data>
   <data name="Settings_RedWavelengthTextBox.Header" xml:space="preserve">
-    <value>红色波长 (nm)</value>
+    <value>红波长 (nm)</value>
   </data>
   <data name="Settings_GreenWavelengthTextBox.Header" xml:space="preserve">
-    <value>绿色波长 (nm)</value>
+    <value>绿波长 (nm)</value>
   </data>
   <data name="Settings_BlueWavelengthTextBox.Header" xml:space="preserve">
-    <value>蓝色波长 (nm)</value>
+    <value>蓝波长 (nm)</value>
   </data>
   <data name="Settings_OutputGammaTextBox.Header" xml:space="preserve">
     <value>输出伽马</value>
@@ -385,7 +380,7 @@
     <value>手动色温 (K)</value>
   </data>
   <data name="Settings_RestoreColorManagementDefaultsButton.Content" xml:space="preserve">
-    <value>恢复全局颜色默认值</value>
+    <value>恢复色彩默认值</value>
   </data>
   <data name="Settings_ColorManagementDescription.Text" xml:space="preserve">
     <value>这些是新建或重置扫描配置时使用的全局默认值。已加载扫描配置拥有当前扫描实际使用的色彩参数；当前配置值优先于这些默认值。</value>
@@ -676,7 +671,7 @@
     <value>色彩管理</value>
   </data>
   <data name="Scan_ColorManagementDescription.Text" xml:space="preserve">
-    <value>此处修改的是当前扫描配置用于 RGB 预览和 PNG 输出的色彩参数，不会修改全局默认值。原始通道导出不受影响。</value>
+    <value>用于 RGB 预览和 PNG 输出；原始通道导出不受影响。</value>
   </data>
   <data name="Scan_ColorManagementToggleSwitch.Header" xml:space="preserve">
     <value>使用光谱波长映射</value>
@@ -730,7 +725,7 @@
     <value>运行详情</value>
   </data>
   <data name="ScanDebug_StartButton.Content" xml:space="preserve">
-    <value>开始</value>
+    <value>开始采样</value>
   </data>
   <data name="ScanDebug_ConnectButton.Content" xml:space="preserve">
     <value>连接设备</value>
@@ -805,8 +800,7 @@
     <value>采集模式</value>
   </data>
   <data name="ScanDebug_CaptureModeScopeText" xml:space="preserve">
-    <value>仅影响下次采集，不写入胶片配置。
-传送策略由胶片配置单独保存。</value>
+    <value>用于下次采样；传送策略在胶片配置中单独保存。</value>
   </data>
   <data name="ScanDebug_Runtime_CaptureModeSingle" xml:space="preserve">
     <value>单次采样</value>
@@ -908,19 +902,19 @@
     <value>通道状态</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationStatusListHelpText.Text" xml:space="preserve">
-    <value>此列表仅显示通道状态。请使用上方的通道选择框选择要编辑的校准库条目。</value>
+    <value>选择通道以编辑参数。</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryTitle.Text" xml:space="preserve">
-    <value>所选通道校准库</value>
+    <value>通道预设</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationLibraryHelpText.Text" xml:space="preserve">
-    <value>保存和移除只影响所选通道在校准库中的条目，不会保存顶层胶片配置 JSON，也不会影响其他通道。</value>
+    <value>保存当前通道参数，供其他配置复用。</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationTitle" xml:space="preserve">
-    <value>要移除通道校准吗？</value>
+    <value>要移除此通道预设吗？</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationMessage" xml:space="preserve">
-    <value>要移除 {0} 在校准库中已保存的条目吗？这不会更改其他通道或胶片配置 JSON。</value>
+    <value>移除已保存的 {0} 通道预设？</value>
   </data>
   <data name="ScanDebug_ChannelCalibrationRemoveConfirmationRemoveButton" xml:space="preserve">
     <value>移除</value>
@@ -941,16 +935,16 @@
     <value>校准通道</value>
   </data>
   <data name="ScanDebug_SaveChannelButton.Content" xml:space="preserve">
-    <value>保存当前通道档案</value>
+    <value>另存为通道预设</value>
   </data>
   <data name="ScanDebug_ClearChannelButton.Content" xml:space="preserve">
-    <value>从校准库移除通道校准</value>
+    <value>移除此通道预设</value>
   </data>
   <data name="ScanDebug_SaveJsonButton.Content" xml:space="preserve">
-    <value>保存配置 JSON</value>
+    <value>保存配置文件</value>
   </data>
   <data name="ScanDebug_LoadJsonButton.Content" xml:space="preserve">
-    <value>打开配置 JSON</value>
+    <value>打开配置文件</value>
   </data>
   <data name="ScanDebug_ExposureTextBox.Header" xml:space="preserve">
     <value>曝光 Tick</value>
@@ -998,16 +992,16 @@
     <value>设备时钟</value>
   </data>
   <data name="ScanDebug_DeviceClockHelpText.Text" xml:space="preserve">
-    <value>通道校准前先应用扫描仪全局时钟。通道“应用”不会写入此值。</value>
+    <value>设备全局设置。通道校准前，请在此应用时钟。</value>
   </data>
   <data name="ScanDebug_ApplyDeviceClockButton.Content" xml:space="preserve">
-    <value>应用设备时钟</value>
+    <value>应用时钟到设备</value>
   </data>
   <data name="ScanDebug_ApplyDeviceClockButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>应用设备时钟</value>
+    <value>应用配置时钟到设备</value>
   </data>
   <data name="ScanDebug_ChannelClockLabel.Text" xml:space="preserve">
-    <value>通道时钟（只读）</value>
+    <value>曝光计算与时钟状态</value>
   </data>
   <data name="ScanDebug_ExposureMicrosecondsTextBox.Header" xml:space="preserve">
     <value>曝光时间（微秒）</value>
@@ -1019,7 +1013,7 @@
     <value>曝光 tick（高级）</value>
   </data>
   <data name="ScanDebug_ApplyParamsButton.Content" xml:space="preserve">
-    <value>应用参数</value>
+    <value>应用当前通道到设备</value>
   </data>
   <data name="ScanDebug_AutoBlackButton.Content" xml:space="preserve">
     <value>黑场 / 偏移</value>
@@ -1102,7 +1096,7 @@
     <value>自动对焦预设</value>
   </data>
   <data name="ScanDebug_AutofocusPresetComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
-    <value>快速、标准和精细会填入确定性的自动对焦距离与迭代限制；自定义允许手动输入。</value>
+    <value>快速、标准或精细预设会设置搜索范围与迭代次数；自定义可手动调整。</value>
   </data>
   <data name="ScanDebug_AutofocusSampleRowsTextBox.Header" xml:space="preserve">
     <value>采样行数</value>
@@ -1192,7 +1186,7 @@
     <value>Motor1 上的逻辑 Tilt+ 方向</value>
   </data>
   <data name="ScanDebug_RunAutofocusButton.Content" xml:space="preserve">
-    <value>运行自动对焦</value>
+    <value>开始自动对焦</value>
   </data>
   <data name="ScanDebug_QuickFocusButton.Content" xml:space="preserve">
     <value>快速对焦</value>
@@ -1240,7 +1234,7 @@
     <value>当前通道照明</value>
   </data>
   <data name="ScanDebug_CurrentIlluminationHelpText.Text" xml:space="preserve">
-    <value>当前通道下一次采集使用的照明草稿；不是设备照明读回，也不会点亮 LED。</value>
+    <value>设置当前通道下次采样使用的照明参数。</value>
   </data>
   <data name="ScanDebug_CurrentChannelReverseToggleSwitch.Header" xml:space="preserve">
     <value>行方向反转</value>
@@ -1759,10 +1753,10 @@
     <value>ROI 目标</value>
   </data>
   <data name="ScanDebug_ResetSelectedRoiButton.Content" xml:space="preserve">
-    <value>重置所选 ROI</value>
+    <value>恢复默认范围</value>
   </data>
   <data name="ScanDebug_ResetAllRoisButton.Content" xml:space="preserve">
-    <value>重置当前通道草稿的所有 ROI</value>
+    <value>恢复本通道所有默认范围</value>
   </data>
   <data name="ScanDebug_CursorPositionTextBlock.Text" xml:space="preserve">
     <value>光标：(-, -) px</value>
@@ -1801,52 +1795,52 @@
     <value>应用 ROI</value>
   </data>
   <data name="ScanDebug_ApplyAdcRoiButton.Content" xml:space="preserve">
-    <value>应用所选 ADC ROI</value>
+    <value>应用所选范围</value>
   </data>
   <data name="ScanDebug_ResetAdcRoiButton.Content" xml:space="preserve">
-    <value>重置所选 ADC ROI</value>
+    <value>恢复默认范围</value>
   </data>
   <data name="ScanDebug_ReloadAdcRoiInputsButton.Content" xml:space="preserve">
-    <value>重新载入当前 ADC 范围</value>
+    <value>放弃未应用修改</value>
   </data>
   <data name="ScanDebug_ApplyFocusRoiButton.Content" xml:space="preserve">
-    <value>应用所选对焦 ROI</value>
+    <value>应用所选范围</value>
   </data>
   <data name="ScanDebug_ResetFocusRoiButton.Content" xml:space="preserve">
-    <value>重置所选对焦 ROI</value>
+    <value>恢复默认范围</value>
   </data>
   <data name="ScanDebug_ReloadFocusRoiInputsButton.Content" xml:space="preserve">
-    <value>重新载入当前对焦范围</value>
+    <value>放弃未应用修改</value>
   </data>
   <data name="ScanDebug_RoiDraftSourceText.Text" xml:space="preserve">
-    <value>来源：当前通道 ROI 草稿。重新载入舍弃未应用输入；应用仅修改所选 ROI，不写设备或 JSON。</value>
+    <value>编辑当前通道的范围，点击“应用所选范围”更新配置。</value>
   </data>
   <data name="ScanDebug_AdcRoiEditorTitle.Text" xml:space="preserve">
-    <value>ADC 校准 ROI</value>
+    <value>黑白场校准范围</value>
   </data>
   <data name="ScanDebug_AdcRoiEditorHelpText.Text" xml:space="preserve">
-    <value>ADC 校准使用有效区和屏蔽区。&#10;无效输入可继续修改。&#10;仅限制 ADC 校准，不影响对焦。</value>
+    <value>设置黑白场校准使用的有效区和屏蔽区。</value>
   </data>
   <data name="ScanDebug_AdcRoiTargetComboBox.Header" xml:space="preserve">
-    <value>ADC ROI 范围</value>
+    <value>校准范围</value>
   </data>
   <data name="ScanDebug_FocusRoiEditorTitle.Text" xml:space="preserve">
-    <value>实时自动对焦 ROI</value>
+    <value>对焦范围</value>
   </data>
   <data name="ScanDebug_FocusRoiEditorHelpText.Text" xml:space="preserve">
-    <value>用于自动对焦。&#10;可设置整体、左侧和右侧范围。&#10;无效输入可修改，不影响 ADC 校准。</value>
+    <value>设置自动对焦使用的整体、左侧和右侧范围。</value>
   </data>
   <data name="ScanDebug_FocusRoiTargetComboBox.Header" xml:space="preserve">
-    <value>对焦 ROI 范围</value>
+    <value>对焦范围</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorTitle.Text" xml:space="preserve">
     <value>图像参考列范围</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorHelpText.Text" xml:space="preserve">
-    <value>选择列范围以计算当前通道均值，并保存为黑场或白场。不会更改 ADC ROI 或配准。</value>
+    <value>选择计算当前通道黑白参考值的列范围。</value>
   </data>
   <data name="ScanDebug_ImageReferenceRoiEditorScopeText.Text" xml:space="preserve">
-    <value>两类操作共用当前预览中所选通道的列采样。填入黑值或白值仅更改本地输入框；保存黑电平或白电平写入所选通道的本地校准库，不应用设备参数或导出 JSON。</value>
+    <value>“填入”将采样值带入输入框；“保存”将参考值写入当前通道预设。</value>
   </data>
   <data name="ScanDebug_ReferenceColumnSampleStartTextBox.Header" xml:space="preserve">
     <value>参考起始列</value>
@@ -1858,7 +1852,7 @@
     <value>通道黑白参考值（RAW 16 位 ADU）</value>
   </data>
   <data name="ScanDebug_ManualReferenceLevelsHelpText.Text" xml:space="preserve">
-    <value>请输入原始整数：黑值 0-65535，白值 1-65535，黑值须小于白值。输入或使用采样只修改编辑框；应用只更新所选通道草稿，不写入 ADC 设备、本地库或配置文件。</value>
+    <value>黑值：0–65535；白值：1–65535，使用整数且黑值小于白值。编辑或填入采样值后，点击“更新参考值”。</value>
   </data>
   <data name="ScanDebug_ManualReferenceTargetLabel.Text" xml:space="preserve">
     <value>所选逻辑通道与 LED 映射</value>
@@ -1882,7 +1876,7 @@
     <value>草稿状态</value>
   </data>
   <data name="ScanDebug_ApplyManualReferenceLevelsButton.Content" xml:space="preserve">
-    <value>应用到通道草稿</value>
+    <value>更新参考值</value>
   </data>
   <data name="ScanDebug_RevertManualReferenceLevelsButton.Content" xml:space="preserve">
     <value>撤销本次编辑</value>
@@ -1891,7 +1885,7 @@
     <value>清除通道参考值…</value>
   </data>
   <data name="ScanDebug_ManualReferenceClearHelpText.Text" xml:space="preserve">
-    <value>清除通道草稿中的黑白参考值需要确认。配置须另行保存；本地校准库与设备不会改变。</value>
+    <value>清除当前通道的黑白参考值，随后可重新输入或采样。</value>
   </data>
   <data name="ScanDebug_OverlayVisibilityScopeDescription.Text" xml:space="preserve">
     <value>预览菜单仅控制叠加层可见性。请在对应功能面板中编辑 ADC、自动对焦和图像参考范围。</value>
@@ -1981,7 +1975,7 @@
     <value>范围无效</value>
   </data>
   <data name="Settings_RestoreScanTransferDefaultsButton.Content" xml:space="preserve">
-    <value>恢复默认值</value>
+    <value>恢复传输默认值</value>
   </data>
   <data name="Settings_VersionDescriptionFormat" xml:space="preserve">
     <value>{0} - {1}</value>
@@ -2005,10 +1999,10 @@
     <value>选择单位</value>
   </data>
   <data name="Scan_ConfigProfileTextBox.Header" xml:space="preserve">
-    <value>配置文件</value>
+    <value>胶片配置文件</value>
   </data>
   <data name="Scan_LoadConfigButton.Content" xml:space="preserve">
-    <value>加载配置</value>
+    <value>从文件加载</value>
   </data>
   <data name="Scan_Led1LevelTextBox.Header" xml:space="preserve">
     <value>LED1 电平</value>
@@ -2431,7 +2425,7 @@
     <value>预览已禁用。</value>
   </data>
   <data name="Scan_Runtime_PreviewDisabledPlaceholder" xml:space="preserve">
-    <value>预览已禁用。</value>
+    <value>预览已关闭。开启“启用预览”后可查看扫描结果。</value>
   </data>
   <data name="Scan_Runtime_PreviewModeDescription" xml:space="preserve">
     <value>预览模式：{0}。</value>
@@ -2518,31 +2512,31 @@
     <value>已完成</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRgbComposite" xml:space="preserve">
-    <value>RGB 合成</value>
+    <value>RGB 彩色合成</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRawChannel" xml:space="preserve">
     <value>原始通道 {0}</value>
   </data>
   <data name="Scan_Runtime_DngExportModeLinearRaw4" xml:space="preserve">
-    <value>单文件：4 通道原始 DNG</value>
+    <value>原始通道 DNG</value>
   </data>
   <data name="Scan_Runtime_ProfileDngExportModeLinearRaw4" xml:space="preserve">
-    <value>4 通道原始 DNG</value>
+    <value>原始通道 DNG</value>
   </data>
   <data name="Scan_Runtime_DngExportModeLinearRgbIrw" xml:space="preserve">
-    <value>双文件：RGB 加 IR/W DNG</value>
+    <value>RGB 合成及辅助通道 DNG</value>
   </data>
   <data name="Scan_Runtime_ProfileDngExportModeLinearRgbIrw" xml:space="preserve">
-    <value>RGB + IR/W DNG</value>
+    <value>RGB 合成及辅助通道 DNG</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEcc" xml:space="preserve">
-    <value>ECC</value>
+    <value>相关性 (ECC)</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeMutualInformation" xml:space="preserve">
-    <value>MI</value>
+    <value>互信息 (MI)</value>
   </data>
   <data name="Scan_Runtime_AlignmentModeEccThenMutualInformation" xml:space="preserve">
-    <value>ECC + MI</value>
+    <value>ECC → MI</value>
   </data>
   <data name="Scan_Runtime_ChannelRoleRed" xml:space="preserve">
     <value>红</value>
@@ -2563,13 +2557,13 @@
     <value>未使用</value>
   </data>
   <data name="Scan_Runtime_MotorOption1" xml:space="preserve">
-    <value>Motor1</value>
+    <value>电机 1 (M1)</value>
   </data>
   <data name="Scan_Runtime_MotorOption2" xml:space="preserve">
-    <value>Motor2</value>
+    <value>电机 2 (M2)</value>
   </data>
   <data name="Scan_Runtime_MotorOption3" xml:space="preserve">
-    <value>Motor3</value>
+    <value>电机 3 (M3)</value>
   </data>
   <data name="Scan_Runtime_DeviceStatusConnecting" xml:space="preserve">
     <value>正在连接扫描仪硬件...</value>
@@ -2581,13 +2575,13 @@
     <value>已检测到扫描仪，可连接。</value>
   </data>
   <data name="Scan_Runtime_DeviceStatusMissing" xml:space="preserve">
-    <value>未检测到 PRISM 扫描仪（VID 0x0483 / PID 0x619C 或 0x619D）。</value>
+    <value>未检测到扫描仪。</value>
   </data>
   <data name="Scan_Runtime_ConfigStatusLoaded" xml:space="preserve">
     <value>{0}</value>
   </data>
   <data name="Scan_Runtime_ConfigStatusMissing" xml:space="preserve">
-    <value>尚未加载扫描配置。</value>
+    <value>尚未加载胶片配置。</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigUnavailable" xml:space="preserve">
     <value>不可用</value>
@@ -2596,7 +2590,7 @@
     <value>行数：{0} | 电机：{1} | 单行移动：{2} | DNG：{3}</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigIntervalOnly" xml:space="preserve">
-    <value>间隔 {0} us</value>
+    <value>未填写（步进间隔 {0} μs）</value>
   </data>
   <data name="Scan_Runtime_ExecutionConfigLineMove" xml:space="preserve">
     <value>{0} {1} @ {2} us</value>
@@ -2629,7 +2623,7 @@
     <value>开始前请先连接扫描仪。</value>
   </data>
   <data name="Scan_Runtime_ReadinessConfigRequired" xml:space="preserve">
-    <value>开始前请加载扫描配置。</value>
+    <value>开始前请加载胶片配置。</value>
   </data>
   <data name="Scan_Runtime_ReadinessParametersMissing" xml:space="preserve">
     <value>扫描仪参数仍缺失。开始前请重新连接。</value>
@@ -2647,19 +2641,19 @@
     <value>保存或导出最近一次扫描结果。</value>
   </data>
   <data name="Scan_Runtime_OutputActionNoResult" xml:space="preserve">
-    <value>尚无可用扫描结果。</value>
+    <value>获得扫描结果后，可导出 DNG 或保存 RGB 图像。</value>
   </data>
   <data name="Scan_Runtime_PreviewPlaceholderScanning" xml:space="preserve">
-    <value>扫描期间预览会在此更新。</value>
+    <value>正在扫描。完成后将在此显示预览。</value>
   </data>
   <data name="Scan_Runtime_PreviewPlaceholderPrepareFirst" xml:space="preserve">
-    <value>连接设备并运行一次扫描以填充预览。</value>
+    <value>扫描后将在此显示预览。</value>
   </data>
   <data name="Scan_Runtime_PreviewModeRawRole" xml:space="preserve">
     <value>原始（{0}）</value>
   </data>
   <data name="Scan_Runtime_ErrorConfigProfileRequired" xml:space="preserve">
-    <value>开始前请加载扫描配置。</value>
+    <value>开始前请加载胶片配置。</value>
   </data>
   <data name="ScanDebug_Runtime_DeviceStateConnecting" xml:space="preserve">
     <value>连接中</value>
@@ -2686,13 +2680,13 @@
     <value>同步</value>
   </data>
   <data name="ScanDebug_ProfileStateNoProfile" xml:space="preserve">
-    <value>无配置</value>
+    <value>配置尚未保存</value>
   </data>
   <data name="ScanDebug_ProfileStateUnsaved" xml:space="preserve">
-    <value>草稿有未保存更改</value>
+    <value>完整配置有未保存更改</value>
   </data>
   <data name="ScanDebug_ProfileStateSaved" xml:space="preserve">
-    <value>草稿无未保存更改</value>
+    <value>完整配置已保存</value>
   </data>
   <data name="ScanDebug_AcquisitionPlanNoActiveChannels" xml:space="preserve">
     <value>无活动采集通道。</value>
@@ -2713,23 +2707,23 @@
     <value>未分配</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusSaved" xml:space="preserve">
-    <value>已保存</value>
+    <value>校准已保存</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusModified" xml:space="preserve">
-    <value>已修改</value>
+    <value>校准有未保存更改</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusUnconfigured" xml:space="preserve">
-    <value>缺少</value>
+    <value>缺少校准</value>
     <comment>Obsolete alias retained for source-contract and migration compatibility; new UI uses ScanDebug_Runtime_ChannelStatusMissing.</comment>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusInvalid" xml:space="preserve">
-    <value>无效</value>
+    <value>参数待修正</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusMissing" xml:space="preserve">
-    <value>缺少</value>
+    <value>缺少校准</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusCopiedUnverified" xml:space="preserve">
-    <value>已复制待验证</value>
+    <value>已复制待检查</value>
   </data>
   <data name="ScanDebug_Runtime_ChannelStatusAccessibility" xml:space="preserve">
     <value>{0}，{1}，{2}，{3}</value>
@@ -2756,10 +2750,10 @@
     <value>复制校准到所选通道</value>
   </data>
   <data name="ScanDebug_CopyCalibrationProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve">
-    <value>复制只会暂存数值。保存通道校准后才会写入。</value>
+    <value>复制仅暂存通道参数；“另存为通道预设”后可在其他配置中复用。</value>
   </data>
   <data name="ScanDebug_CalibrationCopyHelperText.Text" xml:space="preserve">
-    <value>复制只会暂存所选通道的数值。保存通道校准后才会写入。</value>
+    <value>复制仅暂存通道参数；“另存为通道预设”后可在其他配置中复用。</value>
   </data>
   <data name="ScanDebug_DisabledReasonReady" xml:space="preserve">
     <value>就绪。</value>
@@ -2804,10 +2798,13 @@
     <value>{0}：未使用</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewCalibrationSaved" xml:space="preserve">
-    <value>校准已保存</value>
+    <value>校准库中有预设</value>
+  </data>
+  <data name="ScanDebug_ProfileChannelOverviewCalibrationConfigured" xml:space="preserve">
+    <value>通道参数已配置</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewCalibrationMissing" xml:space="preserve">
-    <value>缺少校准</value>
+    <value>未配置通道参数</value>
   </data>
   <data name="ScanDebug_ProfileChannelOverviewItem" xml:space="preserve">
     <value>{0}：{1}（{2}）</value>
@@ -2834,10 +2831,10 @@
     <value>采集图像到达后将在此显示。</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionDeviceDetected" xml:space="preserve">
-    <value>首次采集后，图像与线剖面将在这里显示。</value>
+    <value>可离线编辑并保存配置。&#10;连接扫描仪后可采样、校准和对焦。</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionNoDevice" xml:space="preserve">
-    <value>离线时可先编辑配置；设备就绪后从顶部开始采样。</value>
+    <value>可离线编辑并保存配置。&#10;连接扫描仪后可采样、校准和对焦。</value>
   </data>
   <data name="ScanDebug_PreviewEmptyDescriptionChannelUncalibrated" xml:space="preserve">
     <value>在黑白场为 {0}（{1}）配置当前通道；不会自动建立档案。</value>
@@ -2888,22 +2885,25 @@
     <value>手动对焦距离</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfileLoadedYet" xml:space="preserve">
-    <value>校准配置通道：{0}（尚未加载已保存配置）。</value>
+    <value>{0}：尚未加载通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_NoSavedProfile" xml:space="preserve">
-    <value>校准配置通道：{0}（无已保存配置）。</value>
+    <value>{0}：暂无已保存的通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_SavedProfileLoaded" xml:space="preserve">
-    <value>校准配置通道：{0}（已加载已保存配置）。</value>
+    <value>{0}：已加载通道预设。</value>
+  </data>
+  <data name="ScanDebug_Runtime_CalibrationChannel_DraftProfileLoaded" xml:space="preserve">
+    <value>{0}：已加载当前配置的通道参数。</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_ProfileCleared" xml:space="preserve">
-    <value>校准配置通道：{0}（配置已清除）。</value>
+    <value>已移除 {0} 的通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_LoadFailed" xml:space="preserve">
-    <value>校准配置通道：{0}（加载失败：{1}）。</value>
+    <value>{0}：通道预设加载失败：{1}</value>
   </data>
   <data name="ScanDebug_Runtime_CalibrationChannel_SavedAt" xml:space="preserve">
-    <value>校准配置通道：{0}（保存于 {1}）。</value>
+    <value>{0}：已于 {1} 保存通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_FilmProfileUntitled" xml:space="preserve">
     <value>未命名胶片配置</value>
@@ -2957,10 +2957,10 @@
     <value>右侧对焦</value>
   </data>
   <data name="ScanDebug_Runtime_MotorDirectionDir0" xml:space="preserve">
-    <value>Dir0</value>
+    <value>方向 0（Dir0）</value>
   </data>
   <data name="ScanDebug_Runtime_MotorDirectionDir1" xml:space="preserve">
-    <value>Dir1</value>
+    <value>方向 1（Dir1）</value>
   </data>
   <data name="ScanDebug_Runtime_StatusWaitingForDevicesShort" xml:space="preserve">
     <value>正在等待扫描仪设备...</value>
@@ -3029,7 +3029,7 @@
     <value>扫描仪会话已连接。正在加载参数...</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParametersLoaded" xml:space="preserve">
-    <value>参数已加载</value>
+    <value>已读取当前设备参数。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParameterLoadUnavailable" xml:space="preserve">
     <value>参数加载不可用：{0}</value>
@@ -3188,7 +3188,7 @@
     <value>正在应用扫描参数...</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParametersUpdated" xml:space="preserve">
-    <value>参数更新成功。</value>
+    <value>通道参数已应用到当前设备。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusParameterUpdateCanceled" xml:space="preserve">
     <value>参数更新已取消。</value>
@@ -3302,7 +3302,7 @@
     <value>自动校准已完成。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileSaved" xml:space="preserve">
-    <value>校准通道 '{0}' 的配置已保存。</value>
+    <value>已保存 {0} 的通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusSaveChannelProfileFailed" xml:space="preserve">
     <value>保存通道配置失败：{0}</value>
@@ -3311,10 +3311,10 @@
     <value>校准通道为空。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelProfileCleared" xml:space="preserve">
-    <value>校准通道 '{0}' 的配置已清除。</value>
+    <value>已移除 {0} 的通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelNoSavedProfile" xml:space="preserve">
-    <value>校准通道 '{0}' 没有已保存配置。</value>
+    <value>尚未保存 {0} 的通道预设。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusCalibrationChannelRemoveCanceled" xml:space="preserve">
     <value>已取消移除 {0}。</value>
@@ -3323,7 +3323,7 @@
     <value>清除通道配置失败：{0}</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileExported" xml:space="preserve">
-    <value>胶片配置 '{0}' 已导出。</value>
+    <value>完整配置“{0}”已保存，可用于扫描。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileExportCanceled" xml:space="preserve">
     <value>保存胶片配置已取消。</value>
@@ -3344,10 +3344,10 @@
     <value>胶片配置 '{0}' 已加载。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileStaged" xml:space="preserve">
-    <value>胶片配置 '{0}' 已读取并暂存以供审查。当前设置未更改。</value>
+    <value>配置“{0}”已暂存，待审查导入。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileApplied" xml:space="preserve">
-    <value>胶片配置 '{0}' 已应用。</value>
+    <value>配置“{0}”已载入编辑器。</value>
   </data>
   <data name="ScanDebug_Runtime_StatusFilmProfileImportInvalid" xml:space="preserve">
     <value>所选胶片配置无法暂存。请检查文件后重试。</value>
@@ -3900,7 +3900,7 @@
     <value>高级配方覆盖</value>
   </data>
   <data name="Scan_AdvancedColorManagementSection.Text" xml:space="preserve">
-    <value>当前配置色彩管理</value>
+    <value>本次扫描色彩管理</value>
   </data>
   <data name="ScanDebug_ProfileRecipeTitle.Text" xml:space="preserve">
     <value>此配置编写的扫描配方</value>
@@ -3918,7 +3918,7 @@
     <value>仅伽马 sRGB（伽马 {0}）</value>
   </data>
   <data name="Settings_ColorManagementScopeText.Text" xml:space="preserve">
-    <value>仅全局默认值。单次扫描的色彩行为请在已加载扫描配置中修改。</value>
+    <value>用于新建或重置的配置，已加载配置不受影响。</value>
   </data>
   <data name="Scan_PageRoleDescription.Text" xml:space="preserve">
     <value>正式扫描工作区：加载配置、确认当前生效配方、执行扫描，然后保存 RGB 或导出 DNG。</value>
@@ -3927,7 +3927,7 @@
     <value>此页面连接或扫描时会占用 USB 设备。若要在同一硬件上使用 USB 调试，请先在此断开连接。</value>
   </data>
   <data name="Scan_ConfigCardTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>这些控件定义正式扫描流程。已加载配置是配方、色彩和 DNG 模式的来源；全局设置只为新建或重置配置提供默认值。</value>
+    <value>本次扫描使用此配置中的配方、色彩和 DNG 设置。</value>
   </data>
   <data name="Scan_ColorSourceText.Text" xml:space="preserve">
     <value>生效来源：已加载扫描配置。若未加载配置，当前值来自全局默认值初始化。</value>
@@ -3942,13 +3942,13 @@
     <value>只选择最近一次扫描调试采集结果的 DNG 导出模式，不会修改所编写的扫描配置。</value>
   </data>
   <data name="ScanDebug_PageRoleDescription.Text" xml:space="preserve">
-    <value>胶片配置与校准工作台：编写配置 JSON、校准通道、预览临时采集；若要让 USB 调试或正式扫描使用同一硬件，请先释放扫描仪。</value>
+    <value>编辑胶片配置、校准通道并预览采样。</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.Text" xml:space="preserve">
     <value>胶片配置与校准</value>
   </data>
   <data name="ScanDebug_WorkstationTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>胶片配置与校准工作台：编写配置 JSON、校准通道、预览临时采集；若要让 USB 调试或正式扫描使用同一硬件，请先释放扫描仪。</value>
+    <value>编辑胶片配置、校准通道并预览采样。</value>
   </data>
   <data name="ScanDebug_DeviceStatusLabel.Text" xml:space="preserve">
     <value>状态</value>
@@ -4008,10 +4008,10 @@
     <value>关</value>
   </data>
   <data name="ScanDebug_SaveColumnBlackLevelButton.Content" xml:space="preserve">
-    <value>保存黑电平到校准库</value>
+    <value>保存黑电平到通道预设</value>
   </data>
   <data name="ScanDebug_SaveColumnWhiteLevelButton.Content" xml:space="preserve">
-    <value>保存白电平到校准库</value>
+    <value>保存白电平到通道预设</value>
   </data>
   <data name="ScanDebug_WhiteLevelPreviewToggleSwitch.Header" xml:space="preserve">
     <value>预览使用已保存白电平</value>
@@ -4026,7 +4026,7 @@
     <value>预览显示工具</value>
   </data>
   <data name="ScanDebug_PreviewDisplayToolsDescription.Text" xml:space="preserve">
-    <value>只改变预览显示，不修改原始采样或配置 JSON。</value>
+    <value>调整当前预览的显示效果。</value>
   </data>
   <data name="ScanDebug_PreviewDisplayToolsButton.Content" xml:space="preserve">
     <value>显示设置</value>
@@ -4056,46 +4056,82 @@
     <value>离线时可先编辑配置；设备就绪后从顶部开始采样。</value>
   </data>
   <data name="ScanDebug_RoiScopeDescription.Text" xml:space="preserve">
-    <value>ROI 目标是带范围的选择：BW 有效区用于预览/校准的可用区域，BW 屏蔽区用于参考屏蔽区域，对焦 ROI 用于自动对焦检查。它们不会修改全局 DNG 几何默认值。</value>
+    <value>黑白场有效区用于测量与校准，屏蔽区用于参考；对焦范围用于自动对焦。</value>
   </data>
   <data name="ScanDebug_RoiActionScopeText.Text" xml:space="preserve">
-    <value>应用和重置只影响上方选择的 ROI 目标。DNG 有效区/屏蔽区默认值仍在设置页维护，除非配置流程明确保存对应几何。</value>
+    <value>应用或恢复默认值时，更新上方所选范围。</value>
   </data>
   <data name="UsbDebug_UsageConflictGuidance.Text" xml:space="preserve">
     <value>USB 调试现在只针对 PRISM 扫描仪设备 1D50:619C 和 1D50:619D。它需要独占访问所选 PRISM 设备；如果扫描或扫描调试已连接，请先在那里断开连接，再回到此页占用端点。</value>
   </data>
   <data name="Main_PageTitle.Text" xml:space="preserve">
-    <value>PRISM Utility 工作区</value>
+    <value>PRISM 扫描工作台</value>
   </data>
   <data name="Main_PageDescription.Text" xml:space="preserve">
-    <value>使用此概览选择正确页面。连接、配置和导出详情接入实时会话前，这些状态卡片仅作为占位提示。</value>
+    <value>使用已有胶片配置开始扫描，或先准备新的配置。</value>
   </data>
-  <data name="Main_StatusConnectionTitle.Text" xml:space="preserve">
-    <value>连接状态</value>
+  <data name="Main_Runtime_DeviceMissingTitle" xml:space="preserve">
+    <value>未检测到扫描仪</value>
   </data>
-  <data name="Main_StatusConnectionText.Text" xml:space="preserve">
-    <value>此处尚未显示共享连接状态。请在扫描、扫描调试或 USB 调试页有意识地连接和释放硬件。</value>
+  <data name="Main_Runtime_DeviceMissingDescription" xml:space="preserve">
+    <value>请接通扫描仪电源，并通过 USB 连接电脑。</value>
   </data>
-  <data name="Main_StatusConfigTitle.Text" xml:space="preserve">
-    <value>配置归属</value>
+  <data name="Main_Runtime_DeviceDetectedTitle" xml:space="preserve">
+    <value>已发现扫描仪，尚未连接</value>
   </data>
-  <data name="Main_StatusConfigText.Text" xml:space="preserve">
-    <value>设置页保存全局默认值。已加载扫描配置拥有当前色彩、通道、DNG 模式和 ROI 相关配方值。</value>
+  <data name="Main_Runtime_DeviceDetectedDescription" xml:space="preserve">
+    <value>进入扫描页连接设备。</value>
   </data>
-  <data name="Main_StatusExportTitle.Text" xml:space="preserve">
-    <value>导出状态</value>
+  <data name="Main_Runtime_DeviceConnectingTitle" xml:space="preserve">
+    <value>正在连接扫描仪</value>
   </data>
-  <data name="Main_StatusExportText.Text" xml:space="preserve">
-    <value>RGB 与 DNG 输出来自扫描或扫描调试结果；主页不编辑输出设置。</value>
+  <data name="Main_Runtime_DeviceConnectingDescription" xml:space="preserve">
+    <value>连接完成后，可在工作区确认参数和准备状态。</value>
+  </data>
+  <data name="Main_Runtime_DeviceConnectedTitle" xml:space="preserve">
+    <value>扫描仪已连接</value>
+  </data>
+  <data name="Main_Runtime_DeviceConnectedDescription" xml:space="preserve">
+    <value>进入扫描页加载配置并确认准备状态。</value>
+  </data>
+  <data name="Main_Runtime_DeviceRunningTitle" xml:space="preserve">
+    <value>扫描仪正在运行</value>
+  </data>
+  <data name="Main_Runtime_DeviceRunningDescription" xml:space="preserve">
+    <value>返回当前工作区查看进度。</value>
+  </data>
+  <data name="Main_Runtime_DeviceFaultedTitle" xml:space="preserve">
+    <value>扫描仪连接需要检查</value>
+  </data>
+  <data name="Main_Runtime_DeviceFaultedDescription" xml:space="preserve">
+    <value>请在工作区查看错误并重新连接扫描仪，详细信息可在日志页查看。</value>
+  </data>
+  <data name="Main_Runtime_DeviceReconnectTitle" xml:space="preserve">
+    <value>扫描仪等待重新连接</value>
+  </data>
+  <data name="Main_Runtime_DeviceReconnectDescription" xml:space="preserve">
+    <value>设备连接已中断。请检查电源和 USB 连接，再进入工作区重新连接。</value>
+  </data>
+  <data name="Main_Runtime_DeviceDiagnosticsTitle" xml:space="preserve">
+    <value>诊断工具正在使用扫描仪</value>
+  </data>
+  <data name="Main_Runtime_DeviceDiagnosticsDescription" xml:space="preserve">
+    <value>结束当前诊断连接后，再开始扫描或校准。</value>
+  </data>
+  <data name="Main_Runtime_OpenScanWorkspace" xml:space="preserve">
+    <value>打开扫描页</value>
+  </data>
+  <data name="Main_Runtime_OpenCalibrationWorkspace" xml:space="preserve">
+    <value>打开校准工作区</value>
   </data>
   <data name="Main_WorkflowsTitle.Text" xml:space="preserve">
-    <value>选择工作流</value>
+    <value>工作入口</value>
   </data>
   <data name="Main_ScanCardTitle.Text" xml:space="preserve">
-    <value>正式扫描</value>
+    <value>扫描与导出</value>
   </data>
   <data name="Main_ScanCardText.Text" xml:space="preserve">
-    <value>从已加载配置执行正式扫描，并导出 RGB 或 DNG 输出。</value>
+    <value>加载配置、确认准备状态，然后扫描、预览并导出图像。</value>
   </data>
   <data name="Main_OpenScanButton.Content" xml:space="preserve">
     <value>进入扫描</value>
@@ -4104,7 +4140,7 @@
     <value>胶片配置与校准</value>
   </data>
   <data name="Main_ScanDebugCardText.Text" xml:space="preserve">
-    <value>在正式扫描前编写胶片配置、校准通道并执行临时采集检查。</value>
+    <value>需要新配置或重新校准时，从这里准备，完成后用于扫描。离线也可编辑配置。</value>
   </data>
   <data name="Main_OpenScanDebugButton.Content" xml:space="preserve">
     <value>进入胶片配置与校准</value>
@@ -4113,7 +4149,7 @@
     <value>设置</value>
   </data>
   <data name="Main_SettingsCardText.Text" xml:space="preserve">
-    <value>维护新配置的全局默认值、DNG 几何默认值、设备设置和应用偏好。</value>
+    <value>外观、语言、设备映射与新配置默认值。</value>
   </data>
   <data name="Main_OpenSettingsButton.Content" xml:space="preserve">
     <value>打开设置</value>
@@ -4179,7 +4215,7 @@
     <value>断开连接</value>
   </data>
   <data name="Shell_DeviceConfigurationButton.Content" xml:space="preserve">
-    <value>设备配置</value>
+    <value>设备设置</value>
   </data>
   <data name="Scan_WorkflowTitle.Text" xml:space="preserve">
     <value>扫描</value>
@@ -4191,10 +4227,10 @@
     <value>1. 扫描仪会话</value>
   </data>
   <data name="Scan_ConfigCardTitle.Text" xml:space="preserve">
-    <value>2. 已加载配置</value>
+    <value>胶片配置</value>
   </data>
   <data name="Scan_ExecutionCardTitle.Text" xml:space="preserve">
-    <value>3. 运动与轮次计划</value>
+    <value>扫描参数</value>
   </data>
   <data name="Scan_DeviceBlockerInfoBar.Title" xml:space="preserve">
     <value>设备阻塞项</value>
@@ -4246,7 +4282,7 @@
   <data name="FilmProfile_Validation_MalformedJson" xml:space="preserve"><value>请选择可读取的胶片配置 JSON 文件后重试。</value></data>
   <data name="FilmProfile_Validation_SchemaVersionMissing" xml:space="preserve"><value>导入前请使用架构版本 5 重新导出该文件。</value></data>
   <data name="FilmProfile_Validation_SchemaVersionUnsupported" xml:space="preserve"><value>导入前请将文件转换为当前胶片配置架构。</value></data>
-  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>保存前请输入配置名称。</value></data>
+  <data name="FilmProfile_Validation_ProfileNameMissing" xml:space="preserve"><value>配置名称元数据必须为文本。</value></data>
   <data name="FilmProfile_Validation_ProfileNameInvalid" xml:space="preserve"><value>配置名称为空；命名前界面会显示未命名。</value></data>
   <data name="FilmProfile_Validation_SavedAtUtcInvalid" xml:space="preserve"><value>请在导入的配置文件中使用有效保存时间戳。</value></data>
   <data name="FilmProfile_Validation_ChannelRoleInvalid" xml:space="preserve"><value>请为此通道配置使用非空通道角色。</value></data>
@@ -4268,14 +4304,14 @@
   <data name="ScanDebug_FilmProfileWorkspaceValidationLabel.Text" xml:space="preserve"><value>验证</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.Content" xml:space="preserve"><value>新建胶片配置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>新建胶片配置</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>打开配置 JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开配置 JSON</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.Content" xml:space="preserve"><value>打开配置文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleOpenJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开配置文件</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.Content" xml:space="preserve"><value>检查配置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleValidateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>执行配置检查</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>导出配置 JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>导出配置 JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>保存到校准库</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>从校准库移除</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.Content" xml:space="preserve"><value>保存配置文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveJsonButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存配置文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleSaveCalibrationLibraryButton.Content" xml:space="preserve"><value>保存通道预设</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLifecycleRemoveCalibrationLibraryButton.Content" xml:space="preserve"><value>移除通道预设</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.Content" xml:space="preserve"><value>应用暂存配置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleApplyStagedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>应用暂存配置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLifecycleDiscardStagedButton.Content" xml:space="preserve"><value>丢弃暂存配置</value></data>
@@ -4303,7 +4339,7 @@
   <data name="ScanDebug_FilmProfileWorkbenchCurrentValidationDescription.Text" xml:space="preserve"><value>查看当前配置问题；可定位的问题会跳转到对应编辑字段。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedValidationTitle.Text" xml:space="preserve"><value>暂存导入验证</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationNotRun" xml:space="preserve"><value>尚未验证</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>有效</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchValidationValid" xml:space="preserve"><value>参数检查通过</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchValidationIssues" xml:space="preserve"><value>{0} 个验证问题</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchOperationStatusTitle.Text" xml:space="preserve"><value>操作状态</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchOperationInfoBar.Title" xml:space="preserve"><value>操作状态</value></data>
@@ -4316,7 +4352,7 @@
   <data name="ScanDebug_FilmProfileWorkbenchDeviceDisconnected" xml:space="preserve"><value>扫描仪未连接</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchDeviceConnected" xml:space="preserve"><value>扫描仪已连接</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportTitle.Text" xml:space="preserve"><value>暂存导入审查</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>应用前请审查已加载的 JSON。应用会替换当前工作区配置；丢弃会保留当前设置不变。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchStagedImportHelpText.Text" xml:space="preserve"><value>检查载入的配置。应用将替换当前配置；丢弃可取消此次导入。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportChooseOtherFileButton.Content" xml:space="preserve"><value>选择其他文件</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportError" xml:space="preserve"><value>导入错误</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportResultNoChannels" xml:space="preserve"><value>没有暂存配置</value></data>
@@ -4327,11 +4363,11 @@
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportChannelCount" xml:space="preserve"><value>{0} 个通道配置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportNoChannels" xml:space="preserve"><value>没有暂存通道</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchStagedImportDirtyWarning" xml:space="preserve"><value>应用此导入会替换当前未保存的配置更改。</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>配置身份</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>名称和输出选项属于当前配置草稿；导出 JSON 需单独操作。</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>色彩与扫描配方</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataTitle.Text" xml:space="preserve"><value>图像输出</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicMetadataDescription.Text" xml:space="preserve"><value>这些输出选项属于当前配置草稿；配置名称由文件名确定。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeTitle.Text" xml:space="preserve"><value>色彩管理</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicRecipeDescription.Text" xml:space="preserve"><value>这些输出设置不代替所选通道的黑白场校准。</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>当前配置问题</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchBasicValidationTitle.Text" xml:space="preserve"><value>输出与色彩检查</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicValidationDescription.Text" xml:space="preserve"><value>查看字段问题，选择可定位项可直接跳转修改。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.Header" xml:space="preserve"><value>配置名称</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchBasicProfileNameTextBox.PlaceholderText" xml:space="preserve"><value>例如 5207</value></data>
@@ -4351,23 +4387,23 @@
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupTitle.Text" xml:space="preserve"><value>采集设置</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionSetupDescription.Text" xml:space="preserve"><value>计划和通道设置属于配置草稿；传送设置仅用于对应采集方式。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusTitle.Text" xml:space="preserve"><value>保存与验证状态</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>行数、距离、通道启用和顺序更改会立即更新摘要，输入无效时会阻止保存。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchAcquisitionStatusDescription.Text" xml:space="preserve"><value>更改会更新采集摘要；校验通过后可保存完整配置，也可先保存草稿。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugTitle.Text" xml:space="preserve"><value>工程工具</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchEngineeringAcquisitionDebugDescription.Text" xml:space="preserve"><value>照明测试与原始值应用可立即作用于设备；仅按硬件验证流程操作。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeTitle.Text" xml:space="preserve"><value>导出已采集数据</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>将已有采集数据导出为 DNG；不会保存配置 JSON 或向设备应用参数。</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchLiveRuntimeDescription.Text" xml:space="preserve"><value>将已有采样导出为 DNG 图像文件。</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchLiveProgressLabel.Text" xml:space="preserve"><value>扫描运行时会在这里显示进度。</value></data>
   <data name="ScanDebug_FilmProfileLifecycleHeader.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>胶片配置生命周期页眉</value></data>
   <data name="ScanDebug_StagedFilmProfileImportReview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>暂存胶片配置导入审查</value></data>
-  <data name="ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>基本信息区域</value></data>
+  <data name="ScanDebug_BasicInfoSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>输出与色彩设置</value></data>
   <data name="ScanDebug_AcquisitionPlanSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>采集计划区域</value></data>
   <data name="ScanDebug_ChannelCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>通道校准区域</value></data>
   <data name="ScanDebug_LiveCalibrationSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>实时校准区域</value></data>
   <data name="ScanDebug_DeviceSettingsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>设备设置区域</value></data>
   <data name="ScanDebug_EngineeringToolsSection.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>工程工具区域</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeWorkspace" xml:space="preserve"><value>当前工作区</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>配置 JSON 文件</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>校准库</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeJson" xml:space="preserve"><value>配置文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeCalibrationLibrary" xml:space="preserve"><value>通道预设</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchPersistenceScopeUnsaved" xml:space="preserve"><value>未保存更改</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchChannelStatusReady" xml:space="preserve"><value>{0}：就绪</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchChannelStatusMissingCalibration" xml:space="preserve"><value>{0}：缺少校准</value></data>
@@ -4391,12 +4427,12 @@
   <data name="ScanDebug_FilmProfileWorkbenchImportDiscardConfirmationMessage.Text" xml:space="preserve"><value>新建配置会丢弃暂存配置或导入错误。取消则保留当前设置。</value></data>
   <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationTitle" xml:space="preserve"><value>替换待处理导入结果</value></data>
   <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationMessage" xml:space="preserve"><value>选择其他文件会替换暂存配置或导入错误。取消则保留当前结果。</value></data>
-  <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton" xml:space="preserve"><value>打开配置 JSON</value></data>
+  <data name="ScanDebug_Runtime_FilmProfileImportReplacementConfirmationOpenButton" xml:space="preserve"><value>打开配置文件</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationTitle.Text" xml:space="preserve"><value>替换待处理导入结果</value></data>
   <data name="ScanDebug_FilmProfileWorkbenchImportReplacementConfirmationMessage.Text" xml:space="preserve"><value>选择其他文件会替换暂存配置或导入错误。取消则保留当前结果。</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>导出配置 JSON</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>将所选通道校准保存到校准库</value></data>
-  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>从校准库移除所选通道校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchJsonSavePrecise.Content" xml:space="preserve"><value>保存配置文件</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibrarySavePrecise.Content" xml:space="preserve"><value>将所选通道保存为预设</value></data>
+  <data name="ScanDebug_FilmProfileWorkbenchCalibrationLibraryRemovePrecise.Content" xml:space="preserve"><value>移除所选通道的预设</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategyTitle.Text" xml:space="preserve"><value>传送策略</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategyHelpText.Text" xml:space="preserve"><value>返回起点会让每个所选通道按相同物理方向扫描，并在下一个通道前返回。交替方向会让相邻所选通道按相反方向扫描，并依赖匹配的几何。</value></data>
   <data name="ScanDebug_AcquisitionTransportStrategySafetyText.Text" xml:space="preserve"><value>仅修改当前草稿的传送策略。
@@ -4404,19 +4440,14 @@
   <data name="ScanDebug_AdvancedAdcAdjustmentTitle.Text" xml:space="preserve"><value>高级 ADC 手动调整</value></data>
   <data name="ScanDebug_AdvancedAdcAdjustmentHelpText.Text" xml:space="preserve"><value>手动调整 ADC 偏移与增益。
 仅影响所选通道。</value></data>
-  <data name="ScanDebug_AdvancedAdcAdjustmentScopeText.Text" xml:space="preserve"><value>编辑仅更新当前通道草稿。
-应用参数时，仅写入设备。
-保存校准才写入标定库。
-仅更新所选通道，其余通道不变。</value></data>
-  <data name="ScanDebug_DeviceClockUnitRangeText.Text" xml:space="preserve"><value>合法范围：30-200 MHz。
-应用发送设备全局时钟命令，不保存通道配置。
-设备 Flash 持久化行为尚未验证。</value></data>
+  <data name="ScanDebug_AdvancedAdcAdjustmentScopeText.Text" xml:space="preserve"><value>“应用当前通道到设备”使参数在设备上生效；“另存为通道预设”保留参数供复用。</value></data>
+  <data name="ScanDebug_DeviceClockUnitRangeText.Text" xml:space="preserve"><value>30–200 MHz，最多三位小数。更改时钟后需重新应用通道参数。</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadyReason" xml:space="preserve"><value>可以应用设备全局时钟。</value></data>
   <data name="ScanDebug_Runtime_ChannelParametersReadyReason" xml:space="preserve"><value>可以把所选通道参数应用到设备。</value></data>
   <data name="ScanDebug_Runtime_SessionIlluminationReadyReason" xml:space="preserve"><value>可以向已连接设备发送仅当前会话的照明测试。</value></data>
   <data name="ScanDebug_Runtime_DeviceClockInvalidReason" xml:space="preserve"><value>请输入 30 到 200 MHz 的设备时钟，最多三位小数。</value></data>
   <data name="ScanDebug_Runtime_DeviceClockReadRequiredReason" xml:space="preserve"><value>读取或重新应用设备时钟后，此命令才能安全触及时序或硬件运动。</value></data>
-  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>编辑配置</value></data>
+  <data name="ScanDebug_WorkbenchConfigurationButton.Content" xml:space="preserve"><value>配置属性</value></data>
   <data name="ScanDebug_WorkbenchConfigurationOperationsButton.Content" xml:space="preserve"><value>配置文件</value></data>
   <data name="ScanDebug_WorkbenchAdvancedButton.Content" xml:space="preserve"><value>工程工具</value></data>
   <data name="ScanDebug_WorkbenchReviewButton.Content" xml:space="preserve"><value>配置问题</value></data>
@@ -4434,30 +4465,35 @@
   <data name="ScanDebug_CaptureModeInlineLabel.Text" xml:space="preserve"><value>采集模式</value></data>
   <data name="ScanDebug_MotorAxisInlineLabel.Text" xml:space="preserve"><value>当前电机</value></data>
   <data name="ScanDebug_MotorAxisComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>选择当前电机</value></data>
-  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>Motor1</value></data>
-  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>Motor2</value></data>
-  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>Motor3</value></data>
-  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>返回上次任务</value></data>
+  <data name="ScanDebug_Motor1AxisComboBoxItem.Content" xml:space="preserve"><value>电机 1 (M1)</value></data>
+  <data name="ScanDebug_Motor2AxisComboBoxItem.Content" xml:space="preserve"><value>电机 2 (M2)</value></data>
+  <data name="ScanDebug_Motor3AxisComboBoxItem.Content" xml:space="preserve"><value>电机 3 (M3)</value></data>
+  <data name="ScanDebug_ReturnToWorkbenchTaskButton.Content" xml:space="preserve"><value>← 返回任务</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.Header" xml:space="preserve"><value>移动方向</value></data>
   <data name="ScanDebug_MotorMoveDirectionComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>电机移动方向</value></data>
   <data name="ScanDebug_AcquisitionPlanDetailsExpander.Header" xml:space="preserve"><value>执行顺序与约束</value></data>
   <data name="ScanDebug_AcquisitionChannelOrderTitle.Text" xml:space="preserve"><value>所选通道执行顺序</value></data>
   <data name="ScanDebug_AcquisitionTransportDetailsExpander.Header" xml:space="preserve"><value>传送采集设置</value></data>
-  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>通道库与参数</value></data>
-  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>列采样操作与清除选项</value></data>
+  <data name="ScanDebug_ChannelCalibrationDetailsExpander.Header" xml:space="preserve"><value>通道预设与参数</value></data>
+  <data name="ScanDebug_ManualReferenceSupplementExpander.Header" xml:space="preserve"><value>列采样</value></data>
+  <data name="ScanDebug_ReferenceHelpButton.Content" xml:space="preserve"><value>参考值说明与来源</value></data>
+  <data name="ScanDebug_ReferenceHelpButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>查看参考值说明与采样来源</value></data>
   <data name="ScanDebug_ManualReferenceCompactTitle.Text" xml:space="preserve"><value>黑白参考值 (RAW ADU)</value></data>
   <data name="ScanDebug_MotorSettingsExpander.Header" xml:space="preserve"><value>当前轴设置</value></data>
-  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
+  <data name="ScanDebug_AdcRoiDetailsExpander.Header" xml:space="preserve"><value>编辑校准范围</value></data>
   <data name="ScanDebug_FocusRoiDetailsExpander.Header" xml:space="preserve"><value>编辑对焦范围</value></data>
-  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>图像工具</value></data>
+  <data name="ScanDebug_PreviewAuxiliaryToolsButton.Content" xml:space="preserve"><value>观察工具</value></data>
   <data name="ScanDebug_BlackWhitePanelTitle.Text" xml:space="preserve"><value>黑白场</value></data>
   <data name="ScanDebug_FocusPanelTitle.Text" xml:space="preserve"><value>对焦</value></data>
   <data name="ScanDebug_FocusRangeTitle.Text" xml:space="preserve"><value>当前编辑的对焦 ROI</value></data>
   <data name="ScanDebug_FocusEvaluationScope.Text" xml:space="preserve"><value>自动对焦评估本通道的对焦 ROI（整体、左、右）；摘要仅显示所选编辑范围。</value></data>
   <data name="ScanDebug_PreviewSelectionLabel.Text" xml:space="preserve"><value>预览选区（全局）</value></data>
-  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>来源与完整 RAW 统计</value></data>
+  <data name="ScanDebug_RawSignalDetailsTitle.Text" xml:space="preserve"><value>读数说明</value></data>
   <data name="ScanDebug_WorkbenchInspectionRawReadoutsTitle.Text" xml:space="preserve"><value>RAW 行读数</value></data>
-  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>来源与设备详情</value></data>
+  <data name="ScanDebug_WorkbenchInspectionEvidenceTitle.Text" xml:space="preserve"><value>诊断信息</value></data>
+  <data name="ScanDebug_InspectionCloseButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>关闭信号检查</value></data>
+  <data name="ScanDebug_InspectionCloseButton.ToolTipService.ToolTip" xml:space="preserve"><value>关闭信号检查</value></data>
+  <data name="ScanDebug_InspectionAwaitingSample.Text" xml:space="preserve"><value>采样后显示列读数和数据来源。</value></data>
   <data name="ScanDebug_InspectionMeanReadout" xml:space="preserve"><value>均值：{0} RAW ADU</value></data>
   <data name="ScanDebug_InspectionRangeReadout" xml:space="preserve"><value>范围：{0}–{1} RAW ADU</value></data>
   <data name="ScanDebug_InspectionSamplesReadout" xml:space="preserve"><value>样本 {0} · 饱和 {1}</value></data>
@@ -4472,10 +4508,10 @@
   <data name="ScanDebug_WorkbenchInspectionColumnTitle.Text" xml:space="preserve"><value>列采样</value></data>
   <data name="ScanDebug_WorkbenchInspectionEditButton.Content" xml:space="preserve"><value>编辑黑白场 ROI</value></data>
   <data name="ScanDebug_WorkbenchEventReviewButton.Content" xml:space="preserve"><value>审查状态</value></data>
-  <data name="ScanDebug_OperationFeedbackButton.Content" xml:space="preserve"><value>操作反馈</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.Content" xml:space="preserve"><value>扫描仪连接</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>打开现有扫描仪连接面板，查看连接状态、连接/断开操作及设备配置入口；本按钮不会自动连接或写入硬件。</value></data>
-  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>打开现有扫描仪连接面板，查看连接状态、连接/断开操作及设备配置入口；本按钮不会自动连接或写入硬件。</value></data>
+  <data name="ScanDebug_OperationFeedbackButton.Content" xml:space="preserve"><value>操作记录</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.Content" xml:space="preserve"><value>查看连接</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>查看扫描仪连接状态，连接或断开设备，以及打开设备设置。</value></data>
+  <data name="ScanDebug_RunScannerConnectionButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>查看连接状态与设备设置</value></data>
   <data name="ScanDebug_OperationNoticeAcknowledgeButton.Content" xml:space="preserve"><value>确认</value></data>
   <data name="ScanDebug_OperationLatestMessageLabel.Text" xml:space="preserve"><value>最近消息</value></data>
   <data name="ScanDebug_WorkbenchDataExportButton.Content" xml:space="preserve"><value>导出采集 DNG</value></data>
@@ -4507,7 +4543,7 @@
   <data name="ScanDebug_BwLocalInputStatus.Text" xml:space="preserve"><value>本地输入未应用</value></data>
   <data name="ScanDebug_BwMissingProfileText.Text" xml:space="preserve"><value>缺少通道档案</value></data>
   <data name="ScanDebug_BwConfigureChannelButton.Content" xml:space="preserve"><value>配置当前通道</value></data>
-  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>打开所选通道的通道库与参数；不会自动创建、应用或保存档案。</value></data>
+  <data name="ScanDebug_BwConfigureChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>打开当前通道的预设和参数。</value></data>
   <data name="ScanDebug_BwDiscardInputTitle" xml:space="preserve"><value>放弃本地黑白值输入？</value></data>
   <data name="ScanDebug_BwDiscardInputMessage" xml:space="preserve"><value>切换通道将丢弃未应用的黑白值输入。继续编辑还是放弃本地输入？</value></data>
   <data name="ScanDebug_BwDiscardInputConfirm" xml:space="preserve"><value>放弃本地输入</value></data>
@@ -4515,21 +4551,21 @@
   <data name="ScanDebug_BwValidationZero" xml:space="preserve"><value>通道问题 0 项</value></data>
   <data name="ScanDebug_BwValidationBlocking" xml:space="preserve"><value>{0} 项阻塞问题</value></data>
   <data name="ScanDebug_BwValidationWarnings" xml:space="preserve"><value>{0} 项警告</value></data>
-  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>手动编辑的输入值，尚未应用到通道草稿。</value></data>
+  <data name="ScanDebug_ManualReferenceManualSource" xml:space="preserve"><value>手动输入，待更新配置参考值。</value></data>
   <data name="ScanDebug_ManualReferenceUnknownSource" xml:space="preserve"><value>原始来源未记录。</value></data>
   <data name="ScanDebug_ManualReferencePendingCandidate" xml:space="preserve"><value>请先完成待处理校准候选的审查，再应用手动参考值。</value></data>
   <data name="ScanDebug_ManualReferenceMissingTarget" xml:space="preserve"><value>所选通道无可编辑档案；请先配置。</value></data>
   <data name="ScanDebug_ManualReferenceConflict" xml:space="preserve"><value>编辑期间通道或工作区草稿已改变。请核对最新数值后重试；未覆盖已有值。</value></data>
   <data name="ScanDebug_ManualReferenceBusy" xml:space="preserve"><value>有冲突的操作正在进行，暂不能将手动参考值应用到通道草稿；输入框仍可编辑。操作结束后请重试应用。</value></data>
   <data name="ScanDebug_ManualReferenceSampleUnavailable" xml:space="preserve"><value>当前预览或采集数据中没有可确认属于所选通道的有效列采样。请检查预览帧和采样列范围后再填入。</value></data>
-  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>仅更改了本地输入，尚未应用到通道草稿。</value></data>
-  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>已从当前通道草稿读取参考值；设备未变更。</value></data>
+  <data name="ScanDebug_ManualReferenceEdited" xml:space="preserve"><value>参考值已编辑，待更新。</value></data>
+  <data name="ScanDebug_ManualReferenceLoaded" xml:space="preserve"><value>已载入当前通道的参考值。</value></data>
   <data name="ScanDebug_ManualReferenceInvalidValues" xml:space="preserve"><value>黑参考值须为空或 0 到 65535 的整数，白参考值须为空或 1 到 65535 的整数；两者均有值时黑值须小于白值。未应用任何更改。</value></data>
-  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>仅更新所选通道草稿的黑白参考值，未保存配置文件，也未更新本地校准库或设备。</value></data>
+  <data name="ScanDebug_ManualReferenceApplied" xml:space="preserve"><value>当前配置的通道参考值已更新；请保存完整配置。</value></data>
   <data name="ScanDebug_ManualReferenceClearTitle" xml:space="preserve"><value>清除通道黑白参考值？</value></data>
-  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>确定清除所选通道草稿中的黑白参考值吗？不会修改配置文件、本地校准库或设备。</value></data>
+  <data name="ScanDebug_ManualReferenceClearMessage" xml:space="preserve"><value>清除当前通道草稿中的黑白参考值？</value></data>
   <data name="ScanDebug_ManualReferenceClearConfirm" xml:space="preserve"><value>清除两项参考值</value></data>
-  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>输入取自采集 {0}、逻辑通道 {1}、列 {2}-{3}、处理阶段 {4}；未保存，也未写入设备。</value></data>
+  <data name="ScanDebug_ManualReferenceSampleSource" xml:space="preserve"><value>取自采集 {0} · 通道 {1} · 列 {2}–{3} · 处理阶段 {4}</value></data>
   <data name="ScanDebug_CaptureSource" xml:space="preserve"><value>采集 {0}；逻辑通道 {1}；模式 {2}；已完成/请求行数 {3}/{4}；数据阶段 {5}；参数依据：{6}。</value></data>
   <data name="ScanDebug_CaptureSourceDetails" xml:space="preserve"><value>&#10;设备 ID：{0}；应用会话代际：{1}；提交的 LED 通道索引：{2}；原始 LED level：{3}。&#10;请求准备时间（UTC）：{4}；结果记录时间（UTC）：{5}。&#10;配置标识：{6}；校准标识：{7}；结果版本：{8}。</value></data>
   <data name="ScanDebug_CaptureUnknown" xml:space="preserve"><value>未知</value></data>
@@ -4547,8 +4583,8 @@
   <data name="ScanDebug_DeviceEvidenceUnknown" xml:space="preserve"><value>控制链路未连接；当前设备参数与外设可达性未知。</value></data>
   <data name="ScanDebug_ImagePreviewModeItem.Text" xml:space="preserve"><value>图像</value></data>
   <data name="ScanDebug_RawSignalProfileModeItem.Text" xml:space="preserve"><value>线剖面</value></data>
-  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>RAW 行号（从 0 起）</value></data>
-  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>已完成的行号</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.Header" xml:space="preserve"><value>行位置</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.PlaceholderText" xml:space="preserve"><value>第 1 行起</value></data>
   <data name="ScanDebug_RawSignalProfileAxis.Text" xml:space="preserve"><value>完整解码行 | 横轴：解码列号 | 纵轴：0-65535 RAW ADU</value></data>
   <data name="ScanDebug_RawSignalHistogramAxis.Text" xml:space="preserve"><value>列 ROI 直方图 | 256 箱 | 横轴：0-65535 RAW ADU | 纵轴：相对样本数</value></data>
   <data name="ScanDebug_RawSignalSourceLabel.Text" xml:space="preserve"><value>RAW 采集来源</value></data>
@@ -4569,27 +4605,27 @@
   <data name="ScanDebug_RawSignalCompositeCoordinates" xml:space="preserve"><value> [原始遍次坐标，非合成图像像素坐标。]</value></data>
   <data name="ScanDebug_RawSignalStatistics" xml:space="preserve"><value>样本数 N={0}；最小值={1} ADU；最大值={2} ADU；均值={3:F2} ADU；饱和样本={4}/{0}（阈值 65535 ADU）。</value></data>
     <data name="ScanDebug_ObservationLive" xml:space="preserve"><value>实时观察</value></data>
-  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>已冻结显示 · 采集不受影响</value></data>
-  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>正在查看基线 A · 采集不受影响</value></data>
+  <data name="ScanDebug_ObservationFrozen" xml:space="preserve"><value>显示已冻结</value></data>
+  <data name="ScanDebug_ObservationBaseline" xml:space="preserve"><value>查看基线 A</value></data>
   <data name="ScanDebug_FreezeObservation" xml:space="preserve"><value>冻结显示</value></data>
-  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>恢复实时显示</value></data>
+  <data name="ScanDebug_ResumeObservation" xml:space="preserve"><value>恢复当前显示</value></data>
   <data name="ScanDebug_ShowCurrentObservation" xml:space="preserve"><value>查看当前样本</value></data>
   <data name="ScanDebug_ShowBaselineObservation" xml:space="preserve"><value>查看基线 A</value></data>
   <data name="ScanDebug_SetObservationBaselineButton.Content" xml:space="preserve"><value>设为基线 A</value></data>
   <data name="ScanDebug_SetObservationBaselineButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>复制当前显示及其来源，替换唯一的基线 A。</value></data>
   <data name="ScanDebug_ClearObservationBaselineButton.Content" xml:space="preserve"><value>清除基线</value></data>
-  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>样本 {0} · 通道 {1} · LED 索引 {2} · 已采 {3} 行 · {4}</value></data>
+  <data name="ScanDebug_ObservationSourceSummary" xml:space="preserve"><value>{1} / LED 索引 {2} · #{0} · {4}</value></data>
   <data name="ScanDebug_ObservationSourceUnknown" xml:space="preserve"><value>尚无可信采样来源；图像不能证明当前参数已验证。</value></data>
   <data name="ScanDebug_ObservationChannelMismatch" xml:space="preserve"><value>画面来自 {0}，正在编辑 {1}。重新采样后再验证当前通道。</value></data>
   <data name="ScanDebug_ObservationParametersChanged" xml:space="preserve"><value>设备参数写入记录已变化；这张画面仍来自旧采样，请重新采样验证。</value></data>
   <data name="ScanDebug_ObservationBaselineEmpty" xml:space="preserve"><value>尚未设置基线 A。冻结和基线只影响显示。</value></data>
   <data name="ScanDebug_ObservationBaselineSummary" xml:space="preserve"><value>基线 A：样本 {0} · 图像来源 {1} · RAW {3} 均值 {2} ADU；按各自来源比较。</value></data>
   <data name="ScanDebug_ObservationCopyUnavailable" xml:space="preserve"><value>无法复制此画面：缺少有效图像或显示缓冲超过 64 MiB。采集未停止。</value></data>
-  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>将当前通道参数、ROI 和已应用参考值保存到本地校准库。</value></data>
-  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>管理档案</value></data>
-  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>保存到本地校准库；配置 JSON 通过顶部文件操作另行保存。</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>保存当前通道参数、范围和已应用参考值，供其他配置复用。</value></data>
+  <data name="ScanDebug_ManageChannelProfilesButton.Content" xml:space="preserve"><value>管理通道预设</value></data>
+  <data name="ScanDebug_ChannelSaveScopeText.Text" xml:space="preserve"><value>此处保存通道参数供复用。整份胶片配置请用“配置文件”菜单保存。</value></data>
   <data name="ScanDebug_ReviewCalibrationCandidateButton.Content" xml:space="preserve"><value>查看校准候选</value></data>
-  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>应用到当前胶片配置草稿，不写 ADC；下方档案保存和顶部 JSON 保存各自独立。</value></data>
+  <data name="ScanDebug_ManualReferenceScopeText.Text" xml:space="preserve"><value>更新配置中当前通道的参考值。完成编辑后，保存完整配置。</value></data>
   <data name="ScanDebug_ObservationSelectionSummary" xml:space="preserve"><value>观察选区：RAW 列 {0}–{1}（含端点）。独立于黑白场和对焦范围。</value></data>
   <data name="ScanDebug_ObservationSelectionInvalid" xml:space="preserve"><value>观察选区无效：请输入解码范围内的整数列，起点不大于终点。</value></data>
   <data name="ScanDebug_ObservationSelectionCopied" xml:space="preserve"><value>已填入 {0} 的输入框，请在对应编辑区应用；配置与设备参数尚未改变。</value></data>
@@ -4599,7 +4635,7 @@
   <data name="ScanDebug_ObservationSelectionToggle.Header" xml:space="preserve"><value>在单通道图像上拖选观察范围</value></data>
   <data name="ScanDebug_ObservationUseRangeButton.Content" xml:space="preserve"><value>用于算法 ROI…</value></data>
   <data name="ScanDebug_ObservationCopyTarget.Header" xml:space="preserve"><value>目标范围</value></data>
-  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>仅填入所选算法范围的输入框；点击该范围的“应用”后才改配置草稿。不写 ADC，不启动对焦。</value></data>
+  <data name="ScanDebug_ObservationCopyRangeScope.Text" xml:space="preserve"><value>填入目标范围后，在对应编辑器中点击“应用所选范围”。</value></data>
   <data name="ScanDebug_ObservationCopyRangeButton.Content" xml:space="preserve"><value>填入目标范围输入</value></data>
   <data name="ScanDebug_ObservationInvertToggle.Header" xml:space="preserve"><value>显示反相（不改变 RAW）</value></data>
   <data name="ScanDebug_ObservationRawContext" xml:space="preserve"><value>RAW 测量：{0} · 第 {1} 行 · 列 {2}–{3}；不是显示像素值。</value></data>
@@ -4607,4 +4643,651 @@
   <data name="ScanDebug_ObservationDisplaySettingsScope.Text" xml:space="preserve"><value>Gamma 和白点设置用于实时画面；冻结与基线保留创建时的显示像素。显示反相可单独切换。</value></data>
   <data name="ScanDebug_ObservationCompositeRole" xml:space="preserve"><value>参考遍次 {0}（合成图）</value></data>
   <data name="ScanDebug_ObservationCompositeComparison" xml:space="preserve"><value>这是一幅通道合成图；RAW 测量来自独立通道与原始遍次坐标，请按各自来源验证。</value></data>
+  <data name="ScanDebug_ObservationEmpty" xml:space="preserve"><value>尚未采样</value></data>
+  <data name="ScanDebug_ObservationLatest" xml:space="preserve"><value>最近样本</value></data>
+  <data name="ScanDebug_ObservationUpdating" xml:space="preserve"><value>采样更新中</value></data>
+  <data name="ScanDebug_ObservationSourceUnconfirmed" xml:space="preserve"><value>来源未确认</value></data>
+  <data name="ScanDebug_ObservationEvidenceUnconfirmed" xml:space="preserve"><value>来源未确认 · 参数未验证</value></data>
+  <data name="ScanDebug_ObservationEvidenceParametersChanged" xml:space="preserve"><value>旧参数样本 · 需要重新采样</value></data>
+  <data name="ScanDebug_ObservationEvidenceHistorical" xml:space="preserve"><value>历史样本 · 当前设备未验证</value></data>
+  <data name="ScanDebug_ObservationEvidenceOtherChannel" xml:space="preserve"><value>其他通道样本 · 当前通道未验证</value></data>
+  <data name="ScanDebug_ObservationEvidenceRecorded" xml:space="preserve"><value>来源已记录 · 参数待核对</value></data>
+  <data name="ScanDebug_ObservationEvidenceConnectNext" xml:space="preserve"><value>连接扫描仪后，从顶部重新采样。</value></data>
+  <data name="ScanDebug_ObservationEvidenceResumeNext" xml:space="preserve"><value>恢复当前显示后，可重新采样以更新来源。</value></data>
+  <data name="ScanDebug_ObservationEvidenceAcquiring" xml:space="preserve"><value>采样正在进行；等待完成后检查结果。</value></data>
+  <data name="ScanDebug_ObservationEvidenceSampleNext" xml:space="preserve"><value>从顶部重新采样，更新当前设备、通道与参数的样本记录。</value></data>
+  <data name="ScanDebug_ObservationEvidenceComparisonPending" xml:space="preserve"><value>参数与当前草稿是否一致尚未确认。</value></data>
+  <data name="ScanDebug_AllRoiLabelsCheckBox.Content" xml:space="preserve"><value>显示所有范围标签</value></data>
+  <data name="ScanDebug_ObservationCompareButton.Content" xml:space="preserve"><value>对照</value></data>
+  <data name="ScanDebug_ObservationCompareScope.Text" xml:space="preserve"><value>基线 A 保存当前显示的副本。冻结和基线只影响显示。</value></data>
+  <data name="ScanDebug_ObservationSelectionButton.Content" xml:space="preserve"><value>观察选区</value></data>
+  <data name="ScanDebug_CalibrationChannelShortRed" xml:space="preserve"><value>红</value></data>
+  <data name="ScanDebug_CalibrationChannelShortGreen" xml:space="preserve"><value>绿</value></data>
+  <data name="ScanDebug_CalibrationChannelShortBlue" xml:space="preserve"><value>蓝</value></data>
+  <data name="ScanDebug_CalibrationChannelShortWhite" xml:space="preserve"><value>白</value></data>
+  <data name="ScanDebug_CalibrationChannelShortIR" xml:space="preserve"><value>红外</value></data>
+  <data name="ScanDebug_CalibrationChannelSelectorBar.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>校准通道</value></data>
+  <data name="ScanDebug_EngineeringWorkspaceTitle" xml:space="preserve"><value>工程工具</value></data>
+  <data name="ScanDebug_ConfigurationWorkspaceTitle" xml:space="preserve"><value>配置属性</value></data>
+  <data name="ScanDebug_PropertiesGeneralTab.Text" xml:space="preserve"><value>输出与色彩</value></data>
+  <data name="ScanDebug_BasicInformationValidationTitle.Title" xml:space="preserve"><value>输出与色彩检查</value></data>
+  <data name="ScanDebug_HidePreviewButton.Content" xml:space="preserve"><value>收起预览</value></data>
+  <data name="ScanDebug_HidePreviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>收起预览并扩大参数区</value></data>
+  <data name="ScanDebug_BwPreparationHint.Text" xml:space="preserve"><value>选择通道，准备参考值和 ROI，然后执行校准。</value></data>
+  <data name="ScanDebug_Runtime_MotorUnitSteps" xml:space="preserve"><value>步</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ConnectDevice" xml:space="preserve"><value>连接扫描仪</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewExpander.Header" xml:space="preserve"><value>全部校准步骤</value></data>
+  <data name="ScanDebug_CalibrationGuideConnectionStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>1. 连接设备</value></data>
+  <data name="ScanDebug_CalibrationGuideParametersStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>2. 准备通道参数</value></data>
+  <data name="ScanDebug_CalibrationGuideRoiStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>3. 检查校准区域</value></data>
+  <data name="ScanDebug_CalibrationGuideCalibrationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>4. 执行校准</value></data>
+  <data name="ScanDebug_CalibrationGuideReviewStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>5. 审查校准结果</value></data>
+  <data name="ScanDebug_CalibrationGuideSaveStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>6. 保存配置文件</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewExpander.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>可直接跳转到任一步；操作仍需在对应区域确认。</value></data>
+  <data name="ScanDebug_CalibrationGuideConnectionStep.Text" xml:space="preserve"><value>1. 连接设备</value></data>
+  <data name="ScanDebug_CalibrationGuideParametersStep.Text" xml:space="preserve"><value>2. 准备通道参数</value></data>
+  <data name="ScanDebug_CalibrationGuideRoiStep.Text" xml:space="preserve"><value>3. 检查校准区域</value></data>
+  <data name="ScanDebug_CalibrationGuideCalibrationStep.Text" xml:space="preserve"><value>4. 执行校准</value></data>
+  <data name="ScanDebug_CalibrationGuideReviewStep.Text" xml:space="preserve"><value>5. 审查校准结果</value></data>
+  <data name="ScanDebug_CalibrationGuideSaveStep.Text" xml:space="preserve"><value>6. 保存配置文件</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_PrepareDeviceClock" xml:space="preserve"><value>准备设备时钟</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_PrepareDeviceClock" xml:space="preserve"><value>在设备设置中填写时钟，再点击“应用时钟到设备”。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_PrepareDeviceClock" xml:space="preserve"><value>前往设备时钟</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewConfiguration" xml:space="preserve"><value>检查配置问题</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewConfiguration" xml:space="preserve"><value>本次候选已接受。保存完整配置前，请修正剩余问题；也可先保存草稿。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewConfiguration" xml:space="preserve"><value>查看配置问题</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ConnectDevice" xml:space="preserve"><value>{0} 校准需要设备连接。打开连接面板并检查状态。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ConnectDevice" xml:space="preserve"><value>打开连接面板</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_PrepareChannelParameters" xml:space="preserve"><value>{0}：准备通道参数</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_PrepareChannelParameters" xml:space="preserve"><value>设置曝光、增益、偏移和照明，再应用当前通道到设备。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_PrepareChannelParameters" xml:space="preserve"><value>编辑通道参数</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewAdcRoi" xml:space="preserve"><value>{0}：检查校准范围</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewAdcRoi" xml:space="preserve"><value>核对黑白场校准范围，并应用尚未提交的修改。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewAdcRoi" xml:space="preserve"><value>检查校准范围</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ShowCalibrationActions" xml:space="preserve"><value>{0}：执行校准</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ShowCalibrationActions" xml:space="preserve"><value>自动校准使用设备当前参数；完成后先审查候选结果。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ShowCalibrationActions" xml:space="preserve"><value>前往校准操作</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_ReviewCandidate" xml:space="preserve"><value>{0}：审查校准候选</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_ReviewCandidate" xml:space="preserve"><value>检查候选报告和设备恢复状态，接受后纳入当前配置。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_ReviewCandidate" xml:space="preserve"><value>审查候选结果</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_SaveConfiguration" xml:space="preserve"><value>{0}：保存配置文件</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_SaveConfiguration" xml:space="preserve"><value>本次候选已接受。保存完整配置，供扫描页使用。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_SaveConfiguration" xml:space="preserve"><value>前往配置保存</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_Busy" xml:space="preserve"><value>等待当前操作完成</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_Busy" xml:space="preserve"><value>操作结束后将自动更新下一步建议。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_Busy" xml:space="preserve"><value>正在处理</value></data>
+  <data name="ScanDebug_CalibrationGuideTitle_Saved" xml:space="preserve"><value>配置文件已保存</value></data>
+  <data name="ScanDebug_CalibrationGuideDetail_Saved" xml:space="preserve"><value>本次候选已接受，配置文件无未保存更改。需要时可重新校准。</value></data>
+  <data name="ScanDebug_CalibrationGuideAction_Saved" xml:space="preserve"><value>查看校准操作</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Required" xml:space="preserve"><value>待准备</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Ready" xml:space="preserve"><value>可用</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_InProgress" xml:space="preserve"><value>进行中</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_NeedsApply" xml:space="preserve"><value>范围修改待应用</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Pending" xml:space="preserve"><value>待审查</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Accepted" xml:space="preserve"><value>本次候选已接受</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unverified" xml:space="preserve"><value>未确认本次校准</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Blocked" xml:space="preserve"><value>当前不可执行</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unavailable" xml:space="preserve"><value>尚无候选</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Unsaved" xml:space="preserve"><value>有未保存更改</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_Saved" xml:space="preserve"><value>配置文件已保存</value></data>
+  <data name="ScanDebug_CalibrationGuideStatus_NotSaved" xml:space="preserve"><value>尚未保存配置文件</value></data>
+  <data name="ScanDebug_Runtime_MotorUnitStepsPerSecond" xml:space="preserve"><value>步/秒</value></data>
+  <data name="ScanDebug_ProfileAlignmentModeComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ECC 按图像相关性对齐通道；MI 使用互信息。ECC → MI 表示先执行 ECC，再执行 MI。</value></data>
+  <data name="ScanDebug_ManualBlackLevelTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU 是原始采样数值的单位。这里使用 16 位整数值（0–65535），不是显示亮度。</value></data>
+  <data name="ScanDebug_ManualWhiteLevelTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU 是原始采样数值的单位。这里使用 16 位整数值（0–65535），不是显示亮度。</value></data>
+  <data name="ScanDebug_ManualReferenceCompactTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ADU 是原始采样数值的单位。黑白参考值用于当前通道的校准。</value></data>
+  <data name="ScanDebug_ExposureTicksTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>tick 是设备曝光计数单位，按设备全局时钟换算为微秒（μs）。此值只读；请在曝光时间中输入微秒。</value></data>
+  <data name="ScanDebug_CurrentIlluminationPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>LED 脉冲的原始硬件时钟计数。此处输入计数，不换算为微秒等物理时间。</value></data>
+  <data name="ScanDebug_IlluminationRawPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>LED 脉冲的原始硬件时钟计数。此处输入计数，不换算为微秒等物理时间。</value></data>
+  <data name="ScanDebug_SessionTestPulseClockTextBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>LED 脉冲的原始硬件时钟计数。此处输入计数，不换算为微秒等物理时间。</value></data>
+  <data name="ScanDebug_BwRoiSummaryTitle.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI 是参与测量或校准的图像范围。黑白场使用有效区与屏蔽区；对焦使用各自的范围。</value></data>
+  <data name="ScanDebug_AdcRoiTargetComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI 是参与黑白场测量和校准的图像范围。请选择有效区或屏蔽区后编辑列边界。</value></data>
+  <data name="ScanDebug_FocusRoiTargetComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>ROI 是用于对焦评估的图像范围。整体、左侧、右侧范围分别设置，不改变黑白场 ROI。</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.Content" xml:space="preserve"><value>保存完整配置…</value></data>
+  <data name="ScanDebug_PropertiesDeviceTab.Text" xml:space="preserve"><value>设备设置</value></data>
+  <data name="ScanDebug_PropertiesEngineeringTab.Text" xml:space="preserve"><value>工程工具</value></data>
+  <data name="ScanDebug_PreviewOpenAction" xml:space="preserve"><value>打开预览</value></data>
+  <data name="ScanDebug_PreviewHideAction" xml:space="preserve"><value>收起预览</value></data>
+  <data name="ScanDebug_ChannelDetailsPanelTitle" xml:space="preserve"><value>通道详情</value></data>
+  <data name="ScanDebug_FocusMappingEngineeringTitle.Text" xml:space="preserve"><value>对焦映射测试</value></data>
+  <data name="ScanDebug_FocusMappingEngineeringHelp.Text" xml:space="preserve"><value>使用设备设置中的当前映射进行测试；修改映射请打开配置属性。</value></data>
+  <data name="ScanDebug_OpenDevicePropertiesButton.Content" xml:space="preserve"><value>设备设置</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存完整胶片配置…</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>选择文件位置，保存完整胶片配置。</value></data>
+  <data name="ScanDebug_SaveConfigurationFileButton.ToolTipService.ToolTip" xml:space="preserve"><value>保存完整胶片配置（选择文件位置）</value></data>
+  <data name="ScanDebug_WorkbenchValidationButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>检查配置并显示修复建议</value></data>
+  <data name="ScanDebug_WorkbenchValidationButton.ToolTipService.ToolTip" xml:space="preserve"><value>检查配置并显示具体问题；点击问题前往修复</value></data>
+  <data name="ScanDebug_WorkbenchValidationWithIssues" xml:space="preserve"><value>检查 · {0} 项问题</value></data>
+  <data name="ScanDebug_OperationFeedbackCompact" xml:space="preserve"><value>操作记录</value></data>
+  <data name="ScanDebug_OperationFeedbackWithCount" xml:space="preserve"><value>操作记录 · {0}</value></data>
+  <data name="ScanDebug_OperationFeedbackEntry.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>操作记录</value></data>
+  <data name="ScanDebug_OperationFeedbackEntry.ToolTipService.ToolTip" xml:space="preserve"><value>查看操作通知与最近消息</value></data>
+  <data name="ScanDebug_ValidationLocateAction.Text" xml:space="preserve"><value>前往修复 →</value></data>
+  <data name="ScanDebug_CloseValidationReviewButton.Content" xml:space="preserve"><value>收起问题</value></data>
+  <data name="FilmProfile_Field_ProfileName" xml:space="preserve"><value>配置名称</value></data>
+  <data name="FilmProfile_Field_RedWavelength" xml:space="preserve"><value>红色波长</value></data>
+  <data name="FilmProfile_Field_GreenWavelength" xml:space="preserve"><value>绿色波长</value></data>
+  <data name="FilmProfile_Field_BlueWavelength" xml:space="preserve"><value>蓝色波长</value></data>
+  <data name="FilmProfile_Field_OutputGamma" xml:space="preserve"><value>输出伽马</value></data>
+  <data name="FilmProfile_Field_WhitePoint" xml:space="preserve"><value>目标白点</value></data>
+  <data name="FilmProfile_Field_Alignment" xml:space="preserve"><value>通道对齐</value></data>
+  <data name="FilmProfile_Field_DngExport" xml:space="preserve"><value>DNG 输出</value></data>
+  <data name="FilmProfile_Field_Rows" xml:space="preserve"><value>扫描行数</value></data>
+  <data name="FilmProfile_Field_ScanMotor" xml:space="preserve"><value>扫描电机</value></data>
+  <data name="FilmProfile_Field_LinePitch" xml:space="preserve"><value>每行电机移动距离</value></data>
+  <data name="FilmProfile_Field_Transport" xml:space="preserve"><value>传送模式</value></data>
+  <data name="FilmProfile_Field_ChannelAssignment" xml:space="preserve"><value>扫描通道</value></data>
+  <data name="FilmProfile_Field_Illumination" xml:space="preserve"><value>通道照明</value></data>
+  <data name="FilmProfile_Field_Color" xml:space="preserve"><value>色彩管理</value></data>
+  <data name="FilmProfile_Field_Channels" xml:space="preserve"><value>通道配置</value></data>
+  <data name="FilmProfile_Field_Acquisition" xml:space="preserve"><value>采集设置</value></data>
+  <data name="FilmProfile_Field_Configuration" xml:space="preserve"><value>胶片配置</value></data>
+  <data name="FilmProfile_Validation_ExposureInputInvalid" xml:space="preserve"><value>{0}：请在通道详情输入当前时钟允许范围内的曝光时间（μs）。{1}</value></data>
+  <data name="FilmProfile_Validation_SystemClockInputMissing" xml:space="preserve"><value>系统时钟待填写。请在“配置属性 → 设备设置”输入 30–200 MHz，最多保留三位小数；现在也可先保存草稿。</value></data>
+  <data name="FilmProfile_Validation_SystemClockInputInvalid" xml:space="preserve"><value>系统时钟格式或范围不正确。请在“配置属性 → 设备设置”输入 30–200 MHz，最多保留三位小数。</value></data>
+  <data name="FilmProfile_Validation_PendingCount" xml:space="preserve"><value>{0} 项待填写</value></data>
+  <data name="FilmProfile_Validation_PendingLabel" xml:space="preserve"><value>待填写</value></data>
+  <data name="FilmProfile_Validation_CheckPendingAction" xml:space="preserve"><value>检查 · {0} 项待填写</value></data>
+  <data name="FilmProfile_Validation_SaveHintPending" xml:space="preserve"><value>还有 {0} 项待填写，可保存草稿。</value></data>
+  <data name="FilmProfile_Validation_AdcOffsetInputInvalid" xml:space="preserve"><value>{0}：{1} 偏置无效。请输入 −255 到 +255 的整数。</value></data>
+  <data name="FilmProfile_Validation_AdcGainInputInvalid" xml:space="preserve"><value>{0}：{1} 增益无效。请输入 0–63 的整数。</value></data>
+  <data name="Scan_PreparationConnectButton.Content" xml:space="preserve"><value>连接设备</value></data>
+  <data name="Scan_Runtime_PreparationRemaining" xml:space="preserve"><value>还需完成 {0} 项准备</value></data>
+  <data name="Scan_Runtime_PreparationReady" xml:space="preserve"><value>基础准备已完成</value></data>
+  <data name="Scan_Runtime_ConfigSourceNotLoaded" xml:space="preserve"><value>选择配置文件，或先在胶片配置页完成配置。</value></data>
+  <data name="Scan_Runtime_ConfigSourceLoaded" xml:space="preserve"><value>本次扫描使用的配置</value></data>
+  <data name="Scan_Runtime_ColorSourceProfile" xml:space="preserve"><value>使用配置中的色彩参数；修改仅用于本次扫描。</value></data>
+  <data name="Scan_Runtime_ColorSourceDefaults" xml:space="preserve"><value>初始值来自默认设置；修改仅用于本次扫描。</value></data>
+  <data name="Scan_Runtime_ConfigChannelProfilesMissing" xml:space="preserve"><value>扫描通道缺少参数，请加载包含这些通道参数的配置文件。</value></data>
+  <data name="Scan_Runtime_ConfigLoadFailedTitle" xml:space="preserve"><value>配置加载失败</value></data>
+  <data name="Settings_General.Text" xml:space="preserve"><value>外观与语言</value></data>
+  <data name="Settings_BreadcrumbRoot" xml:space="preserve"><value>设置</value></data>
+  <data name="Settings_DeviceEntryTitle.Text" xml:space="preserve"><value>设备设置</value></data>
+  <data name="Settings_DeviceEntryDescription.Text" xml:space="preserve"><value>电机、照明通道与 DNG 几何默认值。</value></data>
+  <data name="Settings_AdvancedEntryTitle.Text" xml:space="preserve"><value>高级与诊断</value></data>
+  <data name="Settings_AdvancedEntryDescription.Text" xml:space="preserve"><value>日志输出与 USB 传输设置。</value></data>
+  <data name="Settings_ScanDefaults.Text" xml:space="preserve"><value>扫描默认值</value></data>
+  <data name="Settings_ScanDefaultsEntryDescription.Text" xml:space="preserve"><value>色彩管理、光谱波长、伽马与白点。</value></data>
+  <data name="Settings_Advanced.Header" xml:space="preserve"><value>高级与诊断</value></data>
+  <data name="Settings_AdvancedHelp.Text" xml:space="preserve"><value>更改会自动保存。</value></data>
+  <data name="Settings_Diagnostics.Text" xml:space="preserve"><value>日志输出</value></data>
+  <data name="Settings_DiagnosticsHelp.Text" xml:space="preserve"><value>日志页保留最近 500 条记录。启用本地日志文件可继续保留较早的记录，便于排查问题。</value></data>
+  <data name="Settings_Transfer.Text" xml:space="preserve"><value>USB 传输</value></data>
+  <data name="Settings_RawIoHelp.Text" xml:space="preserve"><value>使用原始 USB 读取以调整传输兼容性。</value></data>
+  <data name="Log_SearchTextBox.Header" xml:space="preserve"><value>搜索日志</value></data>
+  <data name="Log_SearchTextBox.PlaceholderText" xml:space="preserve"><value>输入消息、来源或时间</value></data>
+  <data name="Log_LevelFilter.Header" xml:space="preserve"><value>级别</value></data>
+  <data name="Log_FilterAll.Content" xml:space="preserve"><value>全部</value></data>
+  <data name="Log_FilterError.Content" xml:space="preserve"><value>错误</value></data>
+  <data name="Log_FilterWarning.Content" xml:space="preserve"><value>警告</value></data>
+  <data name="Log_FilterInformation.Content" xml:space="preserve"><value>信息</value></data>
+  <data name="Log_FilterUnknown.Content" xml:space="preserve"><value>未分类</value></data>
+  <data name="Log_LevelError" xml:space="preserve"><value>错误</value></data>
+  <data name="Log_LevelWarning" xml:space="preserve"><value>警告</value></data>
+  <data name="Log_LevelInformation" xml:space="preserve"><value>信息</value></data>
+  <data name="Log_LevelUnknown" xml:space="preserve"><value>未分类</value></data>
+  <data name="Log_FollowToggle.Header" xml:space="preserve"><value>自动滚动</value></data>
+  <data name="Log_FollowToggle.OnContent" xml:space="preserve"><value>跟随新日志</value></data>
+  <data name="Log_FollowToggle.OffContent" xml:space="preserve"><value>已暂停跟随</value></data>
+  <data name="Log_FilterHelp.Text" xml:space="preserve"><value>级别根据日志内容识别，未识别的条目保留为“未分类”。暂停跟随时仍会接收新日志。</value></data>
+  <data name="Log_CopyVisibleErrorsButton.Content" xml:space="preserve"><value>复制可见错误</value></data>
+  <data name="Log_CopySelectedButton.Content" xml:space="preserve"><value>复制选中日志</value></data>
+  <data name="Log_CopySucceeded" xml:space="preserve"><value>已复制到剪贴板。</value></data>
+  <data name="Log_CopyFailed" xml:space="preserve"><value>未能复制，请重试。</value></data>
+  <data name="Log_FilteredStatus" xml:space="preserve"><value>显示 {0} / {1} 条 · 保留最近 {2} 条日志</value></data>
+  <data name="Log_NoMatches" xml:space="preserve"><value>没有符合当前筛选条件的日志。</value></data>
+  <data name="ScanDebug_SaveChannelButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>将当前通道另存为预设</value></data>
+  <data name="ScanDebug_ApplyParamsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>应用当前通道参数到设备</value></data>
+  <data name="ScanDebug_ExposureTimingDetailsExpander.Header" xml:space="preserve"><value>高级曝光时序（只读）</value></data>
+  <data name="ScanDebug_ExposureTimingDetailsExpander.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>高级曝光时序（只读）</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.Content" xml:space="preserve"><value>保存并用于扫描</value></data>
+  <data name="ScanDebug_ReviewBeforeScanAction" xml:space="preserve"><value>检查配置…</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>检查并保存胶片配置，转到扫描页</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>保存完整胶片配置并在扫描页加载，等待开始扫描。</value></data>
+  <data name="ScanDebug_SaveAndOpenScanButton.ToolTipService.ToolTip" xml:space="preserve"><value>保存完整胶片配置并在扫描页加载，等待开始扫描。</value></data>
+  <data name="ScanDebug_SaveHintInvalid" xml:space="preserve"><value>还有 {0} 项需要修正，可保存草稿。</value></data>
+  <data name="ScanDebug_SaveHintBusy" xml:space="preserve"><value>当前操作完成后，可保存完整配置。</value></data>
+  <data name="ScanDebug_SaveHintReady" xml:space="preserve"><value>参数检查通过，可保存完整配置；采样仍取决于设备与通道状态。</value></data>
+  <data name="ScanDebug_ReturnToTaskFormat" xml:space="preserve"><value>← 返回{0}</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftFormat" xml:space="preserve"><value>配置时钟：{0}</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftIdle" xml:space="preserve"><value>配置时钟：未填写</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockDisconnected" xml:space="preserve"><value>设备时钟：未连接</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockUnknown" xml:space="preserve"><value>设备时钟：未读取</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockReadRequired" xml:space="preserve"><value>设备时钟：需要重新读取</value></data>
+  <data name="ScanDebug_Runtime_DeviceClockFormat" xml:space="preserve"><value>设备时钟：{0} MHz</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftNotApplied" xml:space="preserve"><value>配置时钟待设备确认</value></data>
+  <data name="ScanDebug_Runtime_ClockDraftApplied" xml:space="preserve"><value>当前设备已确认此时钟</value></data>
+  <data name="ScanDebug_Runtime_ExposureInputRange" xml:space="preserve"><value>当前时钟允许曝光：{0}–{1} μs</value></data>
+  <data name="ScanDebug_Runtime_ExposureInputClockRequired" xml:space="preserve"><value>填写有效时钟后显示曝光范围</value></data>
+  <data name="Scan_UseSavedFilmProfileButton.Content" xml:space="preserve"><value>使用已保存配置</value></data>
+  <data name="Scan_UseSavedFilmProfileButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>使用已保存的胶片配置</value></data>
+  <data name="Scan_EditFilmProfileButton.Content" xml:space="preserve"><value>编辑配置</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileAvailable" xml:space="preserve"><value>胶片页已保存：{0}</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileUnavailable" xml:space="preserve"><value>尚无已保存的胶片配置。先编辑并保存，或从文件加载。</value></data>
+  <data name="Scan_Runtime_SavedFilmProfileMissing" xml:space="preserve"><value>请先在胶片配置页保存配置。</value></data>
+  <data name="Scan_Runtime_StatusSavedFilmProfileLoaded" xml:space="preserve"><value>已使用已保存配置“{0}”。</value></data>
+  <data name="ScanDebug_FilmProfileDraftMenuScopeText.Text" xml:space="preserve"><value>草稿用于继续编辑；用于扫描时，请检查并保存完整配置。</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.Content" xml:space="preserve"><value>保存配置…</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存当前配置，未完成时保存为草稿</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>保留当前编辑，支持未完成或有误的输入。</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.Content" xml:space="preserve"><value>打开草稿…</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开草稿</value></data>
+  <data name="ScanDebug_LoadFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>恢复草稿，继续编辑；用于扫描前请检查并保存完整配置。</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowMenuTitle.Text" xml:space="preserve"><value>从胶片配置到扫描</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowConfigurationStepButton.Content" xml:space="preserve"><value>1 · 配置采集与属性</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowConfigurationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>步骤一：配置采集与属性</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowCalibrationStepButton.Content" xml:space="preserve"><value>2 · 准备通道与校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowCalibrationStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>步骤二：准备通道与校准</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowReviewStepButton.Content" xml:space="preserve"><value>3 · 检查配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowReviewStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>步骤三：检查配置</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowScanStepButton.Content" xml:space="preserve"><value>4 · 保存并用于扫描</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowScanStepButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>步骤四：保存并用于扫描</value></data>
+  <data name="ScanDebug_FilmProfileWorkflowNavigationScopeText.Text" xml:space="preserve"><value>选择步骤可定位到相应的设置、检查或保存入口。</value></data>
+  <data name="ScanDebug_WorkflowSetupTitle" xml:space="preserve"><value>建议：准备胶片配置</value></data>
+  <data name="ScanDebug_WorkflowCalibrationTitle" xml:space="preserve"><value>建议：检查通道参考值</value></data>
+  <data name="ScanDebug_WorkflowReviewTitle" xml:space="preserve"><value>建议：检查配置问题</value></data>
+  <data name="ScanDebug_WorkflowSaveTitle" xml:space="preserve"><value>建议：保存并用于扫描</value></data>
+  <data name="ScanDebug_WorkflowSetupDetail" xml:space="preserve"><value>先设置采集通道和参数；未完成时可以保存草稿。</value></data>
+  <data name="ScanDebug_WorkflowCalibrationDetail" xml:space="preserve"><value>建议检查所选通道的参数与黑白参考；连接设备后可采集校准。也可继续检查并保存完整配置。</value></data>
+  <data name="ScanDebug_WorkflowReviewDetail" xml:space="preserve"><value>配置仍有 {0} 项问题，点击可定位；草稿可随时保存。</value></data>
+  <data name="ScanDebug_WorkflowSaveDetail" xml:space="preserve"><value>结构检查已通过。保存完整配置后，可在扫描页使用。</value></data>
+  <data name="ScanDebug_WorkflowSetupAction" xml:space="preserve"><value>准备配置</value></data>
+  <data name="ScanDebug_WorkflowCalibrationAction" xml:space="preserve"><value>查看通道</value></data>
+  <data name="ScanDebug_WorkflowReviewAction" xml:space="preserve"><value>检查与修复</value></data>
+  <data name="ScanDebug_WorkflowSaveAction" xml:space="preserve"><value>前往保存与扫描</value></data>
+  <data name="ScanDebug_DraftSaved" xml:space="preserve"><value>草稿已保存：{0}。</value></data>
+  <data name="ScanDebug_DraftOpened" xml:space="preserve"><value>草稿已恢复：{0}。可继续编辑，或检查后保存完整配置。</value></data>
+  <data name="ScanDebug_DraftCanceled" xml:space="preserve"><value>草稿操作已取消。</value></data>
+  <data name="ScanDebug_DraftOpenSuperseded" xml:space="preserve"><value>打开草稿期间配置已更改，已保留当前输入。</value></data>
+  <data name="ScanDebug_DraftSaveFailed" xml:space="preserve"><value>无法保存草稿：{0}</value></data>
+  <data name="ScanDebug_DraftOpenFailed" xml:space="preserve"><value>无法打开此草稿：文件不受支持或已损坏。</value></data>
+  <data name="ScanDebug_DraftTooLarge" xml:space="preserve"><value>草稿文件过大，请选择小于 2 MB 的文件。</value></data>
+  <data name="ScanDebug_DraftSaveHint" xml:space="preserve"><value>草稿支持未完成输入；用于扫描前，请检查并保存完整配置。</value></data>
+  <data name="ScanDebug_DraftSuggestedName" xml:space="preserve"><value>胶片配置草稿</value></data>
+  <data name="Scan_DeviceDiagnosticsButton.Content" xml:space="preserve"><value>连接详情</value></data>
+  <data name="Scan_DeviceDiagnosticsText.Text" xml:space="preserve"><value>PRISM USB 标识：VID 0x0483，PID 0x619C / 0x619D</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.Content" xml:space="preserve"><value>流程</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>配置与扫描流程</value></data>
+  <data name="ScanDebug_WorkflowOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>查看当前建议步骤，并前往配置、校准、检查或保存。</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.Content" xml:space="preserve"><value>校准步骤</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>查看完整校准步骤</value></data>
+  <data name="ScanDebug_CalibrationGuideOverviewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>查看准备设备、通道、范围、校准、审查和保存的步骤。</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.Content" xml:space="preserve"><value>恢复与说明</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>范围恢复选项与说明</value></data>
+  <data name="ScanDebug_RoiRecoveryButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>恢复默认范围、放弃未应用修改，或查看范围用途。</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>使用当前预设开始自动对焦</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>按当前预设开始自动对焦；可在“搜索参数”中调整预设。</value></data>
+  <data name="ScanDebug_RunAutofocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>按当前预设开始自动对焦；可在“搜索参数”中调整。</value></data>
+  <data name="ScanDebug_QuickFocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>切换为快速预设并开始自动对焦。</value></data>
+  <data name="ScanDebug_FineFocusButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>切换为精细预设并开始自动对焦。</value></data>
+  <data name="ScanDebug_ProfileStateDraftSaved" xml:space="preserve"><value>草稿已保存</value></data>
+  <data name="ScanDebug_ProfileStateDraftUnsaved" xml:space="preserve"><value>草稿有未保存更改</value></data>
+  <data name="ScanDebug_ProfileSaveStateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>查看保存与应用说明</value></data>
+  <data name="ScanDebug_ProfileSaveStateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>查看草稿、通道预设、完整配置和设备应用的用途。</value></data>
+  <data name="ScanDebug_SaveScopeDraftText.Text" xml:space="preserve"><value>草稿：保留当前编辑，含未完成输入。</value></data>
+  <data name="ScanDebug_SaveScopeLibraryText.Text" xml:space="preserve"><value>通道预设：保存所选通道参数，供其他配置复用。</value></data>
+  <data name="ScanDebug_SaveScopeConfigurationText.Text" xml:space="preserve"><value>完整配置：校验通过后保存，供扫描页使用。</value></data>
+  <data name="ScanDebug_SaveScopeDeviceText.Text" xml:space="preserve"><value>设备：应用参数后用于当前会话的采样和校准。</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveFocusPositive" xml:space="preserve"><value>对焦正向（Z+）</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveFocusNegative" xml:space="preserve"><value>对焦反向（Z−）</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveTransportForward" xml:space="preserve"><value>走片正向</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveTransportReverse" xml:space="preserve"><value>走片反向</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveDirection0" xml:space="preserve"><value>方向 0</value></data>
+  <data name="ScanDebug_Runtime_MotorMoveDirection1" xml:space="preserve"><value>方向 1</value></data>
+  <data name="ScanDebug_SaveHintNotValidated" xml:space="preserve"><value>保存时检查配置；未完成的内容保存为草稿。</value></data>
+  <data name="Settings_DeviceChannels.Header" xml:space="preserve"><value>设备与通道</value></data>
+  <data name="Settings_DeviceChannelsScope.Text" xml:space="preserve"><value>保存在此电脑。已加载的胶片配置保留其采样参数与照明通道。</value></data>
+  <data name="Settings_DeviceMotorAssignments.Text" xml:space="preserve"><value>电机职责</value></data>
+  <data name="Settings_DeviceTransportMotor.Header" xml:space="preserve"><value>进片电机</value></data>
+  <data name="Settings_DeviceLeftFocusMotor.Header" xml:space="preserve"><value>左侧对焦电机</value></data>
+  <data name="Settings_DeviceRightFocusMotor.Header" xml:space="preserve"><value>右侧对焦电机</value></data>
+  <data name="Settings_DeviceZPositiveDirection.Header" xml:space="preserve"><value>对焦正向（Z+）</value></data>
+  <data name="Settings_DeviceTiltPositiveDirection.Header" xml:space="preserve"><value>倾斜正向</value></data>
+  <data name="Settings_DeviceIllumination.Text" xml:space="preserve"><value>照明通道角色</value></data>
+  <data name="Settings_DeviceMechanics.Text" xml:space="preserve"><value>电机机械参数</value></data>
+  <data name="Settings_DeviceStepsPerRevolution.Header" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_DeviceMicrosteps.Header" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_DeviceLeadLength.Header" xml:space="preserve"><value>每转行程（mm）</value></data>
+  <data name="Settings_SaveDeviceChannels.Content" xml:space="preserve"><value>保存到本机</value></data>
+  <data name="Settings_PersistenceScopeDevice" xml:space="preserve"><value>设备与通道</value></data>
+  <data name="Settings_DeviceUnsaved" xml:space="preserve"><value>有尚未保存的修改。</value></data>
+  <data name="Settings_DeviceSaved" xml:space="preserve"><value>已保存到本机。</value></data>
+  <data name="Settings_DeviceSelectMotors" xml:space="preserve"><value>请为各项功能选择电机和方向。</value></data>
+  <data name="Settings_DeviceInvalidMechanics" xml:space="preserve"><value>每转步数、细分和行程必须大于0；步数和细分须为整数。</value></data>
+  <data name="Settings_DeviceSelectRoles" xml:space="preserve"><value>请为每个照明通道选择角色。</value></data>
+  <data name="Settings_DeviceDuplicateRoles" xml:space="preserve"><value>每种照明角色只能分配一次；备用通道请选择“未使用”。</value></data>
+  <data name="Settings_DeviceDuplicateMotors" xml:space="preserve"><value>进片、左侧对焦和右侧对焦必须使用不同的电机。</value></data>
+  <data name="Preview_FitButton.Content" xml:space="preserve"><value>适应窗口</value></data>
+  <data name="Preview_FitButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>适应窗口并随预览尺寸更新</value></data>
+  <data name="Preview_ActualSizeButton.Content" xml:space="preserve"><value>100%</value></data>
+  <data name="Preview_ActualSizeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>按实际像素显示</value></data>
+  <data name="Preview_ZoomOutButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>缩小预览</value></data>
+  <data name="Preview_ZoomInButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>放大预览</value></data>
+  <data name="Preview_ZoomOutButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>缩小</value></data>
+  <data name="Preview_ZoomInButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>放大</value></data>
+  <data name="Preview_ZoomReadout.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>预览缩放比例</value></data>
+  <data name="Preview_InteractionHint.Text" xml:space="preserve"><value>滚轮缩放 · 拖动平移</value></data>
+  <data name="Scan_ExecutionOverrideHint.Text" xml:space="preserve"><value>这里的调整仅用于本次扫描，不会修改已保存配置。</value></data>
+  <data name="Scan_DeviceMappingButton.Content" xml:space="preserve"><value>设备映射…</value></data>
+  <data name="Scan_DeviceMappingButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开设备与通道设置</value></data>
+  <data name="ScanDebug_RawSignalPosition" xml:space="preserve"><value>第 {0} / {1} 行</value></data>
+  <data name="ScanDebug_RawSignalSelectEmpty" xml:space="preserve"><value>采样后，在图像上点击或拖动采样线。</value></data>
+  <data name="ScanDebug_RawSignalSelectSnapshot" xml:space="preserve"><value>恢复实时观察后可重新选择采样线。</value></data>
+  <data name="ScanDebug_RawSignalSelectAveragedWaterfall" xml:space="preserve"><value>压缩瀑布条带由多行平均得到。切换普通图像后可在图上选线，也可使用精确行位置。</value></data>
+  <data name="ScanDebug_RawSignalSelectComposite" xml:space="preserve"><value>选择单通道后可在图上选线；精确行位置对应所选通道的 RAW 数据。</value></data>
+  <data name="ScanDebug_RawSignalSelectWaterfall" xml:space="preserve"><value>在顶部的最新采样区域点击或拖动，按 ↑ / ↓ 逐行微调。</value></data>
+  <data name="ScanDebug_RawSignalSelectImage" xml:space="preserve"><value>在图像上点击或拖动水平线，按 ↑ / ↓ 逐行微调；中键拖动平移。</value></data>
+  <data name="ScanDebug_RawSignalSamplingLine" xml:space="preserve"><value>剖面采样线</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.OnContent" xml:space="preserve"><value>跟随最新行</value></data>
+  <data name="ScanDebug_RawSignalPrecisePosition.Content" xml:space="preserve"><value>精确位置…</value></data>
+  <data name="ScanDebug_RawSignalRowTextBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>精确行位置，从第 1 行起</value></data>
+  <data name="ScanDebug_DeviceChannelsEntry.Content" xml:space="preserve"><value>设备与通道设置…</value></data>
+  <data name="ScanDebug_DeviceClockEntry.Content" xml:space="preserve"><value>设置设备时钟…</value></data>
+  <data name="ScanDebug_ClockNotSet" xml:space="preserve"><value>时钟未填写</value></data>
+  <data name="ScanDebug_ClockOffline" xml:space="preserve"><value>设备离线</value></data>
+  <data name="ScanDebug_SaveFilmProfileDraftButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>保存当前编辑；未完成的配置保存为可继续编辑的草稿。</value></data>
+  <data name="ScanDebug_SaveChannelProfileButton.Content" xml:space="preserve"><value>另存为通道预设</value></data>
+  <data name="ScanDebug_ChannelStatusListDescription.Text" xml:space="preserve"><value>选择通道以编辑参数。</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.OffContent" xml:space="preserve"><value>固定位置</value></data>
+  <data name="ScanDebug_RawSignalFollowLatest.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>跟随最新行或固定位置</value></data>
+  <data name="Scan_PreparationDeviceAction" xml:space="preserve"><value>设备未就绪 · 查看连接 →</value></data>
+  <data name="Scan_PreparationLoadAction" xml:space="preserve"><value>配置未加载 · 加载配置…</value></data>
+  <data name="Scan_PreparationConfigurationAction" xml:space="preserve"><value>配置需完善 · 检查配置 →</value></data>
+  <data name="Scan_PreparationExecutionAction" xml:space="preserve"><value>运动参数待修正 · 检查参数 →</value></data>
+  <data name="Scan_PreparationOutputAction" xml:space="preserve"><value>输出处理中 · 查看状态 →</value></data>
+  <data name="Scan_PreparationUseSavedAction" xml:space="preserve"><value>配置未加载 · 使用已保存配置 →</value></data>
+  <data name="Scan_PreparationReplaceAction" xml:space="preserve"><value>缺少通道校准 · 更换配置…</value></data>
+  <data name="Scan_PreparationColorAction" xml:space="preserve"><value>色彩参数待修正 · 检查色彩 →</value></data>
+  <data name="Scan_ExecutionSummaryTitle.Text" xml:space="preserve"><value>执行摘要</value></data>
+  <data name="FilmProfile_Validation_ExposureInputMissing" xml:space="preserve"><value>{0}：曝光时间待填写。请在通道详情输入曝光时间（μs）。</value></data>
+  <data name="FilmProfile_Validation_AdcOffsetInputMissing" xml:space="preserve"><value>{0}：{1} 偏移待填写。请在通道详情输入 −255 至 +255 的整数。</value></data>
+  <data name="FilmProfile_Validation_AdcGainInputMissing" xml:space="preserve"><value>{0}：{1} 增益待填写。请在通道详情输入 0–63 的整数。</value></data>
+  <data name="FilmProfile_Field_SystemClock" xml:space="preserve"><value>系统时钟</value></data>
+  <data name="FilmProfile_Field_Exposure" xml:space="preserve"><value>曝光时间</value></data>
+  <data name="FilmProfile_Field_Adc1Offset" xml:space="preserve"><value>ADC1 偏移</value></data>
+  <data name="FilmProfile_Field_Adc1Gain" xml:space="preserve"><value>ADC1 增益</value></data>
+  <data name="FilmProfile_Field_Adc2Offset" xml:space="preserve"><value>ADC2 偏移</value></data>
+  <data name="FilmProfile_Field_Adc2Gain" xml:space="preserve"><value>ADC2 增益</value></data>
+  <data name="ScanDebug_ClockInputFormatHint" xml:space="preserve"><value>请输入 30–200 MHz，最多保留三位小数。</value></data>
+  <data name="ScanDebug_ClockInputInvalidState" xml:space="preserve"><value>时钟输入无效</value></data>
+  <data name="ScanDebug_ClockPendingOffline" xml:space="preserve"><value>{0} MHz · 待应用（设备离线）</value></data>
+  <data name="ScanDebug_ClockNeedsConfirmation" xml:space="preserve"><value>{0} MHz · 请读取设备确认</value></data>
+  <data name="ScanDebug_ClockApplied" xml:space="preserve"><value>{0} MHz · 已应用</value></data>
+  <data name="ScanDebug_ClockPendingApply" xml:space="preserve"><value>{0} MHz · 待应用</value></data>
+  <data name="ScanDebug_ExposureInputFormatHint" xml:space="preserve"><value>请输入曝光时间（μs），数值须在下方当前时钟允许的范围内。</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
+  <data name="Settings_ColorManagementToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
+  <data name="Settings_DebugConsoleMirrorToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
+  <data name="Settings_DebugFileLogToggleSwitch.OnContent" xml:space="preserve"><value>已启用</value></data>
+  <data name="Settings_DebugFileLogToggleSwitch.OffContent" xml:space="preserve"><value>已禁用</value></data>
+  <data name="Settings_ThemeDescription.Text" xml:space="preserve"><value>选择浅色、深色或跟随系统。</value></data>
+  <data name="Settings_LanguageDescription.Text" xml:space="preserve"><value>设置应用界面的显示语言。</value></data>
+  <data name="Settings_SpectralMappingTitle.Text" xml:space="preserve"><value>光谱波长映射</value></data>
+  <data name="Settings_SpectralMappingDescription.Text" xml:space="preserve"><value>用于 RGB 预览与 PNG 输出。</value></data>
+  <data name="Settings_OutputGroup.Text" xml:space="preserve"><value>输出色彩</value></data>
+  <data name="Settings_GammaLabel.Text" xml:space="preserve"><value>输出伽马</value></data>
+  <data name="Settings_WhitePointLabel.Text" xml:space="preserve"><value>目标白点</value></data>
+  <data name="Settings_ManualTemperatureLabel.Text" xml:space="preserve"><value>手动色温 (K)</value></data>
+  <data name="Settings_ManualTemperatureDescription.Text" xml:space="preserve"><value>选择“手动色温”时使用。</value></data>
+  <data name="Settings_DeviceTransportMotorLabel.Text" xml:space="preserve"><value>进片电机</value></data>
+  <data name="Settings_DeviceLeftFocusMotorLabel.Text" xml:space="preserve"><value>左侧对焦电机</value></data>
+  <data name="Settings_DeviceRightFocusMotorLabel.Text" xml:space="preserve"><value>右侧对焦电机</value></data>
+  <data name="Settings_FocusDirections.Text" xml:space="preserve"><value>对焦方向</value></data>
+  <data name="Settings_DeviceZPositiveDirectionLabel.Text" xml:space="preserve"><value>对焦正向 (Z+)</value></data>
+  <data name="Settings_DeviceTiltPositiveDirectionLabel.Text" xml:space="preserve"><value>倾斜正向</value></data>
+  <data name="Settings_MechanicsMotorColumn.Text" xml:space="preserve"><value>电机</value></data>
+  <data name="Settings_MechanicsStepsColumn.Text" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_MechanicsMicrostepsColumn.Text" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_MechanicsTravelColumn.Text" xml:space="preserve"><value>每转行程 (mm)</value></data>
+  <data name="Settings_DebugConsoleTitle.Text" xml:space="preserve"><value>调试控制台</value></data>
+  <data name="Settings_DebugConsoleDescription.Text" xml:space="preserve"><value>将程序输出同步到调试控制台。</value></data>
+  <data name="Settings_DebugFileTitle.Text" xml:space="preserve"><value>本地日志文件</value></data>
+  <data name="Settings_DebugFileDescription.Text" xml:space="preserve"><value>将程序输出同步到本地文件。</value></data>
+  <data name="Settings_MultiBufferTitle.Text" xml:space="preserve"><value>多缓冲读取</value></data>
+  <data name="Settings_RawIoTitle.Text" xml:space="preserve"><value>原始 I/O</value></data>
+  <data name="Settings_MechanicsStepsInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每转步数</value></data>
+  <data name="Settings_MechanicsMicrostepsInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>细分</value></data>
+  <data name="Settings_MechanicsTravelInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>每转行程 (mm)</value></data>
+  <data name="ScanDebug_WhiteSourceRgb" xml:space="preserve">
+    <value>RGB 合光</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceDedicated" xml:space="preserve">
+    <value>独立白光 LED</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceUnavailable" xml:space="preserve">
+    <value>此配置使用的照明来源未在当前设备上映射。</value>
+  </data>
+  <data name="ScanDebug_WhiteLightingInvalid" xml:space="preserve">
+    <value>电平请输入 0–65535，脉冲时钟数请输入不小于 2 的整数。</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceLabel.Text" xml:space="preserve">
+    <value>照明来源</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceComboBox.AutomationProperties.Name" xml:space="preserve">
+    <value>白通道照明来源</value>
+  </data>
+  <data name="ScanDebug_WhiteSourcePendingInput" xml:space="preserve">
+    <value>请先完成或撤销当前通道的编辑，再切换照明来源。</value>
+  </data>
+  <data name="Scan_Runtime_WorkflowWhiteCaptureRows" xml:space="preserve">
+    <value>第 {0}/{1} 轮：白（{2}），正在采集 {3} 行…</value>
+  </data>
+  <data name="Scan_Runtime_WhiteSourceMappingRequired" xml:space="preserve">
+    <value>所选白光来源需要且只能映射一个{0} LED。</value>
+  </data>
+  <data name="ScanDebug_WhiteSourceProfileRequired" xml:space="preserve">
+    <value>请先为“{0}”配置白通道曝光与校准参数。</value>
+  </data>
+  <data name="ScanDebug_WhiteWorkflowProgress" xml:space="preserve">
+    <value>第 {0}/{1} 轮：白（{2}）· {3}</value>
+  </data>
+  <data name="Scan_Runtime_CurrentWhiteProgress" xml:space="preserve">
+    <value>白 W · {0}</value>
+  </data>
+  <data name="Scan_Runtime_WhiteSourceSummary" xml:space="preserve">
+    <value>白 W：{0}</value>
+  </data>
+  <data name="Scan_Runtime_PreviewModeRawWhite" xml:space="preserve">
+    <value>原始白 W（{0}）</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputPlan" xml:space="preserve">
+    <value>将导出 {0} 个 DNG：{1}</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputRaw4" xml:space="preserve">
+    <value>4 通道原始数据</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputRgb" xml:space="preserve">
+    <value>RGB 彩色合成</value>
+  </data>
+  <data name="Scan_Runtime_DngOutputMono" xml:space="preserve">
+    <value>{0} 原始灰度</value>
+  </data>
+  <data name="Scan_Runtime_ChannelMappingRequired" xml:space="preserve">
+    <value>请为所选的{0}通道配置唯一的 LED 映射。</value>
+  </data>
+  <data name="ScanDebug_WhiteLightingChannelColumn.Text" xml:space="preserve"><value>通道</value></data>
+  <data name="ScanDebug_WhiteLightingLevelColumn.Text" xml:space="preserve"><value>电平</value></data>
+  <data name="ScanDebug_WhiteLightingPulseColumn.Text" xml:space="preserve"><value>脉冲时钟数</value></data>
+  <data name="ScanDebug_WhiteLightingModeColumn.Text" xml:space="preserve"><value>工作模式</value></data>
+  <data name="Scan_NewFilmProfileButton.Content" xml:space="preserve"><value>新建配置</value></data>
+  <data name="Scan_PreparationCalibrationMissing" xml:space="preserve"><value>缺少通道校准</value></data>
+  <data name="Scan_ContinueFilmProfileButton.Content" xml:space="preserve"><value>继续编辑配置</value></data>
+  <data name="ScanDebug_AcquisitionCalibrationSummaryFormat" xml:space="preserve"><value>已选 {0} 个通道：{1}</value></data>
+  <data name="Scan_PreparationConfigurationMissing" xml:space="preserve"><value>配置未加载</value></data>
+  <data name="Settings_DeviceDngGeometry.Header" xml:space="preserve"><value>DNG 几何默认值</value></data>
+  <data name="Settings_RevertDeviceChanges.Content" xml:space="preserve"><value>撤销修改</value></data>
+  <data name="Settings_PersistenceScopeDngGeometry" xml:space="preserve"><value>DNG 几何</value></data>
+  <data name="Settings_DeviceLeaveTitle" xml:space="preserve"><value>保存设备设置？</value></data>
+  <data name="Settings_DeviceLeaveMessage" xml:space="preserve"><value>设备设置有尚未保存的修改。</value></data>
+  <data name="Settings_DeviceSaveAndLeave" xml:space="preserve"><value>保存并离开</value></data>
+  <data name="Settings_DeviceDiscardAndLeave" xml:space="preserve"><value>放弃修改</value></data>
+  <data name="Settings_DeviceKeepEditing" xml:space="preserve"><value>继续编辑</value></data>
+  <data name="ScanDebug_WorkbenchParametersNotChecked" xml:space="preserve"><value>参数尚未检查</value></data>
+  <data name="ScanDebug_WorkbenchParametersIncomplete" xml:space="preserve"><value>参数待完善 · {0} 项</value></data>
+  <data name="ScanDebug_WorkbenchParametersInvalid" xml:space="preserve"><value>参数需修复 · {0} 项</value></data>
+  <data name="ScanDebug_WorkbenchParametersReview" xml:space="preserve"><value>参数需检查</value></data>
+  <data name="ScanDebug_WorkbenchParametersWithNotices" xml:space="preserve"><value>参数已检查 · {0} 条提示</value></data>
+  <data name="ScanDebug_WorkbenchParametersValid" xml:space="preserve"><value>参数检查通过</value></data>
+  <data name="ScanDebug_WorkbenchParameterDetail" xml:space="preserve"><value>检查范围为配置结构与输入数值。通过检查不代表校准参考值齐全、校准质量合格或设备已就绪。</value></data>
+  <data name="ScanDebug_WorkbenchReferencesNoChannels" xml:space="preserve"><value>尚未选择采集通道</value></data>
+  <data name="ScanDebug_WorkbenchReferencesCoverage" xml:space="preserve"><value>参考值已配置 · {0}/{1} 通道</value></data>
+  <data name="ScanDebug_WorkbenchReferencesSelectChannels" xml:space="preserve"><value>请在“采样”中选择通道，再检查其黑白参考值。</value></data>
+  <data name="ScanDebug_WorkbenchReferencesComplete" xml:space="preserve"><value>所选通道的黑白参考值已齐全。这仅表示配置数据完整，不代表实测校准质量。</value></data>
+  <data name="ScanDebug_WorkbenchReferencesMissing" xml:space="preserve"><value>以下通道缺少黑白参考值：{0}。有效配置仍可保存；使用校准输出前，请检查这些参考值。</value></data>
+  <data name="ScanDebug_WorkbenchDeviceOffline" xml:space="preserve"><value>设备未连接</value></data>
+  <data name="ScanDebug_WorkbenchDeviceReady" xml:space="preserve"><value>可开始采样</value></data>
+  <data name="ScanDebug_ConfigurationFileNewItem.Text" xml:space="preserve"><value>新建胶片配置</value></data>
+  <data name="ScanDebug_ConfigurationFileNewItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>新建胶片配置</value></data>
+  <data name="ScanDebug_ConfigurationFileOpenItem.Text" xml:space="preserve"><value>打开配置文件…</value></data>
+  <data name="ScanDebug_ConfigurationFileOpenItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开胶片配置文件</value></data>
+  <data name="ScanDebug_ConfigurationFileSaveItem.Text" xml:space="preserve"><value>保存完整配置…</value></data>
+  <data name="ScanDebug_ConfigurationFileSaveItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保存完整胶片配置</value></data>
+  <data name="ScanDebug_ConfigurationDraftOpenItem.Text" xml:space="preserve"><value>打开编辑草稿…</value></data>
+  <data name="ScanDebug_ConfigurationDraftOpenItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>打开编辑草稿并继续编辑</value></data>
+  <data name="ScanDebug_ConfigurationPropertiesItem.Text" xml:space="preserve"><value>配置属性…</value></data>
+  <data name="ScanDebug_ConfigurationPropertiesItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>查看和编辑胶片配置属性</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.Content" xml:space="preserve"><value>查看连接</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>查看扫描仪连接</value></data>
+  <data name="ScanDebug_OfflineConnectionAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>打开扫描仪连接面板；不会开始采样或执行设备动作。</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.Content" xml:space="preserve"><value>开始采样</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>按当前采集设置开始采样</value></data>
+  <data name="ScanDebug_PreviewStartSamplingAction.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>按当前采集模式、通道和参数开始采样。</value></data>
+  <data name="Scan_OfflineGuidance" xml:space="preserve">
+    <value>可离线加载配置并调整本次扫描参数。准备采集时，再连接扫描仪。</value>
+  </data>
+  <data name="Scan_SessionSettingsNoBaseline" xml:space="preserve">
+    <value>加载胶片配置后，可跟踪本次参数的调整。</value>
+  </data>
+  <data name="Scan_SessionSettingsChanged" xml:space="preserve">
+    <value>本次已调整：{0}。已保存配置未修改。</value>
+  </data>
+  <data name="Scan_SessionSettingsUnchanged" xml:space="preserve">
+    <value>正在使用加载配置时的参数。</value>
+  </data>
+  <data name="Scan_ExecutionRowsSummary" xml:space="preserve">
+    <value>{0} 行</value>
+  </data>
+  <data name="Scan_ExecutionPrimarySummary" xml:space="preserve">
+    <value>{0} 行 · {1} 轮 · {2}</value>
+  </data>
+  <data name="Scan_ExecutionSecondarySummary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Scan_ExecutionAlternateCompact" xml:space="preserve">
+    <value>交替方向</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveCompact" xml:space="preserve">
+    <value>每行 {0} {1}</value>
+  </data>
+  <data name="Scan_ExecutionSameDirectionCompact" xml:space="preserve">
+    <value>同方向</value>
+  </data>
+  <data name="Scan_SessionSettingsChangedCompact" xml:space="preserve">
+    <value>已调整：{0}</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsCompactButton.Content" xml:space="preserve">
+    <value>恢复参数</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsCompactButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>恢复配置参数</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.Content" xml:space="preserve">
+    <value>详情</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>查看通道顺序、光源、运动和预览设置。</value>
+  </data>
+  <data name="Scan_ExecutionDetailsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>查看执行详情</value>
+  </data>
+  <data name="Scan_ExecutionChannelsNone" xml:space="preserve">
+    <value>尚未选择通道</value>
+  </data>
+  <data name="Scan_ExecutionChannelsSummary" xml:space="preserve">
+    <value>{0} 轮 · {1}</value>
+  </data>
+  <data name="Scan_ExecutionMotionSummary" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="Scan_ExecutionAlternate" xml:space="preserve">
+    <value>逐轮交替方向</value>
+  </data>
+  <data name="Scan_ExecutionSameDirection" xml:space="preserve">
+    <value>各轮同方向</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveUnset" xml:space="preserve">
+    <value>每行移动距离待设置</value>
+  </data>
+  <data name="Scan_ExecutionLineMoveSummary" xml:space="preserve">
+    <value>每行 {0} {1}</value>
+  </data>
+  <data name="Scan_ExecutionPreviewSummary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Scan_OutputLocationUnavailable" xml:space="preserve">
+    <value>无法打开保存位置。请确认位置仍存在且可访问：{0}</value>
+  </data>
+  <data name="Scan_ChangedRows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="Scan_ChangedTransport" xml:space="preserve">
+    <value>传送方式</value>
+  </data>
+  <data name="Scan_ChangedLineDistance" xml:space="preserve">
+    <value>每行移动距离</value>
+  </data>
+  <data name="Scan_ChangedPreview" xml:space="preserve">
+    <value>预览与对齐</value>
+  </data>
+  <data name="Scan_ChangedColor" xml:space="preserve">
+    <value>色彩</value>
+  </data>
+  <data name="Scan_ChangedOutput" xml:space="preserve">
+    <value>DNG 输出</value>
+  </data>
+  <data name="Scan_CompletedFeedback" xml:space="preserve">
+    <value>扫描完成 · {0} 轮 · {1} 行。可保存或导出结果。</value>
+  </data>
+  <data name="Scan_PreparationParametersAction" xml:space="preserve">
+    <value>通道参数缺失 · 选择配置…</value>
+  </data>
+  <data name="Scan_PreparationMappingAction" xml:space="preserve">
+    <value>通道映射待完善 · 检查映射 →</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsButton.Content" xml:space="preserve">
+    <value>恢复配置参数</value>
+  </data>
+  <data name="Scan_RestoreLoadedSettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>恢复配置参数</value>
+  </data>
+  <data name="Scan_OpenOutputFolderButton.Content" xml:space="preserve">
+    <value>打开所在文件夹</value>
+  </data>
+  <data name="Scan_OpenOutputFolderButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>打开所在文件夹</value>
+  </data>
+  <data name="Scan_PreviewSettingsButton.Content" xml:space="preserve">
+    <value>预览设置</value>
+  </data>
+  <data name="Scan_PreviewSettingsButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>预览设置</value>
+  </data>
+  <data name="Scan_PreviewSettingsTitle.Text" xml:space="preserve">
+    <value>预览设置</value>
+  </data>
+  <data name="Scan_ExecutionRowsLabel.Text" xml:space="preserve">
+    <value>扫描行数</value>
+  </data>
+  <data name="Scan_ExecutionChannelsLabel.Text" xml:space="preserve">
+    <value>通道与轮次</value>
+  </data>
+  <data name="Scan_ExecutionMotionLabel.Text" xml:space="preserve">
+    <value>传送方式</value>
+  </data>
+  <data name="Scan_ExecutionPreviewLabel.Text" xml:space="preserve">
+    <value>预览</value>
+  </data>
+  <data name="Scan_ConfigurationDetailsExpander.Header" xml:space="preserve"><value>已加载的配置详情</value></data>
+  <data name="ScanDebug_Runtime_MotorMovePreview" xml:space="preserve"><value>预计 {1}&#160;mm · {2} 步 · {3}&#160;s&#10;逻辑方向：{4}</value></data>
 </root>

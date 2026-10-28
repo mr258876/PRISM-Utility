@@ -107,6 +107,11 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
             return false;
 
         var passByRole = BuildRoleMap(result, assignment, availableRowsByRole, rows: result.Rows);
+        if (requireAllRgbRoles && new[] { "Red", "Green", "Blue" }.Any(role => !passByRole.ContainsKey(role)))
+        {
+            error = "RGB Composite requires captured Red, Green, and Blue channels.";
+            return false;
+        }
         var width = _decoder.GetDecodedPixelsPerLine();
         var rows = result.Rows;
         if (width <= 0 || rows <= 0)
@@ -172,9 +177,12 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
     private Dictionary<string, RoleCaptureEntry> BuildRoleMap(ScanWorkflowResult result, ScanChannelAssignment assignment, IReadOnlyDictionary<string, ScanRowAvailability>? availableRowsByRole, int rows)
     {
         var map = new Dictionary<string, RoleCaptureEntry>(StringComparer.OrdinalIgnoreCase);
-        for (var index = 0; index < result.Passes.Count && index < assignment.Roles.Count; index++)
+        foreach (var capture in result.Passes)
         {
-            var role = assignment.Roles[index];
+            var slot = capture.LedChannelIndex;
+            if (slot >= assignment.Roles.Count)
+                continue;
+            var role = assignment.Roles[slot];
             if (string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase))
                 continue;
 
@@ -183,7 +191,7 @@ public sealed class ScanCompositeImageProcessor : IScanCompositeImageProcessor
                 var availability = availableRowsByRole is not null && availableRowsByRole.TryGetValue(role, out var explicitAvailability)
                     ? ClampAvailability(explicitAvailability, rows)
                     : new ScanRowAvailability(0, rows);
-                map[role] = new RoleCaptureEntry(result.Passes[index], assignment.ReversedFlags[index], availability);
+                map[role] = new RoleCaptureEntry(capture, assignment.ReversedFlags[slot], availability);
             }
         }
 

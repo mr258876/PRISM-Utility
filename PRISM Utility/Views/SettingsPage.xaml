@@ -1,177 +1,981 @@
-﻿<Page
+<Page
     x:Class="PRISM_Utility.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:helpers="using:PRISM_Utility.Helpers"
+    xmlns:behaviors="using:PRISM_Utility.Behaviors"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:viewmodels="using:PRISM_Utility.ViewModels"
     xmlns:xaml="using:Microsoft.UI.Xaml"
+    behaviors:NavigationViewHeaderBehavior.HeaderMode="Never"
     mc:Ignorable="d">
     <Page.Resources>
-        <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
         <helpers:ScanSelectorDisplayNameConverter x:Key="ScanSelectorDisplayNameConverter" />
+        <DataTemplate x:Key="DeviceMotorOptionTemplate" x:DataType="x:String">
+            <TextBlock
+                Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Motor}" />
+        </DataTemplate>
+        <DataTemplate x:Key="DeviceDirectionOptionTemplate" x:DataType="x:String">
+            <TextBlock
+                Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=MotorDirection}" />
+        </DataTemplate>
+        <DataTemplate x:Key="DeviceChannelRoleOptionTemplate" x:DataType="x:String">
+            <TextBlock
+                Text="{Binding Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=ChannelRole}" />
+        </DataTemplate>
+        <Style x:Key="SettingCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style x:Key="SettingRowStyle" TargetType="Grid">
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="MinHeight" Value="64" />
+            <Setter Property="ColumnSpacing" Value="24" />
+        </Style>
+        <Style
+            x:Key="SettingLabelStyle"
+            TargetType="TextBlock"
+            BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+        <Style x:Key="SettingDescriptionStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+        <Style x:Key="SettingsEntryButtonStyle" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="MinHeight" Value="76" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </Page.Resources>
-    <ScrollViewer
-        VerticalScrollBarVisibility="Auto"
-        VerticalScrollMode="Auto"
-        HorizontalScrollBarVisibility="Disabled"
-        HorizontalScrollMode="Disabled">
-        <Grid>
-            <StackPanel
-                x:Name="ContentArea">
+    <Grid
+        Margin="12,12,12,24"
+        MaxWidth="1000"
+        HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <BreadcrumbBar
+            x:Name="SettingsBreadcrumb"
+            Margin="0,0,0,24"
+            ItemClicked="SettingsBreadcrumb_ItemClicked">
+            <BreadcrumbBar.Resources>
+                <x:Double x:Key="BreadcrumbBarChevronFontSize">18</x:Double>
+                <Thickness x:Key="BreadcrumbBarChevronPadding">10,0</Thickness>
+                <SolidColorBrush x:Key="BreadcrumbBarForegroundBrush" Color="{ThemeResource TextFillColorSecondary}" />
+                <SolidColorBrush
+                    x:Key="BreadcrumbBarNormalForegroundBrush"
+                    Color="{ThemeResource TextFillColorSecondary}" />
+                <SolidColorBrush
+                    x:Key="BreadcrumbBarHoverForegroundBrush"
+                    Color="{ThemeResource TextFillColorPrimary}" />
+            </BreadcrumbBar.Resources>
+            <BreadcrumbBar.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" Style="{ThemeResource TitleTextBlockStyle}" />
+                </DataTemplate>
+            </BreadcrumbBar.ItemTemplate>
+        </BreadcrumbBar>
+        <ScrollViewer
+            x:Name="SettingsScrollViewer"
+            Grid.Row="1"
+            VerticalScrollBarVisibility="Auto"
+            VerticalScrollMode="Auto"
+            HorizontalScrollBarVisibility="Disabled"
+            HorizontalScrollMode="Disabled"
+            HorizontalContentAlignment="Stretch">
+            <StackPanel x:Name="ContentArea" HorizontalAlignment="Stretch">
                 <InfoBar
                     x:Uid="Settings_PersistenceErrorInfoBar"
-                    Margin="{StaticResource SmallTopBottomMargin}"
                     HorizontalAlignment="Stretch"
                     IsClosable="False"
                     IsOpen="{x:Bind ViewModel.HasSettingsPersistenceError, Mode=OneWay}"
                     Message="{x:Bind ViewModel.SettingsPersistenceErrorMessage, Mode=OneWay}"
                     Severity="Error" />
-            <TextBlock x:Uid="Settings_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}" />
-              <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                <TextBlock x:Uid="Settings_Theme" />
-
-                <StackPanel Margin="{StaticResource XSmallTopMargin}">
-                    <RadioButton
-                        x:Uid="Settings_Theme_Light"
-                        Command="{x:Bind ViewModel.SwitchThemeCommand}"
-                        IsChecked="{x:Bind ViewModel.ElementTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Light, Mode=OneWay}"
-                        FontSize="15"
-                        GroupName="AppTheme">
-                        <RadioButton.CommandParameter>
-                            <xaml:ElementTheme>Light</xaml:ElementTheme>
-                        </RadioButton.CommandParameter>
-                    </RadioButton>
-                    <RadioButton
-                        x:Uid="Settings_Theme_Dark"
-                        Command="{x:Bind ViewModel.SwitchThemeCommand}"
-                        IsChecked="{x:Bind ViewModel.ElementTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark, Mode=OneWay}"
-                        FontSize="15"
-                        GroupName="AppTheme">
-                        <RadioButton.CommandParameter>
-                            <xaml:ElementTheme>Dark</xaml:ElementTheme>
-                        </RadioButton.CommandParameter>
-                    </RadioButton>
-                    <RadioButton
-                        x:Uid="Settings_Theme_Default"
-                        Command="{x:Bind ViewModel.SwitchThemeCommand}"
-                        IsChecked="{x:Bind ViewModel.ElementTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Default, Mode=OneWay}"
-                        FontSize="15"
-                        GroupName="AppTheme">
-                        <RadioButton.CommandParameter>
-                            <xaml:ElementTheme>Default</xaml:ElementTheme>
-                        </RadioButton.CommandParameter>
-                    </RadioButton>
+                <StackPanel x:Name="SettingsOverviewPanel" Spacing="24">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="Settings_General" Style="{StaticResource SettingLabelStyle}" />
+                        <Border Style="{StaticResource SettingCardStyle}">
+                            <StackPanel>
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="ThemeLabel"
+                                            x:Uid="Settings_Theme"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_ThemeDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ComboBox
+                                        x:Name="ThemeComboBox"
+                                        Grid.Column="1"
+                                        Width="220"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=ThemeLabel}"
+                                        SelectedValuePath="Tag"
+                                        SelectedValue="{x:Bind ViewModel.ElementTheme, Mode=OneWay}"
+                                        SelectionChanged="ThemeSelectionChanged">
+                                        <ComboBoxItem x:Uid="Settings_Theme_Default">
+                                            <ComboBoxItem.Tag>
+                                                <xaml:ElementTheme>Default</xaml:ElementTheme>
+                                            </ComboBoxItem.Tag>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem x:Uid="Settings_Theme_Light">
+                                            <ComboBoxItem.Tag>
+                                                <xaml:ElementTheme>Light</xaml:ElementTheme>
+                                            </ComboBoxItem.Tag>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem x:Uid="Settings_Theme_Dark">
+                                            <ComboBoxItem.Tag>
+                                                <xaml:ElementTheme>Dark</xaml:ElementTheme>
+                                            </ComboBoxItem.Tag>
+                                        </ComboBoxItem>
+                                    </ComboBox>
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="LanguageLabel"
+                                            x:Uid="Settings_Language"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_LanguageDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ComboBox
+                                        Grid.Column="1"
+                                        Width="220"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=LanguageLabel}"
+                                        ItemsSource="{x:Bind ViewModel.LanguageOptions, Mode=OneWay}"
+                                        DisplayMemberPath="DisplayName"
+                                        SelectedValuePath="LanguageTag"
+                                        SelectedValue="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Spacing="12">
+                        <Button
+                            x:Name="ScanDefaultsButton"
+                            Click="ScanDefaultsButton_Click"
+                            Style="{StaticResource SettingsEntryButtonStyle}"
+                            AutomationProperties.LabeledBy="{Binding ElementName=ScanDefaultsEntryTitle}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE8FE;"
+                                    FontSize="20"
+                                    VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock
+                                        x:Name="ScanDefaultsEntryTitle"
+                                        x:Uid="Settings_ScanDefaults"
+                                        Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Uid="Settings_ScanDefaultsEntryDescription"
+                                        Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <FontIcon
+                                    Grid.Column="2"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE76C;"
+                                    FontSize="14"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <Button
+                            x:Name="DeviceSettingsButton"
+                            Click="DeviceSettingsButton_Click"
+                            Style="{StaticResource SettingsEntryButtonStyle}"
+                            AutomationProperties.LabeledBy="{Binding ElementName=DeviceSettingsEntryTitle}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xECF0;"
+                                    FontSize="20"
+                                    VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock
+                                        x:Name="DeviceSettingsEntryTitle"
+                                        x:Uid="Settings_DeviceEntryTitle"
+                                        Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Uid="Settings_DeviceEntryDescription"
+                                        Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <FontIcon
+                                    Grid.Column="2"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE76C;"
+                                    FontSize="14"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <Button
+                            x:Name="AdvancedSettingsButton"
+                            Click="AdvancedSettingsButton_Click"
+                            Style="{StaticResource SettingsEntryButtonStyle}"
+                            AutomationProperties.LabeledBy="{Binding ElementName=AdvancedSettingsEntryTitle}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE9D9;"
+                                    FontSize="20"
+                                    VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock
+                                        x:Name="AdvancedSettingsEntryTitle"
+                                        x:Uid="Settings_AdvancedEntryTitle"
+                                        Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Uid="Settings_AdvancedEntryDescription"
+                                        Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <FontIcon
+                                    Grid.Column="2"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE76C;"
+                                    FontSize="14"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel x:Name="AboutSettingsSection" Spacing="4">
+                        <TextBlock x:Uid="Settings_About" Style="{StaticResource SettingLabelStyle}" />
+                        <TextBlock
+                            Text="{x:Bind ViewModel.VersionDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            Text="{x:Bind ViewModel.BuildDescription, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.BuildVisibility, Mode=OneWay}"
+                            Style="{StaticResource SettingDescriptionStyle}" />
+                        <TextBlock x:Uid="Settings_AboutDescription" Style="{StaticResource SettingDescriptionStyle}" />
+                    </StackPanel>
                 </StackPanel>
-
-                <TextBlock
-                    x:Uid="Settings_Language"
-                    Margin="{StaticResource SmallTopMargin}" />
-
-                <ComboBox
-                    Margin="{StaticResource XSmallTopMargin}"
-                    ItemsSource="{x:Bind ViewModel.LanguageOptions, Mode=OneWay}"
-                    DisplayMemberPath="DisplayName"
-                    SelectedValuePath="LanguageTag"
-                    SelectedValue="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}" />
+                <StackPanel
+                    x:Name="ScanDefaultsPanel"
+                    Visibility="Collapsed"
+                    Spacing="24">
+                    <TextBlock
+                        x:Uid="Settings_ColorManagementScopeText"
+                        Style="{StaticResource SettingDescriptionStyle}" />
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="Settings_ColorManagement" Style="{StaticResource SettingLabelStyle}" />
+                        <Border Style="{StaticResource SettingCardStyle}">
+                            <StackPanel>
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="SpectralMappingLabel"
+                                            x:Uid="Settings_SpectralMappingTitle"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_SpectralMappingDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch MinWidth="0"
+                                        Grid.Column="1"
+                                        x:Uid="Settings_ColorManagementToggleSwitch"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=SpectralMappingLabel}"
+                                        IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <controls:WrapPanel
+                                    Margin="16"
+                                    HorizontalSpacing="16"
+                                    VerticalSpacing="12">
+                                    <TextBox
+                                        x:Uid="Settings_RedWavelengthTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
+                                    <TextBox
+                                        x:Uid="Settings_GreenWavelengthTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
+                                    <TextBox
+                                        x:Uid="Settings_BlueWavelengthTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
+                                </controls:WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="Settings_OutputGroup" Style="{StaticResource SettingLabelStyle}" />
+                        <Border Style="{StaticResource SettingCardStyle}">
+                            <StackPanel>
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="GammaLabel"
+                                            x:Uid="Settings_GammaLabel"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                    </StackPanel>
+                                    <TextBox
+                                        Grid.Column="1"
+                                        Width="140"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=GammaLabel}"
+                                        Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="WhitePointLabel"
+                                            x:Uid="Settings_WhitePointLabel"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                    </StackPanel>
+                                    <ComboBox
+                                        Grid.Column="1"
+                                        Width="220"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=WhitePointLabel}"
+                                        SelectedValuePath="Tag"
+                                        SelectedValue="{x:Bind ViewModel.SelectedTargetWhitePointMode, Mode=TwoWay}">
+                                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD65ComboBoxItem" Tag="D65" />
+                                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD50ComboBoxItem" Tag="D50" />
+                                        <ComboBoxItem
+                                            x:Uid="Settings_TargetWhitePointManualComboBoxItem"
+                                            Tag="ManualColorTemperature" />
+                                    </ComboBox>
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="ManualTemperatureLabel"
+                                            x:Uid="Settings_ManualTemperatureLabel"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_ManualTemperatureDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <TextBox
+                                        Grid.Column="1"
+                                        Width="140"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=ManualTemperatureLabel}"
+                                        IsEnabled="{x:Bind ViewModel.IsManualWhitePointColorTemperatureEnabled, Mode=OneWay}"
+                                        Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <Button
+                        x:Uid="Settings_RestoreColorManagementDefaultsButton"
+                        HorizontalAlignment="Right"
+                        Command="{x:Bind ViewModel.RestoreColorManagementDefaultsCommand}" />
+                </StackPanel>
+                <ContentControl
+                    x:Name="DeviceSettingsPanel"
+                    Visibility="Collapsed"
+                    IsEnabled="{x:Bind ViewModel.IsDeviceSettingsLoaded, Mode=OneWay}"
+                    HorizontalContentAlignment="Stretch">
+                    <StackPanel Spacing="24">
+                        <TextBlock
+                            x:Uid="Settings_DeviceChannelsScope"
+                            Style="{StaticResource SettingDescriptionStyle}" />
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                x:Uid="Settings_DeviceMotorAssignments"
+                                Style="{StaticResource SettingLabelStyle}" />
+                            <Border Style="{StaticResource SettingCardStyle}">
+                                <StackPanel>
+                                    <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock
+                                                x:Name="TransportMotorLabel"
+                                                x:Uid="Settings_DeviceTransportMotorLabel"
+                                                Style="{StaticResource SettingLabelStyle}" />
+                                        </StackPanel>
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            Width="220"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.LabeledBy="{Binding ElementName=TransportMotorLabel}"
+                                            ItemsSource="{x:Bind ViewModel.DeviceMotorOptions}"
+                                            ItemTemplate="{StaticResource DeviceMotorOptionTemplate}"
+                                            SelectedItem="{x:Bind ViewModel.DeviceDefaultScanMotor, Mode=TwoWay}" />
+                                    </Grid>
+                                    <Border
+                                        Height="1"
+                                        Margin="16,0"
+                                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                    <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock
+                                                x:Name="LeftFocusMotorLabel"
+                                                x:Uid="Settings_DeviceLeftFocusMotorLabel"
+                                                Style="{StaticResource SettingLabelStyle}" />
+                                        </StackPanel>
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            Width="220"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.LabeledBy="{Binding ElementName=LeftFocusMotorLabel}"
+                                            ItemsSource="{x:Bind ViewModel.DeviceMotorOptions}"
+                                            ItemTemplate="{StaticResource DeviceMotorOptionTemplate}"
+                                            SelectedItem="{x:Bind ViewModel.DeviceLeftFocusMotor, Mode=TwoWay}" />
+                                    </Grid>
+                                    <Border
+                                        Height="1"
+                                        Margin="16,0"
+                                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                    <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock
+                                                x:Name="RightFocusMotorLabel"
+                                                x:Uid="Settings_DeviceRightFocusMotorLabel"
+                                                Style="{StaticResource SettingLabelStyle}" />
+                                        </StackPanel>
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            Width="220"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.LabeledBy="{Binding ElementName=RightFocusMotorLabel}"
+                                            ItemsSource="{x:Bind ViewModel.DeviceMotorOptions}"
+                                            ItemTemplate="{StaticResource DeviceMotorOptionTemplate}"
+                                            SelectedItem="{x:Bind ViewModel.DeviceRightFocusMotor, Mode=TwoWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Settings_FocusDirections" Style="{StaticResource SettingLabelStyle}" />
+                            <Border Style="{StaticResource SettingCardStyle}">
+                                <StackPanel>
+                                    <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock
+                                                x:Name="ZPositiveDirectionLabel"
+                                                x:Uid="Settings_DeviceZPositiveDirectionLabel"
+                                                Style="{StaticResource SettingLabelStyle}" />
+                                        </StackPanel>
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            Width="220"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.LabeledBy="{Binding ElementName=ZPositiveDirectionLabel}"
+                                            ItemsSource="{x:Bind ViewModel.DeviceDirectionOptions}"
+                                            ItemTemplate="{StaticResource DeviceDirectionOptionTemplate}"
+                                            SelectedItem="{x:Bind ViewModel.DeviceZPositiveDirection, Mode=TwoWay}" />
+                                    </Grid>
+                                    <Border
+                                        Height="1"
+                                        Margin="16,0"
+                                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                    <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock
+                                                x:Name="TiltPositiveDirectionLabel"
+                                                x:Uid="Settings_DeviceTiltPositiveDirectionLabel"
+                                                Style="{StaticResource SettingLabelStyle}" />
+                                        </StackPanel>
+                                        <ComboBox
+                                            Grid.Column="1"
+                                            Width="220"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.LabeledBy="{Binding ElementName=TiltPositiveDirectionLabel}"
+                                            ItemsSource="{x:Bind ViewModel.DeviceDirectionOptions}"
+                                            ItemTemplate="{StaticResource DeviceDirectionOptionTemplate}"
+                                            SelectedItem="{x:Bind ViewModel.DeviceTiltPositiveDirection, Mode=TwoWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Settings_DeviceIllumination" Style="{StaticResource SettingLabelStyle}" />
+                            <Border Style="{StaticResource SettingCardStyle}">
+                                <controls:WrapPanel Margin="16" HorizontalSpacing="16" VerticalSpacing="16">
+                                    <ComboBox
+                                        Header="LED1"
+                                        Width="220"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        ItemsSource="{x:Bind ViewModel.DeviceChannelRoleOptions}"
+                                        ItemTemplate="{StaticResource DeviceChannelRoleOptionTemplate}"
+                                        SelectedItem="{x:Bind ViewModel.DeviceChannel1Role, Mode=TwoWay}" />
+                                    <ComboBox
+                                        Header="LED2"
+                                        Width="220"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        ItemsSource="{x:Bind ViewModel.DeviceChannelRoleOptions}"
+                                        ItemTemplate="{StaticResource DeviceChannelRoleOptionTemplate}"
+                                        SelectedItem="{x:Bind ViewModel.DeviceChannel2Role, Mode=TwoWay}" />
+                                    <ComboBox
+                                        Header="LED3"
+                                        Width="220"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        ItemsSource="{x:Bind ViewModel.DeviceChannelRoleOptions}"
+                                        ItemTemplate="{StaticResource DeviceChannelRoleOptionTemplate}"
+                                        SelectedItem="{x:Bind ViewModel.DeviceChannel3Role, Mode=TwoWay}" />
+                                    <ComboBox
+                                        Header="LED4"
+                                        Width="220"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        ItemsSource="{x:Bind ViewModel.DeviceChannelRoleOptions}"
+                                        ItemTemplate="{StaticResource DeviceChannelRoleOptionTemplate}"
+                                        SelectedItem="{x:Bind ViewModel.DeviceChannel4Role, Mode=TwoWay}" />
+                                </controls:WrapPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="Settings_DeviceMechanics" Style="{StaticResource SettingLabelStyle}" />
+                            <Border Style="{StaticResource SettingCardStyle}">
+                                <StackPanel>
+                                    <Grid Padding="16,12,16,8" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.1*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            x:Uid="Settings_MechanicsMotorColumn"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            x:Uid="Settings_MechanicsStepsColumn"
+                                            Style="{StaticResource SettingDescriptionStyle}"
+                                            TextAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            x:Uid="Settings_MechanicsMicrostepsColumn"
+                                            Style="{StaticResource SettingDescriptionStyle}"
+                                            TextAlignment="Center" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            x:Uid="Settings_MechanicsTravelColumn"
+                                            Style="{StaticResource SettingDescriptionStyle}"
+                                            TextAlignment="Center" />
+                                    </Grid>
+                                    <Border
+                                        Height="1"
+                                        Margin="16,0"
+                                        Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.DeviceMotorMechanics}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="viewmodels:DeviceMotorMechanicalInput">
+                                                <Grid
+                                                    Padding="16,8"
+                                                    ColumnSpacing="12"
+                                                    MinHeight="48">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.1*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="1.2*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Text="{x:Bind DisplayName, Converter={StaticResource ScanSelectorDisplayNameConverter}, ConverterParameter=Motor}"
+                                                        VerticalAlignment="Center"
+                                                        TextWrapping="WrapWholeWords" />
+                                                    <TextBox
+                                                        Grid.Column="1"
+                                                        x:Uid="Settings_MechanicsStepsInput"
+                                                        MaxWidth="140"
+                                                        HorizontalAlignment="Stretch"
+                                                        Text="{x:Bind StepsPerRevolution, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBox
+                                                        Grid.Column="2"
+                                                        x:Uid="Settings_MechanicsMicrostepsInput"
+                                                        MaxWidth="140"
+                                                        HorizontalAlignment="Stretch"
+                                                        Text="{x:Bind Microsteps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBox
+                                                        Grid.Column="3"
+                                                        x:Uid="Settings_MechanicsTravelInput"
+                                                        MaxWidth="140"
+                                                        HorizontalAlignment="Stretch"
+                                                        Text="{x:Bind LeadLengthMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <Button
+                            x:Uid="DeviceConfiguration_RestoreDeviceSettingsDefaultsButton"
+                            HorizontalAlignment="Left"
+                            Command="{x:Bind ViewModel.RestoreDeviceSettingsDefaultsCommand}" />
+                        <Expander
+                            x:Uid="Settings_DeviceDngGeometry"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch">
+                            <StackPanel Spacing="16">
+                                <TextBlock
+                                    x:Uid="DeviceConfiguration_DngGeometryScopeText"
+                                    Style="{StaticResource SettingDescriptionStyle}" />
+                                <controls:WrapPanel HorizontalSpacing="16" VerticalSpacing="12">
+                                    <TextBox
+                                        x:Uid="DeviceConfiguration_DngActiveStartTextBox"
+                                        Width="180"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.DngActiveStart, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox
+                                        x:Uid="DeviceConfiguration_DngActiveEndTextBox"
+                                        Width="180"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.DngActiveEndInclusive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox
+                                        x:Uid="DeviceConfiguration_DngMaskedRangesTextBox"
+                                        Width="240"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.DngMaskedRanges, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </controls:WrapPanel>
+                                <Button
+                                    x:Uid="DeviceConfiguration_RestoreDngGeometryDefaultsButton"
+                                    HorizontalAlignment="Left"
+                                    Command="{x:Bind ViewModel.RestoreDngGeometryDefaultsCommand}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ContentControl>
+                <StackPanel
+                    x:Name="AdvancedSettingsPanel"
+                    Visibility="Collapsed"
+                    Spacing="24">
+                    <TextBlock x:Uid="Settings_AdvancedHelp" Style="{StaticResource SettingDescriptionStyle}" />
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="Settings_Diagnostics" Style="{StaticResource SettingLabelStyle}" />
+                        <Border Style="{StaticResource SettingCardStyle}">
+                            <StackPanel>
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="DebugConsoleLabel"
+                                            x:Uid="Settings_DebugConsoleTitle"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_DebugConsoleDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch MinWidth="0"
+                                        Grid.Column="1"
+                                        x:Uid="Settings_DebugConsoleMirrorToggleSwitch"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=DebugConsoleLabel}"
+                                        IsOn="{x:Bind ViewModel.IsDebugConsoleMirrorEnabled, Mode=TwoWay}" />
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="DebugFileLabel"
+                                            x:Uid="Settings_DebugFileTitle"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_DebugFileDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch MinWidth="0"
+                                        Grid.Column="1"
+                                        x:Uid="Settings_DebugFileLogToggleSwitch"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=DebugFileLabel}"
+                                        IsOn="{x:Bind ViewModel.IsDebugFileLogEnabled, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="Settings_Transfer" Style="{StaticResource SettingLabelStyle}" />
+                        <Border Style="{StaticResource SettingCardStyle}">
+                            <StackPanel>
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="MultiBufferLabel"
+                                            x:Uid="Settings_MultiBufferTitle"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_MultiBufferedBulkInDescription"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch MinWidth="0"
+                                        Grid.Column="1"
+                                        x:Uid="Settings_MultiBufferedBulkInToggleSwitch"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=MultiBufferLabel}"
+                                        IsOn="{x:Bind ViewModel.IsMultiBufferedBulkInEnabled, Mode=TwoWay}" />
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <Grid Style="{StaticResource SettingRowStyle}" SizeChanged="SettingRow_SizeChanged">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock
+                                            x:Name="RawIoLabel"
+                                            x:Uid="Settings_RawIoTitle"
+                                            Style="{StaticResource SettingLabelStyle}" />
+                                        <TextBlock
+                                            x:Uid="Settings_RawIoHelp"
+                                            Style="{StaticResource SettingDescriptionStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch MinWidth="0"
+                                        Grid.Column="1"
+                                        x:Uid="Settings_RawIoToggleSwitch"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LabeledBy="{Binding ElementName=RawIoLabel}"
+                                        IsOn="{x:Bind ViewModel.IsRawIoEnabled, Mode=TwoWay}" />
+                                </Grid>
+                                <Border
+                                    Height="1"
+                                    Margin="16,0"
+                                    Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                <controls:WrapPanel
+                                    Margin="16"
+                                    HorizontalSpacing="16"
+                                    VerticalSpacing="12">
+                                    <TextBox
+                                        x:Uid="Settings_RequestBytesTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.MultiBufferedRequestBytes, Mode=TwoWay}" />
+                                    <TextBox
+                                        x:Uid="Settings_OutstandingReadsTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.MultiBufferedOutstandingReads, Mode=TwoWay}" />
+                                    <TextBox
+                                        x:Uid="Settings_TimeoutMsTextBox"
+                                        Width="140"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource Self}}"
+                                        Text="{x:Bind ViewModel.MultiBufferedTimeoutMs, Mode=TwoWay}" />
+                                </controls:WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <Button
+                        x:Uid="Settings_RestoreScanTransferDefaultsButton"
+                        HorizontalAlignment="Right"
+                        Command="{x:Bind ViewModel.RestoreScanTransferDefaultsCommand}" />
+                </StackPanel>
             </StackPanel>
-
-             <TextBlock x:Uid="Settings_Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
-             <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                 <ToggleSwitch
-                     x:Uid="Settings_DebugConsoleMirrorToggleSwitch"
-                    IsOn="{x:Bind ViewModel.IsDebugConsoleMirrorEnabled, Mode=TwoWay}" />
-                <ToggleSwitch
-                    x:Uid="Settings_DebugFileLogToggleSwitch"
-                    Margin="0,8,0,0"
-                    IsOn="{x:Bind ViewModel.IsDebugFileLogEnabled, Mode=TwoWay}" />
-                <ToggleSwitch
-                    x:Uid="Settings_MultiBufferedBulkInToggleSwitch"
-                    Margin="0,8,0,0"
-                    IsOn="{x:Bind ViewModel.IsMultiBufferedBulkInEnabled, Mode=TwoWay}" />
-                <ToggleSwitch
-                    x:Uid="Settings_RawIoToggleSwitch"
-                    Margin="0,8,0,0"
-                    IsOn="{x:Bind ViewModel.IsRawIoEnabled, Mode=TwoWay}" />
-                <TextBox
-                    x:Uid="Settings_RequestBytesTextBox"
-                    Margin="0,8,0,0"
-                    Text="{x:Bind ViewModel.MultiBufferedRequestBytes, Mode=TwoWay}" />
-                <TextBox
-                    x:Uid="Settings_OutstandingReadsTextBox"
-                    Margin="0,8,0,0"
-                    Text="{x:Bind ViewModel.MultiBufferedOutstandingReads, Mode=TwoWay}" />
-                <TextBox
-                    x:Uid="Settings_TimeoutMsTextBox"
-                    Margin="0,8,0,0"
-                    Text="{x:Bind ViewModel.MultiBufferedTimeoutMs, Mode=TwoWay}" />
-                <Button
-                    x:Uid="Settings_RestoreScanTransferDefaultsButton"
-                    Margin="0,8,0,0"
-                    Command="{x:Bind ViewModel.RestoreScanTransferDefaultsCommand}" />
-                 <TextBlock
-                     x:Uid="Settings_MultiBufferedBulkInDescription"
-                     Margin="0,6,0,0"
-                     Opacity="0.8"
-                     TextWrapping="WrapWholeWords" />
-             </StackPanel>
-
-             <TextBlock x:Uid="Settings_ColorManagement" Style="{ThemeResource SubtitleTextBlockStyle}" />
-              <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                  <TextBlock x:Uid="Settings_ColorManagementScopeText" Opacity="0.8" TextWrapping="WrapWholeWords" />
-                 <ToggleSwitch
-                     x:Uid="Settings_ColorManagementToggleSwitch"
-                    IsOn="{x:Bind ViewModel.IsColorManagementEnabled, Mode=TwoWay}" />
-                <Grid ColumnSpacing="8" RowSpacing="8" Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBox Grid.Row="0" Grid.Column="0" x:Uid="Settings_RedWavelengthTextBox" Text="{x:Bind ViewModel.RedWavelengthNm, Mode=TwoWay}" />
-                    <TextBox Grid.Row="0" Grid.Column="1" x:Uid="Settings_GreenWavelengthTextBox" Text="{x:Bind ViewModel.GreenWavelengthNm, Mode=TwoWay}" />
-                    <TextBox Grid.Row="1" Grid.Column="0" x:Uid="Settings_BlueWavelengthTextBox" Text="{x:Bind ViewModel.BlueWavelengthNm, Mode=TwoWay}" />
-                    <TextBox Grid.Row="1" Grid.Column="1" x:Uid="Settings_OutputGammaTextBox" Text="{x:Bind ViewModel.OutputGamma, Mode=TwoWay}" />
-                    <ComboBox Grid.Row="2" Grid.Column="0" x:Uid="Settings_TargetWhitePointComboBox" SelectedValuePath="Tag" SelectedValue="{x:Bind ViewModel.SelectedTargetWhitePointMode, Mode=TwoWay}">
-                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD65ComboBoxItem" Tag="D65" />
-                        <ComboBoxItem x:Uid="Settings_TargetWhitePointD50ComboBoxItem" Tag="D50" />
-                        <ComboBoxItem x:Uid="Settings_TargetWhitePointManualComboBoxItem" Tag="ManualColorTemperature" />
-                    </ComboBox>
-                    <TextBox Grid.Row="2" Grid.Column="1" x:Uid="Settings_ManualWhitePointColorTemperatureTextBox" IsEnabled="{x:Bind ViewModel.IsManualWhitePointColorTemperatureEnabled, Mode=OneWay}" Text="{x:Bind ViewModel.ManualWhitePointColorTemperatureK, Mode=TwoWay}" />
-                </Grid>
-                <Button
-                    x:Uid="Settings_RestoreColorManagementDefaultsButton"
-                    Margin="0,8,0,0"
-                    Command="{x:Bind ViewModel.RestoreColorManagementDefaultsCommand}" />
-                <TextBlock
-                    x:Uid="Settings_ColorManagementDescription"
-                    Margin="0,6,0,0"
-                    Opacity="0.8"
-                    TextWrapping="WrapWholeWords" />
-            </StackPanel>
-
-            <TextBlock x:Uid="Settings_About" Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-            <StackPanel Margin="{StaticResource XSmallTopMargin}">
-                <TextBlock Text="{x:Bind ViewModel.VersionDescription, Mode=OneWay}" Style="{ThemeResource BodyTextBlockStyle}" />
-                <TextBlock
-                    Margin="0,4,0,0"
-                    Text="{x:Bind ViewModel.BuildDescription, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.BuildVisibility, Mode=OneWay}"
-                    Style="{ThemeResource BodyTextBlockStyle}" />
-
-                <TextBlock
-                    x:Uid="Settings_AboutDescription"
-                    Margin="{StaticResource XSmallTopMargin}"
-                    Style="{ThemeResource BodyTextBlockStyle}" />
-                <HyperlinkButton x:Uid="SettingsPage_PrivacyTermsLink" Margin="{StaticResource SettingsPageHyperlinkButtonMargin}" />
-            </StackPanel>
-            </StackPanel>
-        </Grid>
-    </ScrollViewer>
+        </ScrollViewer>
+        <ContentControl
+            x:Name="DeviceSaveBar"
+            Grid.Row="2"
+            Visibility="Collapsed"
+            Margin="0,16,0,0"
+            HorizontalContentAlignment="Stretch"
+            IsEnabled="{x:Bind ViewModel.IsDeviceSettingsLoaded, Mode=OneWay}">
+            <Border Padding="16" Style="{StaticResource SettingCardStyle}">
+                <StackPanel Spacing="8">
+                    <InfoBar
+                        IsOpen="{x:Bind ViewModel.HasDeviceSettingsValidationError, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.DeviceSettingsValidationMessage, Mode=OneWay}"
+                        IsClosable="False"
+                        Severity="Error" />
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            x:Uid="Settings_SaveDeviceChannels"
+                            Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.CanSaveDeviceSettings, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.SaveDeviceSettingsCommand}" />
+                        <Button
+                            Grid.Column="1"
+                            x:Uid="Settings_RevertDeviceChanges"
+                            IsEnabled="{x:Bind ViewModel.CanSaveDeviceSettings, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.RevertDeviceSettingsCommand}" />
+                        <TextBlock
+                            Grid.Column="2"
+                            Text="{x:Bind ViewModel.DeviceSettingsStatusMessage, Mode=OneWay}"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource SettingDescriptionStyle}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </ContentControl>
+    </Grid>
 </Page>

@@ -20,6 +20,9 @@
         HorizontalScrollMode="Disabled">
         <Grid>
             <StackPanel x:Name="ContentArea">
+                <TextBlock x:Uid="DeviceConfiguration_AutoSaveDescription"
+                           Margin="0,0,0,12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="WrapWholeWords" />
                 <TextBlock x:Uid="DeviceConfiguration_DeviceSettings" Style="{ThemeResource SubtitleTextBlockStyle}" />
                 <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
                     <TextBlock
@@ -42,6 +45,9 @@
                         <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor1MicrostepsTextBox" Text="{x:Bind ViewModel.Motor1Microsteps, Mode=TwoWay}" />
                         <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor1LeadLengthTextBox" Text="{x:Bind ViewModel.Motor1LeadLengthMm, Mode=TwoWay}" />
                     </Grid>
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasMotor1ValidationError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.Motor1ValidationMessage, Mode=OneWay}"
+                             IsClosable="False" Severity="Warning" Margin="0,4,0,0" />
 
                     <TextBlock
                         x:Uid="DeviceConfiguration_DeviceSettingsMotor2"
@@ -58,6 +64,9 @@
                         <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor2MicrostepsTextBox" Text="{x:Bind ViewModel.Motor2Microsteps, Mode=TwoWay}" />
                         <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor2LeadLengthTextBox" Text="{x:Bind ViewModel.Motor2LeadLengthMm, Mode=TwoWay}" />
                     </Grid>
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasMotor2ValidationError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.Motor2ValidationMessage, Mode=OneWay}"
+                             IsClosable="False" Severity="Warning" Margin="0,4,0,0" />
 
                     <TextBlock
                         x:Uid="DeviceConfiguration_DeviceSettingsMotor3"
@@ -74,6 +83,9 @@
                         <TextBox Grid.Column="1" x:Uid="DeviceConfiguration_Motor3MicrostepsTextBox" Text="{x:Bind ViewModel.Motor3Microsteps, Mode=TwoWay}" />
                         <TextBox Grid.Column="2" x:Uid="DeviceConfiguration_Motor3LeadLengthTextBox" Text="{x:Bind ViewModel.Motor3LeadLengthMm, Mode=TwoWay}" />
                     </Grid>
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasMotor3ValidationError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.Motor3ValidationMessage, Mode=OneWay}"
+                             IsClosable="False" Severity="Warning" Margin="0,4,0,0" />
 
                     <TextBlock
                         x:Uid="DeviceConfiguration_DeviceSettingsChannels"
@@ -100,6 +112,9 @@
                         <ComboBox Grid.Row="1" Grid.Column="1" x:Uid="DeviceConfiguration_Channel4RoleComboBox" ItemsSource="{x:Bind ViewModel.ChannelRoleOptions, Mode=OneWay}" ItemTemplate="{StaticResource ScanChannelRoleOptionTemplate}" SelectedItem="{x:Bind ViewModel.DeviceChannel4Role, Mode=TwoWay}" />
                     </Grid>
 
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasDeviceSettingsSaveError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.DeviceSettingsSaveMessage, Mode=OneWay}"
+                             IsClosable="False" Severity="Error" Margin="0,4,0,0" />
                     <Button
                         x:Uid="DeviceConfiguration_RestoreDeviceSettingsDefaultsButton"
                         Margin="0,8,0,0"
@@ -123,6 +138,9 @@
                         <TextBox Grid.Row="0" Grid.Column="1" x:Uid="DeviceConfiguration_DngActiveEndTextBox" Text="{x:Bind ViewModel.DngActiveEndInclusive, Mode=TwoWay}" />
                         <TextBox Grid.Row="1" Grid.ColumnSpan="2" x:Uid="DeviceConfiguration_DngMaskedRangesTextBox" Text="{x:Bind ViewModel.DngMaskedRanges, Mode=TwoWay}" />
                     </Grid>
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasDngGeometryValidationError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.DngGeometryValidationMessage, Mode=OneWay}"
+                             IsClosable="False" Severity="Warning" Margin="0,4,0,0" />
                     <Button
                         x:Uid="DeviceConfiguration_RestoreDngGeometryDefaultsButton"
                         Margin="0,8,0,0"

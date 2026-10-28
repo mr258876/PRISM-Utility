@@ -46,6 +46,14 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         ValidateRequest(session, executionRequest);
 
         var workflowPasses = ScanWorkflowTransportPlan.Resolve(executionRequest);
+        var passIllumination = executionRequest.EnableLedAutoControl
+            ? workflowPasses.ToDictionary(
+                pass => pass.PassIndex,
+                pass => ScanIlluminationService.BuildChannelState(
+                    BuildAcquisitionSettings(executionRequest, pass.MotorIntervalNanoseconds),
+                    pass.ChannelRole,
+                    (byte)pass.PassIndex))
+            : null;
         var originalIllumination = executionRequest.EnableLedAutoControl ? await _illumination.GetStateAsync(session, ct) : null;
         var originalMotorState = executionRequest.EnableMotorTransport
             ? (await session.GetMotionStateAsync(ct)).FirstOrDefault(state => state.MotorId == executionRequest.ScanMotorId)
@@ -99,18 +107,37 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 var passAcquisitionSettings = executionRequest.EnableLedAutoControl
                     ? BuildAcquisitionSettings(executionRequest, passMotorIntervalNanoseconds)
                     : null;
+                ScanWorkflowProgress CreateProgress(bool direction, string stage)
+                    => new(activePassIndex + 1, totalPasses, ledIndex, direction, stage)
+                    {
+                        ChannelRole = passRole,
+                        WhiteLightSource = passAcquisitionSettings is not null && string.Equals(passRole, "White", StringComparison.OrdinalIgnoreCase)
+                            ? passAcquisitionSettings.WhiteChannelSettings?.Source ?? WhiteLightSource.DedicatedLed
+                            : null
+                    };
                 if (activePassIndex == 0)
                 {
                     computedMotorSteps = passMotorSteps;
                     computedMotorIntervalNanoseconds = passMotorIntervalNanoseconds;
                 }
 
-                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Preparing"));
+                onProgress?.Invoke(CreateProgress(directionPositive, "Preparing"));
                 onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: applying CCD profile for {passRole} channel...");
                 await _parameters.ApplyAsync(session, effectivePassProfile, ct);
 
+                var illuminationState = passIllumination?.GetValueOrDefault(passIndex);
+                var isWhiteSource = string.Equals(passRole, "White", StringComparison.OrdinalIgnoreCase)
+                    && passAcquisitionSettings is not null;
+                WhiteLightSource? whiteSource = isWhiteSource
+                    ? passAcquisitionSettings!.WhiteChannelSettings?.Source ?? WhiteLightSource.DedicatedLed
+                    : null;
                 if (passAcquisitionSettings is not null)
-                    await _illumination.ApplySingleChannelAsync(session, passAcquisitionSettings, ledIndex, ct);
+                {
+                    if (isWhiteSource)
+                        await _illumination.ApplyStateWithSafeTransitionAsync(session, illuminationState!, ct);
+                    else
+                        await _illumination.ApplySingleChannelAsync(session, passAcquisitionSettings, ledIndex, ct);
+                }
 
                 if (passMotorSteps > 0)
                 {
@@ -119,8 +146,10 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                     await session.PrepareMotorOnExposureSyncAsync(executionRequest.ScanMotorId, directionPositive, passMotorSteps, passMotorIntervalNanoseconds, ct);
                 }
 
-                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Scanning"));
-                onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: LED{ledIndex + 1} active, capturing {executionRequest.Rows} row(s)...");
+                onProgress?.Invoke(CreateProgress(directionPositive, "Scanning"));
+                onStatus?.Invoke(isWhiteSource
+                    ? $"Pass {activePassIndex + 1}/{totalPasses}: White ({whiteSource}) active, capturing {executionRequest.Rows} row(s)..."
+                    : $"Pass {activePassIndex + 1}/{totalPasses}: LED{ledIndex + 1} active, capturing {executionRequest.Rows} row(s)...");
 
                 var rowsCallbackGate = new object();
                 var rowsCallbackOpen = true;
@@ -203,19 +232,28 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                 if (!scanResult.Success || scanResult.ImageBytes is null)
                     throw new IOException($"Pass {activePassIndex + 1} failed: {scanResult.Message}");
 
-                var submittedLedLevel = passAcquisitionSettings is null ? (ushort?)null : ledIndex switch
+                var isRgbWhite = whiteSource == WhiteLightSource.RgbComposite;
+                byte? submittedLedIndex = passAcquisitionSettings is null || isRgbWhite
+                    ? null
+                    : isWhiteSource
+                        ? (byte)Array.FindIndex(
+                            new[] { passAcquisitionSettings.Led1ChannelColor, passAcquisitionSettings.Led2ChannelColor, passAcquisitionSettings.Led3ChannelColor, passAcquisitionSettings.Led4ChannelColor },
+                            role => string.Equals(role, "White", StringComparison.OrdinalIgnoreCase))
+                        : ledIndex;
+                var submittedLedLevel = illuminationState is null ? (ushort?)null : submittedLedIndex switch
                 {
-                    0 => passAcquisitionSettings.Led1Level,
-                    1 => passAcquisitionSettings.Led2Level,
-                    2 => passAcquisitionSettings.Led3Level,
-                    _ => passAcquisitionSettings.Led4Level
+                    0 => illuminationState.Led1Level,
+                    1 => illuminationState.Led2Level,
+                    2 => illuminationState.Led3Level,
+                    3 => illuminationState.Led4Level,
+                    _ => null
                 };
                 captures.Add(new ScanPassCapture(activePassIndex + 1, ledIndex, directionPositive, executionRequest.Rows, passMotorSteps, scanResult.ImageBytes)
                 {
                     Provenance = new ScanPassCaptureProvenance(
                         captureId,
                         passRole,
-                        passAcquisitionSettings is null ? null : ledIndex,
+                        submittedLedIndex,
                         submittedLedLevel,
                         effectivePassProfile,
                         executionRequest.Rows,
@@ -223,11 +261,15 @@ public sealed class ScanWorkflowService : IScanWorkflowService
                         requestedAtUtc,
                         DateTimeOffset.UtcNow,
                         1)
+                    {
+                        WhiteLightSource = whiteSource,
+                        SubmittedIllumination = illuminationState
+                    }
                 });
 
                 if (passMotorSteps > 0)
                 {
-                    onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Waiting for motor"));
+                    onProgress?.Invoke(CreateProgress(directionPositive, "Waiting for motor"));
                     await WaitForMotorIdleAsync(session, executionRequest.ScanMotorId, passMotorSteps, passMotorIntervalNanoseconds, ct);
                     activeMotion = null;
                 }
@@ -237,14 +279,14 @@ public sealed class ScanWorkflowService : IScanWorkflowService
 
                 if (!executionRequest.AlternateMotorDirection && passMotorSteps > 0)
                 {
-                    onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, !directionPositive, "Returning"));
+                    onProgress?.Invoke(CreateProgress(!directionPositive, "Returning"));
                     onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses}: returning Motor{executionRequest.ScanMotorId + 1} to start position...");
                     activeMotion = workflowPass;
                     await session.MoveMotorStepsAndWaitForCompletionAsync(executionRequest.ScanMotorId, !directionPositive, passMotorSteps, passMotorIntervalNanoseconds, ct);
                     activeMotion = null;
                 }
 
-                onProgress?.Invoke(new ScanWorkflowProgress(activePassIndex + 1, totalPasses, ledIndex, directionPositive, "Completed"));
+                onProgress?.Invoke(CreateProgress(directionPositive, "Completed"));
                 onStatus?.Invoke($"Pass {activePassIndex + 1}/{totalPasses} complete.");
             }
 
@@ -492,11 +534,19 @@ public sealed class ScanWorkflowService : IScanWorkflowService
         if (request.LedLevels.Length != ScanDebugConstants.IlluminationChannelCount)
             throw new ArgumentException($"LED level count must be {ScanDebugConstants.IlluminationChannelCount}.", nameof(request));
 
-        if (request.PassChannelRoles.Length != ScanDebugConstants.IlluminationChannelCount)
-            throw new ArgumentException($"Pass channel role count must be {ScanDebugConstants.IlluminationChannelCount}.", nameof(request));
+        if (request.PassChannelRoles.Length is < ScanDebugConstants.IlluminationChannelCount or > ScanDebugConstants.IlluminationChannelCount + 1)
+            throw new ArgumentException("Pass channel role count must be four physical slots with an optional fifth white channel.", nameof(request));
 
-        if (request.PassParameterProfiles.Length != ScanDebugConstants.IlluminationChannelCount)
-            throw new ArgumentException($"Pass parameter profile count must be {ScanDebugConstants.IlluminationChannelCount}.", nameof(request));
+        if (request.PassParameterProfiles.Length != request.PassChannelRoles.Length)
+            throw new ArgumentException("Pass parameter profile count must match the channel role count.", nameof(request));
+
+        if (request.PassChannelRoles.Length > ScanDebugConstants.IlluminationChannelCount
+            && !string.Equals(request.PassChannelRoles[4], "White", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(request.PassChannelRoles[4], "Unused", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The fifth logical capture slot is reserved for white illumination.", nameof(request));
+
+        if (request.PassChannelRoles.Count(role => string.Equals(role, "White", StringComparison.OrdinalIgnoreCase)) > 1)
+            throw new ArgumentException("White illumination can only be captured once in a workflow.", nameof(request));
 
         if (!request.PassChannelRoles.Any(role => !string.Equals(role, "Unused", StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("At least one active scan channel is required.", nameof(request));

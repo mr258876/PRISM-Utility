@@ -333,7 +333,7 @@ internal sealed class RecordingScanCalibrationProfileStorage : IScanCalibrationP
                 document.SchemaVersion,
                 document.Payload is null
                     ? null
-                    : new ScanCalibrationProfileSettingsPayload(CloneProfiles(document.Payload.Profiles), document.Payload.SelectedChannel));
+                    : new ScanCalibrationProfileSettingsPayload(CloneProfiles(document.Payload.Profiles), document.Payload.SelectedChannel, document.Payload.WhiteChannelSettings));
 
     private static Dictionary<string, ScanChannelCalibrationProfile>? CloneProfiles(
         IReadOnlyDictionary<string, ScanChannelCalibrationProfile>? profiles)

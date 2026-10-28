@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 
 using PRISM_Utility.Contracts.Navigation;
@@ -40,6 +41,7 @@ public class NavigationViewService : INavigationViewService
         {
             _navigationView.BackRequested -= OnBackRequested;
             _navigationView.ItemInvoked -= OnItemInvoked;
+            _navigationView = null;
         }
     }
 
@@ -61,10 +63,24 @@ public class NavigationViewService : INavigationViewService
         var itemRoute = selectedItem is null ? null : NavigationHelper.GetNavigateTo(selectedItem);
         var resolution = NavigationViewRouteResolver.Resolve(args.IsSettingsInvoked, itemRoute);
         if (resolution.ShouldNavigate)
-            _navigationService.NavigateTo(resolution.Route!.Value);
+        {
+            if (!_navigationService.NavigateTo(resolution.Route!.Value))
+                RestoreSelectionAfterCanceledNavigation(sender);
+        }
         else if (resolution.Diagnostic is not null)
             NavigationTimingLogger.Write(resolution.Diagnostic);
     }
+
+    private void RestoreSelectionAfterCanceledNavigation(NavigationView sender)
+        => NavigationViewSelectionRestorer.Schedule(
+            enqueue: action => sender.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => action()),
+            getCurrentPageType: () => ReferenceEquals(_navigationView, sender)
+                ? _navigationService.Frame?.Content?.GetType()
+                : null,
+            settingsPageType: _pageService.GetPageType(AppRoute.Settings),
+            settingsItem: sender.SettingsItem,
+            findMenuItem: GetSelectedItem,
+            setSelectedItem: item => sender.SelectedItem = item);
 
     private NavigationViewItem? GetSelectedItem(IEnumerable<object> menuItems, Type pageType)
     {

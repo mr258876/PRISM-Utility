@@ -40,7 +40,7 @@ public sealed class Set003LocalSettingsMigrationHarnessTests : IDisposable
         Assert.True(calibration.Snapshot.Profiles.ContainsKey("Blue"));
         Assert.Equal(1, (await durableSettings.ReadSettingAsync<VersionedSettingsDocument<ScanBulkInTransferOptions>>("ScanTransferSettingsDocument"))?.SchemaVersion);
         Assert.Equal(1, (await durableSettings.ReadSettingAsync<VersionedSettingsDocument<ScanColorManagementOptions>>("ScanColorManagementSettingsDocument"))?.SchemaVersion);
-        Assert.Equal(1, (await durableSettings.ReadSettingAsync<VersionedSettingsDocument<ScanCalibrationProfileSettingsPayload>>("ScanCalibrationProfileSettingsDocument"))?.SchemaVersion);
+        Assert.Equal(2, (await durableSettings.ReadSettingAsync<VersionedSettingsDocument<ScanCalibrationProfileSettingsPayload>>("ScanCalibrationProfileSettingsDocument"))?.SchemaVersion);
         Assert.Equal(32 * 1024, await durableSettings.ReadSettingAsync<int?>("ScanBulkInRequestBytes"));
         Assert.False((await durableSettings.ReadSettingAsync<bool?>("ScanColorManagementEnabled")) ?? true);
         var migratedHash = HashFile(settingsPath);

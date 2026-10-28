@@ -26,15 +26,17 @@ public sealed class ScanFilmProfileFileCoordinatorTests
     }
 
     [Fact]
-    public async Task Export_CancelReturnsFalseAndPassesSafeName()
+    public async Task Export_CancelDoesNotSerializeAndPassesSafeSuggestedName()
     {
         var gateway = new FakeGateway { Write = new(true) };
         var profile = new ScanFilmParameterProfileSet(5, "bad<>name", DateTimeOffset.UnixEpoch, new(), null);
         var result = await new ScanFilmProfileFileCoordinator(gateway, new ScanFilmProfileDocumentService()).ExportAsync(profile, CancellationToken.None);
 
-        Assert.False(result);
+        Assert.True(result.WasCanceled);
         Assert.Equal("bad__name", gateway.Name);
-        Assert.NotNull(gateway.Text);
+        Assert.Null(gateway.Text);
+        Assert.Null(result.Profile);
+        Assert.Null(result.FileName);
     }
 
     [Fact]
@@ -76,7 +78,7 @@ public sealed class ScanFilmProfileFileCoordinatorTests
 
         var result = await new ScanFilmProfileFileCoordinator(gateway, documents).ExportAsync(profile, CancellationToken.None);
 
-        Assert.True(result);
+        Assert.False(result.WasCanceled);
         Assert.Equal(1, documents.SerializeCalls);
         Assert.Equal(SerializeTrackingDocumentService.SerializedDocument, gateway.Text);
     }
@@ -93,13 +95,13 @@ public sealed class ScanFilmProfileFileCoordinatorTests
             new FakeGateway { Read = new(false, Assert.IsType<string>(exportGateway.Text)) },
             documents).ImportAsync(CancellationToken.None);
 
-        Assert.True(exported);
+        Assert.False(exported.WasCanceled);
         Assert.False(imported.WasCanceled);
         FilmProfileRoundTripAssertions.EqualCompleteDocument(source, Assert.IsType<ScanFilmParameterProfileSet>(imported.Profile));
     }
 
     [Theory]
-    [InlineData("future-v7.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion, "schemaVersion")]
+    [InlineData("future-v8.json", ScanFilmProfileValidationCode.UnsupportedSchemaVersion, "schemaVersion")]
     [InlineData("invalid-v6-acquisition.json", ScanFilmProfileValidationCode.InvalidAcquisitionInput, "acquisitionSettings.rows")]
     public async Task Todo9_InvalidV6OrFutureImport_DoesNotPublishProfile(
         string fixtureName,
@@ -116,6 +118,54 @@ public sealed class ScanFilmProfileFileCoordinatorTests
             issue.Code == expectedCode && issue.FieldPath == expectedPath);
     }
 
+    [Fact]
+    public async Task Import_UsesActualFileNameInsteadOfLegacyDisplayName()
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var original = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(ReadFixture("full-v5.json")).Document);
+        var gateway = new FakeGateway { Read = new(false, documents.Serialize(original), "5207_test.json") };
+        var result = await new ScanFilmProfileFileCoordinator(gateway, documents).ImportAsync(CancellationToken.None);
+        Assert.Equal("5207_test.json", result.FileName);
+        var expected = original with { ProfileName = "5207_test" };
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(expected, Assert.IsType<ScanFilmParameterProfileSet>(result.Profile));
+    }
+
+    [Fact]
+    public async Task SaveAs_SerializesSelectedFileNameAndReturnsTheWrittenDocument()
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var original = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(ReadFixture("full-v5.json")).Document);
+        var gateway = new FakeGateway { Write = new(false, "Renamed configuration.json") };
+        var result = await new ScanFilmProfileFileCoordinator(gateway, documents).ExportAsync(original, CancellationToken.None);
+        Assert.False(result.WasCanceled);
+        Assert.Equal("Renamed configuration.json", result.FileName);
+        var written = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(Assert.IsType<string>(gateway.Text)).Document);
+        var expected = original with { ProfileName = "Renamed configuration" };
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(expected, written);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(written, Assert.IsType<ScanFilmParameterProfileSet>(result.Profile));
+        Assert.NotEqual("Renamed configuration", original.ProfileName);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Import_MissingOrNullLegacyName_UsesFileNameAndPreservesAllParameters(bool useNull)
+    {
+        var documents = new ScanFilmProfileDocumentService();
+        var json = System.Text.Json.Nodes.JsonNode.Parse(ReadFixture("full-v5.json"))!.AsObject();
+        var original = Assert.IsType<ScanFilmParameterProfileSet>(documents.Parse(json.ToJsonString()).Document);
+        if (useNull)
+            json["ProfileName"] = null;
+        else
+            json.Remove("ProfileName");
+        var result = await new ScanFilmProfileFileCoordinator(
+            new FakeGateway { Read = new(false, json.ToJsonString(), "档案 5207.json") }, documents).ImportAsync(CancellationToken.None);
+        Assert.False(result.WasCanceled);
+        Assert.True(result.Validation!.IsValid);
+        FilmProfileRoundTripAssertions.EqualCompleteDocument(original with { ProfileName = "档案 5207" },
+            Assert.IsType<ScanFilmParameterProfileSet>(result.Profile));
+    }
+
     private sealed class FakeGateway : IScanFilmProfileFileGateway
     {
         public ScanFilmProfileFileReadResult Read { get; init; } = new(true, null);
@@ -123,8 +173,15 @@ public sealed class ScanFilmProfileFileCoordinatorTests
         public string? Name { get; private set; }
         public string? Text { get; private set; }
         public Task<ScanFilmProfileFileReadResult> ReadJsonAsync() => Task.FromResult(Read);
-        public Task<ScanFilmProfileFileWriteResult> WriteJsonAsync(string suggestedFileName, string text)
-        { Name = suggestedFileName; Text = text; return Task.FromResult(Write); }
+        public Task<ScanFilmProfileFileWriteResult> WriteJsonAsync(string suggestedFileName, Func<string, string> createText)
+        {
+            Name = suggestedFileName;
+            if (Write.WasCanceled)
+                return Task.FromResult(Write);
+            var fileName = Write.FileName ?? suggestedFileName + ".json";
+            Text = createText(fileName);
+            return Task.FromResult(Write with { FileName = fileName });
+        }
     }
 
     private sealed class SerializeTrackingDocumentService : IScanFilmProfileDocumentService

@@ -45,6 +45,9 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
         if (result.Passes.Count == 0)
             return CreateFailedResult("No scan passes are available for channel alignment.");
 
+        // Captures omit unselected slots. Alignment buffers and outcomes retain capture-list order.
+        assignment = ResolveCaptureOrderAssignment(result, assignment);
+
         var width = _decoder.GetDecodedPixelsPerLine();
         if (width <= 0 || result.Rows <= 0)
             return CreateFailedResult("Scan dimensions are invalid for channel alignment.");
@@ -196,6 +199,21 @@ public sealed class ScanChannelAlignmentService : IScanChannelAlignmentService
                 exception.Message,
                 exception);
         }
+    }
+
+    private static ScanChannelAssignment ResolveCaptureOrderAssignment(ScanWorkflowResult result, ScanChannelAssignment assignment)
+    {
+        var roles = assignment.Roles;
+        var reversed = assignment.ReversedFlags;
+        string RoleAt(int index) => index < result.Passes.Count && result.Passes[index].LedChannelIndex < roles.Count
+            ? roles[result.Passes[index].LedChannelIndex]
+            : "Unused";
+        bool ReverseAt(int index) => index < result.Passes.Count && result.Passes[index].LedChannelIndex < reversed.Count
+            && reversed[result.Passes[index].LedChannelIndex];
+        return new ScanChannelAssignment(
+            RoleAt(0), RoleAt(1), RoleAt(2), RoleAt(3),
+            ReverseAt(0), ReverseAt(1), ReverseAt(2), ReverseAt(3),
+            RoleAt(4), ReverseAt(4));
     }
 
     private byte[][] BuildNormalizedPassBuffers(ScanWorkflowResult result, ScanChannelAssignment assignment, CancellationToken cancellationToken)
